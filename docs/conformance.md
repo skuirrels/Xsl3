@@ -26,6 +26,7 @@ raised a different code are counted separately.
 | Date | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | 2026-10-18 | 16,354 | 3,694 | 99 | 81.6% |
+| 2026-10-18 | 18,524 | 1,524 | 99 | 92.4% |
 
 The failures include the XPath 3.1 maps and arrays, which arrive in P3 with higher-order functions.
 

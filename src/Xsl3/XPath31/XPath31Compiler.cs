@@ -37,6 +37,9 @@ namespace Xsl3.XPath31
 
         public string DefaultFunctionNamespace { get; set; } = QName.Ns.Fn;
 
+        /// <summary>The static base URI (XPath 3.1 §2.1.1), or null if absent.</summary>
+        public string? BaseUri { get; set; }
+
         /// <summary>External variables: their values are supplied to <see cref="XPath31Executable.Evaluate"/>.</summary>
         public List<QName> ExternalVariables { get; } = new();
 
@@ -93,7 +96,7 @@ namespace Xsl3.XPath31
             var compiler = new XPath31Compiler(sc);
             QilExpression qil = compiler.CompileQuery(ast);
             XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
-            return new XPath31Executable(command);
+            return new XPath31Executable(command, sc.BaseUri);
         }
 
         private QilExpression CompileQuery(Expr ast)
@@ -182,7 +185,7 @@ namespace Xsl3.XPath31
         /// Iterates <paramref name="input"/> with each item as the focus, building the body with <paramref name="body"/>.
         /// last() needs the input bound to a variable; it is only bound when <paramref name="needsLast"/>.
         /// </summary>
-        private (QilIterator Iterator, QilNode Body, QilNode Input) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body)
+        private (QilIterator Iterator, QilNode Body, QilIterator? Let) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body)
         {
             System.Func<QilNode>? last = null;
             QilIterator? let = null;
@@ -197,7 +200,7 @@ namespace Xsl3.XPath31
             try
             {
                 QilNode result = body();
-                return (it, result, let ?? input);
+                return (it, result, let);
             }
             finally
             {
@@ -205,7 +208,9 @@ namespace Xsl3.XPath31
             }
         }
 
-        private QilNode WrapLet(QilNode input, QilNode loop) => input is QilIterator let && let.NodeType == QilNodeType.Let ? _f.Loop(let, loop) : loop;
+        // Binds the variable WithFocus introduced for last(), if it did. (Never a variable of the user's: that is
+        // already bound where it was declared.)
+        private QilNode WrapLet(QilIterator? let, QilNode loop) => let != null ? _f.Loop(let, loop) : loop;
 
         // Whether an expression calls last() for the focus it is evaluated in.
         private static bool UsesLast(Expr e) => e switch
@@ -594,7 +599,7 @@ namespace Xsl3.XPath31
         private static readonly HashSet<string> s_contextFunctions = new(System.StringComparer.Ordinal)
         {
             "string", "data", "number", "string-length", "normalize-space", "name", "local-name", "namespace-uri",
-            "root", "node-name", "has-children", "base-uri", "document-uri", "generate-id", "path",
+            "root", "node-name", "has-children", "base-uri", "document-uri", "generate-id", "path", "nilled",
         };
 
         private QilNode FunctionCall(Expr call, LexicalQName lexicalName, IReadOnlyList<Expr> args)
@@ -639,6 +644,9 @@ namespace Xsl3.XPath31
                         return _f.Not(_f.IsEmpty(Items(Build(args[0]))));
                     case (var local, 0) when s_contextFunctions.Contains(local):
                         return CallLibrary(call, name, new List<QilNode> { FocusItem() });
+                    case ("lang" or "id" or "element-with-id" or "idref", 1):
+                        // The node argument defaults to the context item.
+                        return CallLibrary(call, name, new List<QilNode> { Items(Build(args[0])), FocusItem() });
                     case ("concat", > 4):
                         // concat is associative: concat(a, b, c, d, e, …) = concat(concat(a, b, c, d), e, …)
                         return FunctionCall(call, lexicalName, args.Skip(4).Prepend(new FunctionCall(lexicalName, args.Take(4).ToList()) { Span = call.Span }).ToList());
@@ -673,12 +681,15 @@ namespace Xsl3.XPath31
         public const string ControlNamespace = "urn:xsl3:xpath31";
         public const string ContextItemParam = "context-item";
         public const string ImplicitTimezoneParam = "implicit-timezone";
+        public const string StaticBaseUriParam = "static-base-uri";
 
         private readonly XmlILCommand _command;
+        private readonly string? _baseUri;
 
-        internal XPath31Executable(XmlILCommand command)
+        internal XPath31Executable(XmlILCommand command, string? baseUri)
         {
             _command = command;
+            _baseUri = baseUri;
         }
 
         public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null)
@@ -687,6 +698,10 @@ namespace Xsl3.XPath31
             if (contextItem != null)
             {
                 args.AddParam(ContextItemParam, ControlNamespace, contextItem);
+            }
+            if (_baseUri != null)
+            {
+                args.AddParam(StaticBaseUriParam, ControlNamespace, _baseUri);
             }
             if (implicitTimezoneMinutes is int tz)
             {

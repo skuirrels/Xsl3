@@ -178,6 +178,10 @@ namespace Xsl3.XPath31.Functions
             Define("fn:prefix-from-QName($arg as xs:QName?) as xs:NCName?", (c, a) => Opt(a[0]) is QNameValue q && q.QName.Prefix.Length > 0 ? One(new StringValue(AtomicTypes.NCName, q.QName.Prefix)) : Empty);
 
             RegisterDateTime();
+            RegisterRegex();
+            RegisterMisc();
+            RegisterNodes();
+            Define("fn:parse-ietf-date($value as xs:string?) as xs:dateTime?", (c, a) => a[0].Count == 0 ? Empty : One(IetfDate.Parse(S(a[0]))));
         }
 
         private static long Precision(IList<XPathItem> arg)

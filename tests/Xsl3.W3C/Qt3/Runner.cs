@@ -72,7 +72,7 @@ public sealed class Runner
             return Outcome.NotRun("schema validation");
         }
 
-        XPathStaticContext sc = CreateStaticContext(env);
+        XPathStaticContext sc = CreateStaticContext(env, test);
         var variables = new Dictionary<QName, IList<XPathItem>>();
         XPathItem? contextItem = null;
         try
@@ -113,7 +113,7 @@ public sealed class Runner
         try
         {
             XPath31Executable exe = XPath31Compiler.Compile(test.Expression, sc);
-            result = Result.Of(exe.Evaluate(contextItem, variables, ImplicitTimezoneMinutes));
+            result = Result.Of(exe.Evaluate(contextItem, variables, ImplicitTimezoneMinutes, new TestResolver(env)));
         }
         catch (XPathStaticException e)
         {
@@ -131,9 +131,16 @@ public sealed class Runner
         return Check(test.Result, result, env, contextItem);
     }
 
-    private static XPathStaticContext CreateStaticContext(TestEnvironment env)
+    private static XPathStaticContext CreateStaticContext(TestEnvironment env, TestCase? test = null)
     {
         var sc = new XPathStaticContext();
+        // The static base URI is the environment's, else the test set file's location.
+        sc.BaseUri = env.StaticBaseUri switch
+        {
+            "#UNDEFINED" => null,
+            string uri => uri,
+            null => test != null ? new System.Uri(Path.GetFullPath(test.Set.File)).AbsoluteUri : null,
+        };
         foreach (var (prefix, uri) in env.Namespaces)
         {
             if (prefix.Length == 0)
@@ -146,6 +153,34 @@ public sealed class Runner
             }
         }
         return sc;
+    }
+
+    /// <summary>Maps the URIs an environment declares for its documents and resources to their files.</summary>
+    private sealed class TestResolver(TestEnvironment env) : XmlUrlResolver
+    {
+        public override object? GetEntity(System.Uri absoluteUri, string? role, System.Type? ofObjectToReturn)
+        {
+            foreach (TestEnvironment.Resource r in env.Resources)
+            {
+                if (r.Uri == absoluteUri.OriginalString || r.Uri == absoluteUri.AbsoluteUri)
+                {
+                    return File.OpenRead(r.File);
+                }
+            }
+            return base.GetEntity(absoluteUri, role, ofObjectToReturn);
+        }
+
+        public override System.Uri ResolveUri(System.Uri? baseUri, string? relativeUri)
+        {
+            foreach (TestEnvironment.Resource r in env.Resources)
+            {
+                if (r.Uri == relativeUri)
+                {
+                    return new System.Uri(r.Uri, System.UriKind.RelativeOrAbsolute).IsAbsoluteUri ? new System.Uri(r.Uri) : base.ResolveUri(baseUri, relativeUri);
+                }
+            }
+            return base.ResolveUri(baseUri, relativeUri);
+        }
     }
 
     private XPathNavigator LoadDocument(string file) => _documents.GetOrAdd(Path.GetFullPath(file), path =>

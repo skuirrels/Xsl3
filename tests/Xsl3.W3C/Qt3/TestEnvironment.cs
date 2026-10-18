@@ -17,6 +17,9 @@ public sealed class TestEnvironment
 
     public sealed record Param(string Name, string? Select, bool Declared);
 
+    /// <summary>A document or text resource the test may fetch by URI (source/@uri, resource/@uri).</summary>
+    public sealed record Resource(string Uri, string File);
+
     private TestEnvironment(XElement element, string baseDirectory)
     {
         Element = element;
@@ -32,6 +35,11 @@ public sealed class TestEnvironment
             .Select(n => ((string)n.Attribute("prefix")!, (string)n.Attribute("uri")!))
             .ToList();
         ContextItem = (string?)element.Element(Catalog.Ns + "context-item")?.Attribute("select");
+        Resources = element.Elements().Where(e => e.Name == Catalog.Ns + "source" || e.Name == Catalog.Ns + "resource")
+            .Where(e => e.Attribute("uri") != null && e.Attribute("file") != null)
+            .Select(e => new Resource((string)e.Attribute("uri")!, Path.Combine(baseDirectory, (string)e.Attribute("file")!)))
+            .ToList();
+        StaticBaseUri = (string?)element.Element(Catalog.Ns + "static-base-uri")?.Attribute("uri");
     }
 
     public XElement Element { get; }
@@ -46,13 +54,18 @@ public sealed class TestEnvironment
 
     public IReadOnlyList<(string Prefix, string Uri)> Namespaces { get; }
 
+    public IReadOnlyList<Resource> Resources { get; }
+
+    /// <summary>&lt;static-base-uri uri="…"/&gt;; "#UNDEFINED" means absent.</summary>
+    public string? StaticBaseUri { get; }
+
     /// <summary>A context item given as an expression (&lt;context-item select="…"/&gt;).</summary>
     public string? ContextItem { get; }
 
     /// <summary>Elements of the environment that the runner can't honour yet; tests that rely on them may fail.</summary>
     public IEnumerable<string> UnsupportedParts =>
         Element.Elements().Select(e => e.Name.LocalName)
-            .Where(n => n is "schema" or "collation" or "decimal-format" or "static-base-uri" or "resource" or "collection")
+            .Where(n => n is "schema" or "collation" or "decimal-format" or "collection")
             .Distinct();
 
     public static TestEnvironment Read(XElement element, string baseDirectory) => new(element, baseDirectory);

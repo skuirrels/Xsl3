@@ -23,7 +23,11 @@ namespace Xsl3.Runtime
 
         internal FunctionContext X31Context => _x31Context ??= new FunctionContext(
             ImplicitTimezoneOverride ?? FunctionContext.LocalTimezoneMinutes,
-            (a, b) => _runtime.ComparePosition(a, b));
+            (a, b) => _runtime.ComparePosition(a, b))
+        {
+            Runtime = _runtime,
+            StaticBaseUri = _runtime.ExternalContext.GetParameter(XPath31Executable.StaticBaseUriParam, XPath31Executable.ControlNamespace) as string,
+        };
 
         /// <summary>Set by the caller to fix the implicit timezone (minutes); otherwise the local timezone applies.</summary>
         internal int? ImplicitTimezoneOverride => _runtime.ExternalContext.GetParameter(XPath31Executable.ImplicitTimezoneParam, XPath31Executable.ControlNamespace) as int?;

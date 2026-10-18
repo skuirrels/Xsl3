@@ -25,6 +25,12 @@ namespace Xsl3.XPath31.Functions
 
         public IComparer<string> DefaultCollation { get; init; } = Comparison.CodepointCollation;
 
+        /// <summary>The query runtime, for documents and node identity; null outside a compiled evaluation.</summary>
+        public Xsl3.Runtime.XmlQueryRuntime? Runtime { get; init; }
+
+        /// <summary>The static base URI, against which fn:doc and friends resolve relative URIs.</summary>
+        public string? StaticBaseUri { get; init; }
+
         /// <summary>fn:current-dateTime(): fixed for the whole evaluation, in the implicit timezone.</summary>
         public XsDateTime CurrentDateTime => _now ??= Now();
 

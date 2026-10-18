@@ -31,6 +31,9 @@ namespace Xsl3.Runtime
         private readonly XmlQueryRuntime _runtime;
         private readonly XPathNavigator? _defaultDataSource;
         private readonly XmlResolver _dataSources;
+
+        // Xsl3: fn:unparsed-text and friends read resources through the same resolver as documents.
+        internal XmlResolver DataSources => _dataSources;
         private readonly Hashtable _dataSourceCache;
         private readonly XsltArgumentList? _argList;
         private XmlExtensionFunctionTable? _extFuncsLate;
