@@ -581,8 +581,14 @@ namespace Xsl3.XPath31
                 {
                     // An abbreviated step with a kind test: "text()", "element(a)"; attribute() selects attributes.
                     KindTest kind = KindTest();
-                    // An abbreviated step is on the child axis, except that attribute tests select attributes (XPath 3.1 §3.3.5).
-                    Axis axis = kind is AttributeTest or SchemaAttributeTest ? Axis.Attribute : Axis.Child;
+                    // An abbreviated step is on the child axis, except that attribute tests select attributes and
+                    // namespace-node() selects namespace nodes (XPath 3.1 §3.3.5).
+                    Axis axis = kind switch
+                    {
+                        AttributeTest or SchemaAttributeTest => Axis.Attribute,
+                        NamespaceNodeTest => Axis.Namespace,
+                        _ => Axis.Child,
+                    };
                     return At(start, new AxisStep(axis, new KindNodeTest(kind) { Span = kind.Span }, PredicateList()));
                 }
                 if (!next.Is("(") && !next.Is("#") && !(next.Is("{") && t.Kind == TokenKind.Name && t.Prefix == null && t.LocalName is "map" or "array"))

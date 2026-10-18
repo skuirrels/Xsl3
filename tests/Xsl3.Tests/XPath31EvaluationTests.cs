@@ -28,6 +28,7 @@ public class XPath31EvaluationTests
 
     [Theory]
     [InlineData("1 + 2", "3")]
+    [InlineData("string-to-codepoints(xs:string(xs:untypedAtomic('a' || codepoints-to-string(10) || 'b')))", "97 10 98")] // xs:string preserves whitespace
     [InlineData("(1, 2, 3)", "1 2 3")]
     [InlineData("()", "")]
     [InlineData("5 div 2", "2.5")]

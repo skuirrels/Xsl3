@@ -236,7 +236,7 @@ namespace Xsl3.Runtime
             {
                 nodes[i] = seq[i] as XPathNavigator ?? throw new XdmException(code, "A node was expected, but an atomic value was found");
             }
-            return nodes;
+            return new XmlQueryNodeSequence(nodes, nodes.Length); // the IL generator treats node sequences as XmlQueryNodeSequence
         }
 
         /// <summary>The context item of an axis step, which must be a node (XPTY0020).</summary>

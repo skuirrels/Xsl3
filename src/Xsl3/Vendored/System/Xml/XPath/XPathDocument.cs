@@ -78,6 +78,20 @@ namespace System.Xml.XPath
         // Xsl3: the TextReader, Stream and URI constructors were removed (they need XmlTextReaderImpl).
 
         /// <summary>
+        /// Xsl3: a document from a reader over a fragment (fn:parse-xml-fragment), keeping whitespace at the top
+        /// level, which is content in a fragment.
+        /// </summary>
+        internal InternalXPathDocument(XmlReader reader, XmlSpace space, bool fragment)
+        {
+            ArgumentNullException.ThrowIfNull(reader);
+
+            LoadFromReader(reader, space, fragment);
+        }
+
+        /// <summary>Xsl3: true for documents that have no document URI (fn:parse-xml results).</summary>
+        internal bool NoDocumentUri { get; set; }
+
+        /// <summary>
         /// Create a writer that can be used to create nodes in this document.  The root node will be assigned "baseUri", and flags
         /// can be passed to indicate that names should be atomized by the builder and/or a fragment should be created.
         /// </summary>
@@ -91,7 +105,7 @@ namespace System.Xml.XPath
         /// can be passed to indicate that names should be atomized by the builder and/or a fragment should be created.
         /// </summary>
         [MemberNotNull(nameof(_nameTable))]
-        internal void LoadFromReader(XmlReader reader, XmlSpace space)
+        internal void LoadFromReader(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false)
         {
             ArgumentNullException.ThrowIfNull(reader);
 
@@ -196,7 +210,7 @@ namespace System.Xml.XPath
                             //   we can't even assert here.
 
                             // Always filter top-level whitespace
-                            if (space == XmlSpace.Preserve && (!topLevelReader || reader.Depth != 0))
+                            if (space == XmlSpace.Preserve && (keepTopLevelWhitespace || !topLevelReader || reader.Depth != 0))
                                 builder.WriteString(reader.Value, TextBlockType.Whitespace);
                             break;
 

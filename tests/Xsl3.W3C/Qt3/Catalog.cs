@@ -98,7 +98,8 @@ public sealed class TestSet
 
     internal static TestSet Load(Catalog catalog, string name, string file)
     {
-        XElement root = XDocument.Load(file).Root!;
+        // Whitespace is kept: an expected string value may be whitespace only (codepoints-to-string(13)).
+        XElement root = XDocument.Load(file, LoadOptions.PreserveWhitespace).Root!;
         string dir = Path.GetDirectoryName(file)!;
         var environments = root.Elements(Catalog.Ns + "environment").Where(e => e.Attribute("name") != null)
             .ToDictionary(e => (string)e.Attribute("name")!, e => TestEnvironment.Read(e, dir));

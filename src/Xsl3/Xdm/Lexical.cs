@@ -126,12 +126,44 @@ namespace Xsl3.Xdm
             return digits > 0;
         }
 
-        /// <summary>xs:double / xs:float lexical space (XSD 1.1, which also allows +INF).</summary>
+        /// <summary>
+        /// The xs:anyURI lexical space, as far as XSD 1.0 constrains it: '%' must start an escape of two hex
+        /// digits, and a ':' before any '/', '?' or '#' must end a well-formed scheme.
+        /// </summary>
+        public static bool IsAnyUri(string s)
+        {
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '%' && !(i + 2 < s.Length && char.IsAsciiHexDigit(s[i + 1]) && char.IsAsciiHexDigit(s[i + 2])))
+                {
+                    return false;
+                }
+            }
+            int colon = s.IndexOf(':');
+            int delimiter = s.IndexOfAny(new[] { '/', '?', '#' });
+            if (colon >= 0 && (delimiter < 0 || colon < delimiter))
+            {
+                if (colon == 0 || !char.IsAsciiLetter(s[0]))
+                {
+                    return false;
+                }
+                for (int i = 1; i < colon; i++)
+                {
+                    if (!(char.IsAsciiLetterOrDigit(s[i]) || s[i] is '+' or '-' or '.'))
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary>xs:double / xs:float lexical space (XSD 1.0: "+INF" is an XSD 1.1 addition, not accepted).</summary>
         public static bool TryParseDouble(string s, out double value)
         {
             switch (s)
             {
-                case "INF": case "+INF": value = double.PositiveInfinity; return true;
+                case "INF": value = double.PositiveInfinity; return true;
                 case "-INF": value = double.NegativeInfinity; return true;
                 case "NaN": value = double.NaN; return true;
             }
@@ -148,7 +180,7 @@ namespace Xsl3.Xdm
         {
             switch (s)
             {
-                case "INF": case "+INF": value = float.PositiveInfinity; return true;
+                case "INF": value = float.PositiveInfinity; return true;
                 case "-INF": value = float.NegativeInfinity; return true;
                 case "NaN": value = float.NaN; return true;
             }

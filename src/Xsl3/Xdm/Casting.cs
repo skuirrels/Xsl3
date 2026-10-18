@@ -61,7 +61,7 @@ namespace Xsl3.Xdm
             {
                 Primitive.UntypedAtomic => new StringValue(AtomicTypes.UntypedAtomic, s),
                 Primitive.String => new StringValue(AtomicTypes.String, lexical),
-                Primitive.AnyUri => new StringValue(AtomicTypes.AnyUri, lexical),
+                Primitive.AnyUri => Lexical.IsAnyUri(lexical) ? new StringValue(AtomicTypes.AnyUri, lexical) : null,
                 Primitive.Boolean => lexical switch
                 {
                     "true" or "1" => BooleanValue.True,

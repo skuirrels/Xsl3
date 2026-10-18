@@ -58,7 +58,8 @@ namespace Xsl3.Xdm
             Primitive = primitive;
             TypeCode = typeCode;
             Whitespace = primitive == Primitive.String || primitive == Primitive.UntypedAtomic ? WhitespaceFacet.Preserve : WhitespaceFacet.Collapse;
-            if (baseType != null)
+            // Facets are inherited by derived types (same primitive), not by the primitives from xs:anyAtomicType.
+            if (baseType != null && baseType.Primitive != Primitive.AnyAtomic)
             {
                 Whitespace = baseType.Whitespace;
                 StringConstraint = baseType.StringConstraint;

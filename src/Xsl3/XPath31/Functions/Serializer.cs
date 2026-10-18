@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Xml;
 using System.Xml.XPath;
 using Xsl3.Xdm;
 
@@ -29,7 +30,7 @@ namespace Xsl3.XPath31.Functions
             _ => throw new XdmException("SEPM0016", $"'{value}' is not a valid value for output:{name}"),
         };
 
-        private static void CheckCharacterMaps(XPathNavigator useCharacterMaps)
+        private static void CheckCharacterMaps(XPathNavigator useCharacterMaps, Dictionary<int, string> map)
         {
             var characters = new HashSet<string>(System.StringComparer.Ordinal);
             XPathNavigator m = useCharacterMaps.Clone();
@@ -58,8 +59,25 @@ namespace Xsl3.XPath31.Functions
                 {
                     throw new XdmException("SEPM0018", $"Character '{character}' is mapped twice");
                 }
+                map[char.ConvertToUtf32(character, 0)] = m.GetAttribute("map-string", "");
             }
             while (m.MoveToNext());
+        }
+
+        private static string MapCharacters(string s, Dictionary<int, string> map)
+        {
+            if (map.Count == 0)
+            {
+                return s;
+            }
+            var sb = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                int cp = char.IsSurrogatePair(s, i) ? char.ConvertToUtf32(s[i], s[++i]) : s[i];
+                if (map.TryGetValue(cp, out string? replacement)) sb.Append(replacement);
+                else sb.Append(char.ConvertFromUtf32(cp));
+            }
+            return sb.ToString();
         }
 
         public const string OutputNamespace = "http://www.w3.org/2010/xslt-xquery-serialization";
@@ -84,8 +102,10 @@ namespace Xsl3.XPath31.Functions
 
         public static string Serialize(IList<XPathItem> items, XPathNavigator? parameters)
         {
-            string method = "xml", separator = " ";
+            string method = "xml";
+            string? separator = null, standalone = null;
             bool indent = false, omitDeclaration = true;
+            var characterMap = new Dictionary<int, string>();
             if (parameters != null)
             {
                 if (parameters.NodeType != XPathNodeType.Element || parameters.LocalName != "serialization-parameters" || parameters.NamespaceURI != OutputNamespace)
@@ -127,7 +147,7 @@ namespace Xsl3.XPath31.Functions
                         if (name == "use-character-maps")
                         {
                             if (hasValue) throw new XdmException("SEPM0017", "output:use-character-maps has character-map children, not a value");
-                            CheckCharacterMaps(p);
+                            CheckCharacterMaps(p, characterMap);
                             continue;
                         }
                         if (!hasValue)
@@ -140,6 +160,13 @@ namespace Xsl3.XPath31.Functions
                             case "indent": indent = YesNo(value, name); break;
                             case "omit-xml-declaration": omitDeclaration = YesNo(value, name); break;
                             case "item-separator": separator = value; break;
+                            case "standalone":
+                                standalone = value.Trim() switch
+                                {
+                                    "omit" => null,
+                                    var v => YesNo(v, name) ? "yes" : "no",
+                                };
+                                break;
                             case "byte-order-mark" or "escape-uri-attributes" or "include-content-type" or "undeclare-prefixes" or "allow-duplicate-names":
                                 YesNo(value, name);
                                 break;
@@ -153,11 +180,14 @@ namespace Xsl3.XPath31.Functions
             if (method == "text")
             {
                 bool first = true;
+                bool previousAtomic = false;
                 foreach (XPathItem item in items)
                 {
-                    if (!first) sb.Append(separator);
-                    sb.Append(Sequences.StringValue(item));
+                    // Without item-separator, a space separates adjacent atomic values only.
+                    if (!first && (separator != null || (previousAtomic && item is AtomicValue))) sb.Append(separator ?? " ");
+                    sb.Append(MapCharacters(Sequences.StringValue(item), characterMap));
                     first = false;
+                    previousAtomic = item is AtomicValue;
                 }
                 return sb.ToString();
             }
@@ -168,12 +198,25 @@ namespace Xsl3.XPath31.Functions
                 Indent = indent,
                 ConformanceLevel = ConformanceLevel.Fragment,
             };
-            using (var sw = new StringWriter(sb))
-            using (XmlWriter w = XmlWriter.Create(sw, settings))
+            if (!omitDeclaration && method == "xml")
             {
-                bool previousAtomic = false;
+                sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"");
+                if (standalone != null) sb.Append(" standalone=\"").Append(standalone).Append('"');
+                sb.Append("?>");
+            }
+            using (var sw = new StringWriter(sb))
+            using (XmlWriter inner = XmlWriter.Create(sw, settings))
+            using (XmlWriter w = characterMap.Count > 0 ? new CharacterMapWriter(inner, characterMap) : inner)
+            {
+                bool previousAtomic = false, first = true;
                 foreach (XPathItem item in items)
                 {
+                    bool atomic = item is not XPathNavigator;
+                    // Without item-separator, a space separates adjacent atomic values only.
+                    if (!first && (separator != null || (previousAtomic && atomic)))
+                    {
+                        w.WriteString(separator ?? " ");
+                    }
                     if (item is XPathNavigator nav)
                     {
                         if (nav.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace)
@@ -181,14 +224,13 @@ namespace Xsl3.XPath31.Functions
                             throw new XdmException("SENR0001", $"An {nav.NodeType.ToString().ToLowerInvariant()} node can't be serialized on its own");
                         }
                         w.WriteNode(nav, defattr: true);
-                        previousAtomic = false;
                     }
                     else
                     {
-                        if (previousAtomic) w.WriteString(separator);
                         w.WriteString(item.Value);
-                        previousAtomic = true;
                     }
+                    previousAtomic = atomic;
+                    first = false;
                 }
             }
             return sb.ToString();

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.XPath;
+using MS.Internal.Xml.Cache;
 using Xsl3.Xdm;
 
 namespace Xsl3.XPath31.Functions
@@ -16,7 +17,8 @@ namespace Xsl3.XPath31.Functions
 
         private static void RegisterNodes()
         {
-            Define("fn:document-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root ? Uri(n.BaseURI) : Empty);
+            Define("fn:document-uri($arg as node()?) as xs:anyURI?", (c, a) =>
+                Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root && n is not XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } ? Uri(n.BaseURI) : Empty);
             Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator n ? Uri(BaseUri(n)) : Empty);
             Define("fn:generate-id($arg as node()?) as xs:string", (c, a) =>
                 Str(Node(a[0]) is XPathNavigator n ? (c.Runtime?.GenerateId(n) ?? "id" + n.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture)) : ""));
@@ -80,14 +82,48 @@ namespace Xsl3.XPath31.Functions
             Define("fn:serialize($arg as item()*, $params as element()?) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], Node(a[1]))));
         }
 
+        // The base URI with XML Base applied: xml:base on an element (or an ancestor) is resolved against the
+        // base URI of its parent, and in the end against the document's.
         private static string BaseUri(XPathNavigator n)
         {
             XPathNavigator nav = n.Clone();
-            if (nav.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace or XPathNodeType.Text or XPathNodeType.Comment)
+            if (nav.NodeType is not (XPathNodeType.Element or XPathNodeType.Root))
             {
-                nav.MoveToParent();
+                if (!nav.MoveToParent())
+                {
+                    return nav.BaseURI;
+                }
             }
-            return nav.BaseURI;
+            var bases = new List<string>();
+            do
+            {
+                if (nav.NodeType == XPathNodeType.Element)
+                {
+                    string xmlBase = nav.GetAttribute("base", QName.Ns.Xml);
+                    if (xmlBase.Length > 0 || nav.MoveToAttribute("base", QName.Ns.Xml) && nav.MoveToParent())
+                    {
+                        bases.Add(xmlBase);
+                    }
+                }
+            }
+            while (nav.MoveToParent());
+            string result = nav.BaseURI;
+            for (int i = bases.Count - 1; i >= 0; i--)
+            {
+                if (System.Uri.TryCreate(bases[i], System.UriKind.Absolute, out System.Uri? absolute))
+                {
+                    result = absolute.OriginalString;
+                }
+                else if (System.Uri.TryCreate(result, System.UriKind.Absolute, out System.Uri? b) && System.Uri.TryCreate(b, bases[i], out System.Uri? resolved))
+                {
+                    result = resolved.AbsoluteUri;
+                }
+                else if (result.Length == 0)
+                {
+                    result = bases[i];
+                }
+            }
+            return result;
         }
 
         private static bool RootIsDocument(XPathNavigator n)
@@ -412,8 +448,11 @@ namespace Xsl3.XPath31.Functions
         {
             var settings = new XmlReaderSettings
             {
-                DtdProcessing = DtdProcessing.Ignore,
-                XmlResolver = null,
+                // Internal subsets declare entities and attribute defaults; external entities are fetched through
+                // the caller's resolver (none: they are not fetched).
+                DtdProcessing = fragment ? DtdProcessing.Prohibit : DtdProcessing.Parse,
+                XmlResolver = c.Runtime?.ExternalContext.DataSources is XmlResolver r && r != XmlResolver.ThrowingResolver ? r : null,
+                MaxCharactersFromEntities = 10_000_000,
                 ConformanceLevel = fragment ? ConformanceLevel.Fragment : ConformanceLevel.Document,
             };
             if (fragment && text.StartsWith("<?xml", System.StringComparison.Ordinal))
@@ -433,7 +472,7 @@ namespace Xsl3.XPath31.Functions
             try
             {
                 using XmlReader reader = XmlReader.Create(new StringReader(text), settings, c.StaticBaseUri);
-                return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+                return new InternalXPathDocument(reader, XmlSpace.Preserve, fragment) { NoDocumentUri = true }.CreateNavigator();
             }
             catch (XmlException e)
             {

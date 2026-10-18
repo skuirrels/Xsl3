@@ -62,6 +62,11 @@ namespace Xsl3.XPath31
                     manager.AddNamespace(prefix, uri);
                 }
             }
+            if (DefaultElementNamespace.Length > 0)
+            {
+                // Unprefixed names cast to xs:QName take the default element namespace (F&O 3.1 §19.2.1).
+                manager.AddNamespace("", DefaultElementNamespace);
+            }
             return manager;
         }
     }

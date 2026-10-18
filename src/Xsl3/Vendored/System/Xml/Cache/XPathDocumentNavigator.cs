@@ -17,6 +17,9 @@ namespace MS.Internal.Xml.Cache
     internal sealed class XPathDocumentNavigator : XPathNavigator, IXmlLineInfo
     {
         private XPathNode[] _pageCurrent;
+
+        // Xsl3: the document this navigator is in, for document-level properties.
+        internal InternalXPathDocument OwnerDocument => _pageCurrent[_idxCurrent].Document;
         private XPathNode[]? _pageParent;
         private int _idxCurrent;
         private int _idxParent;

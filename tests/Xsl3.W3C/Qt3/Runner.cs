@@ -301,11 +301,12 @@ public sealed class Runner
                 case "assert":
                     return XPathAssertion(text, value, env, contextItem, out string detail) ? Outcome.Pass() : Outcome.Fail($"assert {Trim(text)} failed on {result}{detail}");
                 case "assert-eq":
-                    if (value.Count != 1 || value[0] is not AtomicValue)
+                    if (value.Count != 1)
                     {
-                        return Outcome.Fail($"assert-eq {Trim(text)}: expected one atomic value, got {result}");
+                        return Outcome.Fail($"assert-eq {Trim(text)}: expected one item, got {result}");
                     }
-                    return XPathAssertion($"deep-equal($result, ({text}))", value, env, contextItem, out string d1) ? Outcome.Pass() : Outcome.Fail($"assert-eq {Trim(text)} failed on {result}{d1}");
+                    // $result eq VALUE: a node is atomized.
+                    return XPathAssertion($"deep-equal(data($result), ({text}))", value, env, contextItem, out string d1) ? Outcome.Pass() : Outcome.Fail($"assert-eq {Trim(text)} failed on {result}{d1}");
                 case "assert-deep-eq":
                     return XPathAssertion($"deep-equal($result, ({text}))", value, env, contextItem, out string d2) ? Outcome.Pass() : Outcome.Fail($"assert-deep-eq {Trim(text)} failed on {result}{d2}");
                 case "assert-type":
