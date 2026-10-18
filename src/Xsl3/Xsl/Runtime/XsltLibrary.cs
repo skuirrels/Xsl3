@@ -75,7 +75,8 @@ namespace Xsl3.Runtime
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public sealed class XsltLibrary
+    // Xsl3: partial; the XPath 3.1 runtime entry points are in XsltLibrary.XPath31.cs.
+    public sealed partial class XsltLibrary
     {
         private readonly XmlQueryRuntime _runtime;
         private HybridDictionary? _functionsAvail;

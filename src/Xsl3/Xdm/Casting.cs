@@ -43,7 +43,7 @@ namespace Xsl3.Xdm
                 Cast(value, target, namespaces);
                 return true;
             }
-            catch (XPathException e) when (e.Code != "XPST0080")
+            catch (XdmException e) when (e.Code != "XPST0080")
             {
                 return false;
             }
@@ -101,7 +101,7 @@ namespace Xsl3.Xdm
             string? uri = prefix.Length == 0 ? namespaces?.LookupNamespace("") ?? "" : namespaces?.LookupNamespace(prefix);
             if (uri == null)
             {
-                throw new XPathException("FONS0004", $"No namespace is bound to prefix '{prefix}'");
+                throw new XdmException("FONS0004", $"No namespace is bound to prefix '{prefix}'");
             }
             return new QNameValue(AtomicTypes.QName, new QName(uri, local, prefix));
         }

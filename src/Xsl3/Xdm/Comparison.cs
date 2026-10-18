@@ -105,7 +105,7 @@ namespace Xsl3.Xdm
 
         private static bool IsDuration(Primitive p) => p is Primitive.Duration or Primitive.YearMonthDuration or Primitive.DayTimeDuration;
 
-        private static XPathException Incomparable(AtomicValue a, AtomicValue b) =>
+        private static XdmException Incomparable(AtomicValue a, AtomicValue b) =>
             Err.XPTY0004($"Values of type {a.Type.Name} and {b.Type.Name} can't be compared");
 
         /// <summary>Numeric comparison after promotion (XPath 3.1 B.1): integer &lt; decimal &lt; float &lt; double.</summary>

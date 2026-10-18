@@ -103,7 +103,7 @@ namespace Xsl3.Xdm
         private static AtomicValue UntypedToDouble(AtomicValue v) =>
             v.Type.Primitive == Primitive.UntypedAtomic ? Casting.Cast(v, AtomicTypes.Double) : v;
 
-        private static XPathException NotApplicable(ArithmeticOp op, AtomicValue a, AtomicValue b) =>
+        private static XdmException NotApplicable(ArithmeticOp op, AtomicValue a, AtomicValue b) =>
             Err.XPTY0004($"Operator {OpName(op)} is not defined for {a.Type.Name} and {b.Type.Name}");
 
         private static string OpName(ArithmeticOp op) => op switch

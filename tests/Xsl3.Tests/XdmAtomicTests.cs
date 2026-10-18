@@ -17,7 +17,7 @@ public class XdmAtomicTests
 
     private static string Cast(string fromType, string lexical, string toType) => Casting.Cast(V(fromType, lexical), T(toType)).Value;
 
-    private static string ErrorOf(System.Action action) => Assert.Throws<XPathException>(action).Code;
+    private static string ErrorOf(System.Action action) => Assert.Throws<XdmException>(action).Code;
 
     // ------------------------------------------------------------ lexical forms and canonical strings
 
