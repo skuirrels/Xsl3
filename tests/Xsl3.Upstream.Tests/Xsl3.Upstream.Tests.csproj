@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    dotnet/runtime's XslCompiledTransform tests, ported by eng/port-upstream-tests.py. This is the
+    legacy 1.0 regression gate (SPEC G3, §20): it must pass 100% on every target framework.
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <RootNamespace>System.Xml.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Upstream XmlCoreTest/ManagedNodeWriter.cs has its own Main. -->
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Ported test code is kept as upstream wrote it. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0618;CS0649;CS0168;CS0169;CS0219;CS0414;CS0162;CS0108;CS8981;SYSLIB0014;SYSLIB0047;CA1416;CA1825;CA2201;xUnit1004;xUnit1013;xUnit1026;xUnit2000;xUnit2002;xUnit2009;xUnit2013;xUnit1031;xUnit1012</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Xslt\TestFiles\**\*" Link="TestFiles\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+</Project>

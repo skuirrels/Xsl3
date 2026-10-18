@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/bench/">
+    <Project Path="bench/Xsl3.Benchmarks/Xsl3.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Xsl3/Xsl3.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Xsl3.Differential/Xsl3.Differential.csproj" />
+    <Project Path="tests/Xsl3.Tests/Xsl3.Tests.csproj" />
+    <Project Path="tests/Xsl3.Upstream.Tests/Xsl3.Upstream.Tests.csproj" />
+  </Folder>
+</Solution>

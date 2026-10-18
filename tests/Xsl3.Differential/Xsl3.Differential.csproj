@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Differential tests: the same stylesheet and input through stock System.Xml.Xsl.XslCompiledTransform
+    and through Xsl3's, with byte-for-byte comparison of the results (SPEC §20, gate for G3).
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- The test assembly is also the child process the tests launch (Child.Main). -->
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <NoWarn>$(NoWarn);CA1305;CA1307;CA1310;CA1311</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The 1.0 corpus: dotnet/runtime's XSLT test files, as ported into Xsl3.Upstream.Tests. -->
+    <Content Include="..\Xsl3.Upstream.Tests\Xslt\TestFiles\TestData\**\*" Link="corpus\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+</Project>

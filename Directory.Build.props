@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Features>strict</Features>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <Authors>Xsl3 contributors</Authors>
+    <Copyright>Copyright (c) .NET Foundation and Contributors; Copyright (c) Xsl3 contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/skuirrels/Xsl3</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/skuirrels/Xsl3</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>xslt;xslt3;xslt2;xpath;xpath31;xml;xsl;transform</PackageTags>
+  </PropertyGroup>
+</Project>

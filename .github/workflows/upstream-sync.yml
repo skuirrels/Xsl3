@@ -1,0 +1,52 @@
+name: Upstream sync check
+
+# SPEC §6.4: diff the upstream paths Xsl3 was forked from against the fork point recorded in
+# docs/internals.md, and open an issue when anything changed. Fixes are ported by hand.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read fork point
+        id: fork
+        run: |
+          commit=$(grep -oE '\| Commit \| `[0-9a-f]{40}`' docs/internals.md | grep -oE '[0-9a-f]{40}')
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Diff upstream paths
+        id: diff
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/dotnet/runtime upstream
+          cd upstream
+          mapfile -t paths < <(../eng/upstream-paths.sh)
+          git log --oneline ${{ steps.fork.outputs.commit }}..origin/main -- "${paths[@]}" > ../changes.txt
+          cat ../changes.txt
+          echo "count=$(wc -l < ../changes.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Open issue
+        if: steps.diff.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream changes since fork point ($(date -u +%Y-%m-%d))"
+          {
+            echo "dotnet/runtime changed paths Xsl3 was forked from, since \`${{ steps.fork.outputs.commit }}\`:"
+            echo
+            echo '```'
+            cat changes.txt
+            echo '```'
+            echo
+            echo "Review each commit, port relevant fixes by hand, then update the fork point in docs/internals.md."
+          } > body.md
+          gh issue create --title "$title" --body-file body.md --label upstream-sync || gh issue create --title "$title" --body-file body.md

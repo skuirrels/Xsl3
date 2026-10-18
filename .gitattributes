@@ -1,0 +1,11 @@
+# Mirrors dotnet/runtime's .gitattributes, so the ported test files and baselines check out with the
+# same line endings as in upstream's own CI on each platform.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.cs text diff=csharp
+*.jpg binary
+*.png binary
+*.gif binary
