@@ -27,6 +27,15 @@ public sealed class Profile
     /// </summary>
     public static Profile ForParsing { get; } = new() { Features = new HashSet<string> { "*" } };
 
+    /// <summary>
+    /// What Xsl3 claims today (docs/conformance.md). Grows as features land: higherOrderFunctions in P3,
+    /// schemaImport/schemaValidation in P6. staticTyping is never claimed (SPEC §4.2 doesn't require it).
+    /// </summary>
+    public static Profile Xsl3 { get; } = new()
+    {
+        Features = new HashSet<string>(StringComparer.Ordinal) { "namespace-axis", "infoset-dtd" },
+    };
+
     public bool Applies(TestCase testCase) => testCase.EffectiveDependencies.All(Meets);
 
     private bool Meets(Dependency d)

@@ -59,18 +59,19 @@ boxed `XPathItem`.
       rules, `?` lookups, string templates are 4.0 so excluded). Exit: every QT3 XPath expression that
       should parse does, and every `XPST0003` test fails to parse. Done: 22,364 / 22,364 applicable
       tests (253 of them must-reject).
-- [ ] **Static context and analysis**: namespaces, default element/function namespaces, in-scope
+- [x] **Static context and analysis** (name resolution, static errors; type inference is P4): namespaces, default element/function namespaces, in-scope
       variables, function signatures with arity, focus analysis, type inference (bottom-up).
 - [x] **XDM atomic types** (`src/Xsl3/Xdm`): the type hierarchy of XPath 3.1 §2.7, lexical-space parsing,
       canonical serialisation (double/float formatting per §19.1.2.2 of F&O), casting table (F&O §19), equality and
       ordering, arithmetic with overflow (`FOAR0002`), `XsDateTime`/`XsDuration` with timezone arithmetic.
       Done, with unit tests from the F&O worked examples (`XdmAtomicTests`). Measuring against QT3's
       `prod-CastExpr` and `op-*` sets waits for the execution path.
-- [ ] **Lowering to QIL** (`XPath31QilBuilder`): explicit atomisation, general comparison as an
+- [x] **Lowering to QIL** (`XPath31Compiler`): explicit atomisation, general comparison as an
       existential loop over value comparisons, effective boolean value, path expressions with document-order
       handling, `for`/`let`/`some`/`every`/`if`, `instance of`/`cast`/`castable`/`treat`, function calls.
-- [ ] **Execution path**: `XPathCompiler`/`XPathExecutable`, sequence delivery through
-      `XmlCachedSequenceWriter`, run QT3 for real.
+- [x] **Execution path**: `XPath31Compiler`/`XPath31Executable` (internal for now), sequence delivery
+      through `XmlCachedSequenceWriter` (`XmlILCommand.Evaluate`), QT3 running for real (`Qt3RunTests`):
+      81.6% on the first run.
 - [ ] **Core F&O**: strings (code-point semantics, SPEC §13.5), numerics, booleans, dates and durations,
       QNames, node functions, sequences, aggregates, regex (SPEC §13.4), collations (SPEC §13.2).
 - [ ] **Conformance report**: `docs/conformance.md` generated from the harness, per test set.

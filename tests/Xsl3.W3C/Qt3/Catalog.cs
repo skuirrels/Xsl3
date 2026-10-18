@@ -16,11 +16,15 @@ public sealed class Catalog
 {
     public static readonly XNamespace Ns = "http://www.w3.org/2010/09/qt-fots-catalog";
 
-    private Catalog(string root, IReadOnlyList<TestSet> testSets)
+    private Catalog(string root, IReadOnlyList<TestSet> testSets, IReadOnlyDictionary<string, TestEnvironment> environments)
     {
         Root = root;
         TestSets = testSets;
+        Environments = environments;
     }
+
+    /// <summary>The environments declared in catalog.xml, shared by all test sets.</summary>
+    public IReadOnlyDictionary<string, TestEnvironment> Environments { get; }
 
     public string Root { get; }
 
@@ -53,24 +57,36 @@ public sealed class Catalog
     public static Catalog Load(string root)
     {
         XElement catalog = XDocument.Load(Path.Combine(root, "catalog.xml")).Root!;
-        var sets = new List<TestSet>();
+        var environments = catalog.Elements(Ns + "environment").ToDictionary(e => (string)e.Attribute("name")!, e => TestEnvironment.Read(e, root));
+        var result = new Catalog(root, new List<TestSet>(), environments);
+        var sets = (List<TestSet>)result.TestSets;
         foreach (XElement entry in catalog.Elements(Ns + "test-set"))
         {
             string file = Path.Combine(root, (string)entry.Attribute("file")!);
-            sets.Add(TestSet.Load((string)entry.Attribute("name")!, file));
+            sets.Add(TestSet.Load(result, (string)entry.Attribute("name")!, file));
         }
-        return new Catalog(root, sets);
+        return result;
     }
 }
 
 public sealed class TestSet
 {
-    private TestSet(string name, string file, IReadOnlyList<Dependency> dependencies)
+    private TestSet(Catalog catalog, string name, string file, IReadOnlyList<Dependency> dependencies, IReadOnlyDictionary<string, TestEnvironment> environments)
     {
+        Catalog = catalog;
         Name = name;
         File = file;
         Dependencies = dependencies;
+        Environments = environments;
     }
+
+    public Catalog Catalog { get; }
+
+    /// <summary>Environments declared in this test set; they take precedence over the catalogue's.</summary>
+    public IReadOnlyDictionary<string, TestEnvironment> Environments { get; }
+
+    public TestEnvironment? FindEnvironment(string name) =>
+        Environments.TryGetValue(name, out TestEnvironment? e) ? e : Catalog.Environments.GetValueOrDefault(name);
 
     public string Name { get; }
 
@@ -80,10 +96,13 @@ public sealed class TestSet
 
     public IReadOnlyList<TestCase> TestCases { get; private set; } = Array.Empty<TestCase>();
 
-    internal static TestSet Load(string name, string file)
+    internal static TestSet Load(Catalog catalog, string name, string file)
     {
         XElement root = XDocument.Load(file).Root!;
-        var set = new TestSet(name, file, Dependency.Read(root));
+        string dir = Path.GetDirectoryName(file)!;
+        var environments = root.Elements(Catalog.Ns + "environment").Where(e => e.Attribute("name") != null)
+            .ToDictionary(e => (string)e.Attribute("name")!, e => TestEnvironment.Read(e, dir));
+        var set = new TestSet(catalog, name, file, Dependency.Read(root), environments);
         set.TestCases = root.Elements(Catalog.Ns + "test-case").Select(e => TestCase.Read(set, e)).ToList();
         return set;
     }
@@ -120,6 +139,21 @@ public sealed class TestCase
     public XElement Result { get; }
 
     public XElement Element { get; }
+
+    /// <summary>The test's environment: inline, by reference, or the empty environment. Null if a reference doesn't resolve.</summary>
+    public TestEnvironment? Environment
+    {
+        get
+        {
+            XElement? env = Element.Element(Catalog.Ns + "environment");
+            if (env == null)
+            {
+                return TestEnvironment.Empty;
+            }
+            string? reference = (string?)env.Attribute("ref");
+            return reference != null ? Set.FindEnvironment(reference) : TestEnvironment.Read(env, Path.GetDirectoryName(Set.File)!);
+        }
+    }
 
     /// <summary>The expression: inline text, or the file named by <c>&lt;test file="…"&gt;</c>.</summary>
     public string Expression
