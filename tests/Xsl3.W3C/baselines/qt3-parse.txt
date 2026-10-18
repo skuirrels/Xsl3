@@ -1,0 +1,1 @@
+# Known failures for qt3-parse. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.

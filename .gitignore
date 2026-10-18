@@ -6,3 +6,4 @@ artifacts/
 TestResults/
 BenchmarkDotNet.Artifacts/
 /bench/corpus/generated/
+/external/

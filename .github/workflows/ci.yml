@@ -39,6 +39,13 @@ jobs:
       - name: Differential tests
         run: dotnet test tests/Xsl3.Differential -c Release --no-build --logger trx --results-directory artifacts/test-results
 
+      # W3C QT3 (XPath 3.1 / F&O 3.1), tracked against tests/Xsl3.W3C/baselines.
+      - name: W3C tests
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          eng/fetch-w3c.sh
+          dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

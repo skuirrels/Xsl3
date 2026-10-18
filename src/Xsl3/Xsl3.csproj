@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Xsl3.Tests" />
+    <InternalsVisibleTo Include="Xsl3.W3C" />
   </ItemGroup>
 
   <ItemGroup>

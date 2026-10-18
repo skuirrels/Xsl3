@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Harness for the W3C conformance suites (SPEC §20): QT3 (XPath 3.1, F&O 3.1) now, xslt30-test later.
+    The suites are fetched into external/ by eng/fetch-w3c.sh and not committed; without them the tests
+    pass vacuously. Known failures are tracked in baselines/ (see Baseline.cs).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -51,6 +51,7 @@ dotnet test Xsl3.slnx
 | `src/Xsl3` | The engine and public API |
 | `tests/Xsl3.Upstream.Tests` | dotnet/runtime's `XslCompiledTransform` tests, ported by `eng/port-upstream-tests.py`. The XSLT 1.0 regression gate: must pass 100%. |
 | `tests/Xsl3.Tests` | Unit tests, including checks that every bridge to System.Private.Xml internals still binds on the running .NET |
+| `tests/Xsl3.W3C` | W3C conformance harness (QT3 now). Fetch the suites with `eng/fetch-w3c.sh`; known failures are tracked in `tests/Xsl3.W3C/baselines`. |
 | `tests/Xsl3.Differential` | Runs the 1.0 corpus through stock `System.Xml.Xsl` and through Xsl3 and requires byte-identical results |
 | `bench/Xsl3.Benchmarks` | BenchmarkDotNet suites comparing Xsl3 with stock: `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- --filter '*'` |
 
