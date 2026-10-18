@@ -62,13 +62,16 @@ public sealed class TestEnvironment
     /// <summary>&lt;decimal-format&gt; declarations: the unnamed one has no name attribute.</summary>
     public IEnumerable<XElement> DecimalFormats => Element.Elements(Catalog.Ns + "decimal-format");
 
+    /// <summary>The default collation (&lt;collation default="true"/&gt;), if the environment sets one.</summary>
+    public string? DefaultCollation => (string?)Element.Elements(Catalog.Ns + "collation").FirstOrDefault(c => (string?)c.Attribute("default") == "true")?.Attribute("uri");
+
     /// <summary>A context item given as an expression (&lt;context-item select="…"/&gt;).</summary>
     public string? ContextItem { get; }
 
     /// <summary>Elements of the environment that the runner can't honour yet; tests that rely on them may fail.</summary>
     public IEnumerable<string> UnsupportedParts =>
         Element.Elements().Select(e => e.Name.LocalName)
-            .Where(n => n is "schema" or "collation" or "collection")
+            .Where(n => n is "schema" or "collection")
             .Distinct();
 
     public static TestEnvironment Read(XElement element, string baseDirectory) => new(element, baseDirectory);

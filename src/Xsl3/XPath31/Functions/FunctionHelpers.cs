@@ -240,11 +240,12 @@ namespace Xsl3.XPath31.Functions
     internal static class SequenceFunctions
     {
         /// <summary>fn:subsequence: items at positions p with round($start) &lt;= p &lt; round($start) + round($length).</summary>
-        public static IList<XPathItem> Subsequence(IList<XPathItem> seq, double start, double length)
+        /// <remarks>The two-argument form (no <paramref name="length"/>) takes every item from round($start) on.</remarks>
+        public static IList<XPathItem> Subsequence(IList<XPathItem> seq, double start, double? length)
         {
             double first = double.IsNaN(start) || double.IsInfinity(start) ? start : System.Math.Floor(start + 0.5);
-            double len = double.IsNaN(length) || double.IsInfinity(length) ? length : System.Math.Floor(length + 0.5);
-            double end = first + len;
+            double len = length is not double l ? double.PositiveInfinity : double.IsNaN(l) || double.IsInfinity(l) ? l : System.Math.Floor(l + 0.5);
+            double end = length == null ? double.PositiveInfinity : first + len;
             if (double.IsNaN(first) || double.IsNaN(end))
             {
                 return Sequences.Empty;
@@ -306,7 +307,8 @@ namespace Xsl3.XPath31.Functions
         // Values that can be equal must share a key.
         private static object HashKey(AtomicValue v, FunctionContext c) => v switch
         {
-            _ when v.Type.IsNumeric => Numeric.ToDouble(v) is double d && double.IsNaN(d) ? "NaN" : (object)Numeric.ToDouble(v),
+            // Keyed by the value as a float: numbers equal after promotion (1.2 and xs:float(1.2)) round to the same float.
+            _ when v.Type.IsNumeric => Numeric.ToDouble(v) is double d && double.IsNaN(d) ? "NaN" : (object)(float)Numeric.ToDouble(v),
             StringValue s => "s:" + s.String,
             DateTimeValue dt => ("t", dt.Type.Primitive is Primitive.DateTime or Primitive.Date or Primitive.Time ? dt.DateTime.ToTimeline(dt.Type.Primitive, c.ImplicitTimezoneMinutes) : 0m),
             DurationValue du => ("d", du.Duration.Months, du.Duration.Seconds),
@@ -386,9 +388,9 @@ namespace Xsl3.XPath31.Functions
             {
                 throw new XdmException("FORG0006", $"fn:{(max ? "max" : "min")}: values are not mutually comparable");
             }
-            else if (values.All(v => v.Type.Primitive is Primitive.String or Primitive.AnyUri))
+            else if (values.All(v => v.Type.Primitive is Primitive.String or Primitive.AnyUri) && values.Any(v => v.Type.Primitive == Primitive.String))
             {
-                // xs:anyURI and xs:string mix by promotion to xs:string.
+                // xs:anyURI and xs:string mix by promotion to xs:string; all-anyURI input stays xs:anyURI.
                 values = values.Select(v => v.Type.Primitive == Primitive.AnyUri ? Casting.Cast(v, AtomicTypes.String) : v).ToList();
             }
 

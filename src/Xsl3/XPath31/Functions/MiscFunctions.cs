@@ -15,7 +15,18 @@ namespace Xsl3.XPath31.Functions
 
         private static IList<XPathItem> Math1(IList<XPathItem> arg, System.Func<double, double> f) => arg.Count == 0 ? Empty : Dbl(f(D(arg)));
 
-        private static Collation Coll(IList<XPathItem> arg) => Collation.Resolve(S(arg));
+        // A relative collation URI is resolved against the static base URI (F&O 3.1 §5.3.5).
+        private static Collation Coll(IList<XPathItem> arg, FunctionContext c)
+        {
+            string uri = S(arg);
+            if (c.StaticBaseUri != null && System.Uri.TryCreate(uri, System.UriKind.Relative, out _) &&
+                System.Uri.TryCreate(c.StaticBaseUri, System.UriKind.Absolute, out System.Uri? baseUri) &&
+                System.Uri.TryCreate(baseUri, uri, out System.Uri? resolved))
+            {
+                uri = resolved.OriginalString;
+            }
+            return Collation.Resolve(uri);
+        }
 
         private static void RegisterMisc()
         {
@@ -36,28 +47,17 @@ namespace Xsl3.XPath31.Functions
             Define("math:pow($x as xs:double?, $y as xs:numeric) as xs:double?", (c, a) => a[0].Count == 0 ? Empty : Dbl(Pow(D(a[0]), (AtomicValue)a[1][0])));
 
             // ---------------------------------------------------------- collations (F&O §5.3)
-            Define("fn:default-collation() as xs:string", (c, a) => Str(Collation.CodepointUri));
+            Define("fn:default-collation() as xs:string", (c, a) => Str(c.DefaultCollation.Uri));
             Define("fn:compare($comparand1 as xs:string?, $comparand2 as xs:string?, $collation as xs:string) as xs:integer?", (c, a) =>
-                a[0].Count == 0 || a[1].Count == 0 ? Empty : Int(System.Math.Sign(Coll(a[2]).Compare(S(a[0]), S(a[1])))));
-            Define("fn:contains($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(S(a[1]).Length == 0 || Coll(a[2]).IndexOf(S(a[0]), S(a[1])) >= 0));
-            Define("fn:starts-with($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(S(a[1]).Length == 0 || Coll(a[2]).StartsWith(S(a[0]), S(a[1]))));
-            Define("fn:ends-with($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(S(a[1]).Length == 0 || Coll(a[2]).EndsWith(S(a[0]), S(a[1]))));
-            Define("fn:substring-before($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:string", (c, a) =>
-            {
-                string s = S(a[0]), t = S(a[1]);
-                int i = Coll(a[2]).IndexOf(s, t);
-                return Str(t.Length == 0 || i < 0 ? "" : s[..i]);
-            });
-            Define("fn:substring-after($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:string", (c, a) =>
-            {
-                string s = S(a[0]), t = S(a[1]);
-                if (t.Length == 0) return Str(s);
-                int i = Coll(a[2]).IndexOf(s, t);
-                return Str(i < 0 ? "" : s[(i + t.Length)..]);
-            });
+                a[0].Count == 0 || a[1].Count == 0 ? Empty : Int(System.Math.Sign(Coll(a[2], c).Compare(S(a[0]), S(a[1])))));
+            Define("fn:contains($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(StringMatch.Contains(S(a[0]), S(a[1]), Coll(a[2], c))));
+            Define("fn:starts-with($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(StringMatch.StartsWith(S(a[0]), S(a[1]), Coll(a[2], c))));
+            Define("fn:ends-with($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:boolean", (c, a) => Bool(StringMatch.EndsWith(S(a[0]), S(a[1]), Coll(a[2], c))));
+            Define("fn:substring-before($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:string", (c, a) => Str(StringMatch.Before(S(a[0]), S(a[1]), Coll(a[2], c))));
+            Define("fn:substring-after($arg1 as xs:string?, $arg2 as xs:string?, $collation as xs:string) as xs:string", (c, a) => Str(StringMatch.After(S(a[0]), S(a[1]), Coll(a[2], c))));
             Define("fn:index-of($seq as xs:anyAtomicType*, $search as xs:anyAtomicType, $collation as xs:string) as xs:integer*", (c, a) =>
             {
-                FunctionContext cc = WithCollation(c, Coll(a[2]));
+                FunctionContext cc = c.WithDefaultCollation(Coll(a[2], c));
                 var search = (AtomicValue)a[1][0];
                 var result = new List<XPathItem>();
                 for (int i = 0; i < a[0].Count; i++)
@@ -66,14 +66,14 @@ namespace Xsl3.XPath31.Functions
                 }
                 return result;
             });
-            Define("fn:distinct-values($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType*", (c, a) => SequenceFunctions.DistinctValues(a[0], WithCollation(c, Coll(a[1]))));
-            Define("fn:deep-equal($parameter1 as item()*, $parameter2 as item()*, $collation as xs:string) as xs:boolean", (c, a) => Bool(DeepEqual.Sequences(a[0], a[1], WithCollation(c, Coll(a[2])))));
-            Define("fn:min($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], WithCollation(c, Coll(a[1])), max: false));
-            Define("fn:max($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], WithCollation(c, Coll(a[1])), max: true));
+            Define("fn:distinct-values($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType*", (c, a) => SequenceFunctions.DistinctValues(a[0], c.WithDefaultCollation(Coll(a[1], c))));
+            Define("fn:deep-equal($parameter1 as item()*, $parameter2 as item()*, $collation as xs:string) as xs:boolean", (c, a) => Bool(DeepEqual.Sequences(a[0], a[1], c.WithDefaultCollation(Coll(a[2], c)))));
+            Define("fn:min($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], c.WithDefaultCollation(Coll(a[1], c)), max: false));
+            Define("fn:max($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], c.WithDefaultCollation(Coll(a[1], c)), max: true));
             Define("fn:collation-key($key as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Encoding.UTF8.GetBytes(S(a[0])))));
-            Define("fn:collation-key($key as xs:string, $collation as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Encoding.UTF8.GetBytes(Coll(a[1]).Key(S(a[0]))))));
-            Define("fn:contains-token($input as xs:string*, $token as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), Collation.Codepoint)));
-            Define("fn:contains-token($input as xs:string*, $token as xs:string, $collation as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), Coll(a[2]))));
+            Define("fn:collation-key($key as xs:string, $collation as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Encoding.UTF8.GetBytes(Coll(a[1], c).Key(S(a[0]))))));
+            Define("fn:contains-token($input as xs:string*, $token as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), c.DefaultCollation)));
+            Define("fn:contains-token($input as xs:string*, $token as xs:string, $collation as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), Coll(a[2], c))));
 
             // ---------------------------------------------------------- URIs (F&O §6)
             Define("fn:encode-for-uri($uri-part as xs:string?) as xs:string", (c, a) => Str(PercentEncode(S(a[0]), ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_' or '.' or '~')));
@@ -87,15 +87,13 @@ namespace Xsl3.XPath31.Functions
                 if (System.Uri.TryCreate(S(a[0]), System.UriKind.Absolute, out System.Uri? abs)) return One(new StringValue(AtomicTypes.AnyUri, S(a[0])));
                 throw new XdmException("FONS0005", "The static base URI is absent");
             });
+            Define("fn:default-language() as xs:language", (c, a) => One(new StringValue(AtomicTypes.Language, "en")));
             Define("fn:static-base-uri() as xs:anyURI?", (c, a) => c.StaticBaseUri == null ? Empty : One(new StringValue(AtomicTypes.AnyUri, c.StaticBaseUri)));
 
             // ---------------------------------------------------------- environment (F&O §19.5)
             Define("fn:environment-variable($name as xs:string) as xs:string?", (c, a) => Empty);
             Define("fn:available-environment-variables() as xs:string*", (c, a) => Empty);
         }
-
-        private static FunctionContext WithCollation(FunctionContext c, Collation collation) =>
-            new(c.ImplicitTimezoneMinutes, c.ComparePosition) { DefaultCollation = collation, Runtime = c.Runtime, StaticBaseUri = c.StaticBaseUri };
 
         private static bool ContainsToken(IList<XPathItem> input, string token, Collation collation)
         {

@@ -155,8 +155,8 @@ namespace Xsl3.Xdm
                     {
                         case DoubleValue: return v;
                         case FloatValue f: return AtomicValue.OfDouble(f.Float);
-                        case DecimalValue d: return AtomicValue.OfDouble((double)d.Decimal);
-                        case IntegerValue i: return AtomicValue.OfDouble((double)i.Integer);
+                        case DecimalValue d: return AtomicValue.OfDouble(Numeric.ToDouble(d.Decimal));
+                        case IntegerValue i: return AtomicValue.OfDouble(Numeric.ToDouble(i.Integer));
                         case BooleanValue b: return AtomicValue.OfDouble(b.Boolean ? 1 : 0);
                     }
                     break;
@@ -165,8 +165,8 @@ namespace Xsl3.Xdm
                     {
                         case FloatValue: return v;
                         case DoubleValue d: return AtomicValue.OfFloat((float)d.Double);
-                        case DecimalValue d: return AtomicValue.OfFloat((float)d.Decimal);
-                        case IntegerValue i: return AtomicValue.OfFloat((float)(double)i.Integer);
+                        case DecimalValue d: return AtomicValue.OfFloat(Numeric.ToFloat(d.Decimal));
+                        case IntegerValue i: return AtomicValue.OfFloat(Numeric.ToFloat(i.Integer));
                         case BooleanValue b: return AtomicValue.OfFloat(b.Boolean ? 1 : 0);
                     }
                     break;

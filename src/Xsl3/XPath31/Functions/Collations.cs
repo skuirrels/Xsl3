@@ -3,6 +3,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Xsl3.Xdm;
 
 namespace Xsl3.XPath31.Functions
@@ -37,17 +38,78 @@ namespace Xsl3.XPath31.Functions
 
         public int Compare(string? x, string? y) => _comparer.Compare(x, y);
 
-        public int IndexOf(string s, string t) => _compareInfo == null
-            ? s.IndexOf(t, System.StringComparison.Ordinal)
+        // The HTML ASCII case-insensitive collation folds A-Z only; ordinal matching on folded strings.
+        private bool AsciiFold => Uri == HtmlAsciiCaseInsensitiveUri;
+
+        private static string Fold(string s)
+        {
+            if (!s.Any(c => c is >= 'A' and <= 'Z'))
+            {
+                return s;
+            }
+            return string.Create(s.Length, s, (span, src) =>
+            {
+                for (int i = 0; i < src.Length; i++)
+                {
+                    span[i] = src[i] is >= 'A' and <= 'Z' ? (char)(src[i] + 32) : src[i];
+                }
+            });
+        }
+
+        public int IndexOf(string s, string t) =>
+            AsciiFold ? Fold(s).IndexOf(Fold(t), System.StringComparison.Ordinal)
+            : _compareInfo == null ? s.IndexOf(t, System.StringComparison.Ordinal)
             : _compareInfo.IndexOf(s, t, _options);
 
-        public bool StartsWith(string s, string t) => _compareInfo == null ? s.StartsWith(t, System.StringComparison.Ordinal) : _compareInfo.IsPrefix(s, t, _options);
+        /// <summary>Like <see cref="IndexOf"/>, also giving the length of the match in <paramref name="s"/> (it can differ from t's under a collation).</summary>
+        public int IndexOf(string s, string t, out int matchLength)
+        {
+            if (AsciiFold || _compareInfo == null)
+            {
+                matchLength = t.Length;
+                return IndexOf(s, t);
+            }
+            return _compareInfo.IndexOf(s, t, _options, out matchLength);
+        }
 
-        public bool EndsWith(string s, string t) => _compareInfo == null ? s.EndsWith(t, System.StringComparison.Ordinal) : _compareInfo.IsSuffix(s, t, _options);
+        public bool StartsWith(string s, string t) =>
+            AsciiFold ? Fold(s).StartsWith(Fold(t), System.StringComparison.Ordinal)
+            : _compareInfo == null ? s.StartsWith(t, System.StringComparison.Ordinal)
+            : (_options & CompareOptions.IgnoreSymbols) != 0 ? _compareInfo.IsPrefix(StripVariable(s), StripVariable(t), _options & ~CompareOptions.IgnoreSymbols)
+            : _compareInfo.IsPrefix(s, t, _options);
+
+        public bool EndsWith(string s, string t) =>
+            AsciiFold ? Fold(s).EndsWith(Fold(t), System.StringComparison.Ordinal)
+            : _compareInfo == null ? s.EndsWith(t, System.StringComparison.Ordinal)
+            : (_options & CompareOptions.IgnoreSymbols) != 0 ? _compareInfo.IsSuffix(StripVariable(s), StripVariable(t), _options & ~CompareOptions.IgnoreSymbols)
+            : _compareInfo.IsSuffix(s, t, _options);
+
+        // ICU's IsPrefix/IsSuffix mishandle ignorable characters at the edges (an all-ignorable suffix of "" is
+        // reported missing), so with alternate=blanked the variable characters (punctuation, symbols, spaces)
+        // are removed first.
+        private static string StripVariable(string s)
+        {
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (System.Text.Rune r in s.EnumerateRunes())
+            {
+                UnicodeCategory cat = System.Text.Rune.GetUnicodeCategory(r);
+                bool variable = cat is UnicodeCategory.ConnectorPunctuation or UnicodeCategory.DashPunctuation or UnicodeCategory.OpenPunctuation
+                    or UnicodeCategory.ClosePunctuation or UnicodeCategory.InitialQuotePunctuation or UnicodeCategory.FinalQuotePunctuation
+                    or UnicodeCategory.OtherPunctuation or UnicodeCategory.MathSymbol or UnicodeCategory.CurrencySymbol or UnicodeCategory.ModifierSymbol
+                    or UnicodeCategory.OtherSymbol or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
+                    or UnicodeCategory.Control;
+                if (!variable)
+                {
+                    sb.Append(r.ToString());
+                }
+            }
+            return sb.ToString();
+        }
 
         /// <summary>A key such that equal keys mean equal strings under this collation (fn:collation-key, grouping).</summary>
-        public string Key(string s) => _compareInfo == null
-            ? s
+        public string Key(string s) =>
+            AsciiFold ? Fold(s)
+            : _compareInfo == null ? s
             : System.Convert.ToBase64String(_compareInfo.GetSortKey(s, _options).KeyData);
 
         /// <summary>Resolves a collation URI. FOCH0002 if it isn't supported.</summary>
@@ -57,7 +119,7 @@ namespace Xsl3.XPath31.Functions
         {
             if (uri == HtmlAsciiCaseInsensitiveUri)
             {
-                return new Collation(uri, new HtmlAsciiCaseInsensitive(), CultureInfo.InvariantCulture.CompareInfo, CompareOptions.OrdinalIgnoreCase);
+                return new Collation(uri, new HtmlAsciiCaseInsensitive(), null, CompareOptions.Ordinal);
             }
             if (uri.StartsWith(UcaPrefix, System.StringComparison.Ordinal) && (uri.Length == UcaPrefix.Length || uri[UcaPrefix.Length] == '?'))
             {
@@ -141,6 +203,12 @@ namespace Xsl3.XPath31.Functions
                 }
             }
             CompareInfo info = culture.CompareInfo;
+            if (strength is "identical" or "5")
+            {
+                // Identical strength: strings equal at every level are still ordered (and distinguished) by code points.
+                IComparer<string> levels = Comparer.Create(info, options);
+                return new Collation(uri, Comparer<string>.Create((x, y) => levels.Compare(x, y) is int c && c != 0 ? c : Comparison.CodepointCollation.Compare(x, y)), null, CompareOptions.Ordinal);
+            }
             return new Collation(uri, Comparer.Create(info, options), info, options);
         }
 

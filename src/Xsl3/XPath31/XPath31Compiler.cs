@@ -43,6 +43,9 @@ namespace Xsl3.XPath31
         /// <summary>External variables: their values are supplied to <see cref="XPath31Executable.Evaluate"/>.</summary>
         public List<QName> ExternalVariables { get; } = new();
 
+        /// <summary>The default collation URI (XPath 3.1 §2.1.1); FOCH0002 at evaluation if it isn't supported.</summary>
+        public string DefaultCollation { get; set; } = Collation.CodepointUri;
+
         /// <summary>The unnamed decimal format used by fn:format-number#2.</summary>
         public XPathDecimalFormat DefaultDecimalFormat { get; set; } = XPathDecimalFormat.Default;
 
@@ -102,7 +105,7 @@ namespace Xsl3.XPath31
             var compiler = new XPath31Compiler(sc);
             QilExpression qil = compiler.CompileQuery(ast);
             XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
-            return new XPath31Executable(command, sc.BaseUri, new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), compiler._namespaces));
+            return new XPath31Executable(command, sc.BaseUri, sc.DefaultCollation, new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), compiler._namespaces));
         }
 
         private QilExpression CompileQuery(Expr ast)
@@ -177,15 +180,10 @@ namespace Xsl3.XPath31
 
         private QilNode FocusPosition()
         {
-            if (_focus == null)
-            {
-                FocusItem(); // XPDY0002 is raised by evaluating the context item; position is then 1
-                return _f.Double(1);
-            }
-            return _focus.Position();
+            return _focus == null ? Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX) : _focus.Position();
         }
 
-        private QilNode FocusLast() => _focus == null ? _f.Double(1) : (_focus.Last ?? throw new System.InvalidOperationException("last() not prepared"))();
+        private QilNode FocusLast() => _focus == null ? Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX) : (_focus.Last ?? throw new System.InvalidOperationException("last() not prepared"))();
 
         /// <summary>
         /// Iterates <paramref name="input"/> with each item as the focus, building the body with <paramref name="body"/>.
@@ -593,12 +591,12 @@ namespace Xsl3.XPath31
 
         private QilNode CastTargetId(SingleType type)
         {
-            AtomicType target = _types.ResolveAtomicType(type.TypeName);
+            var (target, kind) = _types.ResolveCastTarget(type.TypeName);
             if (target.IsAbstract)
             {
                 throw new XPathStaticException("XPST0080", $"Cannot cast to {target.Name}", type.Span.Start);
             }
-            return _f.Double(ConstantPool.Add(new CastTarget(target, _namespaces)));
+            return _f.Double(ConstantPool.Add(new CastTarget(target, _namespaces, kind)));
         }
 
         // Functions whose zero-argument form applies to the context item (F&O 3.1 §1.6.3).
@@ -619,12 +617,12 @@ namespace Xsl3.XPath31
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).
             if (name.NamespaceUri == QName.Ns.Xs)
             {
-                AtomicType? type = AtomicTypes.Find(name.NamespaceUri, name.LocalName);
-                if (type == null || type.IsAbstract || args.Count != 1)
+                var found = StaticTypeResolver.FindCastTarget(name);
+                if (found is not var (type, kind) || type.IsAbstract || args.Count != 1)
                 {
                     throw new XPathStaticException("XPST0017", $"Unknown function {name.EQName}#{args.Count}", call.Span.Start);
                 }
-                int target = ConstantPool.Add(new CastTarget(type, _namespaces));
+                int target = ConstantPool.Add(new CastTarget(type, _namespaces, kind));
                 return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(target), _f.True());
             }
 
@@ -690,15 +688,19 @@ namespace Xsl3.XPath31
         public const string ImplicitTimezoneParam = "implicit-timezone";
         public const string StaticBaseUriParam = "static-base-uri";
         public const string DecimalFormatsParam = "decimal-formats";
+        public const string ReaderSettingsParam = "reader-settings";
+        public const string DefaultCollationParam = "default-collation";
 
         private readonly XmlILCommand _command;
         private readonly string? _baseUri;
         private readonly DecimalFormatTable _decimalFormats;
+        private readonly string _defaultCollation;
 
-        internal XPath31Executable(XmlILCommand command, string? baseUri, DecimalFormatTable decimalFormats)
+        internal XPath31Executable(XmlILCommand command, string? baseUri, string defaultCollation, DecimalFormatTable decimalFormats)
         {
             _command = command;
             _baseUri = baseUri;
+            _defaultCollation = defaultCollation;
             _decimalFormats = decimalFormats;
         }
 
@@ -706,6 +708,10 @@ namespace Xsl3.XPath31
         {
             var args = new XsltArgumentList();
             args.AddParam(DecimalFormatsParam, ControlNamespace, _decimalFormats);
+            args.AddParam(DefaultCollationParam, ControlNamespace, _defaultCollation);
+            // fn:doc parses internal DTD subsets (for entities, attribute defaults and IDs); an external subset
+            // is fetched through the caller's resolver, if any.
+            args.AddParam(ReaderSettingsParam, ControlNamespace, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver, MaxCharactersFromEntities = 10_000_000 });
             if (contextItem != null)
             {
                 args.AddParam(ContextItemParam, ControlNamespace, contextItem);

@@ -51,7 +51,7 @@ namespace Xsl3.XPath31.Functions
             });
 
             Define("fn:sort($input as item()*) as item()*", (c, a) => Sort(a[0], c));
-            Define("fn:sort($input as item()*, $collation as xs:string?) as item()*", (c, a) => Sort(a[0], a[1].Count == 0 ? c : WithCollation(c, Coll(a[1]))));
+            Define("fn:sort($input as item()*, $collation as xs:string?) as item()*", (c, a) => Sort(a[0], a[1].Count == 0 ? c : c.WithDefaultCollation(Coll(a[1], c))));
 
             // ---------------------------------------------------------- documents and text resources
             Define("fn:doc($uri as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(Doc(S(a[0]), c)));

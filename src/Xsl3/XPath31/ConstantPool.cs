@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Xml.XPath;
 using Xsl3.Xdm;
 
 namespace Xsl3.XPath31
@@ -35,6 +36,70 @@ namespace Xsl3.XPath31
         }
     }
 
+    internal enum CastKind
+    {
+        Atomic,
+
+        /// <summary>xs:numeric, the union of xs:double, xs:float and xs:decimal.</summary>
+        Numeric,
+
+        /// <summary>xs:NMTOKENS, xs:IDREFS, xs:ENTITIES: whitespace-separated lists of <see cref="CastTarget.Type"/>.</summary>
+        List,
+    }
+
     /// <summary>The target of <c>cast as</c>/<c>castable as</c>, with the namespaces xs:QName casts resolve prefixes against.</summary>
-    internal sealed record CastTarget(AtomicType Type, IXmlNamespaceResolver? Namespaces);
+    internal sealed record CastTarget(AtomicType Type, IXmlNamespaceResolver? Namespaces, CastKind Kind = CastKind.Atomic)
+    {
+        public string Name => Kind switch
+        {
+            CastKind.Numeric => "xs:numeric",
+            CastKind.List => Type.Name + "S",
+            _ => Type.Name.ToString(),
+        };
+
+        public IList<XPathItem> Apply(AtomicValue value)
+        {
+            switch (Kind)
+            {
+                case CastKind.Numeric:
+                    // A cast to a union type tries its member types in order: xs:double comes first.
+                    return new XPathItem[] { value.Type.IsNumeric ? value : Casting.Cast(value, AtomicTypes.Double) };
+                case CastKind.List:
+                    if (value.Type.Primitive is not (Primitive.String or Primitive.UntypedAtomic))
+                    {
+                        throw Err.XPTY0004($"Only a string can be cast to the list type {Name}, not {value.Type.Name}");
+                    }
+                    string[] tokens = value.Value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Length == 0)
+                    {
+                        throw new XdmException("FORG0001", $"A value of {Name} must have at least one item");
+                    }
+                    var items = new XPathItem[tokens.Length];
+                    for (int i = 0; i < tokens.Length; i++)
+                    {
+                        items[i] = Casting.Cast(AtomicValue.OfString(tokens[i]), Type);
+                    }
+                    return items;
+                default:
+                    return new XPathItem[] { Casting.Cast(value, Type, Namespaces) };
+            }
+        }
+
+        public bool IsCastable(AtomicValue value)
+        {
+            if (Kind == CastKind.Atomic)
+            {
+                return Casting.IsCastable(value, Type, Namespaces);
+            }
+            try
+            {
+                Apply(value);
+                return true;
+            }
+            catch (XdmException)
+            {
+                return false;
+            }
+        }
+    }
 }

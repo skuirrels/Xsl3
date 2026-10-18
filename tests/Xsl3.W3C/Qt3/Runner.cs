@@ -113,6 +113,10 @@ public sealed class Runner
         try
         {
             ApplyDecimalFormats(env, sc);
+            if (env.DefaultCollation != null)
+            {
+                sc.DefaultCollation = env.DefaultCollation;
+            }
             XPath31Executable exe = XPath31Compiler.Compile(test.Expression, sc);
             result = Result.Of(exe.Evaluate(contextItem, variables, ImplicitTimezoneMinutes, new TestResolver(env)));
         }

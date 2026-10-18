@@ -27,6 +27,8 @@ namespace Xsl3.Runtime
         {
             Runtime = _runtime,
             StaticBaseUri = _runtime.ExternalContext.GetParameter(XPath31Executable.StaticBaseUriParam, XPath31Executable.ControlNamespace) as string,
+            DefaultCollation = _runtime.ExternalContext.GetParameter(XPath31Executable.DefaultCollationParam, XPath31Executable.ControlNamespace) is string collation
+                ? Collation.Resolve(collation) : Collation.Codepoint,
             DecimalFormats = _runtime.ExternalContext.GetParameter(XPath31Executable.DecimalFormatsParam, XPath31Executable.ControlNamespace) as DecimalFormatTable ?? DecimalFormatTable.Empty,
         };
 
@@ -65,6 +67,13 @@ namespace Xsl3.Runtime
         {
             object? value = _runtime.ExternalContext.GetParameter(XPath31Executable.ContextItemParam, XPath31Executable.ControlNamespace);
             return value as XPathItem ?? throw new XdmException("XPDY0002", "The context item is absent");
+        }
+
+        /// <summary>position() and last() at the top level: 1, or XPDY0002 when there is no context item.</summary>
+        public double X31TopLevelFocus()
+        {
+            X31ContextItem();
+            return 1;
         }
 
         public IList<XPathItem> X31Raise(string code, string message) => throw new XdmException(code, message);
@@ -312,9 +321,9 @@ namespace Xsl3.Runtime
             AtomicValue? a = Sequences.AtomizeOptional(seq, "the operand of a cast");
             if (a == null)
             {
-                return allowEmpty ? Sequences.Empty : throw Err.XPTY0004($"An empty sequence can't be cast to {target.Type.Name}");
+                return allowEmpty ? Sequences.Empty : throw Err.XPTY0004($"An empty sequence can't be cast to {target.Name}");
             }
-            return One(Casting.Cast(a, target.Type, target.Namespaces));
+            return target.Apply(a);
         }
 
         public bool X31Castable(IList<XPathItem> seq, double targetId, bool allowEmpty)
@@ -325,7 +334,7 @@ namespace Xsl3.Runtime
             {
                 return allowEmpty;
             }
-            return atomized.Count == 1 && Casting.IsCastable((AtomicValue)atomized[0], target.Type, target.Namespaces);
+            return atomized.Count == 1 && target.IsCastable((AtomicValue)atomized[0]);
         }
 
         public bool X31InstanceOf(IList<XPathItem> seq, double typeId) => ((SequenceTypeTest)ConstantPool.Get((int)typeId)).Matches(seq);

@@ -22,17 +22,30 @@ namespace Xsl3.Xdm
         {
             DoubleValue d => d.Double,
             FloatValue f => f.Float,
-            DecimalValue d => (double)d.Decimal,
-            IntegerValue i => (double)i.Integer,
+            DecimalValue d => ToDouble(d.Decimal),
+            IntegerValue i => ToDouble(i.Integer),
             _ => throw new InvalidCastException(),
         };
+
+        // Correctly rounded conversions: the CLR's BigInteger and decimal conversions can be off by an ulp.
+        public static double ToDouble(System.Numerics.BigInteger i) =>
+            i >= long.MinValue && i <= long.MaxValue ? (long)i : double.Parse(i.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+
+        public static float ToFloat(System.Numerics.BigInteger i) =>
+            i >= long.MinValue && i <= long.MaxValue ? (long)i : float.Parse(i.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+
+        public static double ToDouble(decimal d) => decimal.Truncate(d) == d && d >= long.MinValue && d <= long.MaxValue
+            ? (long)d
+            : double.Parse(d.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+
+        public static float ToFloat(decimal d) => float.Parse(d.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
 
         public static float ToFloat(AtomicValue v) => v switch
         {
             FloatValue f => f.Float,
             DoubleValue d => (float)d.Double,
-            DecimalValue d => (float)d.Decimal,
-            IntegerValue i => (float)(double)i.Integer,
+            DecimalValue d => ToFloat(d.Decimal),
+            IntegerValue i => ToFloat(i.Integer),
             _ => throw new InvalidCastException(),
         };
 

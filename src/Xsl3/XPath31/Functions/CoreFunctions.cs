@@ -82,26 +82,16 @@ namespace Xsl3.XPath31.Functions
             Define("fn:string-join($arg1 as xs:anyAtomicType*, $arg2 as xs:string) as xs:string", (c, a) => Str(string.Join(S(a[1]), a[0].Select(i => ((AtomicValue)i).Value))));
             Define("fn:string-length($arg as xs:string?) as xs:integer", (c, a) => Int(CodePoints.Length(S(a[0]))));
             Define("fn:normalize-space($arg as xs:string?) as xs:string", (c, a) => Str(Lexical.Collapse(S(a[0]))));
-            Define("fn:upper-case($arg as xs:string?) as xs:string", (c, a) => Str(S(a[0]).ToUpperInvariant()));
-            Define("fn:lower-case($arg as xs:string?) as xs:string", (c, a) => Str(S(a[0]).ToLowerInvariant()));
+            Define("fn:upper-case($arg as xs:string?) as xs:string", (c, a) => Str(CaseMapping.ToUpper(S(a[0]))));
+            Define("fn:lower-case($arg as xs:string?) as xs:string", (c, a) => Str(CaseMapping.ToLower(S(a[0]))));
             Define("fn:substring($sourceString as xs:string?, $start as xs:double) as xs:string", (c, a) => Str(CodePoints.Substring(S(a[0]), D(a[1]), double.PositiveInfinity)));
             Define("fn:substring($sourceString as xs:string?, $start as xs:double, $length as xs:double) as xs:string", (c, a) => Str(CodePoints.Substring(S(a[0]), D(a[1]), D(a[2]))));
             Define("fn:translate($arg as xs:string?, $mapString as xs:string, $transString as xs:string) as xs:string", (c, a) => Str(CodePoints.Translate(S(a[0]), S(a[1]), S(a[2]))));
-            Define("fn:contains($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(S(a[0]).Contains(S(a[1]), System.StringComparison.Ordinal)));
-            Define("fn:starts-with($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(S(a[0]).StartsWith(S(a[1]), System.StringComparison.Ordinal)));
-            Define("fn:ends-with($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(S(a[0]).EndsWith(S(a[1]), System.StringComparison.Ordinal)));
-            Define("fn:substring-before($arg1 as xs:string?, $arg2 as xs:string?) as xs:string", (c, a) =>
-            {
-                string s = S(a[0]), t = S(a[1]);
-                int i = s.IndexOf(t, System.StringComparison.Ordinal);
-                return Str(i < 0 ? "" : s[..i]);
-            });
-            Define("fn:substring-after($arg1 as xs:string?, $arg2 as xs:string?) as xs:string", (c, a) =>
-            {
-                string s = S(a[0]), t = S(a[1]);
-                int i = s.IndexOf(t, System.StringComparison.Ordinal);
-                return Str(i < 0 ? "" : s[(i + t.Length)..]);
-            });
+            Define("fn:contains($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(StringMatch.Contains(S(a[0]), S(a[1]), c.DefaultCollation)));
+            Define("fn:starts-with($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(StringMatch.StartsWith(S(a[0]), S(a[1]), c.DefaultCollation)));
+            Define("fn:ends-with($arg1 as xs:string?, $arg2 as xs:string?) as xs:boolean", (c, a) => Bool(StringMatch.EndsWith(S(a[0]), S(a[1]), c.DefaultCollation)));
+            Define("fn:substring-before($arg1 as xs:string?, $arg2 as xs:string?) as xs:string", (c, a) => Str(StringMatch.Before(S(a[0]), S(a[1]), c.DefaultCollation)));
+            Define("fn:substring-after($arg1 as xs:string?, $arg2 as xs:string?) as xs:string", (c, a) => Str(StringMatch.After(S(a[0]), S(a[1]), c.DefaultCollation)));
             Define("fn:string-to-codepoints($arg as xs:string?) as xs:integer*", (c, a) => CodePoints.Of(S(a[0])).Select(cp => (XPathItem)AtomicValue.OfInteger(cp)).ToList());
             Define("fn:codepoints-to-string($arg as xs:integer*) as xs:string", (c, a) => Str(CodePoints.ToStringChecked(a[0].Select(i => ((IntegerValue)i).Integer))));
             Define("fn:compare($comparand1 as xs:string?, $comparand2 as xs:string?) as xs:integer?", (c, a) =>
@@ -119,7 +109,7 @@ namespace Xsl3.XPath31.Functions
             Define("fn:tail($arg as item()*) as item()*", (c, a) => a[0].Skip(1).ToList());
             Define("fn:reverse($arg as item()*) as item()*", (c, a) => a[0].Reverse().ToList());
             Define("fn:unordered($sourceSeq as item()*) as item()*", (c, a) => a[0]);
-            Define("fn:subsequence($sourceSeq as item()*, $startingLoc as xs:double) as item()*", (c, a) => SequenceFunctions.Subsequence(a[0], D(a[1]), double.PositiveInfinity));
+            Define("fn:subsequence($sourceSeq as item()*, $startingLoc as xs:double) as item()*", (c, a) => SequenceFunctions.Subsequence(a[0], D(a[1]), null));
             Define("fn:subsequence($sourceSeq as item()*, $startingLoc as xs:double, $length as xs:double) as item()*", (c, a) => SequenceFunctions.Subsequence(a[0], D(a[1]), D(a[2])));
             Define("fn:insert-before($target as item()*, $position as xs:integer, $inserts as item()*) as item()*", (c, a) =>
             {

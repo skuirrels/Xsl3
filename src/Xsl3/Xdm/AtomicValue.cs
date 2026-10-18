@@ -106,7 +106,7 @@ namespace Xsl3.Xdm
         public override string Value => Integer.ToString(System.Globalization.CultureInfo.InvariantCulture);
         public override object ClrValue => Integer;
         public override long ValueAsLong => (long)Integer;
-        public override double ValueAsDouble => (double)Integer;
+        public override double ValueAsDouble => Numeric.ToDouble(Integer);
     }
 
     internal sealed class DecimalValue : AtomicValue
@@ -120,7 +120,7 @@ namespace Xsl3.Xdm
 
         public override string Value => Lexical.DecimalToString(Decimal);
         public override object ClrValue => Decimal;
-        public override double ValueAsDouble => (double)Decimal;
+        public override double ValueAsDouble => Numeric.ToDouble(Decimal);
     }
 
     internal sealed class DoubleValue : AtomicValue

@@ -23,7 +23,7 @@ namespace Xsl3.XPath31.Functions
 
         public int ImplicitTimezoneMinutes { get; }
 
-        public IComparer<string> DefaultCollation { get; init; } = Comparison.CodepointCollation;
+        public Collation DefaultCollation { get; init; } = Collation.Codepoint;
 
         /// <summary>The query runtime, for documents and node identity; null outside a compiled evaluation.</summary>
         public Xsl3.Runtime.XmlQueryRuntime? Runtime { get; init; }
@@ -33,6 +33,16 @@ namespace Xsl3.XPath31.Functions
 
         /// <summary>The decimal formats fn:format-number resolves its third argument against.</summary>
         public DecimalFormatTable DecimalFormats { get; init; } = DecimalFormatTable.Empty;
+
+        /// <summary>This context with another default collation (for functions given an explicit collation).</summary>
+        public FunctionContext WithDefaultCollation(Collation collation) => new(ImplicitTimezoneMinutes, _comparePosition)
+        {
+            _now = CurrentDateTime,
+            DefaultCollation = collation,
+            Runtime = Runtime,
+            StaticBaseUri = StaticBaseUri,
+            DecimalFormats = DecimalFormats,
+        };
 
         /// <summary>fn:current-dateTime(): fixed for the whole evaluation, in the implicit timezone.</summary>
         public XsDateTime CurrentDateTime => _now ??= Now();

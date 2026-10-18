@@ -32,6 +32,14 @@ namespace Xsl3
             _xmlReaderSettings.CloseInput = true;
         }
 
+        // Xsl3: explicit settings for documents the query loads (the XPath 3.1 API parses DTDs; XSLT 1.0 keeps upstream's defaults).
+        public QueryReaderSettings(XmlReaderSettings settings)
+        {
+            _xmlReaderSettings = settings.Clone();
+            _xmlReaderSettings.NameTable ??= new NameTable();
+            _xmlReaderSettings.CloseInput = true;
+        }
+
         public QueryReaderSettings(XmlReader reader)
         {
 #pragma warning disable 618

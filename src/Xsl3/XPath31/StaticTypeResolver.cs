@@ -40,6 +40,29 @@ namespace Xsl3.XPath31
             return new QName(uri, name.LocalName, name.Prefix);
         }
 
+        /// <summary>The target of <c>cast as</c> / <c>castable as</c> and constructor functions: a built-in atomic type, xs:numeric or a built-in list type.</summary>
+        public static (AtomicType Type, CastKind Kind)? FindCastTarget(QName q)
+        {
+            if (q.NamespaceUri == QName.Ns.Xs)
+            {
+                switch (q.LocalName)
+                {
+                    case "numeric": return (AtomicTypes.Double, CastKind.Numeric);
+                    case "NMTOKENS": return (AtomicTypes.NMTOKEN, CastKind.List);
+                    case "IDREFS": return (AtomicTypes.IDREF, CastKind.List);
+                    case "ENTITIES": return (AtomicTypes.ENTITY, CastKind.List);
+                }
+            }
+            AtomicType? t = AtomicTypes.Find(q.NamespaceUri, q.LocalName);
+            return t == null ? null : (t, CastKind.Atomic);
+        }
+
+        public (AtomicType Type, CastKind Kind) ResolveCastTarget(LexicalQName name)
+        {
+            QName q = Expand(name, DefaultElementNamespace);
+            return FindCastTarget(q) ?? throw new XPathStaticException("XPST0051", $"{name} is not a known atomic type", -1);
+        }
+
         /// <summary>The target of <c>cast as</c> / <c>castable as</c>: a built-in atomic type.</summary>
         public AtomicType ResolveAtomicType(LexicalQName name)
         {

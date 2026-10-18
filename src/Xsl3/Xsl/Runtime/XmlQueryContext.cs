@@ -55,6 +55,11 @@ namespace Xsl3.Runtime
             {
                 _readerSettings = new QueryReaderSettings((XmlReader)defaultDataSource);
             }
+            else if (argList?.GetParam(Xsl3.XPath31.XPath31Executable.ReaderSettingsParam, Xsl3.XPath31.XPath31Executable.ControlNamespace) is XmlReaderSettings readerSettings)
+            {
+                // Xsl3: reader settings supplied by the XPath 3.1 API.
+                _readerSettings = new QueryReaderSettings(readerSettings);
+            }
             else
             {
                 // Consider allowing users to set DefaultReaderSettings in XsltArgumentList

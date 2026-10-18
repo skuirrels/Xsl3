@@ -46,14 +46,14 @@ namespace Xsl3.XPath31.Functions
         private static XPathRegex Compile(string pattern, string flags)
         {
             var options = RegexOptions.CultureInvariant;
-            bool dotAll = false, multiline = false, extended = false, literal = false;
+            bool dotAll = false, multiline = false, extended = false, literal = false, ignoreCase = false;
             foreach (char f in flags)
             {
                 switch (f)
                 {
                     case 's': dotAll = true; break;
-                    case 'm': multiline = true; options |= RegexOptions.Multiline; break;
-                    case 'i': options |= RegexOptions.IgnoreCase; break;
+                    case 'm': multiline = true; break;
+                    case 'i': ignoreCase = true; break;
                     case 'x': extended = true; break;
                     case 'q': literal = true; break;
                     default: throw new XdmException("FORX0001", $"Invalid regular expression flag '{f}'");
@@ -61,13 +61,14 @@ namespace Xsl3.XPath31.Functions
             }
             if (literal)
             {
-                return new XPathRegex(new Regex(Regex.Escape(pattern), options), 0, new[] { 0 });
+                return new XPathRegex(new Regex(Regex.Escape(pattern), ignoreCase ? options | RegexOptions.IgnoreCase : options), 0, new[] { 0 });
             }
             if (extended)
             {
                 pattern = StripWhitespace(pattern);
             }
-            var translator = new Translator(pattern, dotAll, multiline);
+            // Case-insensitivity is translated too: .NET's IgnoreCase would also widen \p{Lu} and friends.
+            var translator = new Translator(pattern, dotAll, multiline, ignoreCase);
             string net = translator.Translate();
             try
             {
@@ -87,8 +88,9 @@ namespace Xsl3.XPath31.Functions
             for (int i = 0; i < pattern.Length; i++)
             {
                 char c = pattern[i];
-                if (c == '\\' && i + 1 < pattern.Length)
+                if (c == '\\' && i + 1 < pattern.Length && pattern[i + 1] is not (' ' or '\t' or '\n' or '\r'))
                 {
+                    // An escaped bracket doesn't open or close a class; whitespace after a backslash is still removed.
                     sb.Append(c).Append(pattern[++i]);
                     continue;
                 }
@@ -107,22 +109,38 @@ namespace Xsl3.XPath31.Functions
 
         private sealed class Translator
         {
-            // XML 1.0 Fifth Edition NameStartChar / NameChar, as .NET character class contents (BMP only).
-            private const string NameStartClass = ":A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
-            private const string NameClass = NameStartClass + "\\-.0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040";
+            // XML 1.0 Fifth Edition NameStartChar and NameChar.
+            private static readonly CodePointSet s_nameStart = CodePointSet.Of(
+                (':', ':'), ('A', 'Z'), ('_', '_'), ('a', 'z'), (0xC0, 0xD6), (0xD8, 0xF6), (0xF8, 0x2FF), (0x370, 0x37D), (0x37F, 0x1FFF),
+                (0x200C, 0x200D), (0x2070, 0x218F), (0x2C00, 0x2FEF), (0x3001, 0xD7FF), (0xF900, 0xFDCF), (0xFDF0, 0xFFFD), (0x10000, 0xEFFFF));
+
+            private static readonly CodePointSet s_name = s_nameStart.Union(CodePointSet.Of(('-', '.'), ('0', '9'), (0xB7, 0xB7), (0x300, 0x36F), (0x203F, 0x2040)));
+
+            // XSD \s is exactly space, tab, newline and carriage return.
+            private static readonly CodePointSet s_space = CodePointSet.Of((' ', ' '), ('\t', '\n'), ('\r', '\r'));
+
+            private static CodePointSet? s_word;
+
+            // XSD \w is everything except punctuation, separators and "other" (\p{P}, \p{Z}, \p{C}).
+            private static CodePointSet Word => s_word ??= CodePointSet.All
+                .Subtract(CodePointSet.Category("P")!).Subtract(CodePointSet.Category("Z")!).Subtract(CodePointSet.Category("C")!);
+
+            private static readonly string s_dot = CodePointSet.All.Subtract(CodePointSet.Of(('\n', '\n'), ('\r', '\r'))).ToPattern();
+            private static readonly string s_dotAll = CodePointSet.All.ToPattern();
 
             private readonly string _p;
-            private readonly bool _dotAll, _multiline;
+            private readonly bool _dotAll, _multiline, _ignoreCase;
             private readonly StringBuilder _out = new();
             private readonly Stack<int> _open = new();
             private readonly HashSet<int> _closed = new();
             private int _i;
 
-            public Translator(string pattern, bool dotAll, bool multiline)
+            public Translator(string pattern, bool dotAll, bool multiline, bool ignoreCase)
             {
                 _p = pattern;
                 _dotAll = dotAll;
                 _multiline = multiline;
+                _ignoreCase = ignoreCase;
                 Parents.Add(0);
             }
 
@@ -139,11 +157,11 @@ namespace Xsl3.XPath31.Functions
                     switch (c)
                     {
                         case '\\':
-                            Escape(inClass: false);
+                            Escape();
                             canQuantify = true;
                             break;
                         case '[':
-                            CharClass();
+                            _out.Append(CharClass().ToPattern());
                             canQuantify = true;
                             break;
                         case '(':
@@ -176,18 +194,20 @@ namespace Xsl3.XPath31.Functions
                             canQuantify = false;
                             break;
                         case '.':
-                            // One code point; except newline unless the s flag is set.
-                            _out.Append(_dotAll ? "(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[\\s\\S])" : "(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[^\\n])");
+                            // One code point; except newline and carriage return unless the s flag is set.
+                            _out.Append(_dotAll ? s_dotAll : s_dot);
                             canQuantify = true;
                             break;
                         case '^':
-                            _out.Append('^');
-                            canQuantify = false;
+                            // With m, the start of any line: after a newline, but not after one that ends the string.
+                            // Anchors are atoms in XPath, so they may be quantified ("alp^?ha").
+                            _out.Append(_multiline ? "(?:\\A|(?<=\\n)(?!\\z))" : "(?:\\A)");
+                            canQuantify = true;
                             break;
                         case '$':
-                            // Without m, '$' is the end of the whole string (.NET's '$' would also match before a final newline).
-                            _out.Append(_multiline ? "(?=\\n|\\z)" : "\\z");
-                            canQuantify = false;
+                            // Without m, the end of the whole string (.NET's '$' would also match before a final newline).
+                            _out.Append(_multiline ? "(?:(?=\\n)|\\z)" : "(?:\\z)");
+                            canQuantify = true;
                             break;
                         case '*':
                         case '+':
@@ -206,7 +226,14 @@ namespace Xsl3.XPath31.Functions
                         case ']':
                             throw Invalid(_p, $"unescaped '{c}'");
                         default:
-                            AppendLiteral(c);
+                            if (char.IsHighSurrogate(c) && _i < _p.Length && char.IsLowSurrogate(_p[_i]))
+                            {
+                                Literal(char.ConvertToUtf32(c, _p[_i++]));
+                            }
+                            else
+                            {
+                                Literal(c);
+                            }
                             canQuantify = true;
                             break;
                     }
@@ -254,107 +281,93 @@ namespace Xsl3.XPath31.Functions
                 Reluctant();
             }
 
-            private void AppendLiteral(char c)
+            // A literal code point; with the i flag, any of its case variants.
+            private void Literal(int cp)
             {
-                if (c is '#' or ' ')
+                if (_ignoreCase)
                 {
-                    _out.Append('\\');
+                    CodePointSet variants = CodePointSet.Single(cp).WithCaseVariants();
+                    if (variants.Ranges.Count > 1 || variants.Ranges[0].Low != variants.Ranges[0].High)
+                    {
+                        _out.Append(variants.ToPattern());
+                        return;
+                    }
                 }
-                _out.Append(c);
+                if (cp > 0xFFFF)
+                {
+                    _out.Append(char.ConvertFromUtf32(cp));
+                    return;
+                }
+                char c = (char)cp;
+                if ("\\*+?|{}[]()^$.# \t\n\r\f".IndexOf(c) >= 0)
+                {
+                    _out.Append(c switch { '\t' => "\\t", '\n' => "\\n", '\r' => "\\r", '\f' => "\\f", _ => "\\" + c });
+                }
+                else
+                {
+                    _out.Append(c);
+                }
             }
 
-            // An escape outside or inside a character class (the backslash is consumed).
-            private void Escape(bool inClass)
+            // An escape outside a character class (the backslash is consumed).
+            private void Escape()
+            {
+                if (_i < _p.Length && _p[_i] >= '1' && _p[_i] <= '9')
+                {
+                    BackReference(_p[_i++]);
+                    return;
+                }
+                var (cp, set) = EscapeItem();
+                if (cp is int single)
+                {
+                    Literal(single);
+                }
+                else
+                {
+                    _out.Append(set!.ToPattern());
+                }
+            }
+
+            // A single-character escape (its code point) or a class escape (its set); the backslash is consumed.
+            private (int? CodePoint, CodePointSet? Set) EscapeItem()
             {
                 if (_i >= _p.Length) throw Invalid(_p, "trailing backslash");
                 char e = _p[_i++];
                 switch (e)
                 {
-                    case 'n': _out.Append("\\n"); return;
-                    case 'r': _out.Append("\\r"); return;
-                    case 't': _out.Append("\\t"); return;
+                    case 'n': return ('\n', null);
+                    case 'r': return ('\r', null);
+                    case 't': return ('\t', null);
                     case '\\': case '|': case '.': case '?': case '*': case '+': case '(': case ')':
                     case '{': case '}': case '-': case '[': case ']': case '^': case '$':
-                        _out.Append('\\').Append(e);
-                        return;
-                    case 'd': _out.Append(inClass ? "\\d" : "\\d"); return;
-                    case 'D': _out.Append("\\D"); return;
-                    // XSD \s is exactly space, tab, newline and carriage return.
-                    case 's': _out.Append(inClass ? " \\t\\n\\r" : "[ \\t\\n\\r]"); return;
-                    case 'S': _out.Append(inClass ? "\\S" : "[^ \\t\\n\\r]"); return;
-                    // XSD \w is everything except punctuation, separators and other (\p{P}, \p{Z}, \p{C}).
-                    case 'w': _out.Append(inClass ? "\\w" : "[^\\p{P}\\p{Z}\\p{C}]"); return;
-                    case 'W': _out.Append(inClass ? "\\W" : "[\\p{P}\\p{Z}\\p{C}]"); return;
-                    case 'i': _out.Append(inClass ? NameStartClass : "[" + NameStartClass + "]"); return;
-                    case 'c': _out.Append(inClass ? NameClass : "[" + NameClass + "]"); return;
-                    case 'I': if (inClass) throw Invalid(_p, "\\I inside a character class"); _out.Append("[^" + NameStartClass + "]"); return;
-                    case 'C': if (inClass) throw Invalid(_p, "\\C inside a character class"); _out.Append("[^" + NameClass + "]"); return;
-                    case 'p':
-                    case 'P':
-                        Property(e);
-                        return;
-                }
-                if (!inClass && e >= '1' && e <= '9')
-                {
-                    BackReference(e);
-                    return;
+                        return (e, null);
+                    case 'd': return (null, CodePointSet.Category("Nd"));
+                    case 'D': return (null, CodePointSet.Category("Nd")!.Complement());
+                    case 's': return (null, s_space);
+                    case 'S': return (null, s_space.Complement());
+                    case 'w': return (null, Word);
+                    case 'W': return (null, Word.Complement());
+                    case 'i': return (null, s_nameStart);
+                    case 'I': return (null, s_nameStart.Complement());
+                    case 'c': return (null, s_name);
+                    case 'C': return (null, s_name.Complement());
+                    case 'p': return (null, Property());
+                    case 'P': return (null, Property().Complement());
                 }
                 throw Invalid(_p, $"unknown escape '\\{e}'");
             }
 
-            // \p{L}, \p{IsBasicLatin}, …
-            private void Property(char e)
+            // \p{L}, \p{IsBasicLatin}, … (after the 'p' or 'P').
+            private CodePointSet Property()
             {
-                if (_i >= _p.Length || _p[_i] != '{') throw Invalid(_p, $"\\{e} must be followed by {{");
+                if (_i >= _p.Length || _p[_i] != '{') throw Invalid(_p, "\\p must be followed by {");
                 int close = _p.IndexOf('}', _i);
-                if (close < 0) throw Invalid(_p, $"unterminated \\{e}{{");
+                if (close < 0) throw Invalid(_p, "unterminated \\p{");
                 string name = _p[(_i + 1)..close];
                 _i = close + 1;
                 if (name.Length == 0) throw Invalid(_p, "empty property name");
-                if (name.StartsWith("Is", System.StringComparison.Ordinal) && s_supplementaryBlocks.TryGetValue(name[2..], out (int Low, int High) range))
-                {
-                    // .NET only knows blocks of the Basic Multilingual Plane; these are matched as surrogate pairs.
-                    string pairs = Utf16Range(range.Low, range.High);
-                    _out.Append(e == 'p' ? $"(?:{pairs})" : $"(?!{pairs})(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[\\s\\S])");
-                    return;
-                }
-                _out.Append('\\').Append(e).Append('{').Append(name).Append('}');
-            }
-
-            // XML Schema 1.0 block names (Unicode 3.1) outside the Basic Multilingual Plane.
-            private static readonly Dictionary<string, (int, int)> s_supplementaryBlocks = new(System.StringComparer.Ordinal)
-            {
-                ["OldItalic"] = (0x10300, 0x1032F),
-                ["Gothic"] = (0x10330, 0x1034F),
-                ["Deseret"] = (0x10400, 0x1044F),
-                ["ByzantineMusicalSymbols"] = (0x1D000, 0x1D0FF),
-                ["MusicalSymbols"] = (0x1D100, 0x1D1FF),
-                ["MathematicalAlphanumericSymbols"] = (0x1D400, 0x1D7FF),
-                ["CJKUnifiedIdeographsExtensionB"] = (0x20000, 0x2A6DF),
-                ["CJKCompatibilityIdeographsSupplement"] = (0x2F800, 0x2FA1F),
-                ["Tags"] = (0xE0000, 0xE007F),
-                ["SupplementaryPrivateUseArea-A"] = (0xF0000, 0xFFFFF),
-                ["SupplementaryPrivateUseArea-B"] = (0x100000, 0x10FFFF),
-            };
-
-            // An alternation matching the UTF-16 encodings of the code points low..high (both supplementary).
-            private static string Utf16Range(int low, int high)
-            {
-                static (char Hi, char Lo) Split(int cp) => (char.ConvertFromUtf32(cp)[0], char.ConvertFromUtf32(cp)[1]);
-                static string U(char c) => "\\u" + ((int)c).ToString("X4", System.Globalization.CultureInfo.InvariantCulture);
-                var (h1, l1) = Split(low);
-                var (h2, l2) = Split(high);
-                if (h1 == h2)
-                {
-                    return $"{U(h1)}[{U(l1)}-{U(l2)}]";
-                }
-                var parts = new List<string> { $"{U(h1)}[{U(l1)}-\\uDFFF]" };
-                if (h2 - h1 > 1)
-                {
-                    parts.Add($"[{U((char)(h1 + 1))}-{U((char)(h2 - 1))}][\\uDC00-\\uDFFF]");
-                }
-                parts.Add($"{U(h2)}[\\uDC00-{U(l2)}]");
-                return string.Join("|", parts);
+                CodePointSet? set = name.StartsWith("Is", System.StringComparison.Ordinal) ? CodePointSet.Block(name[2..]) : CodePointSet.Category(name);
+                return set ?? throw Invalid(_p, $"unknown property '{name}'");
             }
 
             // \N: as many digits as still name a group that has been closed before this point.
@@ -370,19 +383,22 @@ namespace Xsl3.XPath31.Functions
                 {
                     throw Invalid(_p, $"back-reference \\{n} to a group that isn't complete");
                 }
-                _out.Append("(?:\\").Append(n).Append(')');
+                _out.Append(_ignoreCase ? "(?i:\\" : "(?:\\").Append(n).Append(')');
             }
 
-            // [...], [^...], with subtraction [a-z-[aeiou]] (XSD 1.0 §F.1.1). A '-' is a range separator, or
-            // literal only as the first or last character of a group.
-            private void CharClass()
+            // [...], [^...], with subtraction [a-z-[aeiou]] (XSD 1.0 §F.1.1), after the '['. A '-' is a range
+            // separator, or literal only as the first or last character of a group.
+            private CodePointSet CharClass()
             {
-                _out.Append('[');
+                bool negate = false;
                 if (_i < _p.Length && _p[_i] == '^')
                 {
-                    _out.Append('^');
+                    negate = true;
                     _i++;
                 }
+                CodePointSet literals = CodePointSet.Empty; // characters and ranges: case variants apply to these
+                CodePointSet escapes = CodePointSet.Empty;
+                CodePointSet? subtract = null;
                 bool first = true;
                 while (true)
                 {
@@ -392,17 +408,16 @@ namespace Xsl3.XPath31.Functions
                     {
                         if (first) throw Invalid(_p, "empty character class");
                         _i++;
-                        _out.Append(']');
-                        return;
+                        break;
                     }
                     if (c == '-' && _i + 1 < _p.Length && _p[_i + 1] == '[')
                     {
                         if (first) throw Invalid(_p, "character class subtraction with nothing to subtract from");
                         _i += 2;
-                        _out.Append('-');
-                        CharClass();
+                        subtract = CharClass();
                         if (_i >= _p.Length || _p[_i] != ']') throw Invalid(_p, "character class subtraction must end the class");
-                        continue;
+                        _i++;
+                        break;
                     }
                     if (c == '[')
                     {
@@ -414,57 +429,61 @@ namespace Xsl3.XPath31.Functions
                         bool last = _i + 1 < _p.Length && _p[_i + 1] == ']';
                         if (!first && !last) throw Invalid(_p, "'-' must be escaped here");
                         _i++;
-                        _out.Append("\\-");
+                        literals = literals.Union(CodePointSet.Single('-'));
                         first = false;
                         continue;
                     }
                     // One item: a character or escape, possibly the start of a range.
-                    int itemStart = _out.Length;
-                    int? low = ClassChar();
+                    var (low, set) = ClassItem();
                     if (_i + 1 < _p.Length && _p[_i] == '-' && _p[_i + 1] != ']' && _p[_i + 1] != '[')
                     {
                         if (low == null) throw Invalid(_p, "a range can't start with a multi-character escape");
                         _i++;
                         if (_p[_i] == '-') throw Invalid(_p, "'-' can't end a range unescaped");
-                        _out.Append('-');
-                        int? high = ClassChar();
+                        var (high, _) = ClassItem();
                         if (high == null) throw Invalid(_p, "a range can't end with a multi-character escape");
                         if (high < low) throw Invalid(_p, "range out of order");
                         if (_i < _p.Length && _p[_i] == '-' && _i + 1 < _p.Length && _p[_i + 1] != ']' && _p[_i + 1] != '[')
                         {
                             throw Invalid(_p, "'-' must be escaped after a range");
                         }
+                        literals = literals.Union(CodePointSet.Of((low.Value, high.Value)));
+                    }
+                    else if (low is int cp)
+                    {
+                        literals = literals.Union(CodePointSet.Single(cp));
+                    }
+                    else
+                    {
+                        escapes = escapes.Union(set!);
                     }
                     first = false;
                 }
+                CodePointSet result = (_ignoreCase ? literals.WithCaseVariants() : literals).Union(escapes);
+                if (negate)
+                {
+                    result = result.Complement();
+                }
+                if (subtract != null)
+                {
+                    result = result.Subtract(subtract);
+                }
+                return result;
             }
 
-            // A single character (returning its code point) or a class escape (returning null), appended to the output.
-            private int? ClassChar()
+            // A single character (its code point) or a class escape (its set) inside a character class.
+            private (int? CodePoint, CodePointSet? Set) ClassItem()
             {
                 char c = _p[_i++];
                 if (c == '\\')
                 {
-                    if (_i < _p.Length && _p[_i] is 'n' or 'r' or 't' or '\\' or '|' or '.' or '?' or '*' or '+' or '(' or ')' or '{' or '}' or '-' or '[' or ']' or '^' or '$')
-                    {
-                        char e = _p[_i];
-                        Escape(inClass: true);
-                        return e switch { 'n' => '\n', 'r' => '\r', 't' => '\t', _ => e };
-                    }
-                    Escape(inClass: true);
-                    return null;
+                    return EscapeItem();
                 }
                 if (char.IsHighSurrogate(c) && _i < _p.Length && char.IsLowSurrogate(_p[_i]))
                 {
-                    _out.Append(c).Append(_p[_i]);
-                    return char.ConvertToUtf32(c, _p[_i++]);
+                    return (char.ConvertToUtf32(c, _p[_i++]), null);
                 }
-                if (c is '^')
-                {
-                    _out.Append('\\');
-                }
-                _out.Append(c);
-                return c;
+                return (c, null);
             }
         }
     }
