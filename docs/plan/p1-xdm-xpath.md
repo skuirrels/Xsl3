@@ -61,10 +61,11 @@ boxed `XPathItem`.
       tests (253 of them must-reject).
 - [ ] **Static context and analysis**: namespaces, default element/function namespaces, in-scope
       variables, function signatures with arity, focus analysis, type inference (bottom-up).
-- [ ] **XDM atomic types**: the type hierarchy of XPath 3.1 §2.7, lexical-space parsing, canonical
-      serialisation (double/float formatting per §19.1.2.2 of F&O), casting table (F&O §19), equality and
+- [x] **XDM atomic types** (`src/Xsl3/Xdm`): the type hierarchy of XPath 3.1 §2.7, lexical-space parsing,
+      canonical serialisation (double/float formatting per §19.1.2.2 of F&O), casting table (F&O §19), equality and
       ordering, arithmetic with overflow (`FOAR0002`), `XsDateTime`/`XsDuration` with timezone arithmetic.
-      Unit tests plus the QT3 `prod-CastExpr`, `op-*` sets.
+      Done, with unit tests from the F&O worked examples (`XdmAtomicTests`). Measuring against QT3's
+      `prod-CastExpr` and `op-*` sets waits for the execution path.
 - [ ] **Lowering to QIL** (`XPath31QilBuilder`): explicit atomisation, general comparison as an
       existential loop over value comparisons, effective boolean value, path expressions with document-order
       handling, `for`/`let`/`some`/`every`/`if`, `instance of`/`cast`/`castable`/`treat`, function calls.
@@ -73,6 +74,15 @@ boxed `XPathItem`.
 - [ ] **Core F&O**: strings (code-point semantics, SPEC §13.5), numerics, booleans, dates and durations,
       QNames, node functions, sequences, aggregates, regex (SPEC §13.4), collations (SPEC §13.2).
 - [ ] **Conformance report**: `docs/conformance.md` generated from the harness, per test set.
+
+## Decisions made along the way
+
+- **xs:integer is unbounded** (`BigInteger`); the `long` fast path of SPEC §8.2 is a P4 optimisation.
+- **Fractional seconds are exact decimals** in both `XsDateTime` and `XsDuration`, and all date arithmetic
+  goes through an exact decimal timeline, so nothing is rounded to ticks or milliseconds.
+- **XSD 1.0 year semantics**: no year 0, and -0001 is 1 BCE (SPEC §18 claims XSD 1.0). Lexical double
+  forms follow XSD 1.1 in accepting `+INF`, as F&O 3.1 does.
+- **double → decimal uses the shortest round-trip digits**, so `xs:decimal(0.1e0)` is `0.1`.
 
 ## Risks noted at the start
 
