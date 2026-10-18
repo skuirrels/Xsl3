@@ -26,6 +26,10 @@ jobs:
 
       - run: dotnet build Xsl3.slnx -c Release
 
+      # Unit tests, including the checks that every bridge to System.Private.Xml internals binds on this runtime.
+      - name: Unit tests
+        run: dotnet test tests/Xsl3.Tests -c Release --no-build --logger trx --results-directory artifacts/test-results
+
       # The XSLT 1.0 regression gate (SPEC §20): upstream's XslCompiledTransform tests, 100% on both TFMs.
       # PlatformSpecific tests for other platforms and conditional ActiveIssues carry category=failing.
       - name: Upstream tests
