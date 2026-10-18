@@ -112,6 +112,7 @@ public sealed class Runner
         Result result;
         try
         {
+            ApplyDecimalFormats(env, sc);
             XPath31Executable exe = XPath31Compiler.Compile(test.Expression, sc);
             result = Result.Of(exe.Evaluate(contextItem, variables, ImplicitTimezoneMinutes, new TestResolver(env)));
         }
@@ -153,6 +154,24 @@ public sealed class Runner
             }
         }
         return sc;
+    }
+
+    private static void ApplyDecimalFormats(TestEnvironment env, XPathStaticContext sc)
+    {
+        foreach (XElement df in env.DecimalFormats)
+        {
+            var properties = df.Attributes().Where(a => !a.IsNamespaceDeclaration && a.Name.LocalName != "name")
+                .Select(a => new KeyValuePair<string, string>(a.Name.LocalName, a.Value));
+            string? name = (string?)df.Attribute("name");
+            if (name == null)
+            {
+                sc.DefaultDecimalFormat = XPathDecimalFormat.FromProperties(properties);
+                continue;
+            }
+            int colon = name.IndexOf(':');
+            string ns = colon < 0 ? "" : df.GetNamespaceOfPrefix(name[..colon])?.NamespaceName ?? "";
+            sc.DecimalFormats[new QName(ns, colon < 0 ? name : name[(colon + 1)..])] = XPathDecimalFormat.FromProperties(properties);
+        }
     }
 
     /// <summary>Maps the URIs an environment declares for its documents and resources to their files.</summary>

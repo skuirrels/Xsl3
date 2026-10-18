@@ -48,6 +48,10 @@ public sealed class Profile
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),
             // XSD 1.0 only (SPEC §18).
             "xsd-version" => d.Value == "1.0",
+            // Month and day names exist for English and German; other languages fall back to English.
+            "language" => d.Value is "en" or "de",
+            "default-language" => d.Value == "en",
+            "format-integer-sequence" => d.Value is "①" or "⑴" or "⒈" or "一" or "α" or "Α",
             _ => AssumeUnknownDependenciesMet,
         };
         return met == d.Satisfied;

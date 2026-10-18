@@ -43,6 +43,12 @@ namespace Xsl3.XPath31
         /// <summary>External variables: their values are supplied to <see cref="XPath31Executable.Evaluate"/>.</summary>
         public List<QName> ExternalVariables { get; } = new();
 
+        /// <summary>The unnamed decimal format used by fn:format-number#2.</summary>
+        public XPathDecimalFormat DefaultDecimalFormat { get; set; } = XPathDecimalFormat.Default;
+
+        /// <summary>Statically known named decimal formats.</summary>
+        public Dictionary<QName, XPathDecimalFormat> DecimalFormats { get; } = new();
+
         internal IXmlNamespaceResolver CreateResolver()
         {
             var manager = new XmlNamespaceManager(new NameTable());
@@ -96,7 +102,7 @@ namespace Xsl3.XPath31
             var compiler = new XPath31Compiler(sc);
             QilExpression qil = compiler.CompileQuery(ast);
             XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
-            return new XPath31Executable(command, sc.BaseUri);
+            return new XPath31Executable(command, sc.BaseUri, new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), compiler._namespaces));
         }
 
         private QilExpression CompileQuery(Expr ast)
@@ -669,6 +675,7 @@ namespace Xsl3.XPath31
                 2 => nameof(XsltLibrary.X31Call2),
                 3 => nameof(XsltLibrary.X31Call3),
                 4 => nameof(XsltLibrary.X31Call4),
+                5 => nameof(XsltLibrary.X31Call5),
                 _ => throw NotYetSupported(call, $"Calling {name}#{args.Count}"),
             };
             return Call(method, T.ItemS, args.Prepend(_f.Double(def.Id)).ToArray());
@@ -682,19 +689,23 @@ namespace Xsl3.XPath31
         public const string ContextItemParam = "context-item";
         public const string ImplicitTimezoneParam = "implicit-timezone";
         public const string StaticBaseUriParam = "static-base-uri";
+        public const string DecimalFormatsParam = "decimal-formats";
 
         private readonly XmlILCommand _command;
         private readonly string? _baseUri;
+        private readonly DecimalFormatTable _decimalFormats;
 
-        internal XPath31Executable(XmlILCommand command, string? baseUri)
+        internal XPath31Executable(XmlILCommand command, string? baseUri, DecimalFormatTable decimalFormats)
         {
             _command = command;
             _baseUri = baseUri;
+            _decimalFormats = decimalFormats;
         }
 
         public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null)
         {
             var args = new XsltArgumentList();
+            args.AddParam(DecimalFormatsParam, ControlNamespace, _decimalFormats);
             if (contextItem != null)
             {
                 args.AddParam(ContextItemParam, ControlNamespace, contextItem);

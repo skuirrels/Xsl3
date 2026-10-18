@@ -67,7 +67,7 @@ namespace Xsl3.Xdm
         };
 
         // Days since 1970-01-01 in the proleptic Gregorian calendar (H. Hinnant's days_from_civil).
-        private static long DaysFromCivil(long year, int month, int day)
+        internal static long DaysFromCivil(long year, int month, int day)
         {
             long y = (year < 0 ? year + 1 : year) - (month <= 2 ? 1 : 0);
             long era = (y >= 0 ? y : y - 399) / 400;

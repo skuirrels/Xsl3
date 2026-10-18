@@ -31,6 +31,9 @@ namespace Xsl3.XPath31.Functions
         /// <summary>The static base URI, against which fn:doc and friends resolve relative URIs.</summary>
         public string? StaticBaseUri { get; init; }
 
+        /// <summary>The decimal formats fn:format-number resolves its third argument against.</summary>
+        public DecimalFormatTable DecimalFormats { get; init; } = DecimalFormatTable.Empty;
+
         /// <summary>fn:current-dateTime(): fixed for the whole evaluation, in the implicit timezone.</summary>
         public XsDateTime CurrentDateTime => _now ??= Now();
 

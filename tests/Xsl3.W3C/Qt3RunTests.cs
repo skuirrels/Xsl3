@@ -38,7 +38,10 @@ public class Qt3RunTests
         var perSet = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // pass, fail, not run
         int wrongErrorCode = 0;
 
-        foreach (TestCase test in catalog.TestCases.Where(Profile.Xsl3.Applies))
+        // XSL3_QT3_SETS=fn-format-date,fn-format-time runs only those test sets (prefixes), for quick iteration;
+        // the baseline is then not checked.
+        string[]? sets = Environment.GetEnvironmentVariable("XSL3_QT3_SETS")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (TestCase test in catalog.TestCases.Where(Profile.Xsl3.Applies).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
         {
             Outcome outcome = runner.Run(test);
             int[] counts = perSet.TryGetValue(test.Set.Name, out int[]? c) ? c : perSet[test.Set.Name] = new int[3];
@@ -58,6 +61,10 @@ public class Qt3RunTests
         _output.WriteLine(summary);
         WriteReport(summary, perSet, failures);
 
+        if (sets != null)
+        {
+            return;
+        }
         string problems = Baseline.Check("qt3-run", failures);
         Assert.True(problems.Length == 0, problems);
     }

@@ -27,6 +27,7 @@ namespace Xsl3.Runtime
         {
             Runtime = _runtime,
             StaticBaseUri = _runtime.ExternalContext.GetParameter(XPath31Executable.StaticBaseUriParam, XPath31Executable.ControlNamespace) as string,
+            DecimalFormats = _runtime.ExternalContext.GetParameter(XPath31Executable.DecimalFormatsParam, XPath31Executable.ControlNamespace) as DecimalFormatTable ?? DecimalFormatTable.Empty,
         };
 
         /// <summary>Set by the caller to fix the implicit timezone (minutes); otherwise the local timezone applies.</summary>
@@ -346,6 +347,8 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Call3(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c) => Call(id, a, b, c);
 
         public IList<XPathItem> X31Call4(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d) => Call(id, a, b, c, d);
+
+        public IList<XPathItem> X31Call5(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d, IList<XPathItem> e) => Call(id, a, b, c, d, e);
 
         private IList<XPathItem> Call(double id, params IList<XPathItem>[] args) => FunctionLibrary.ById((int)id).Invoke(X31Context, args);
     }
