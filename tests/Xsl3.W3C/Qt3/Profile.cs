@@ -51,6 +51,9 @@ public sealed class Profile
             // Month and day names exist for English and German; other languages fall back to English.
             "language" => d.Value is "en" or "de",
             "default-language" => d.Value == "en",
+            // Casing and character data follow Unicode 15.0 (eng/gen-casing.py, the CLR's tables).
+            "unicode-version" => d.Value == "15.0",
+            "unicode-normalization-form" => d.Value is "NFC" or "NFD" or "NFKC" or "NFKD",
             "format-integer-sequence" => d.Value is "①" or "⑴" or "⒈" or "一" or "α" or "Α",
             _ => AssumeUnknownDependenciesMet,
         };

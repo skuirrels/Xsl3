@@ -19,11 +19,9 @@ namespace Xsl3.XPath31.Functions
         private static Collation Coll(IList<XPathItem> arg, FunctionContext c)
         {
             string uri = S(arg);
-            if (c.StaticBaseUri != null && System.Uri.TryCreate(uri, System.UriKind.Relative, out _) &&
-                System.Uri.TryCreate(c.StaticBaseUri, System.UriKind.Absolute, out System.Uri? baseUri) &&
-                System.Uri.TryCreate(baseUri, uri, out System.Uri? resolved))
+            if (c.StaticBaseUri != null && !UriReference.IsAbsolute(uri) && UriReference.IsAbsolute(c.StaticBaseUri))
             {
-                uri = resolved.OriginalString;
+                uri = UriReference.Resolve(uri, c.StaticBaseUri);
             }
             return Collation.Resolve(uri);
         }
@@ -70,8 +68,8 @@ namespace Xsl3.XPath31.Functions
             Define("fn:deep-equal($parameter1 as item()*, $parameter2 as item()*, $collation as xs:string) as xs:boolean", (c, a) => Bool(DeepEqual.Sequences(a[0], a[1], c.WithDefaultCollation(Coll(a[2], c)))));
             Define("fn:min($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], c.WithDefaultCollation(Coll(a[1], c)), max: false));
             Define("fn:max($arg as xs:anyAtomicType*, $collation as xs:string) as xs:anyAtomicType?", (c, a) => Aggregates.MinMax(a[0], c.WithDefaultCollation(Coll(a[1], c)), max: true));
-            Define("fn:collation-key($key as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Encoding.UTF8.GetBytes(S(a[0])))));
-            Define("fn:collation-key($key as xs:string, $collation as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Encoding.UTF8.GetBytes(Coll(a[1], c).Key(S(a[0]))))));
+            Define("fn:collation-key($key as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, c.DefaultCollation.KeyBytes(S(a[0])))));
+            Define("fn:collation-key($key as xs:string, $collation as xs:string) as xs:base64Binary", (c, a) => One(new BinaryValue(AtomicTypes.Base64Binary, Coll(a[1], c).KeyBytes(S(a[0])))));
             Define("fn:contains-token($input as xs:string*, $token as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), c.DefaultCollation)));
             Define("fn:contains-token($input as xs:string*, $token as xs:string, $collation as xs:string) as xs:boolean", (c, a) => Bool(ContainsToken(a[0], S(a[1]), Coll(a[2], c))));
 
@@ -151,19 +149,15 @@ namespace Xsl3.XPath31.Functions
                     throw new XdmException("FORG0002", $"'{relative}' is not a valid URI reference");
                 }
             }
-            if (System.Uri.TryCreate(relative, System.UriKind.Absolute, out System.Uri? abs) && !relative.StartsWith('/'))
+            if (UriReference.IsAbsolute(relative))
             {
                 return relative;
             }
-            if (!System.Uri.TryCreate(baseUri, System.UriKind.Absolute, out System.Uri? b) || baseUri.Contains('#'))
+            if (!UriReference.IsAbsolute(baseUri) || !System.Uri.TryCreate(baseUri, System.UriKind.Absolute, out _) || baseUri.Contains('#'))
             {
                 throw new XdmException("FORG0002", $"'{baseUri}' is not a valid absolute base URI");
             }
-            if (!System.Uri.TryCreate(b, relative, out System.Uri? resolved))
-            {
-                throw new XdmException("FORG0002", $"'{relative}' can't be resolved against '{baseUri}'");
-            }
-            return resolved.OriginalString.Length > 0 ? resolved.ToString() : resolved.AbsoluteUri;
+            return UriReference.Resolve(relative, baseUri);
         }
     }
 }

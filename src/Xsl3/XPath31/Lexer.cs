@@ -268,6 +268,10 @@ namespace Xsl3.XPath31
             }
             i = close + 1;
             uri = NormalizeUriLiteral(uri);
+            if (uri == "http://www.w3.org/2000/xmlns/")
+            {
+                throw new XPathStaticException("XQST0070", "The xmlns namespace can't be used in a name", start);
+            }
             if (i < text.Length && text[i] == '*')
             {
                 i++;

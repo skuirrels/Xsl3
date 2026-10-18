@@ -106,6 +106,15 @@ namespace Xsl3.XPath31.Functions
             return sb.ToString();
         }
 
+        /// <summary>
+        /// fn:collation-key: bytes that compare (as unsigned octets) as the strings do under this collation. UTF-8
+        /// preserves code point order, so it serves the code point and ASCII case-folding collations.
+        /// </summary>
+        public byte[] KeyBytes(string s) =>
+            AsciiFold ? System.Text.Encoding.UTF8.GetBytes(Fold(s))
+            : _compareInfo == null ? System.Text.Encoding.UTF8.GetBytes(s)
+            : _compareInfo.GetSortKey(s, _options).KeyData;
+
         /// <summary>A key such that equal keys mean equal strings under this collation (fn:collation-key, grouping).</summary>
         public string Key(string s) =>
             AsciiFold ? Fold(s)

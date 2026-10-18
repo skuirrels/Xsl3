@@ -549,7 +549,7 @@ namespace Xsl3.XPath31.Functions
             int colon = lexical.IndexOf(':');
             string prefix = colon < 0 ? "" : lexical[..colon];
             string local = colon < 0 ? lexical : lexical[(colon + 1)..];
-            if (!Casting.IsNCName(local) || (prefix.Length > 0 && !Casting.IsNCName(prefix)))
+            if (!Casting.IsNCName(local) || (colon >= 0 && !Casting.IsNCName(prefix)))
             {
                 throw Err.FOCA0002($"'{lexical}' is not a lexical QName");
             }

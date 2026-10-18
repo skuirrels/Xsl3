@@ -333,7 +333,8 @@ namespace Xsl3.Xdm
             }
             catch (OverflowException)
             {
-                if (divide && Math.Abs(factor) > 1)
+                // The factor is too large for a decimal: a zero duration stays zero, and dividing by it is zero.
+                if (d.Duration.Seconds == 0 || (divide && Math.Abs(factor) > 1))
                 {
                     return new DurationValue(AtomicTypes.DayTimeDuration, new XsDuration(0, 0));
                 }

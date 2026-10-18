@@ -101,11 +101,18 @@ namespace Xsl3.XPath31.Functions
             int tz = 0;
             if (p.Peek is '+' or '-')
             {
+                // tzoffset ::= ("+"|"-") tzhours ":"? tzminutes?, tzhours ::= digit digit?, tzminutes ::= digit digit:
+                // a run of three digits is one hour digit and two minute digits ("-500").
                 int sign = p.Next() == '-' ? -1 : 1;
-                int hh = p.Digits(1, 2), mm = 0;
+                int run = 0;
+                while (p.Position + run < input.Length && char.IsAsciiDigit(input[p.Position + run])) run++;
+                int hh = p.Digits(1, run is 3 or 1 ? 1 : 2), mm = 0;
                 if (p.Accept(':'))
                 {
-                    mm = p.Digits(2, 2);
+                    if (char.IsAsciiDigit(p.Peek))
+                    {
+                        mm = p.Digits(2, 2);
+                    }
                 }
                 else if (char.IsAsciiDigit(p.Peek))
                 {

@@ -110,18 +110,7 @@ namespace Xsl3.XPath31.Functions
             string result = nav.BaseURI;
             for (int i = bases.Count - 1; i >= 0; i--)
             {
-                if (System.Uri.TryCreate(bases[i], System.UriKind.Absolute, out System.Uri? absolute))
-                {
-                    result = absolute.OriginalString;
-                }
-                else if (System.Uri.TryCreate(result, System.UriKind.Absolute, out System.Uri? b) && System.Uri.TryCreate(b, bases[i], out System.Uri? resolved))
-                {
-                    result = resolved.AbsoluteUri;
-                }
-                else if (result.Length == 0)
-                {
-                    result = bases[i];
-                }
+                result = UriReference.IsAbsolute(bases[i]) || !UriReference.IsAbsolute(result) ? bases[i] : UriReference.Resolve(bases[i], result);
             }
             return result;
         }
@@ -162,18 +151,46 @@ namespace Xsl3.XPath31.Functions
                 throw new XdmException("FODC0001", "fn:id: the node is not in a tree rooted at a document node");
             }
             var found = new List<XPathItem>();
+            Dictionary<string, XPathNavigator>? xmlIds = null;
             foreach (XPathItem idList in ids)
             {
                 foreach (string id in ((AtomicValue)idList).Value.Split(new[] { ' ', '\t', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries))
                 {
+                    if (!Casting.IsNCName(id))
+                    {
+                        continue;
+                    }
                     XPathNavigator nav = node.Clone();
-                    if (Casting.IsNCName(id) && nav.MoveToId(id))
+                    if (nav.MoveToId(id))
                     {
                         found.Add(nav);
+                    }
+                    else if ((xmlIds ??= XmlIds(node)).TryGetValue(id, out XPathNavigator? element))
+                    {
+                        found.Add(element);
                     }
                 }
             }
             return DocumentOrder(found, c);
+        }
+
+        // xml:id attributes are IDs whatever the DTD says (xml:id 1.0); the first element with a value wins.
+        private static Dictionary<string, XPathNavigator> XmlIds(XPathNavigator node)
+        {
+            var result = new Dictionary<string, XPathNavigator>(System.StringComparer.Ordinal);
+            XPathNavigator root = node.Clone();
+            root.MoveToRoot();
+            XPathNodeIterator elements = root.SelectDescendants(XPathNodeType.Element, matchSelf: false);
+            while (elements.MoveNext())
+            {
+                XPathNavigator e = elements.Current!;
+                string id = e.GetAttribute("id", QName.Ns.Xml);
+                if (id.Length > 0 && id == Lexical.Collapse(id)) // the parser does no xml:id normalization, so unnormalized values aren't IDs
+                {
+                    result.TryAdd(id, e.Clone());
+                }
+            }
+            return result;
         }
 
         internal static IList<XPathItem> DocumentOrder(IList<XPathItem> nodes, FunctionContext c)
