@@ -49,6 +49,7 @@ namespace Xsl3.Xslt
         // Xsl3: static parameters supplied by the API, and the values of the static variables and parameters
         // (by expanded name), as ConstantPool ids of their sequences.
         public Dictionary<XmlQualifiedName, IList<System.Xml.XPath.XPathItem>>? StaticParameters;
+        public IReadOnlyList<(string Name, string Version, Uri Location)>? Packages; // Xsl3: the package library
         public Dictionary<Xsl3.Xdm.QName, int> StaticValues = new Dictionary<Xsl3.Xdm.QName, int>();
         public RootLevel? Root;
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]

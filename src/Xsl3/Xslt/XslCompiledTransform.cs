@@ -152,7 +152,7 @@ namespace Xsl3
         [MemberNotNull(nameof(_qil))]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
-            var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters };
+            var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
         }
 
@@ -164,6 +164,9 @@ namespace Xsl3
 
         /// <summary>Xsl3: values of the stylesheet's static parameters (xsl:param static="yes"), set before Load.</summary>
         internal System.Collections.Generic.Dictionary<XmlQualifiedName, System.Collections.Generic.IList<XPathItem>>? StaticParameters { get; set; }
+
+        /// <summary>Xsl3: the packages xsl:use-package can name: their names, versions and locations.</summary>
+        internal System.Collections.Generic.IReadOnlyList<(string Name, string Version, Uri Location)>? Packages { get; set; }
 
         /// <summary>
         /// Returns the first compiler error except warnings

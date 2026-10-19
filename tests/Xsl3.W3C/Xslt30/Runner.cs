@@ -73,11 +73,13 @@ public sealed class Runner
             return Outcome.NotRun("environment: " + unsupported);
         }
         XElement t = test.TestElement;
-        if (t.Element(Catalog.Ns + "package") != null || t.Element(Catalog.Ns + "initial-function") != null)
+        if (t.Element(Catalog.Ns + "initial-function") != null)
         {
-            return Outcome.NotRun("packages and initial functions (P3+)");
+            return Outcome.NotRun("initial functions");
         }
-        XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal");
+        // A principal package stands for the stylesheet; other packages are the library xsl:use-package finds.
+        XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal")
+            ?? t.Elements(Catalog.Ns + "package").FirstOrDefault(p => (string?)p.Attribute("role") == "principal");
         string? stylesheetPath = sheet != null ? Path.Combine(test.Set.Directory, (string)sheet.Attribute("file")!) : envs.SelectMany(e => e.Stylesheets).FirstOrDefault();
         if (stylesheetPath == null)
         {
@@ -168,7 +170,8 @@ public sealed class Runner
             {
                 initialTemplate = new XmlQualifiedName("initial-template", "http://www.w3.org/1999/XSL/Transform");
             }
-            var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters };
+            var packages = envs.SelectMany(e => e.Packages).Concat(TestEnvironment.SecondaryPackages(test.TestElement, test.Set.Directory)).ToList();
+            var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters, Packages = packages };
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {

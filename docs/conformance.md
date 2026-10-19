@@ -68,6 +68,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,670 | 911 | 444 | 88.0% | Whitespace stripping of loaded documents, HTML5 serialization, `fn:available-system-properties` |
 | 2026-10-19 | 6,791 | 790 | 444 | 89.6% | `xsl:source-document`, `xsl:copy select`, `default-mode`, `xsl:sequence` content, `xsl:context-item` |
 | 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
+| 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

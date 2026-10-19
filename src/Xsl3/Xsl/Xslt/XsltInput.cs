@@ -498,7 +498,7 @@ namespace Xsl3.Xslt
                         int depth = _reader.Depth;
                         _scopeManager.EnterScope();
                         _numAttributes = ReadElement();
-                        if (_compiler.Version == 2 && !_skippingUseWhen)
+                        if ((_compiler.Version == 2 || _compiler.Version == 0 && Compiler.Xslt2Enabled) && !_skippingUseWhen)
                         {
                             ApplyShadowAttributes();
                         }

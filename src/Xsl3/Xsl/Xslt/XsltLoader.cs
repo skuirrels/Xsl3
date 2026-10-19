@@ -396,6 +396,13 @@ namespace Xsl3.Xslt
             }
             // Xsl3: XSLT 3.0 lets xsl:import come after other declarations (XTSE0200 is 2.0 only).
             bool importAnywhere = V2 && _input.LastVersion >= 3.0;
+            LoadDeclarations(ctxInfo, parentName, importAnywhere);
+        }
+
+        // The declarations among the children of the current element: the stylesheet element, or xsl:override
+        // (Xsl3: XSLT 3.0 §3.5.3), whose declarations belong to the using package.
+        private void LoadDeclarations(ContextInfo ctxInfo, QName parentName, bool importAnywhere)
+        {
             if (_input.MoveToFirstChild())
             {
                 bool atTop = true;
@@ -475,6 +482,10 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.LocalName == "accumulator")
                                 {
                                     LoadAccumulator(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName == "use-package")
+                                {
+                                    LoadUsePackage(ctxInfo, parentName);
                                 }
                                 else if (V2 && _input.LocalName is "global-context-item" or "expose")
                                 {

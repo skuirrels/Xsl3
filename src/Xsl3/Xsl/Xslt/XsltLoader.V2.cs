@@ -46,6 +46,49 @@ namespace Xsl3.Xslt
             new XsltAttribute("select", V2Opt),
         };
 
+        // XSLT 3.0 §3.5.2
+        private readonly XsltAttribute[] _usePackageAttributes = {
+            new XsltAttribute("name",            V2Req),
+            new XsltAttribute("package-version", V2Opt),
+        };
+
+        /// <summary>
+        /// xsl:use-package: the package is found in the package library (<see cref="Compiler.Packages"/>) and loaded
+        /// as an import, so the using package's declarations, including those in xsl:override, take precedence over
+        /// it. Visibility isn't enforced: the packages' components share one name space.
+        /// </summary>
+        private void LoadUsePackage(ContextInfo ctxInfo, QName parentName)
+        {
+            _input.GetAttributes(_usePackageAttributes);
+            string name = ParseStringAttribute(0, "name")?.Trim() ?? "";
+            string version = ParseStringAttribute(1, "package-version")?.Trim() ?? "*";
+            Uri? location = Xsl3.Xslt.PackageVersions.Find(_compiler.Packages, name, version);
+            if (location == null)
+            {
+                ReportError(SR.Xml_UserException, $"XTSE3000: no package named {name} with version {version} is available");
+            }
+            else if (!_documentUriInUse.Contains(location.ToString()) && !_curStylesheet!.ImportHrefs.Contains(location))
+            {
+                _curStylesheet!.ImportHrefs.Add(location);
+            }
+            if (_input.MoveToFirstChild())
+            {
+                do
+                {
+                    if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "override")
+                    {
+                        _input.GetAttributes();
+                        LoadDeclarations(ctxInfo, parentName, importAnywhere: true);
+                    }
+                    else if (_input.NodeType == XmlNodeType.Element)
+                    {
+                        _input.SkipNode(); // xsl:accept: visibility isn't enforced
+                    }
+                }
+                while (_input.MoveToNextSibling());
+            }
+        }
+
         // XSLT 3.0 §15
         private readonly XsltAttribute[] _mergeSourceAttributes = {
             new XsltAttribute("name",              V2Opt),

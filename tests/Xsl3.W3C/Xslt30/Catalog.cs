@@ -173,10 +173,20 @@ public sealed class TestEnvironment
             (string?)s.Attribute("validation"),
             (string?)s.Attribute("defines-stylesheet") is "true" or "yes")).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();
-        Stylesheets = element.Elements(Catalog.Ns + "stylesheet")
+        Stylesheets = element.Elements(Catalog.Ns + "stylesheet").Concat(element.Elements(Catalog.Ns + "package").Where(p => (string?)p.Attribute("role") == "principal"))
             .Where(s => (string?)s.Attribute("role") is null or "principal" && s.Attribute("file") != null)
             .Select(s => Path.Combine(baseDirectory, (string)s.Attribute("file")!)).ToList();
+        Packages = SecondaryPackages(element, baseDirectory);
     }
+
+    /// <summary>The packages (other than the principal one) an environment or test supplies for xsl:use-package.</summary>
+    internal static List<(string Name, string Version, Uri Location)> SecondaryPackages(XElement element, string baseDirectory) =>
+        element.Elements(Catalog.Ns + "package")
+            .Where(p => (string?)p.Attribute("role") != "principal" && p.Attribute("uri") != null && p.Attribute("file") != null)
+            .Select(p => ((string)p.Attribute("uri")!, (string?)p.Attribute("package-version") ?? "1", new Uri(Path.GetFullPath(Path.Combine(baseDirectory, (string)p.Attribute("file")!)))))
+            .ToList();
+
+    public IReadOnlyList<(string Name, string Version, Uri Location)> Packages { get; }
 
     /// <summary>The principal stylesheet the environment supplies to tests that don't name their own.</summary>
     public IReadOnlyList<string> Stylesheets { get; }
@@ -194,7 +204,7 @@ public sealed class TestEnvironment
 
     /// <summary>Parts of the environment the runner can't honour yet; tests that use them aren't run.</summary>
     public IEnumerable<string> UnsupportedParts =>
-        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema" or "package")
+        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema")
             .Concat(Sources.Where(s => s.Validation is "strict" or "lax").Select(_ => "validation"))
             .Concat(Sources.Where(s => s.DefinesStylesheet).Select(_ => "defines-stylesheet"))
             .Distinct();

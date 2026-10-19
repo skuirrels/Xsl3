@@ -17,7 +17,9 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
 serialization. xslt30-test 3.0 profile: 89.6%. Then the json and adaptive output methods (the principal
 result is delivered raw and serialized by `Runtime.ItemSerializer`), `fn:serialize` with a map,
 `xsl:map`/`xsl:map-entry`, accumulators, `xsl:merge`, `on-multiple-match="fail"`, single-package stylesheets.
-Next: packages with `xsl:use-package`, initial functions, `xsl:evaluate`, the html serializer details.
+Then `xsl:use-package` (the package is loaded like an import, from a package library; `xsl:override` declarations
+belong to the using package), so the package tests run: 7,058 passed of 7,939 run (88.9%).
+Next: package visibility, `xsl:original`, initial functions, `xsl:evaluate`, the html serializer details.
 
 ## Where P2 leaves us
 
