@@ -19,6 +19,14 @@ namespace Xsl3.Xdm
             {
                 case AtomicValue a:
                     return a;
+                case XdmArray array:
+                {
+                    // An array atomizes to its members' atomized values: here exactly one is expected.
+                    IList<XPathItem> atoms = Atomize(Flatten(array));
+                    return atoms.Count == 1 ? (AtomicValue)atoms[0] : throw Err.XPTY0004($"{array.Describe()} atomizes to {atoms.Count} values where one is expected");
+                }
+                case XdmFunction f:
+                    throw new XdmException("FOTY0013", $"{f.Describe()} can't be atomized");
                 case XPathNavigator n:
                     // Without schema validation every node is untyped: comments, PIs and namespace nodes have
                     // xs:string typed values, everything else xs:untypedAtomic.
@@ -32,18 +40,34 @@ namespace Xsl3.Xdm
 
         public static IList<XPathItem> Atomize(IList<XPathItem> seq)
         {
-            bool alreadyAtomic = true;
+            bool alreadyAtomic = true, arrays = false;
             foreach (XPathItem item in seq)
             {
                 if (item is not AtomicValue)
                 {
                     alreadyAtomic = false;
-                    break;
+                    arrays |= item is XdmArray;
                 }
             }
             if (alreadyAtomic)
             {
                 return seq;
+            }
+            if (arrays)
+            {
+                var flat = new List<XPathItem>(seq.Count);
+                foreach (XPathItem item in seq)
+                {
+                    if (item is XdmArray array)
+                    {
+                        flat.AddRange(Atomize(Flatten(array)));
+                    }
+                    else
+                    {
+                        flat.Add(Atomize(item));
+                    }
+                }
+                return flat;
             }
             var result = new XPathItem[seq.Count];
             for (int i = 0; i < result.Length; i++)
@@ -98,6 +122,10 @@ namespace Xsl3.Xdm
             {
                 return true;
             }
+            if (first is XdmFunction fn)
+            {
+                throw new XdmException("FORG0006", $"The effective boolean value of {fn.Describe()} is not defined");
+            }
             if (seq.Count > 1)
             {
                 throw new XdmException("FORG0006", "The effective boolean value of a sequence of two or more atomic values is not defined");
@@ -115,7 +143,28 @@ namespace Xsl3.Xdm
             };
         }
 
-        /// <summary>The string value of an item (fn:string).</summary>
+        /// <summary>The string value of an item (fn:string); FOTY0014 for function items.</summary>
         public static string StringValue(XPathItem item) => item is AtomicValue a ? a.Value : item.Value;
+
+        /// <summary>An array's members, concatenated (array:flatten one level deep, recursively for nested arrays).</summary>
+        public static IList<XPathItem> Flatten(XdmArray array)
+        {
+            var result = new List<XPathItem>();
+            foreach (IList<XPathItem> member in array.Members)
+            {
+                foreach (XPathItem item in member)
+                {
+                    if (item is XdmArray inner)
+                    {
+                        result.AddRange(Flatten(inner));
+                    }
+                    else
+                    {
+                        result.Add(item);
+                    }
+                }
+            }
+            return result;
+        }
     }
 }

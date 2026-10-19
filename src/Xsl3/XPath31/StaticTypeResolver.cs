@@ -1,5 +1,6 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
+using System.Linq;
 using System.Xml.XPath;
 using Xsl3.Xdm;
 
@@ -110,8 +111,22 @@ namespace Xsl3.XPath31
                     }
                     return new AtomicTypeTest(t);
                 }
-                case AnyFunctionTest or TypedFunctionTest or AnyMapTest or TypedMapTest or AnyArrayTest or TypedArrayTest:
+                case AnyFunctionTest:
                     return FunctionItemTest.Instance;
+                case TypedFunctionTest f:
+                    return new FunctionItemTest(f.Parameters.Select(Resolve).ToList(), Resolve(f.Return));
+                case AnyMapTest:
+                    return MapTest.Any;
+                case TypedMapTest m:
+                {
+                    ItemTest key = ResolveItem(new AtomicOrUnionType(m.KeyType));
+                    AtomicType keyType = key is AtomicTypeTest at ? at.Type : AtomicTypes.AnyAtomicType;
+                    return new MapTest(keyType, Resolve(m.ValueType));
+                }
+                case AnyArrayTest:
+                    return ArrayTest.Any;
+                case TypedArrayTest a:
+                    return new ArrayTest(Resolve(a.MemberType));
                 case KindTest k:
                     return ResolveKind(k);
             }

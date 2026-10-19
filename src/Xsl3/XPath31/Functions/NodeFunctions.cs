@@ -298,40 +298,8 @@ namespace Xsl3.XPath31.Functions
         // fn:sort without a key function: by the atomised values, compared as by lt (F&O 3.1 §14.7.1).
         private static IList<XPathItem> Sort(IList<XPathItem> input, FunctionContext c)
         {
-            var keyed = input.Select((item, i) => (Item: item, Key: Sequences.Atomize(Sequences.One(item)), Index: i)).ToList();
-            int CompareKeys(IList<XPathItem> x, IList<XPathItem> y)
-            {
-                for (int i = 0; i < System.Math.Min(x.Count, y.Count); i++)
-                {
-                    var a = (AtomicValue)x[i];
-                    var b = (AtomicValue)y[i];
-                    if (a.Type.Primitive == Primitive.UntypedAtomic) a = Casting.Cast(a, AtomicTypes.String);
-                    if (b.Type.Primitive == Primitive.UntypedAtomic) b = Casting.Cast(b, AtomicTypes.String);
-                    bool aNaN = a is DoubleValue { Double: double.NaN } or FloatValue { Float: float.NaN };
-                    bool bNaN = b is DoubleValue { Double: double.NaN } or FloatValue { Float: float.NaN };
-                    if (aNaN || bNaN)
-                    {
-                        if (aNaN && bNaN) continue;
-                        return aNaN ? -1 : 1; // NaN sorts first
-                    }
-                    if (Comparison.Compare(a, b, ValueComparisonOp.Lt, c.ImplicitTimezoneMinutes, c.DefaultCollation)) return -1;
-                    if (Comparison.Compare(b, a, ValueComparisonOp.Lt, c.ImplicitTimezoneMinutes, c.DefaultCollation)) return 1;
-                }
-                return x.Count.CompareTo(y.Count);
-            }
-            try
-            {
-                keyed.Sort((x, y) =>
-                {
-                    int r = CompareKeys(x.Key, y.Key);
-                    return r != 0 ? r : x.Index.CompareTo(y.Index); // stable
-                });
-            }
-            catch (System.InvalidOperationException e) when (e.InnerException is XdmException inner)
-            {
-                throw inner; // incomparable keys: XPTY0004
-            }
-            return keyed.Select(k => k.Item).ToList();
+            int[] order = SortOrder(input.Select(item => Sequences.Atomize(Sequences.One(item))).ToList(), c);
+            return order.Select(i => input[i]).ToList();
         }
 
         private static XPathNavigator Doc(string uri, FunctionContext c)

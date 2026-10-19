@@ -33,7 +33,7 @@ public sealed class Profile
     /// </summary>
     public static Profile Xsl3 { get; } = new()
     {
-        Features = new HashSet<string>(StringComparer.Ordinal) { "namespace-axis", "infoset-dtd" },
+        Features = new HashSet<string>(StringComparer.Ordinal) { "namespace-axis", "infoset-dtd", "higherOrderFunctions" },
     };
 
     public bool Applies(TestCase testCase) => testCase.EffectiveDependencies.All(Meets);

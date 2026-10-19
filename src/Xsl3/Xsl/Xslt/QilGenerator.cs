@@ -183,6 +183,7 @@ namespace Xsl3.Xslt
                 if (IsV2)
                 {
                     CompileFunctions31();
+                    _functionItems31?.Finish();
                 }
                 _varHelper.CheckEmpty();
             }
@@ -243,6 +244,7 @@ namespace Xsl3.Xslt
                     ValidateCharacterMaps31();
                     qil.OutputExtras = OutputExtras31(compiler.Output);
                     qil.Xslt2 = true;
+                    qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
                 }
             }
 

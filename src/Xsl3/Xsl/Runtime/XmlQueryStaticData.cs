@@ -328,6 +328,12 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: serialization parameters the result writer applies (XSLT 2.0+), or null.</summary>
         public OutputExtras? OutputExtras { get; set; }
 
+        /// <summary>
+        /// Xsl3: the compiled dispatcher of function items (docs/plan/p3-xslt30.md, decision 4), so that the run-time
+        /// library can call them (folds, sort keys, …).
+        /// </summary>
+        public System.Func<XmlQueryRuntime, System.Xml.XPath.XPathItem, IList<System.Xml.XPath.XPathItem>>? Dispatcher { get; set; }
+
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path (its principal result is a <see cref="PrincipalResult"/>).</summary>
         public bool Xslt2 { get; set; }
 

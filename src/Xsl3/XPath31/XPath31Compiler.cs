@@ -97,6 +97,9 @@ namespace Xsl3.XPath31
         /// <summary>A variable in scope in the host, or null.</summary>
         QilNode? ResolveVariable(QName name);
 
+        /// <summary>The lifted functions of the host's compilation unit, or null to keep them per expression.</summary>
+        FunctionItemRegistry? FunctionItems { get; }
+
         /// <summary>
         /// A call of a host function (or of a function the host overrides), or null to use the F&amp;O library.
         /// <paramref name="compile"/> compiles an argument to boxed QIL.
@@ -155,7 +158,12 @@ namespace Xsl3.XPath31
         {
             var f = new QilPatternFactory(new QilFactory(), false);
             var compiler = new XPath31Compiler(sc, f, environment(f));
+            QilList functions = compiler._qf.FunctionList();
+            compiler._ownRegistry = new FunctionItemRegistry(f, functions.Add);
             QilExpression qil = compiler._qf.QilExpression(compiler.Items(compiler.Build(ast)), compiler._qf);
+            compiler._ownRegistry.Finish();
+            qil.Dispatcher = compiler._ownRegistry.DispatcherIfUsed;
+            qil.FunctionList = functions;
             qil.DefaultWriterSettings = new XmlWriterSettings();
             XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
             return new XPath31Executable(command);
@@ -176,6 +184,8 @@ namespace Xsl3.XPath31
 
         private QilExpression CompileQuery(Expr ast)
         {
+            QilList functions = _qf.FunctionList();
+            _ownRegistry = new FunctionItemRegistry(_f, functions.Add);
             // External variables are bound once, at the top, from the argument list.
             var lets = new List<QilIterator>();
             foreach (QName v in _sc.ExternalVariables)
@@ -190,6 +200,9 @@ namespace Xsl3.XPath31
                 root = _f.Loop(lets[i], root);
             }
             QilExpression qil = _qf.QilExpression(root, _qf);
+            _ownRegistry.Finish();
+            qil.Dispatcher = _ownRegistry.DispatcherIfUsed;
+            qil.FunctionList = functions;
             qil.DefaultWriterSettings = new XmlWriterSettings();
             return qil;
         }
@@ -247,6 +260,7 @@ namespace Xsl3.XPath31
 
         private QilNode FocusItem() =>
             _focus?.Item
+            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent in a function body")) : null)
             ?? (_env != null
                 ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent"))
                 : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
@@ -259,11 +273,14 @@ namespace Xsl3.XPath31
 
         private QilNode FocusPosition()
         {
-            return _focus != null ? _focus.Position() : _env != null ? _env.ContextPosition() : Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX);
+            return _focus != null ? _focus.Position()
+                : _focusAbsent ? Call(nameof(XsltLibrary.X31RaiseDouble), T.DoubleX, _f.String("XPDY0002"), _f.String("The focus is absent in a function body"))
+                : _env != null ? _env.ContextPosition() : Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX);
         }
 
         private QilNode FocusLast() =>
             _focus != null ? (_focus.Last ?? throw new System.InvalidOperationException("last() not prepared"))()
+            : _focusAbsent ? Call(nameof(XsltLibrary.X31RaiseDouble), T.DoubleX, _f.String("XPDY0002"), _f.String("The focus is absent in a function body"))
             : _env != null ? _env.ContextLast()
             : Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX);
 
@@ -389,20 +406,55 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(x.Operand)), CastTargetId(x.Type), x.Type.AllowsEmpty ? _f.True() : _f.False());
                 case CastableExpr x:
                     return Call(nameof(XsltLibrary.X31Castable), T.BooleanX, Items(Build(x.Operand)), CastTargetId(x.Type), x.Type.AllowsEmpty ? _f.True() : _f.False());
-                case InlineFunctionExpr:
-                    throw NotYetSupported(e, "Inline functions (higher-order functions, phase P3)");
-                case NamedFunctionRef:
-                    throw NotYetSupported(e, "Named function references (higher-order functions, phase P3)");
-                case DynamicFunctionCall:
-                    throw NotYetSupported(e, "Dynamic function calls (phase P3)");
-                case ArrowExpr:
-                    throw NotYetSupported(e, "'=>' with a function expression (phase P3)");
-                case MapConstructor or SquareArrayConstructor or CurlyArrayConstructor or UnaryLookup or PostfixLookup:
-                    throw NotYetSupported(e, "Maps and arrays (XPath 3.1, phase P3)");
+                case InlineFunctionExpr fn:
+                    return InlineFunction(fn);
+                case NamedFunctionRef r:
+                    return NamedFunctionReference(r);
+                case DynamicFunctionCall d:
+                    return DynamicFunctionCall(d);
+                case ArrowExpr { FunctionExpr: Expr fe } a:
+                    return DynamicFunctionCall(new DynamicFunctionCall(fe, a.Arguments.Prepend(a.Target).ToList()) { Span = a.Span });
+                case MapConstructor map:
+                {
+                    QilNode builder = Call(nameof(XsltLibrary.X31MapNew), T.Item);
+                    foreach (MapConstructorEntry entry in map.Entries)
+                    {
+                        builder = Call(nameof(XsltLibrary.X31MapEntry), T.Item, builder, Items(Build(entry.Key)), Items(Build(entry.Value)));
+                    }
+                    return Call(nameof(XsltLibrary.X31MapDone), T.Item, builder);
+                }
+                case SquareArrayConstructor array:
+                {
+                    QilNode builder = Call(nameof(XsltLibrary.X31ArrayNew), T.Item);
+                    foreach (Expr member in array.Members)
+                    {
+                        builder = Call(nameof(XsltLibrary.X31ArrayMember), T.Item, builder, Items(Build(member)));
+                    }
+                    return Call(nameof(XsltLibrary.X31ArrayDone), T.Item, builder);
+                }
+                case CurlyArrayConstructor array:
+                    return Call(nameof(XsltLibrary.X31ArrayOfItems), T.Item, array.Content == null ? _f.Sequence() : Items(Build(array.Content)));
+                case UnaryLookup lookup:
+                    return Lookup(FocusItem(), lookup.Key);
+                case PostfixLookup lookup:
+                    return Lookup(Items(Build(lookup.Base)), lookup.Key);
                 case ArgumentPlaceholder:
                     throw NotYetSupported(e, "Partial function application (phase P3)");
             }
             throw new System.InvalidOperationException("Unexpected AST node " + e.GetType().Name);
+        }
+
+        // E?K (XPath 3.1 §3.11.3): the key specifier is a name, an integer, a parenthesized expression or *.
+        private QilNode Lookup(QilNode bases, KeySpecifier key)
+        {
+            QilNode keys = key.Kind switch
+            {
+                KeySpecifierKind.NCName => Constant(AtomicValue.OfString(key.Name!)),
+                KeySpecifierKind.Integer => Constant(AtomicValue.OfInteger(key.Integer)),
+                KeySpecifierKind.Parenthesized => Items(Build(key.Expr!)),
+                _ => _f.Sequence(),
+            };
+            return Call(nameof(XsltLibrary.X31Lookup), T.ItemS, bases, keys, key.Kind == KeySpecifierKind.Wildcard ? _f.True() : _f.False());
         }
 
         private QilNode Variable(VarRef v)
@@ -701,9 +753,18 @@ namespace Xsl3.XPath31
         {
             if (args.Any(a => a is ArgumentPlaceholder))
             {
-                throw NotYetSupported(call, "Partial function application (phase P3)");
+                return PartialApplication(call, null, lexicalName, args);
             }
             QName name = _types.Expand(lexicalName, _sc.DefaultFunctionNamespace);
+            if (HigherOrderFunction(name, args) is QilNode hof)
+            {
+                return hof;
+            }
+            if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "current" or "current-group" or "current-grouping-key" or "regex-group")
+            {
+                // XSLT's focus-dependent functions have no focus in a function body (the host's would be out of scope).
+                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String($"{name.LocalName}() can't be used in a function body"));
+            }
 
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).
             if (name.NamespaceUri == QName.Ns.Xs)

@@ -24,14 +24,16 @@ and `infoset-dtd` features. Not claimed yet: `higherOrderFunctions` (P3), `schem
 `tests/Xsl3.W3C/baselines/qt3-run.txt`; a test that expected an error passes on any error, and passes that
 raised a different code are counted separately.
 
-| Date | Passed | Failed | Not run | Pass rate |
-|---|---:|---:|---:|---:|
+| Date | Passed | Failed | Not run | Pass rate | Notes |
+|---|---:|---:|---:|---:|---|
 | 2026-10-18 | 16,354 | 3,694 | 99 | 81.6% |
 | 2026-10-18 | 18,524 | 1,524 | 99 | 92.4% |
 | 2026-10-19 | 19,077 | 969 | 99 | 95.2% |
 | 2026-10-19 | 19,222 | 822 | 99 | 95.9% |
+| 2026-10-19 | 21,685 | 199 | 99 | 99.1% | Maps, arrays, function items, JSON; `higherOrderFunctions` claimed (1,840 more tests apply) |
 
-The failures include the XPath 3.1 maps and arrays, which arrive in P3 with higher-order functions.
+The remaining failures are mostly the json and adaptive serialization methods, fn:random-number-generator
+and fn:function-lookup corner cases.
 
 ## XSLT 2.0 / 3.0 (xslt30-test)
 

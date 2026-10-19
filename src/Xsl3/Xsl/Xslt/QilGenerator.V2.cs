@@ -70,6 +70,11 @@ namespace Xsl3.Xslt
 
         QilNode? IXPath31Environment.ResolveVariable(QName name) => _scope.LookupVariable(name.LocalName, name.NamespaceUri);
 
+        // The lifted functions of the stylesheet's function items, and their dispatcher (completed by Compile).
+        private FunctionItemRegistry? _functionItems31;
+
+        FunctionItemRegistry? IXPath31Environment.FunctionItems => _functionItems31 ??= new FunctionItemRegistry(_f, _functions.Add);
+
         QilNode? IXPath31Environment.ResolveFunction(QName name, IReadOnlyList<XPath31.Expr> args, System.Func<XPath31.Expr, QilNode> compile)
         {
             // Stylesheet functions (xsl:function) first: they may not override F&O functions, but have their own namespaces.

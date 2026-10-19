@@ -37,6 +37,8 @@ namespace Xsl3.Xslt
             private QilNode Raise(string code, string message, XmlQueryType type) =>
                 XPath31Compiler.Invoke(f, type == T.DoubleX ? nameof(XsltLibrary.X31RaiseDouble) : nameof(XsltLibrary.X31RaiseItem), type, f.String(code), f.String(message));
 
+            public FunctionItemRegistry? FunctionItems => null;
+
             public QilNode? ContextItem() => null;
 
             public QilNode ContextPosition() => Raise("XPDY0002", "There is no focus in a use-when expression", T.DoubleX);

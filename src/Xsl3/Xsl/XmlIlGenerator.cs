@@ -183,6 +183,12 @@ namespace Xsl3
 
                 // Create delegate over "Execute" method
                 ExecuteDelegate delExec = (ExecuteDelegate)_module.CreateDelegate("Execute", typeof(ExecuteDelegate));
+                if (_qil.Dispatcher != null && XmlILAnnotation.Write(_qil.Dispatcher).FunctionBinding is MethodInfo dispatch)
+                {
+                    // Xsl3: the run-time library calls function items through the compiled dispatcher.
+                    staticData.Dispatcher = (Func<XmlQueryRuntime, XPathItem, IList<XPathItem>>)_module.CreateDelegate(
+                        dispatch.Name, typeof(Func<XmlQueryRuntime, XPathItem, IList<XPathItem>>));
+                }
                 return new XmlILCommand(delExec, staticData);
             }
         }

@@ -233,9 +233,9 @@ namespace Xsl3.IlGen
                 // PATTERN: [EliminateUnusedGlobals] $qil:(QilExpression *) => { ... }
                 if (AllowReplace(XmlILOptimization.EliminateUnusedGlobals, local0))
                 {
-                    EliminateUnusedGlobals(local0.GlobalVariableList);
-                    EliminateUnusedGlobals(local0.GlobalParameterList);
-                    EliminateUnusedGlobals(local0.FunctionList);
+                    EliminateUnusedGlobals(local0.GlobalVariableList, null);
+                    EliminateUnusedGlobals(local0.GlobalParameterList, null);
+                    EliminateUnusedGlobals(local0.FunctionList, local0.Dispatcher); // Xsl3: the run-time library calls the dispatcher
                 }
             }
             if (this[XmlILOptimization.AnnotateConstruction])
@@ -5620,7 +5620,7 @@ namespace Xsl3.IlGen
         /// <summary>
         /// Remove unused global functions, variables, or parameters from the list.
         /// </summary>
-        private static void EliminateUnusedGlobals(QilList globals)
+        private static void EliminateUnusedGlobals(QilList globals, QilNode? keep)
         {
             int newIdx = 0;
 
@@ -5632,7 +5632,7 @@ namespace Xsl3.IlGen
                 if (nd.NodeType == QilNodeType.Function)
                 {
                     // Keep a function if it has at least one caller
-                    isUsed = XmlILConstructInfo.Read(nd).CallersInfo.Count != 0;
+                    isUsed = XmlILConstructInfo.Read(nd).CallersInfo.Count != 0 || ReferenceEquals(nd, keep);
                 }
                 else
                 {

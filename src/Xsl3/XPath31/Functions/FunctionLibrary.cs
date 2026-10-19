@@ -85,11 +85,22 @@ namespace Xsl3.XPath31.Functions
                     value = converted;
                 }
             }
-            if (!expected.Matches(value))
+            if (!expected.Matches(value) && !(itemTest is FunctionItemTest { Parameters: not null } ft && FunctionCoercible(value, expected, ft)))
             {
                 throw new XdmException(errorCode, $"{what()} must be {expected}, but is {Describe(value)}");
             }
             return value;
+        }
+
+        // Function coercion (XPath 3.1 §3.1.5.3): a function item of the right arity is accepted for a typed function
+        // test; its arguments and result are converted when it is called.
+        private static bool FunctionCoercible(IList<XPathItem> value, SequenceTypeTest expected, FunctionItemTest test)
+        {
+            if (value.Count == 0 ? !expected.AllowsEmpty : value.Count > 1 && !expected.AllowsMany)
+            {
+                return false;
+            }
+            return value.All(v => v is XdmFunction f and not XdmMap and not XdmArray && f.Arity == test.Parameters!.Count || test.Matches(v));
         }
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
@@ -127,7 +138,12 @@ namespace Xsl3.XPath31.Functions
         public static string Describe(IList<XPathItem> value) => value.Count switch
         {
             0 => "an empty sequence",
-            1 => value[0] is AtomicValue a ? $"{a.Type.Name} '{a.Value}'" : $"a {((XPathNavigator)value[0]).NodeType} node",
+            1 => value[0] switch
+            {
+                AtomicValue a => $"{a.Type.Name} '{a.Value}'",
+                XdmFunction f => f.Describe(),
+                var n => $"a {((XPathNavigator)n).NodeType} node",
+            },
             _ => $"a sequence of {value.Count} items",
         };
     }

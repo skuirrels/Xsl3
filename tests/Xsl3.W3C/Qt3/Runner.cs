@@ -233,7 +233,7 @@ public sealed class Runner
         public static Result Error(string code, string message) => new(null, code, message);
         public static Result Crash(Exception e) => new(null, "!crash", $"{e.GetType().Name}: {e.Message}");
         public bool IsError => ErrorCode != null;
-        public override string ToString() => IsError ? $"error {ErrorCode}: {Message}" : $"[{string.Join(", ", Value!.Take(10).Select(i => i is AtomicValue a ? $"{a.Type.Name}('{a.Value}')" : $"{((XPathNavigator)i).NodeType}"))}{(Value!.Count > 10 ? ", …" : "")}]";
+        public override string ToString() => IsError ? $"error {ErrorCode}: {Message}" : $"[{string.Join(", ", Value!.Take(10).Select(i => i switch { AtomicValue a => $"{a.Type.Name}('{a.Value}')", XdmFunction f => f.Describe(), _ => $"{((XPathNavigator)i).NodeType}" }))}{(Value!.Count > 10 ? ", …" : "")}]";
     }
 
     private Outcome Check(XElement assertion, Result result, TestEnvironment env, XPathItem? contextItem)

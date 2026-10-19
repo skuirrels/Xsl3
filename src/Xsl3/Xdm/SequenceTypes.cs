@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml.XPath;
 
 namespace Xsl3.Xdm
@@ -187,13 +188,167 @@ namespace Xsl3.Xdm
         public override string ToString() => Kind?.ToString() ?? "node()";
     }
 
-    /// <summary>Function, map and array tests. Function items arrive in phase P3; until then nothing matches.</summary>
+    /// <summary>function(*) and function(T1, …, Tn) as R (XPath 3.1 §2.5.6.3). Maps and arrays are functions too.</summary>
     internal sealed class FunctionItemTest : ItemTest
     {
-        public static readonly FunctionItemTest Instance = new();
+        public static readonly FunctionItemTest Instance = new(null, null);
 
-        public override bool Matches(XPathItem item) => false;
+        public FunctionItemTest(IReadOnlyList<SequenceTypeTest>? parameters, SequenceTypeTest? returnType)
+        {
+            Parameters = parameters;
+            ReturnType = returnType;
+        }
 
-        public override string ToString() => "function(*)";
+        /// <summary>Null for function(*).</summary>
+        public IReadOnlyList<SequenceTypeTest>? Parameters { get; }
+
+        public SequenceTypeTest? ReturnType { get; }
+
+        public override bool Matches(XPathItem item)
+        {
+            if (item is not XdmFunction f)
+            {
+                return false;
+            }
+            if (Parameters == null)
+            {
+                return true;
+            }
+            if (f.Arity != Parameters.Count)
+            {
+                return false;
+            }
+            switch (f)
+            {
+                case XdmMap map:
+                    // A map is function(xs:anyAtomicType) as item()*: its values must match the return type, which must
+                    // allow the empty sequence a missing key gives.
+                    return SubtypeOf.Item(Parameters[0].Item, new AtomicTypeTest(AtomicTypes.AnyAtomicType)) && ReturnType!.AllowsEmpty &&
+                        map.Entries.All(e => ReturnType.Matches(e.Value));
+                case XdmArray array:
+                    return SubtypeOf.Item(Parameters[0].Item, new AtomicTypeTest(AtomicTypes.Integer)) && array.Members.All(m => ReturnType!.Matches(m));
+            }
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                // Parameters are contravariant: the test's parameter types must be subtypes of the function's.
+                if (!SubtypeOf.Sequence(Parameters[i], f.ParameterType(i)))
+                {
+                    return false;
+                }
+            }
+            return SubtypeOf.Sequence(f.ReturnType, ReturnType!);
+        }
+
+        public override string ToString() => Parameters == null ? "function(*)" : $"function({string.Join(", ", Parameters)}) as {ReturnType}";
+    }
+
+    /// <summary>map(*) and map(K, V).</summary>
+    internal sealed class MapTest : ItemTest
+    {
+        public static readonly MapTest Any = new(null, null);
+
+        public MapTest(AtomicType? keyType, SequenceTypeTest? valueType)
+        {
+            KeyType = keyType;
+            ValueType = valueType;
+        }
+
+        public AtomicType? KeyType { get; }
+
+        public SequenceTypeTest? ValueType { get; }
+
+        public override bool Matches(XPathItem item) =>
+            item is XdmMap map && (KeyType == null || map.Entries.All(e => e.Key.Type.DerivesFrom(KeyType) && ValueType!.Matches(e.Value)));
+
+        public override string ToString() => KeyType == null ? "map(*)" : $"map({KeyType.Name}, {ValueType})";
+    }
+
+    /// <summary>array(*) and array(T).</summary>
+    internal sealed class ArrayTest : ItemTest
+    {
+        public static readonly ArrayTest Any = new(null);
+
+        public ArrayTest(SequenceTypeTest? memberType)
+        {
+            MemberType = memberType;
+        }
+
+        public SequenceTypeTest? MemberType { get; }
+
+        public override bool Matches(XPathItem item) => item is XdmArray array && (MemberType == null || array.Members.All(m => MemberType.Matches(m)));
+
+        public override string ToString() => MemberType == null ? "array(*)" : $"array({MemberType})";
+    }
+
+    /// <summary>The subtype relationship between sequence types (XPath 3.1 §2.5.6), as far as it is decidable statically.</summary>
+    internal static class SubtypeOf
+    {
+        public static bool Sequence(SequenceTypeTest a, SequenceTypeTest b)
+        {
+            if (a.Item == null)
+            {
+                return b.AllowsEmpty;
+            }
+            if (b.Item == null)
+            {
+                return false;
+            }
+            bool cardinality = b.Cardinality switch
+            {
+                Cardinality.ZeroOrMore => true,
+                Cardinality.ZeroOrOne => a.Cardinality is Cardinality.ExactlyOne or Cardinality.ZeroOrOne,
+                Cardinality.OneOrMore => a.Cardinality is Cardinality.ExactlyOne or Cardinality.OneOrMore,
+                _ => a.Cardinality == Cardinality.ExactlyOne,
+            };
+            return cardinality && Item(a.Item, b.Item);
+        }
+
+        public static bool Item(ItemTest? a, ItemTest? b)
+        {
+            if (b is null or AnyItemTest)
+            {
+                return true;
+            }
+            switch (a, b)
+            {
+                case (AtomicTypeTest x, AtomicTypeTest y):
+                    return x.Type.DerivesFrom(y.Type);
+                case (AtomicTypeTest x, NumericTest):
+                    return x.Type.IsNumeric;
+                case (NumericTest, NumericTest):
+                    return true;
+                case (NumericTest, AtomicTypeTest y):
+                    return y.Type == AtomicTypes.AnyAtomicType;
+                case (NodeKindTest x, NodeKindTest y):
+                    return (y.Kind == null || x.Kind == y.Kind) && (y.LocalName == null || x.LocalName == y.LocalName) &&
+                        (y.NamespaceUri == null || x.NamespaceUri == y.NamespaceUri) && (y.DocumentElement == null || x.DocumentElement != null && Item(x.DocumentElement, y.DocumentElement));
+                case (MapTest x, MapTest y):
+                    return y.KeyType == null || x.KeyType != null && x.KeyType.DerivesFrom(y.KeyType) && Sequence(x.ValueType!, y.ValueType!);
+                case (ArrayTest x, ArrayTest y):
+                    return y.MemberType == null || x.MemberType != null && Sequence(x.MemberType, y.MemberType);
+                case (MapTest or ArrayTest or FunctionItemTest, FunctionItemTest { Parameters: null }):
+                    return true;
+                case (FunctionItemTest x, FunctionItemTest y):
+                    if (x.Parameters == null || x.Parameters.Count != y.Parameters!.Count)
+                    {
+                        return false;
+                    }
+                    for (int i = 0; i < x.Parameters.Count; i++)
+                    {
+                        if (!Sequence(y.Parameters[i], x.Parameters[i]))
+                        {
+                            return false;
+                        }
+                    }
+                    return Sequence(x.ReturnType!, y.ReturnType!);
+                case (MapTest x, FunctionItemTest { Parameters.Count: 1 } y):
+                    return Item(y.Parameters![0].Item, new AtomicTypeTest(AtomicTypes.AnyAtomicType)) &&
+                        Sequence(x.ValueType ?? SequenceTypeTest.AnySequence, y.ReturnType!) && y.ReturnType!.AllowsEmpty;
+                case (ArrayTest x, FunctionItemTest { Parameters.Count: 1 } y):
+                    return Item(y.Parameters![0].Item, new AtomicTypeTest(AtomicTypes.Integer)) && Sequence(x.MemberType ?? SequenceTypeTest.AnySequence, y.ReturnType!);
+                default:
+                    return false;
+            }
+        }
     }
 }

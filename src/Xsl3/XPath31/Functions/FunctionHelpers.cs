@@ -456,6 +456,27 @@ namespace Xsl3.XPath31.Functions
             {
                 return Nodes(m, n);
             }
+            switch (a, b)
+            {
+                case (XdmMap p, XdmMap q):
+                    // The same keys (op:same-key), with deep-equal values.
+                    return p.Count == q.Count && p.Entries.All(e => q.Get(e.Key) is IList<XPathItem> v && Sequences(e.Value, v, c));
+                case (XdmArray p, XdmArray q):
+                    if (p.Count != q.Count)
+                    {
+                        return false;
+                    }
+                    for (int i = 0; i < p.Count; i++)
+                    {
+                        if (!Sequences(p[i], q[i], c))
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
+                case (XdmFunction, XdmFunction):
+                    throw new XdmException("FOTY0015", "deep-equal can't compare function items");
+            }
             return false;
         }
 
