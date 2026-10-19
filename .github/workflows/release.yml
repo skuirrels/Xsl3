@@ -1,0 +1,73 @@
+name: Release
+
+# Publishes the Xsl3 package to nuget.org when a version tag is pushed: v0.1.0, v0.1.0-alpha, v1.2.3-beta.4, ...
+# The package version is the tag without its "v". nuget.org trusts this workflow file (trusted publishing), so no
+# API key is stored in the repository; set the repository variable NUGET_USER to the nuget.org account name.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token nuget.org exchanges for a short-lived API key
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Package version from the tag
+        id: version
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME isn't v<major>.<minor>.<patch>[-<prerelease>]"
+            exit 1
+          fi
+          if [ -z "${{ vars.NUGET_USER }}" ]; then
+            echo "::error::Set the repository variable NUGET_USER to the nuget.org account name"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - run: dotnet build Xsl3.slnx -c Release -p:Version=${{ steps.version.outputs.version }} -p:ContinuousIntegrationBuild=true
+
+      # The fast gates; CI runs the full suites (Differential, W3C) on every push to main.
+      - name: Unit tests
+        run: dotnet test tests/Xsl3.Tests -c Release --no-build
+
+      - name: Upstream tests
+        run: dotnet test tests/Xsl3.Upstream.Tests -c Release --no-build --filter "category!=failing"
+
+      - name: Pack
+        run: >
+          dotnet pack src/Xsl3 -c Release --no-build -o artifacts/packages
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:ContinuousIntegrationBuild=true
+          -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages
+
+      - name: NuGet login (trusted publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
