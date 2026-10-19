@@ -50,7 +50,8 @@ namespace Xsl3.Xslt
         public static void AssertFilter(QilLoop filter)
         {
             Debug.Assert(filter.NodeType == QilNodeType.Filter, "XPathPatternBuilder expected to generate list of Filters on top level");
-            Debug.Assert(filter.Variable.XmlType!.IsSubtypeOf(T.NodeNotRtf));
+            // Xsl3: a predicate pattern's iterator ranges over items (".[. mod 3 = 0]").
+            Debug.Assert(filter.Variable.XmlType!.IsSubtypeOf(T.NodeNotRtf) || filter.Variable.XmlType!.IsSubtypeOf(T.ItemS));
             Debug.Assert(filter.Variable.Binding!.NodeType == QilNodeType.Unknown);  // fixupNode
             Debug.Assert(filter.Body.XmlType!.IsSubtypeOf(T.Boolean));
         }

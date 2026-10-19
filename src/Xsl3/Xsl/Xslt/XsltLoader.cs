@@ -866,6 +866,10 @@ namespace Xsl3.Xslt
             // Xsl3: URI escaping of HTML attributes isn't done by the html writer either way.
             bool escapeUriAttributes = ParseYesNoAttribute(7, "escape-uri-attributes") != TriState.False;
             if (!escapeUriAttributes && !V2) ReportNYI("xsl:output/@escape-uri-attributes == flase()");
+            if (V2 && _input.AttributeExists(7, "escape-uri-attributes"))
+            {
+                output.EscapeUriAttributes = escapeUriAttributes;
+            }
 
             TriState includeContentType = ParseYesNoAttribute(8, "include-content-type");
             if (includeContentType != TriState.Unknown)
@@ -1042,7 +1046,8 @@ namespace Xsl3.Xslt
             }
 
             // version is ignored, indent="no" by default
-            if (settings.OutputMethod == XmlOutputMethod.Html && output.IndentPrec == Output.NeverDeclaredPrec)
+            // Xsl3: html and xhtml indent by default (Serialization 3.1 §2).
+            if ((settings.OutputMethod == XmlOutputMethod.Html || v2 && output.Xhtml) && output.IndentPrec == Output.NeverDeclaredPrec)
             {
                 settings.Indent = true;
             }

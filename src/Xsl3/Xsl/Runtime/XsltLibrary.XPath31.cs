@@ -116,7 +116,8 @@ namespace Xsl3.Runtime
         /// <summary>A predicate: a numeric singleton selects by position, anything else by effective boolean value.</summary>
         public bool X31Predicate(IList<XPathItem> value, double position)
         {
-            if (value.Count == 1 && value[0] is AtomicValue a && a.Type.IsNumeric)
+            // (An external parameter's number is System.Xml's XmlAtomicValue.)
+            if (value.Count == 1 && value[0] is { IsNode: false } and not XdmFunction && Sequences.Atomize(value[0]) is { Type.IsNumeric: true } a)
             {
                 return Numeric.ToDouble(a) == position;
             }

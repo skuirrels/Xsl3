@@ -43,6 +43,51 @@ namespace Xsl3.Runtime
             output.Write(extras.Normalization is NormalizationForm form ? sb.ToString().Normalize(form) : sb.ToString());
         }
 
+        /// <summary>
+        /// Sequence normalization with item-separator (Serialization 3.1 §2), for the xml, html, xhtml and text
+        /// methods: the items, written with the separator between them.
+        /// </summary>
+        public static void WriteSequence(IList<XPathItem> items, XmlWriterSettings settings, OutputExtras extras, System.Func<XmlWriterSettings, XmlWriter> factory)
+        {
+            OutputExtras plain = extras.Clone();
+            plain.RawMethod = null;
+            XmlWriterSettings s = settings.Clone();
+            s.ConformanceLevel = ConformanceLevel.Fragment;
+            using XmlWriter w = PrincipalResult.Create(factory, s, plain);
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (i > 0 && extras.ItemSeparator != null)
+                {
+                    w.WriteString(extras.ItemSeparator);
+                }
+                switch (items[i])
+                {
+                    case XPathNavigator { NodeType: XPathNodeType.Attribute or XPathNodeType.Namespace } n:
+                        throw new XdmException("SENR0001", $"An {n.NodeType.ToString().ToLowerInvariant()} node can't be serialized on its own");
+                    case XPathNavigator { NodeType: XPathNodeType.Root } doc:
+                        XPathNavigator child = doc.Clone();
+                        if (child.MoveToFirstChild())
+                        {
+                            do
+                            {
+                                w.WriteNode(child, defattr: true);
+                            }
+                            while (child.MoveToNext());
+                        }
+                        break;
+                    case XPathNavigator node:
+                        w.WriteNode(node, defattr: true);
+                        break;
+                    case XdmFunction f:
+                        throw new XdmException("SENR0001", $"{f.Describe()} can't be serialized with this method");
+                    case var item:
+                        w.WriteString(item.Value);
+                        break;
+                }
+            }
+            w.Flush();
+        }
+
         // ------------------------------------------------------------ json
 
         private static void Json(StringBuilder sb, XPathItem? item, OutputExtras extras, int depth)

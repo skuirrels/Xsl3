@@ -283,7 +283,8 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string baseUri, double formatId, string formatName,
             double formatsId, string parameters, double namesId)
         {
-            var doc = (XPathNavigator)document[0];
+            bool raw = parameters.Contains("#raw" + SerializationParameters.NameEnd, System.StringComparison.Ordinal);
+            var doc = raw ? null! : (XPathNavigator)document[0];
             XsltNameContext names = (XsltNameContext)ConstantPool.Get((int)namesId);
             var format = (ResultFormat)ConstantPool.Get((int)formatId);
             if (formatName.Length > 0)
@@ -296,6 +297,41 @@ namespace Xsl3.Runtime
                 }
             }
             var (settings, extras, text) = SerializationParameters.Apply(format, parameters, names);
+            if (raw && href.Length == 0)
+            {
+                // The principal result: the items, separated by the item-separator (or, without one, a space
+                // between adjacent atomic values); json and adaptive apply to secondary results only.
+                PrincipalResult? target = XmlQueryRuntime.Principal;
+                if (target == null)
+                {
+                    return document;
+                }
+                target.BeginExplicit(settings, extras);
+                bool previousAtomic = false;
+                for (int i = 0; i < document.Count; i++)
+                {
+                    bool atomic = document[i] is not XPathNavigator;
+                    if (i > 0 && (extras?.ItemSeparator != null || atomic && previousAtomic))
+                    {
+                        target.WriteString(extras?.ItemSeparator ?? " ");
+                    }
+                    if (document[i] is XPathNavigator { NodeType: XPathNodeType.Root } root)
+                    {
+                        WriteChildren(target, root);
+                    }
+                    else if (document[i] is XPathNavigator node)
+                    {
+                        target.WriteNode(node, defattr: true);
+                    }
+                    else
+                    {
+                        target.WriteString(document[i].Value);
+                    }
+                    previousAtomic = atomic;
+                }
+                target.EndExplicit();
+                return Sequences.Empty;
+            }
             if (href.Length == 0)
             {
                 // The principal result.
@@ -319,7 +355,22 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XTDE1480", $"Secondary results are not enabled; can't write {uri}");
             }
-            System.IO.TextWriter output = handler(uri, text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant());
+            System.IO.TextWriter output = handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant());
+            if (raw)
+            {
+                if (extras?.RawMethod is "json" or "adaptive")
+                {
+                    ItemSerializer.Write(document, extras, output);
+                }
+                else
+                {
+                    System.Xml.XmlWriterSettings s = settings.Clone();
+                    s.CloseOutput = false;
+                    ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(output, ws));
+                }
+                output.Dispose();
+                return Sequences.Empty;
+            }
             if (text)
             {
                 output.Write(doc.Value);

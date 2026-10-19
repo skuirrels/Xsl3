@@ -524,7 +524,16 @@ namespace Xsl3.Xslt
                         parameters.Add(CompileStringAvt(value)!);
                         parameters.Add(_f.String(SerializationParameters.ValueEnd.ToString()));
                     }
-                    QilNode doc = _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
+                    // The json and adaptive methods and item-separator take the raw result, not a document.
+                    bool raw = baseFormat.Extras?.RawMethod != null ||
+                        v2.Serialization!.Exists(p => p.Name == "item-separator" || p.Name == "method" && p.Value.Trim() is "json" or "adaptive");
+                    QilNode doc = raw
+                        ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
+                        : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
+                    if (raw)
+                    {
+                        parameters.Add(_f.String("#raw" + SerializationParameters.NameEnd + SerializationParameters.ValueEnd));
+                    }
                     return X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
                         _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
                         parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()));
@@ -2017,7 +2026,7 @@ namespace Xsl3.Xslt
                 _ => text,
             };
             _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
-            function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin);
+            function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin, decl?.OnMultipleMatch == "fail");
             _currentTunnel = savedTunnel;
             return _f.Invoke(function, invokeArgs);
         }
@@ -2044,6 +2053,7 @@ namespace Xsl3.Xslt
             var extras = new OutputExtras
             {
                 Xhtml = output.Xhtml,
+                EscapeUriAttributes = output.EscapeUriAttributes,
                 IncludeContentType = output.IncludeContentType ?? true,
                 Encoding = output.Encoding ?? "UTF-8",
                 MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
@@ -2056,6 +2066,12 @@ namespace Xsl3.Xslt
                 extras.JsonNodeOutputMethod = output.JsonNodeOutputMethod;
                 extras.AllowDuplicateNames = output.AllowDuplicateNames;
                 extras.Indent = output.Settings.Indent;
+            }
+            else if (output.ItemSeparator != null)
+            {
+                // Serialization 3.1 §2: with item-separator, the raw result's items are written with it in between.
+                extras.RawMethod = "sequence";
+                extras.ItemSeparator = output.ItemSeparator;
             }
             // HTML5: html-version="5", or version="5.0" with the html method (Serialization 3.1 §7.1).
             bool html = output.Settings.OutputMethod == XmlOutputMethod.Html;
@@ -2138,7 +2154,16 @@ namespace Xsl3.Xslt
                 QilList list = _f.BaseFactory.Sequence();
                 foreach (PatternAlternative a in alternatives)
                 {
-                    QilNode filter = _f.BaseFactory.Filter(a.Node, a.Condition);
+                    QilNode condition = a.Condition;
+                    if (a.Node.XmlType!.IsSubtypeOf(T.ItemS) && !a.Node.XmlType.IsSubtypeOf(T.NodeNotRtfS) && ast is XPath31.FilterExpr)
+                    {
+                        // An error evaluating a pattern is a non-match (XSLT 3.0 §5.5.4): ".[. eq 'x']" on a number.
+                        // Template rules on nodes rarely raise them; predicate patterns on atomic items do.
+                        QilNode body = condition;
+                        QilIterator test = _f.Let(Lift31(_ => body, 0));
+                        condition = _f.Loop(test, X31(nameof(XsltLibrary.X31PatternTry), T.BooleanX, test));
+                    }
+                    QilNode filter = _f.BaseFactory.Filter(a.Node, condition);
                     XPathPatternBuilder.SetPriority(filter, a.Priority);
                     list.Add(filter);
                 }
@@ -2502,12 +2527,25 @@ namespace Xsl3.Xslt
             else
             {
                 kind = v2.GroupStartingWith != null ? 2 : 3;
-                // Patterns match nodes only; an atomic item never starts or ends a group.
+                string pattern = v2.GroupStartingWith ?? v2.GroupEndingWith!;
                 QilIterator n;
-                key = X31(nameof(XsltLibrary.X31BooleanItem), T.Item,
-                    _f.Conditional(_f.IsType(item, T.NodeNotRtf),
-                        _f.Loop(n = _f.Let(_f.TypeAssert(item, T.NodeNotRtf)), MatchPattern(CompileMatchPattern(v2.GroupStartingWith ?? v2.GroupEndingWith!), n)),
-                        _f.False()));
+                if (XPath31Compiler.MatchesItems(pattern))
+                {
+                    // A predicate pattern (".[. mod 3 = 0]") matches any item.
+                    bool saved = _templatePattern31;
+                    _templatePattern31 = true;
+                    QilNode compiled = CompileMatchPattern(pattern);
+                    _templatePattern31 = saved;
+                    key = X31(nameof(XsltLibrary.X31BooleanItem), T.Item, _f.Loop(n = _f.Let(item), MatchPattern(compiled, n)));
+                }
+                else
+                {
+                    // Other patterns match nodes only; an atomic item never starts or ends a group.
+                    key = X31(nameof(XsltLibrary.X31BooleanItem), T.Item,
+                        _f.Conditional(_f.IsType(item, T.NodeNotRtf),
+                            _f.Loop(n = _f.Let(_f.TypeAssert(item, T.NodeNotRtf)), MatchPattern(CompileMatchPattern(pattern), n)),
+                            _f.False()));
+                }
             }
             QilNode tuples = _curLoop.ConstructLoop(X31(nameof(XsltLibrary.X31GroupTuple), T.Item, _curLoop.GetCurrent()!, Box(key)));
             _curLoop = curLoopSaved;

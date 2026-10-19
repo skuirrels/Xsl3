@@ -41,11 +41,12 @@ namespace Xsl3.Runtime
                         }
                         text = local == "text";
                         Extras().Xhtml = local == "xhtml";
+                        Extras().RawMethod = local is "json" or "adaptive" ? local : extras!.RawMethod == "sequence" ? "sequence" : null;
                         XmlOutputMethod method = local switch
                         {
                             "xml" or "xhtml" => XmlOutputMethod.Xml,
                             "html" => XmlOutputMethod.Html,
-                            "text" => XmlOutputMethod.Text,
+                            "text" or "json" or "adaptive" => XmlOutputMethod.Text,
                             _ => throw new XdmException("SEPM0016", $"method=\"{value}\" is not a serialization method"),
                         };
                         settings.SetOutputMethod(method);
@@ -107,6 +108,8 @@ namespace Xsl3.Runtime
                         Extras().Normalization = form;
                         break;
                     case "escape-uri-attributes":
+                        Extras().EscapeUriAttributes = YesNo(value, name);
+                        break;
                     case "undeclare-prefixes":
                         YesNo(value, name);
                         break;
@@ -118,6 +121,17 @@ namespace Xsl3.Runtime
                         break;
                     case "html-version":
                         htmlVersion = value;
+                        break;
+                    case "item-separator":
+                        // Not trimmed; "#absent" means no separator (XSLT 3.0 §25).
+                        Extras().ItemSeparator = value == "#absent" ? null : pair[(end + 1)..];
+                        Extras().RawMethod ??= "sequence";
+                        break;
+                    case "allow-duplicate-names":
+                        Extras().AllowDuplicateNames = YesNo(value, name);
+                        break;
+                    case "json-node-output-method":
+                        Extras().JsonNodeOutputMethod = value;
                         break;
                 }
             }
@@ -233,6 +247,15 @@ namespace Xsl3.Runtime
                 string encoding = extras?.Encoding ?? settings.Encoding.WebName.ToUpperInvariant();
                 string standalone = settings.Standalone switch { XmlStandalone.Yes => " standalone=\"yes\"", XmlStandalone.No => " standalone=\"no\"", _ => "" };
                 w.WriteRaw($"<?xml version=\"1.0\" encoding=\"{encoding}\"{standalone}?>");
+            }
+            else if (settings.OutputMethod == XmlOutputMethod.Html)
+            {
+                // Xsl3: the html method's own serializer, over a text-method writer that does the encoding.
+                XmlWriterSettings s = settings.Clone();
+                s.SetOutputMethod(XmlOutputMethod.Text);
+                s.ConformanceLevel = ConformanceLevel.Fragment;
+                OutputExtras html = extras ?? new OutputExtras { Encoding = settings.Encoding.WebName.ToUpperInvariant(), MediaType = settings.MediaType ?? "text/html" };
+                w = new HtmlSerializer(factory(s), settings, html);
             }
             else
             {

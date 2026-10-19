@@ -484,6 +484,7 @@ namespace Xsl3.Xslt
         public string? NormalizationForm;
         public List<QilName>? UseCharacterMaps;
         public string? HtmlVersion; // Xsl3: xsl:output/@html-version
+        public bool EscapeUriAttributes = true; // Xsl3
         public string? ItemSeparator, JsonNodeOutputMethod; // Xsl3
         public bool AllowDuplicateNames; // Xsl3
 

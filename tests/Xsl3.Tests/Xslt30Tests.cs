@@ -55,6 +55,36 @@ public class Xslt30Tests
             "<xsl:template match='.[. instance of xs:decimal]'><d><xsl:value-of select='.'/></d></xsl:template>"));
 
     [Fact]
+    public void PatternsWithParenthesizedUnionSteps() =>
+        Assert.Equal("<out>A B x</out>", Run(
+            "<xsl:template match='/'><out><xsl:apply-templates select='//x/*'/></out></xsl:template>" +
+            "<xsl:template match='x/(a|b)'><xsl:value-of select='upper-case(name())'/><xsl:text> </xsl:text></xsl:template>" +
+            "<xsl:template match='*'><xsl:value-of select='name()'/></xsl:template>",
+            "<doc><x><a/><b/><x/></x></doc>"));
+
+    [Fact]
+    public void ExceptPatternsTakeTheDifferenceForEachContextNode() =>
+        // x/(descendant::a except child::a): the a elements below some x that aren't its children.
+        Assert.Equal("<x><aa /><x><AA /></x></x>", Run(
+            "<xsl:mode on-no-match='shallow-copy'/>" +
+            "<xsl:template match='x/(descendant::a except child::a)' priority='2'><AA/></xsl:template>" +
+            "<xsl:template match='a'><aa/></xsl:template>",
+            "<x><a/><x><a/></x></x>"));
+
+    [Fact]
+    public void ErrorsInPredicatePatternsAreNonMatches() =>
+        Assert.Equal("<out>[1][x]</out>", Run(
+            "<xsl:template match='/'><out><xsl:apply-templates select=\"1, 'x'\"/></out></xsl:template>" +
+            "<xsl:template match=\".[. eq 'x']\" priority='2'>[x]</xsl:template>" +
+            "<xsl:template match='.[. instance of xs:integer]'>[<xsl:value-of select='.'/>]</xsl:template>"));
+
+    [Fact]
+    public void GroupStartingWithPredicatePatternOnAtomicValues() =>
+        Assert.Equal("<out><g>1 2</g><g>3 4 5</g><g>6 7</g></out>", Run(
+            "<xsl:template match='/'><out><xsl:for-each-group select='1 to 7' group-starting-with='.[. mod 3 = 0]'>" +
+            "<g><xsl:value-of select='current-group()'/></g></xsl:for-each-group></out></xsl:template>"));
+
+    [Fact]
     public void NextMatchWithAtomicContextItems() =>
         Assert.Equal("<out><a><b>7</b></a></out>", Run(
             "<xsl:template match='/'><out><xsl:apply-templates select='7'/></out></xsl:template>" +
@@ -129,7 +159,7 @@ public class Xslt30Tests
     [Fact]
     public void Html5Serialization()
     {
-        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='html' html-version='5'/>" +
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='html' html-version='5' indent='no'/>" +
                             "<xsl:template match='/'><html><body><wbr/><br/><p/></body></html></xsl:template></xsl:stylesheet>";
         var transform = new XslCompiledTransform();
         transform.Load(XmlReader.Create(new StringReader(stylesheet)));

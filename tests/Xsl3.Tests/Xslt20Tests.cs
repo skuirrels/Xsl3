@@ -196,7 +196,7 @@ public class Xslt20Tests
     public void XhtmlOutputMethod() =>
         Assert.Equal("<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" /></head><body><br /><p></p></body></html>", Run(
             "<xsl:template match='/'><html xmlns='http://www.w3.org/1999/xhtml'><head/><body><br/><p/></body></html></xsl:template>",
-            output: "<xsl:output method='xhtml' omit-xml-declaration='yes'/>"));
+            output: "<xsl:output method='xhtml' omit-xml-declaration='yes' indent='no'/>"));
 
     [Fact]
     public void CharacterMaps() =>

@@ -332,7 +332,7 @@ namespace Xsl3.Xslt
                 : GenerateApply(_compiler.Root!, applyTmpls);
             _singlFocus.SetFocus(null);
 
-            if (IsV2 && _compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" })
+            if (IsV2 && (_compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))
             {
                 // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
                 return Box(result);

@@ -29,6 +29,9 @@ namespace Xsl3.Runtime
         /// <summary>The character map (use-character-maps), code point to string.</summary>
         public IReadOnlyDictionary<int, string>? CharacterMap { get; set; }
 
+        /// <summary>escape-uri-attributes (the html method's own serializer, <see cref="HtmlSerializer"/>).</summary>
+        public bool EscapeUriAttributes { get; set; } = true;
+
         /// <summary>"json" or "adaptive": the raw result sequence is serialized by <see cref="ItemSerializer"/>.</summary>
         public string? RawMethod { get; set; }
 
@@ -51,7 +54,7 @@ namespace Xsl3.Runtime
 
         public OutputExtras Clone() => (OutputExtras)MemberwiseClone();
 
-        public bool IsEmpty => !Xhtml && !Html5 && RawMethod == null && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
+        public bool IsEmpty => !Xhtml && !Html5 && RawMethod == null && EscapeUriAttributes && IncludeContentType && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
         public XmlWriter Wrap(XmlWriter writer) => IsEmpty ? writer : new SerializationWriter(writer, this);
 
@@ -104,6 +107,7 @@ namespace Xsl3.Runtime
         private readonly XmlWriter _inner;
         private readonly OutputExtras _extras;
         private bool _seenElement;
+        private bool OwnHtml => _inner is HtmlSerializer; // which does HTML5's doctype and void elements itself
         private readonly Stack<bool> _void = new();
         private bool _inAttribute;
         private bool _pendingHead;
@@ -139,6 +143,37 @@ namespace Xsl3.Runtime
                 return;
             }
             text = Normalize(text);
+            if (_inAttribute && _uriAttribute)
+            {
+                text = EscapeUri(text);
+            }
+            if (_extras.Xhtml && text.AsSpan().IndexOfAnyInRange('', '') >= 0)
+            {
+                // xhtml: C1 control characters as character references.
+                int from = 0;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    if (text[i] is >= '' and <= '')
+                    {
+                        if (i > from)
+                        {
+                            WriteMapped(text[from..i]);
+                        }
+                        _inner.WriteCharEntity(text[i]);
+                        from = i + 1;
+                    }
+                }
+                if (from < text.Length)
+                {
+                    WriteMapped(text[from..]);
+                }
+                return;
+            }
+            WriteMapped(text);
+        }
+
+        private void WriteMapped(string text)
+        {
             IReadOnlyDictionary<int, string>? map = _extras.CharacterMap;
             if (map == null || map.Count == 0)
             {
@@ -174,12 +209,12 @@ namespace Xsl3.Runtime
             if (!_seenElement)
             {
                 _seenElement = true;
-                if (_extras.Html5 && _extras.DefaultDoctype && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase))
+                if (_extras.Html5 && _extras.DefaultDoctype && !OwnHtml && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase))
                 {
                     _inner.WriteRaw("<!DOCTYPE html>"); // the html writer would write "<!DOCTYPE html >"
                 }
             }
-            if (_extras.Html5 && _extras.HtmlMethod && string.IsNullOrEmpty(ns) && NewVoidElements5.Contains(localName))
+            if (_extras.Html5 && _extras.HtmlMethod && !OwnHtml && string.IsNullOrEmpty(ns) && NewVoidElements5.Contains(localName))
             {
                 // The html method's writer reads this while it starts the element.
                 HtmlVoidElements.Html5 = true;
@@ -197,6 +232,7 @@ namespace Xsl3.Runtime
                 _inner.WriteStartElement(prefix, localName, ns);
             }
             bool xhtml = _extras.Xhtml && ns == XhtmlNs;
+            _currentXhtml = xhtml;
             _void.Push(!_extras.Xhtml || xhtml && (_extras.Html5 ? s_voidElements5 : s_voidElements).Contains(localName));
             if (xhtml && localName == "head" && _extras.IncludeContentType)
             {
@@ -231,7 +267,42 @@ namespace Xsl3.Runtime
         public override void WriteStartAttribute(string? prefix, string localName, string? ns)
         {
             _inAttribute = true;
+            // xhtml: URI attributes of XHTML elements are escaped like the html method's (Serialization 3.1 §7.3).
+            _uriAttribute = _extras.Xhtml && _extras.EscapeUriAttributes && string.IsNullOrEmpty(ns) && _currentXhtml && HtmlUriAttributes.Contains(localName);
             _inner.WriteStartAttribute(prefix, localName, ns);
+        }
+
+        private bool _uriAttribute;
+        private bool _currentXhtml;
+
+        internal static readonly HashSet<string> HtmlUriAttributes = new(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "action", "archive", "background", "cite", "classid", "codebase", "data", "datasrc", "for", "formaction", "href",
+            "icon", "longdesc", "manifest", "poster", "profile", "src", "usemap",
+        };
+
+        // %HH of the UTF-8 bytes of the characters outside printable ASCII (spaces stay).
+        internal static string EscapeUri(string value)
+        {
+            var sb = new System.Text.StringBuilder(value.Length);
+            byte[] bytes = new byte[4];
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (c is >= ' ' and < '')
+                {
+                    sb.Append(c);
+                    continue;
+                }
+                int width = char.IsSurrogatePair(value, i) ? 2 : 1;
+                int n = System.Text.Encoding.UTF8.GetBytes(value, i, width, bytes, 0);
+                i += width - 1;
+                for (int b = 0; b < n; b++)
+                {
+                    sb.Append('%').Append(bytes[b].ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+                }
+            }
+            return sb.ToString();
         }
 
         public override void WriteEndAttribute()

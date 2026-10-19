@@ -232,6 +232,19 @@ namespace Xsl3.Runtime
             }
         }
 
+        /// <summary>A pattern's condition, lifted: an error evaluating it is a non-match (XSLT 3.0 §5.5.4).</summary>
+        public bool X31PatternTry(IList<XPathItem> test)
+        {
+            try
+            {
+                return Sequences.EffectiveBooleanValue(CallFunction((XdmFunction)test[0]));
+            }
+            catch (System.Exception e) when (DynamicError(e) != null)
+            {
+                return false;
+            }
+        }
+
         /// <summary>A captured number (a position) back as a double.</summary>
         public double X31CapturedNumber(IList<XPathItem> value) => System.Xml.XmlConvert.ToDouble(value[0].Value);
 

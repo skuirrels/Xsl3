@@ -259,13 +259,13 @@ namespace Xsl3
         // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
         // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
         private XmlWriter CreateResultWriter(Stream results) =>
-            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, null, results)
+            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
                 ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateResultWriter(TextWriter results) =>
-            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, results, null)
+            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
                 ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
@@ -500,10 +500,18 @@ namespace Xsl3
         /// Xsl3: the target of a transformation whose output method is json or adaptive: the raw result sequence
         /// is serialized to the text writer or stream (Runtime.ItemSerializer); it isn't written as XML events.
         /// </summary>
-        private sealed class RawResultWriter(Xsl3.Runtime.OutputExtras extras, TextWriter? text, Stream? stream) : XmlWriter
+        private sealed class RawResultWriter(Xsl3.Runtime.OutputExtras extras, XmlWriterSettings settings, TextWriter? text, Stream? stream) : XmlWriter
         {
             public void Write(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> items)
             {
+                if (extras.RawMethod == "sequence")
+                {
+                    XmlWriterSettings s = settings.Clone();
+                    s.CloseOutput = false;
+                    Xsl3.Runtime.ItemSerializer.WriteSequence(items, s, extras,
+                        ws => text != null ? XmlWriter.Create(text, ws) : XmlWriter.Create(stream!, ws));
+                    return;
+                }
                 if (text != null)
                 {
                     Xsl3.Runtime.ItemSerializer.Write(items, extras, text);

@@ -47,7 +47,17 @@ namespace Xsl3.XPath31
         }
 
         /// <summary>A predicate pattern (XSLT 3.0 §5.5.2): "." with zero or more predicates.</summary>
-        public static bool IsPredicatePattern(Expr e) => e is ContextItemExpr or FilterExpr { Base: ContextItemExpr };
+        public static bool IsPredicatePattern(Expr e) => Innermost(e) is ContextItemExpr;
+
+        // The base of a filter expression's filters (".[a][b]" is ".").
+        private static Expr Innermost(Expr e)
+        {
+            while (e is FilterExpr fe)
+            {
+                e = fe.Base;
+            }
+            return e;
+        }
 
         /// <summary>Whether some alternative of a pattern is a predicate pattern (so may match items that aren't nodes).</summary>
         public static bool MatchesItems(string pattern)
@@ -100,20 +110,128 @@ namespace Xsl3.XPath31
         {
             switch (alternative)
             {
-                case BinaryExpr { Op: BinaryOp.Intersect } b:
+                // root(.)//(A except B) takes the difference for each context node: it is the difference of the
+                // patterns only when the context doesn't matter (B is absolute) or is the same for both.
+                case BinaryExpr { Op: BinaryOp.Intersect } b when IsAbsolute(b.Left) || IsAbsolute(b.Right) || SameDepth(b.Left, b.Right):
                     return _f.And(PatternCondition(b.Left, node), PatternCondition(b.Right, node));
-                case BinaryExpr { Op: BinaryOp.Except } b:
+                case BinaryExpr { Op: BinaryOp.Except } b when IsAbsolute(b.Right) || SameDepth(b.Left, b.Right):
                     return _f.And(PatternCondition(b.Left, node), _f.Not(PatternCondition(b.Right, node)));
+                case BinaryExpr { Op: BinaryOp.Intersect or BinaryOp.Except } b:
+                    if (!IsPattern30(b))
+                    {
+                        throw new XPathStaticException("XTSE0340", $"'{b}' is not a valid pattern", b.Span.Start);
+                    }
+                    return General(b, node);
                 case BinaryExpr { Op: BinaryOp.Union } b:
                     return _f.Or(PatternCondition(b.Left, node), PatternCondition(b.Right, node));
             }
+            // (a|b)[@x]: a relative pattern whose predicates don't count, which the node itself must satisfy.
+            if (alternative is FilterExpr fe && Innermost(fe) is var inner && inner is not ContextItemExpr && !IsAbsolute(inner) &&
+                Unwrap(fe) is var predicates && predicates.All(IsNonPositional) && IsPattern30(inner))
+            {
+                return _f.And(PatternCondition(inner, node), SelfPredicates(node, predicates));
+            }
+            // A parenthesized union as a step (x/(a|b)) is the union of the paths through each operand.
+            List<Expr> paths = Distribute(alternative);
+            if (paths.Count > 1)
+            {
+                return paths.Select(path => PatternCondition(path, node)).Aggregate(_f.Or);
+            }
             var steps = new List<(Expr Step, bool Descendants)>();
-            if (!Flatten(alternative, steps))
+            if (Flatten(alternative, steps))
+            {
+                return MatchStep(steps, steps.Count - 1, node);
+            }
+            if (!IsPattern30(alternative))
             {
                 throw new XPathStaticException("XTSE0340", $"'{alternative}' is not a valid pattern", alternative.Span.Start);
             }
-            return MatchStep(steps, steps.Count - 1, node);
+            return General(alternative, node);
         }
+
+        // A path pattern that starts at "/" or a rooted function call or variable: it doesn't depend on the context.
+        private static bool IsAbsolute(Expr e) => e switch
+        {
+            PathExpr p => IsAbsolute(p.Left),
+            RootExpr => true,
+            BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } b => IsAbsolute(b.Left) && IsAbsolute(b.Right),
+            _ => IsRooted30(e),
+        };
+
+        // Two relative paths of child, attribute, namespace and self steps that go down the same number of levels.
+        private static bool SameDepth(Expr a, Expr b) => Depth(a) is int d && Depth(b) == d;
+
+        private static int? Depth(Expr e) => e switch
+        {
+            PathExpr { Descendants: false } p => Depth(p.Left) + Depth(p.Right),
+            AxisStep { Axis: Axis.Child or Axis.Attribute or Axis.Namespace } => 1,
+            AxisStep { Axis: Axis.Self } => 0,
+            _ => null,
+        };
+
+        // The union-free paths of a path pattern: P/(A|B)/C is P/A/C | P/B/C.
+        private static List<Expr> Distribute(Expr e)
+        {
+            switch (e)
+            {
+                case BinaryExpr { Op: BinaryOp.Union } u:
+                    return Distribute(u.Left).Concat(Distribute(u.Right)).ToList();
+                case PathExpr p:
+                    List<Expr> left = Distribute(p.Left), right = Distribute(p.Right);
+                    if (left.Count == 1 && right.Count == 1)
+                    {
+                        return new List<Expr> { e };
+                    }
+                    return left.SelectMany(l => right.Select(r => Join(l, r, p.Descendants, e))).ToList();
+                default:
+                    return new List<Expr> { e };
+            }
+        }
+
+        // left/right (or left//right), with right's own steps re-associated to the left.
+        private static Expr Join(Expr left, Expr right, bool descendants, Expr at) => right is PathExpr p
+            ? new PathExpr(Join(left, p.Left, descendants, at), p.Right, p.Descendants) { Span = at.Span }
+            : new PathExpr(left, right, descendants) { Span = at.Span };
+
+        // Pattern30 (XSLT 3.0 §5.5.2) other than predicate patterns: unions, intersections and differences of
+        // path patterns, which start with "/", "//", a rooted function call or variable, or a relative path.
+        private static bool IsPattern30(Expr e) => e switch
+        {
+            BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } b => IsPattern30(b.Left) && IsPattern30(b.Right),
+            _ => IsPathPattern30(e, leftmost: true),
+        };
+
+        private static bool IsPathPattern30(Expr e, bool leftmost) => e switch
+        {
+            PathExpr { Left: RootExpr } p when leftmost => IsPathPattern30(p.Right, leftmost: false),
+            PathExpr p => IsPathPattern30(p.Left, leftmost) && IsStepPattern30(p.Right),
+            RootExpr => leftmost,
+            _ when leftmost && IsRooted30(e) => true,
+            _ => IsStepPattern30(e),
+        };
+
+        // StepExprP: a forward axis step with predicates, or a parenthesized pattern with predicates.
+        private static bool IsStepPattern30(Expr e) => e switch
+        {
+            AxisStep s => s.Axis is Axis.Child or Axis.Attribute or Axis.Self or Axis.Descendant or Axis.DescendantOrSelf or Axis.Namespace,
+            PathExpr p => IsPathPattern30(p, leftmost: false),
+            FilterExpr fe => Innermost(fe) is not ContextItemExpr and var inner && (IsPattern30(inner) || IsRooted30(inner)),
+            BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } => IsPattern30(e),
+            _ => false,
+        };
+
+        // A rooted path's start: $v or doc(), id(), element-with-id(), key() or root() with literal or variable
+        // arguments, with predicates.
+        private static bool IsRooted30(Expr e) => Innermost(e) switch
+        {
+            VarRef => true,
+            XPath31.FunctionCall { Name: { Prefix: null or "fn" } n, Arguments: var a } => a.All(IsLiteralOrVariable) && (n.LocalName, a.Count) switch
+            {
+                ("doc", 1) or ("id" or "element-with-id", 1 or 2) or ("key", 2 or 3) or ("root", 0 or 1) => true,
+                _ => false,
+            },
+            _ => false,
+        };
 
         // The steps of a path pattern, left to right, each with whether "//" precedes it. False if it isn't one.
         private static bool Flatten(Expr e, List<(Expr Step, bool Descendants)> steps)
@@ -152,10 +270,12 @@ namespace Xsl3.XPath31
             RootExpr or VarRef or ContextItemExpr => true,
             // id() and key() take literals and variable references (XSLT 3.0 §5.5.2).
             XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "key" }, Arguments: var a } => a.Count == 2 && a[0] is StringLiteral && IsLiteralOrVariable(a[1]),
-            XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "id" or "element-with-id" or "doc" }, Arguments: var a } => a.Count == 1 && IsLiteralOrVariable(a[0]),
+            XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "id" or "element-with-id" }, Arguments: var a } => a.Count is 1 or 2 && a.All(IsLiteralOrVariable),
+            XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "doc" }, Arguments: var a } => a.Count == 1 && IsLiteralOrVariable(a[0]),
             XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "root" }, Arguments: var a } => a.Count == 0 || a.Count == 1 && a[0] is VarRef,
-            FilterExpr fe => IsRoot(fe.Base),
-            BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } b => IsPattern(b.Left) && IsPattern(b.Right),
+            // (/a|$v)[1]: absolute patterns are expressions too; a relative one, (a|b)[1], counts from the parent.
+            FilterExpr fe => IsRoot(fe.Base) || Innermost(fe) is var inner && IsAbsolute(inner) && IsPattern30(inner),
+            BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } b => IsAbsolute(b) && IsPattern(b.Left) && IsPattern(b.Right),
             _ => false,
         };
 
@@ -178,8 +298,8 @@ namespace Xsl3.XPath31
                 // A pattern root that is an expression ($v, key(…), (a|b), …): the node is one of its nodes. The
                 // expression is evaluated with the node as the context item (whose root key() and id() search).
                 return k == 0 && step is ContextItemExpr ? _f.True()
-                    : k == 0 && step is FilterExpr { Base: ContextItemExpr } fe0 ? SelfPredicates(node, Unwrap(fe0))
-                    : IsOneOf(node, () => Nodes(Build(step), "XTTE0570"), node);
+                    : k == 0 && step is FilterExpr fe0 && IsPredicatePattern(fe0) ? SelfPredicates(node, Unwrap(fe0))
+                    : IsOneOf(node, () => OnlyNodes(Build(step)), node);
             }
 
             var (kinds, nameTest) = NodeTestParts(axisStep.Axis, axisStep.Test, axisStep.ExplicitAxis);
@@ -274,8 +394,46 @@ namespace Xsl3.XPath31
             {
                 path = new PathExpr(path, steps[i].Step, steps[i].Descendants);
             }
+            return General(path, node);
+        }
+
+        // The definition (XSLT 3.0 §5.5.3): the node is one of the pattern's nodes evaluated from an ancestor-or-self.
+        private QilNode General(Expr path, QilIterator node)
+        {
+            path = OrTop(path);
             QilIterator m = _f.For(_f.AncestorOrSelf(node));
-            return _f.Not(_f.IsEmpty(_f.Filter(m, IsOneOf(node, () => Nodes(Build(path), "XTTE0570"), m))));
+            return _f.Not(_f.IsEmpty(_f.Filter(m, IsOneOf(node, () => OnlyNodes(Build(path)), m))));
+        }
+
+        // The equivalent expression's first steps: child::T (or attribute::T) of a relative path is child-or-top::T,
+        // which also selects a parentless context node: here child::T | self::T[empty(..)] (§5.5.3).
+        private static Expr OrTop(Expr e)
+        {
+            switch (e)
+            {
+                case BinaryExpr { Op: BinaryOp.Union or BinaryOp.Intersect or BinaryOp.Except } b:
+                    return b with { Left = OrTop(b.Left), Right = OrTop(b.Right) };
+                case PathExpr p:
+                    return p with { Left = OrTop(p.Left) };
+                case AxisStep { Axis: Axis.Child, Test: not KindNodeTest { Kind: DocumentTest } } s:
+                    var parentless = Parser.ParseXPath("empty(..) and not(. instance of document-node())");
+                    var top = s with { Axis = Axis.Self, Predicates = new[] { parentless }.Concat(s.Predicates).ToList() };
+                    return new BinaryExpr(BinaryOp.Union, s, top) { Span = s.Span };
+                default:
+                    return e;
+            }
+        }
+
+        // The nodes of a pattern's expression: the other items can't be the node matched (an error in a pattern is
+        // a non-match, so $v needn't hold nodes only).
+        private QilNode OnlyNodes(QilNode n)
+        {
+            if (n.XmlType!.IsSubtypeOf(T.NodeNotRtfS))
+            {
+                return n;
+            }
+            QilIterator x = _f.For(Items(n));
+            return _f.TypeAssert(_f.Filter(x, _f.IsType(x, T.NodeNotRtf)), T.NodeNotRtfS);
         }
 
         // `node` is one of the nodes `nodes` builds with `focus` as the context item.

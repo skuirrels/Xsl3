@@ -19,8 +19,13 @@ result is delivered raw and serialized by `Runtime.ItemSerializer`), `fn:seriali
 `xsl:map`/`xsl:map-entry`, accumulators, `xsl:merge`, `on-multiple-match="fail"`, single-package stylesheets.
 Then `xsl:use-package` (the package is loaded like an import, from a package library; `xsl:override` declarations
 belong to the using package), so the package tests run: 7,058 passed of 7,939 run (88.9%).
-Then package visibility (decision 9): 7,193 passed (90.6%).
-Next: initial functions, `xsl:evaluate`, the html serializer details, error-code coverage.
+Then package visibility (decision 9): 7,193 passed (90.6%). Then the html method's own serializer
+(`Runtime.HtmlSerializer`, over a text-method writer), `item-separator`, json and adaptive results of
+`xsl:result-document`, and the XSLT 3.0 pattern forms: parenthesized unions as steps are distributed
+(`x/(a|b)` is `x/a | x/b`), `intersect`/`except` take the difference per context node as §5.5.3 defines
+unless both sides pin the same context, and other valid patterns are evaluated from each ancestor-or-self
+with child-or-top; an error in a predicate pattern is a non-match. 7,255 passed (91.4%).
+Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us
 

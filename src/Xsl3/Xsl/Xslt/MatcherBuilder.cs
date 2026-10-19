@@ -540,16 +540,35 @@ namespace Xsl3.Xslt
         /// Xsl3: the matcher for items that aren't nodes: the template rules whose patterns are predicate patterns,
         /// in decreasing order of preference.
         /// </summary>
-        public QilNode BuildItemMatcher(QilIterator it, IList<XslNode> actualArgs, QilNode otherwise)
+        public QilNode BuildItemMatcher(QilIterator it, IList<XslNode> actualArgs, QilNode otherwise, bool failOnMultipleMatch = false)
         {
             QilNode result = otherwise;
             foreach (List<TemplateMatch> list in _allMatches)
             {
-                foreach (TemplateMatch match in list)
+                for (int m = 0; m < list.Count; m++)
                 {
+                    TemplateMatch match = list[m];
                     if (!match.Iterator.XmlType!.IsSubtypeOf(XmlQueryTypeFactory.NodeS))
                     {
-                        result = _f.Conditional(MatchPattern(it, match), _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs), result);
+                        QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs);
+                        if (failOnMultipleMatch)
+                        {
+                            // on-multiple-match="fail", as in BuildMatcher.
+                            QilNode? conflict = null;
+                            for (int o = 0; o < m; o++)
+                            {
+                                if (list[o].Priority == match.Priority && list[o].Template != match.Template && !list[o].Iterator.XmlType!.IsSubtypeOf(XmlQueryTypeFactory.NodeS))
+                                {
+                                    QilNode test = MatchPattern(it, list[o]);
+                                    conflict = conflict == null ? test : _f.Or(conflict, test);
+                                }
+                            }
+                            if (conflict != null)
+                            {
+                                invoke = _f.Conditional(conflict, _f.Error(_f.String("XTDE0540: more than one template rule matches the item with the same precedence and priority")), invoke);
+                            }
+                        }
+                        result = _f.Conditional(MatchPattern(it, match), invoke, result);
                     }
                 }
             }
