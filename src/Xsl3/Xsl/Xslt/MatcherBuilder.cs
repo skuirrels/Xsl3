@@ -117,6 +117,8 @@ namespace Xsl3.Xslt
             get { return _condition; }
         }
 
+        public Template Template => _template;
+
         public QilFunction? TemplateFunction
         {
             get { return _template.Function; }
@@ -361,19 +363,67 @@ namespace Xsl3.Xslt
             }
 
             List<TemplateMatch>? matchesForMode;
-            if (sheet.TemplateMatches.TryGetValue(mode, out matchesForMode))
+            sheet.TemplateMatches.TryGetValue(mode, out matchesForMode);
+            // Xsl3: templates with mode="#all" take part in every mode.
+            if (sheet.AllModesMatches.Count > 0)
+            {
+                var merged = new List<TemplateMatch>(sheet.AllModesMatches);
+                if (matchesForMode != null)
+                {
+                    merged.AddRange(matchesForMode);
+                }
+                merged.Sort(TemplateMatch.Comparer);
+                matchesForMode = merged;
+            }
+            if (matchesForMode != null)
             {
                 AddPatterns(matchesForMode);
                 _allMatches.Add(matchesForMode);
             }
         }
 
-        public void CollectPatterns(StylesheetLevel sheet, QilName mode)
+        public void CollectPatterns(StylesheetLevel sheet, QilName mode) => CollectPatterns(sheet, mode, below: null);
+
+        /// <summary>
+        /// Xsl3: with <paramref name="below"/>, only the template rules of lower preference than that template's (the
+        /// candidates of xsl:next-match, XSLT 3.0 §6.8).
+        /// </summary>
+        public void CollectPatterns(StylesheetLevel sheet, QilName mode, Template? below)
         {
             Clear();
             foreach (Stylesheet import in sheet.Imports!)
             {
                 CollectPatternsInternal(import, mode);
+            }
+            if (below == null)
+            {
+                return;
+            }
+            // _allMatches is in increasing order of preference: keep what comes before the template's first rule.
+            var lists = new List<List<TemplateMatch>>(_allMatches);
+            Clear();
+            bool stop = false;
+            foreach (List<TemplateMatch> list in lists)
+            {
+                var kept = new List<TemplateMatch>();
+                foreach (TemplateMatch match in list)
+                {
+                    if (match.Template == below)
+                    {
+                        stop = true;
+                        break;
+                    }
+                    kept.Add(match);
+                }
+                if (kept.Count > 0)
+                {
+                    AddPatterns(kept);
+                    _allMatches.Add(kept);
+                }
+                if (stop)
+                {
+                    break;
+                }
             }
         }
 

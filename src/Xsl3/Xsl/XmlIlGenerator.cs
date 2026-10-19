@@ -163,6 +163,7 @@ namespace Xsl3
                 _qil.WhitespaceRules,
                 _helper.StaticData
             );
+            staticData.OutputExtras = _qil.OutputExtras;
 
             // Create static constructor that initializes XmlQueryStaticData instance at runtime
             if (typeBldr != null)

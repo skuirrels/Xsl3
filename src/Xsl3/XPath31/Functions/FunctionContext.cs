@@ -34,6 +34,16 @@ namespace Xsl3.XPath31.Functions
         /// <summary>The decimal formats fn:format-number resolves its third argument against.</summary>
         public DecimalFormatTable DecimalFormats { get; init; } = DecimalFormatTable.Empty;
 
+        /// <summary>This dynamic context with the static parts of one expression's context.</summary>
+        public FunctionContext WithStatic(StaticInfo info) => new(ImplicitTimezoneMinutes, _comparePosition)
+        {
+            _now = CurrentDateTime,
+            DefaultCollation = Collation.Resolve(info.DefaultCollation),
+            Runtime = Runtime,
+            StaticBaseUri = info.BaseUri,
+            DecimalFormats = info.DecimalFormats,
+        };
+
         /// <summary>This context with another default collation (for functions given an explicit collation).</summary>
         public FunctionContext WithDefaultCollation(Collation collation) => new(ImplicitTimezoneMinutes, _comparePosition)
         {

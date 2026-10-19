@@ -170,7 +170,7 @@ namespace Xsl3.IlGen
     internal static class XmlILMethods
     {
         // Xsl3: stack depth guard at template and function entry
-        public static readonly MethodInfo EnsureSufficientExecutionStack = typeof(System.Runtime.CompilerServices.RuntimeHelpers).GetMethod(nameof(System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack))!;
+        public static readonly MethodInfo EnsureSufficientExecutionStack = typeof(XmlQueryRuntime).GetMethod(nameof(XmlQueryRuntime.EnterFunction))!;
 
         // Iterators
         public static readonly MethodInfo AncCreate = typeof(AncestorIterator).GetMethod("Create")!;

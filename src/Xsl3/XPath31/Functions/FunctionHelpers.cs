@@ -305,11 +305,12 @@ namespace Xsl3.XPath31.Functions
         }
 
         // Values that can be equal must share a key.
-        private static object HashKey(AtomicValue v, FunctionContext c) => v switch
+        public static object HashKey(AtomicValue v, FunctionContext c) => v switch
         {
             // Keyed by the value as a float: numbers equal after promotion (1.2 and xs:float(1.2)) round to the same float.
             _ when v.Type.IsNumeric => Numeric.ToDouble(v) is double d && double.IsNaN(d) ? "NaN" : (object)(float)Numeric.ToDouble(v),
-            StringValue s => "s:" + s.String,
+            // Strings equal under the collation must share a key: the collation's own key.
+            StringValue s => "s:" + c.DefaultCollation.Key(s.String),
             DateTimeValue dt => ("t", dt.Type.Primitive is Primitive.DateTime or Primitive.Date or Primitive.Time ? dt.DateTime.ToTimeline(dt.Type.Primitive, c.ImplicitTimezoneMinutes) : 0m),
             DurationValue du => ("d", du.Duration.Months, du.Duration.Seconds),
             QNameValue q => ("q", q.QName.NamespaceUri, q.QName.LocalName),

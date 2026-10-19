@@ -4698,6 +4698,8 @@ namespace Xsl3.IlGen
             Debug.Assert(_iterCurr.Storage.Location == ItemLocation.None ||
                          _iterCurr.Storage.ItemStorageType == GetItemStorageType(nd) ||
                          _iterCurr.Storage.ItemStorageType == typeof(XPathItem) ||
+                         // Xsl3: a node stored where an item is expected (a TypeAssert widened the static type)
+                         GetItemStorageType(nd).IsAssignableFrom(_iterCurr.Storage.ItemStorageType) ||
                          nd.XmlType!.TypeCode == XmlTypeCode.None,
                          $"QilNodeType {nd.NodeType} cannot be stored using type {_iterCurr.Storage.ItemStorageType}."
             );

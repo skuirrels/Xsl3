@@ -43,7 +43,10 @@ public class Xslt30RunTests
 
         // XSL3_XSLT30_SETS=sequence,for-each-group runs only those test sets (prefixes); the baseline is then not checked.
         string[]? sets = Environment.GetEnvironmentVariable("XSL3_XSLT30_SETS")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        foreach (Xslt30.TestCase test in catalog.TestCases.Where(Xslt30.Profile.Xslt20.Applies).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
+        // The unicode-90 sets loop over every Unicode character in documents of tens of megabytes: hours of run time
+        // for character classes that QT3 covers. They run only when named in XSL3_XSLT30_SETS.
+        bool Routine(Xslt30.TestCase t) => sets != null || !t.Set.Name.StartsWith("unicode-90", StringComparison.Ordinal);
+        foreach (Xslt30.TestCase test in catalog.TestCases.Where(Xslt30.Profile.Xslt20.Applies).Where(Routine).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
         {
             if (trace != null)
             {

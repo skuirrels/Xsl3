@@ -26,15 +26,21 @@ public sealed class Runner
 {
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(30);
 
-    private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages);
+    private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
+    {
+        public Dictionary<string, StringWriter> SecondaryResults { get; init; } = new();
+    }
 
     public Outcome Run(TestCase test)
     {
         Outcome outcome = Outcome.Fail("timeout");
+        using var cancel = new CancellationTokenSource();
         var thread = new Thread(() =>
         {
             try
             {
+                // A test that runs away is stopped at its next template or function entry.
+                Xsl3.Runtime.XmlQueryRuntime.Cancellation = cancel.Token;
                 outcome = RunCore(test);
             }
             catch (Exception e)
@@ -44,7 +50,12 @@ public sealed class Runner
         }, 64 * 1024 * 1024);
         thread.IsBackground = true;
         thread.Start();
-        thread.Join(s_timeout);
+        if (!thread.Join(s_timeout))
+        {
+            cancel.Cancel();
+            thread.Join(TimeSpan.FromSeconds(5));
+            return Outcome.Fail("timeout");
+        }
         return outcome;
     }
 
@@ -109,10 +120,13 @@ public sealed class Runner
         List<TestEnvironment.Param> parameters)
     {
         var messages = new List<string>();
+        var secondary = new Dictionary<string, StringWriter>(StringComparer.Ordinal);
+        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new StringWriter();
         try
         {
             var resolver = new TestResolver(envs);
             XPathNavigator? input = null;
+            TestEnvironment.Source? inputSource = null;
             var args = new XsltArgumentList();
             args.XsltMessageEncountered += (_, e) => messages.Add(e.Message);
             foreach (TestEnvironment env in envs)
@@ -127,6 +141,7 @@ public sealed class Runner
                     if (source.Role == ".")
                     {
                         input = doc;
+                        inputSource = source;
                     }
                     else if (source.Role.StartsWith('$'))
                     {
@@ -145,11 +160,25 @@ public sealed class Runner
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
             XPathNavigator context = input ?? EmptyDocument();
-            using (XmlWriter writer = XmlWriter.Create(sw, OutputSettings(transform)))
+            try
             {
+                using XmlWriter writer = XmlWriter.Create(sw, OutputSettings(transform));
                 transform.Transform(context, args, writer, resolver);
             }
-            return new RunResult(sw.ToString(), null, messages);
+            catch (Exception e) when (inputSource != null && e.Message.StartsWith("Whitespace cannot be stripped", StringComparison.Ordinal))
+            {
+                // xsl:strip-space needs the input as a reader (upstream can't strip an already-loaded tree).
+                sw = new StringWriter();
+                messages.Clear();
+                secondary.Clear();
+                var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+                using XmlReader reader = inputSource.Content != null
+                    ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? "")
+                    : XmlReader.Create(inputSource.File!, settings);
+                using XmlWriter writer = XmlWriter.Create(sw, OutputSettings(transform));
+                transform.Transform(reader, args, writer, resolver);
+            }
+            return new RunResult(sw.ToString(), null, messages) { SecondaryResults = secondary };
         }
         catch (Exception e) when (e is not OutOfMemoryException and not ThreadAbortException)
         {
@@ -212,13 +241,26 @@ public sealed class Runner
         return XPath31Compiler.Compile(expression, sc).Evaluate(context, variables, 0);
     }
 
+    // Source documents are read-only, so one parse serves every test that uses the file (the unicode-90 sets
+    // share a few documents of tens of megabytes).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, XPathDocument> s_documents = new(StringComparer.Ordinal);
+
     private static XPathNavigator LoadSource(TestEnvironment.Source source)
     {
+        if (source.Content == null)
+        {
+            return s_documents.GetOrAdd(Path.GetFullPath(source.File!), Parse).CreateNavigator();
+        }
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
-        using XmlReader reader = source.Content != null
-            ? XmlReader.Create(new StringReader(source.Content), settings, source.File ?? "")
-            : XmlReader.Create(source.File!, settings);
+        using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? "");
         return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+    }
+
+    private static XPathDocument Parse(string file)
+    {
+        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+        using XmlReader reader = XmlReader.Create(file, settings);
+        return new XPathDocument(reader, XmlSpace.Preserve);
     }
 
     // ------------------------------------------------------------ assertions
@@ -252,12 +294,12 @@ public sealed class Runner
             case "assert-serialization-error":
             {
                 string code = (string?)assertion.Attribute("code") ?? "*";
-                return run.Error != null ? Outcome.Pass($"error code {code} expected; got {run.Error.GetType().Name}: {OneLine(run.Error.Message)}") : Outcome.Fail($"expected error {code}, got a result");
+                return run.Error != null ? Outcome.Pass($"error code {code} expected; got {Describe(run.Error)}") : Outcome.Fail($"expected error {code}, got a result");
             }
         }
         if (run.Error != null)
         {
-            return Outcome.Fail($"{kind} expected, got {run.Error.GetType().Name}: {OneLine(run.Error.Message)}");
+            return Outcome.Fail($"{kind} expected, got {Describe(run.Error)}");
         }
         string serialized = run.Serialized!;
         try
@@ -333,6 +375,24 @@ public sealed class Runner
                     bool ok = Sequences.EffectiveBooleanValue(Evaluate(expression, assertion, doc, new XPathItem[] { doc }));
                     return ok ? Outcome.Pass() : Outcome.Fail($"{kind} {Trim(text)} failed on {Trim(serialized)}");
                 }
+                case "assert-result-document":
+                {
+                    string uri = (string)assertion.Attribute("uri")!;
+                    foreach (var (written, text) in run.SecondaryResults)
+                    {
+                        if (written == uri || written.EndsWith("/" + uri, StringComparison.Ordinal))
+                        {
+                            var docRun = new RunResult(text.ToString(), null, Array.Empty<string>());
+                            foreach (XElement a in assertion.Elements())
+                            {
+                                Outcome o = Check(test, a, docRun);
+                                if (o.Kind != OutcomeKind.Pass) return o;
+                            }
+                            return Outcome.Pass();
+                        }
+                    }
+                    return Outcome.Fail($"no result document {uri} ({run.SecondaryResults.Count} written)");
+                }
                 case "assert-posture-and-sweep":
                     return Outcome.NotRun("streamability (P7)");
                 default:
@@ -394,6 +454,18 @@ public sealed class Runner
     private static string Trim(string s) => s.Length > 160 ? s[..157].ReplaceLineEndings(" ") + "..." : s.ReplaceLineEndings(" ");
 
     private static string OneLine(string s) => Trim(s);
+
+    // An exception and its inner exceptions, which carry the detail of "XSLT compile error".
+    private static string Describe(Exception e)
+    {
+        var parts = new List<string>();
+        for (Exception? x = e; x != null && parts.Count < 3; x = x.InnerException)
+        {
+            parts.Add($"{x.GetType().Name}: {x.Message}");
+        }
+        string all = string.Join(" <- ", parts).ReplaceLineEndings(" ");
+        return all.Length > 500 ? all[..497] + "..." : all;
+    }
 
     /// <summary>Maps the URIs an environment gives documents to their files.</summary>
     private sealed class TestResolver(IReadOnlyList<TestEnvironment> envs) : XmlUrlResolver

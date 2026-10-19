@@ -55,6 +55,41 @@ namespace Xsl3.Xslt
         ValueOfDoe,
         Variable,
         WithParam,
+
+        // Xsl3: XSLT 2.0+ instructions
+        Sequence,
+        ForEachGroup,
+        AnalyzeString,
+        MatchingSubstring,
+        NonMatchingSubstring,
+        PerformSort,
+        Namespace,
+        Document,
+        ResultDocument,
+        NextMatch,
+    }
+
+    /// <summary>
+    /// Xsl3: XSLT 2.0+ attributes of an instruction or declaration that upstream's AST has no slot for.
+    /// Expressions and AVTs are kept as strings, as upstream does, and compiled by QilGenerator.
+    /// </summary>
+    internal sealed class XslNodeV2
+    {
+        public string? As;
+        public string? Separator;
+        public string? Collation;
+        public string? GroupBy, GroupAdjacent, GroupStartingWith, GroupEndingWith;
+        public bool Composite;
+        public string? Regex, Flags;
+        public string? NameAvt;
+        public string? Href, Format, Method;
+        public string? Ordinal;
+        public string? Select;
+        public bool Tunnel, Required;
+        public bool HasContent;
+        public TriState CopyNamespaces = TriState.Unknown, InheritNamespaces = TriState.Unknown;
+        public List<QilName>? Modes;
+        public bool AllModes;
     }
 
     internal sealed class NsDecl
@@ -81,6 +116,7 @@ namespace Xsl3.Xslt
         public readonly object? Arg;    // select or test or terminate or stylesheet;-)
         public readonly XslVersion XslVersion;
         public XslFlags Flags;
+        public XslNodeV2? V2; // Xsl3: 2.0+ attributes
         private List<XslNode>? _content;
 
         public XslNode(XslNodeType nodeType, QilName? name, object? arg, XslVersion xslVer)
@@ -134,6 +170,20 @@ namespace Xsl3.Xslt
         }
     }
 
+    /// <summary>Xsl3: an xsl:character-map declaration.</summary>
+    internal sealed class CharacterMap
+    {
+        public readonly QilName? Name;
+        public readonly List<QilName> UseCharacterMaps;
+        public readonly Dictionary<int, string> Characters = new Dictionary<int, string>();
+
+        public CharacterMap(QilName? name, List<QilName> useCharacterMaps)
+        {
+            Name = name;
+            UseCharacterMaps = useCharacterMaps;
+        }
+    }
+
     internal abstract class ProtoTemplate : XslNode
     {
         public QilFunction? Function;                   // Compiled body
@@ -176,6 +226,9 @@ namespace Xsl3.Xslt
         public readonly double Priority;
         public int ImportPrecedence;
         public int OrderNumber;
+
+        // Xsl3: xsl:function is loaded as a template without match or mode, compiled separately.
+        public bool IsFunction;
 
         public Template(QilName? name, string? match, QilName mode, double priority, XslVersion xslVer)
             : base(XslNodeType.Template, name, xslVer)
@@ -233,7 +286,7 @@ namespace Xsl3.Xslt
         public readonly string? Order;
         public readonly string? CaseOrder;
 
-        public Sort(string select, string? lang, string? dataType, string? order, string? caseOrder, XslVersion xslVer)
+        public Sort(string? select, string? lang, string? dataType, string? order, string? caseOrder, XslVersion xslVer)
             : base(XslNodeType.Sort, null, select, xslVer)
         {
             this.Lang = lang;
@@ -492,7 +545,7 @@ namespace Xsl3.Xslt
             return new XslNode(XslNodeType.PI, null, name, xslVer);
         }
 
-        public static Sort Sort(string select, string? lang, string? dataType, string? order, string? caseOrder, XslVersion xslVer)
+        public static Sort Sort(string? select, string? lang, string? dataType, string? order, string? caseOrder, XslVersion xslVer)
         {
             return new Sort(select, lang, dataType, order, caseOrder, xslVer);
         }

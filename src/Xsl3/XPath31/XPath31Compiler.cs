@@ -80,10 +80,35 @@ namespace Xsl3.XPath31
     /// conditionals — is native QIL; the atomic semantics are calls into XsltLibrary.XPath31.cs. Typed,
     /// unboxed lowering is P4.
     /// </remarks>
-    internal sealed class XPath31Compiler
+    /// <summary>
+    /// What a host language supplies to an embedded XPath expression (XSLT 3.0 §5.3): the focus at the top level,
+    /// the variables in scope, and the host's functions. Values are boxed QIL (item/item*), or native QIL booleans,
+    /// doubles and strings, which the compiler boxes.
+    /// </summary>
+    internal interface IXPath31Environment
     {
-        private readonly QilFactory _qf = new();
+        /// <summary>The context item, or null if it is absent (XPDY0002 if used).</summary>
+        QilNode? ContextItem();
+
+        QilNode ContextPosition();
+
+        QilNode ContextLast();
+
+        /// <summary>A variable in scope in the host, or null.</summary>
+        QilNode? ResolveVariable(QName name);
+
+        /// <summary>
+        /// A call of a host function (or of a function the host overrides), or null to use the F&amp;O library.
+        /// <paramref name="compile"/> compiles an argument to boxed QIL.
+        /// </summary>
+        QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile);
+    }
+
+    internal sealed partial class XPath31Compiler
+    {
+        private readonly QilFactory _qf;
         private readonly QilPatternFactory _f;
+        private readonly IXPath31Environment? _env;
         private readonly XPathStaticContext _sc;
         private readonly StaticTypeResolver _types;
         private readonly IXmlNamespaceResolver _namespaces;
@@ -96,13 +121,22 @@ namespace Xsl3.XPath31
         /// </summary>
         private sealed record Focus(QilNode Item, System.Func<QilNode> Position, System.Func<QilNode>? Last);
 
-        private XPath31Compiler(XPathStaticContext sc)
+        private XPath31Compiler(XPathStaticContext sc, QilPatternFactory? f = null, IXPath31Environment? env = null)
         {
-            _f = new QilPatternFactory(_qf, false);
+            _f = f ?? new QilPatternFactory(new QilFactory(), false);
+            _qf = _f.BaseFactory;
+            _env = env;
             _sc = sc;
             _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
             _namespaces = sc.CreateResolver();
+            _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
+                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)));
         }
+
+        // The StaticInfo id passed to runtime calls that read the static context.
+        private readonly int _staticId;
+
+        private QilNode StaticId() => _f.Double(_staticId);
 
         public static XPath31Executable Compile(string expression, XPathStaticContext sc)
         {
@@ -110,8 +144,35 @@ namespace Xsl3.XPath31
             var compiler = new XPath31Compiler(sc);
             QilExpression qil = compiler.CompileQuery(ast);
             XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
-            return new XPath31Executable(command, sc.BaseUri, sc.DefaultCollation, new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), compiler._namespaces));
+            return new XPath31Executable(command);
         }
+
+        /// <summary>
+        /// Compiles a standalone expression whose focus, variables and extra functions come from a host
+        /// environment (XSLT's use-when, say). The environment is made for the compiler's QIL factory.
+        /// </summary>
+        public static XPath31Executable CompileHosted(Expr ast, XPathStaticContext sc, System.Func<QilPatternFactory, IXPath31Environment> environment)
+        {
+            var f = new QilPatternFactory(new QilFactory(), false);
+            var compiler = new XPath31Compiler(sc, f, environment(f));
+            QilExpression qil = compiler._qf.QilExpression(compiler.Items(compiler.Build(ast)), compiler._qf);
+            qil.DefaultWriterSettings = new XmlWriterSettings();
+            XmlILCommand command = new XmlILGenerator().Generate(qil, null)!;
+            return new XPath31Executable(command);
+        }
+
+        /// <summary>
+        /// Compiles an expression embedded in a host language (XSLT) into the host's QIL graph. The result is
+        /// boxed: item or item*.
+        /// </summary>
+        public static QilNode CompileEmbedded(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env)
+        {
+            var compiler = new XPath31Compiler(sc, f, env);
+            return compiler.Items(compiler.Build(ast));
+        }
+
+        /// <summary>Compiles a boxed host value (a variable reference, say) to an item* node.</summary>
+        public static QilNode Box(QilNode n, QilPatternFactory f) => new XPath31Compiler(new XPathStaticContext(), f, null).Items(n);
 
         private QilExpression CompileQuery(Expr ast)
         {
@@ -143,6 +204,10 @@ namespace Xsl3.XPath31
         private QilNode Call(string method, XmlQueryType type, params QilNode[] args) =>
             _f.XsltInvokeEarlyBound(_f.QName(method, ""), s_methods[method], type, args);
 
+        /// <summary>A call of an XsltLibrary X31 method, for host code (XSLT) that builds QIL around embedded expressions.</summary>
+        internal static QilNode Invoke(QilPatternFactory f, string method, XmlQueryType type, params QilNode[] args) =>
+            f.XsltInvokeEarlyBound(f.QName(method, ""), s_methods[method], type, args);
+
         private QilNode Constant(AtomicValue value) => Call(nameof(XsltLibrary.X31Constant), T.Item, _f.Double(ConstantPool.Add(value)));
 
         private static bool IsBoolean(QilNode n) => n.XmlType!.TypeCode == System.Xml.Schema.XmlTypeCode.Boolean && n.XmlType.IsSingleton;
@@ -161,6 +226,11 @@ namespace Xsl3.XPath31
                 // Only positions are native doubles; position() and last() are xs:integer.
                 return Call(nameof(XsltLibrary.X31DoubleAsInteger), T.Item, n);
             }
+            if (n.XmlType!.TypeCode == System.Xml.Schema.XmlTypeCode.String && n.XmlType.IsSingleton)
+            {
+                // Native strings come from the host (XSLT 1.0 values, AVT parts).
+                return Call(nameof(XsltLibrary.X31StringItem), T.Item, n);
+            }
             return n;
         }
 
@@ -175,7 +245,11 @@ namespace Xsl3.XPath31
 
         // ------------------------------------------------------------ focus
 
-        private QilNode FocusItem() => _focus?.Item ?? Call(nameof(XsltLibrary.X31ContextItem), T.Item);
+        private QilNode FocusItem() =>
+            _focus?.Item
+            ?? (_env != null
+                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent"))
+                : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
 
         private QilNode FocusNode()
         {
@@ -185,10 +259,13 @@ namespace Xsl3.XPath31
 
         private QilNode FocusPosition()
         {
-            return _focus == null ? Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX) : _focus.Position();
+            return _focus != null ? _focus.Position() : _env != null ? _env.ContextPosition() : Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX);
         }
 
-        private QilNode FocusLast() => _focus == null ? Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX) : (_focus.Last ?? throw new System.InvalidOperationException("last() not prepared"))();
+        private QilNode FocusLast() =>
+            _focus != null ? (_focus.Last ?? throw new System.InvalidOperationException("last() not prepared"))()
+            : _env != null ? _env.ContextLast()
+            : Call(nameof(XsltLibrary.X31TopLevelFocus), T.DoubleX);
 
         /// <summary>
         /// Iterates <paramref name="input"/> with each item as the focus, building the body with <paramref name="body"/>.
@@ -286,7 +363,12 @@ namespace Xsl3.XPath31
                 case QuantifiedExpr q:
                     return Quantified(q);
                 case RootExpr:
-                    return _f.Root(FocusNode());
+                {
+                    // fn:root(self::node()) treat as document-node() (XPath 3.1 §3.3.5): XPDY0050 if it isn't one.
+                    QilIterator root = _f.Let(_f.Root(FocusNode()));
+                    return _f.Loop(root, _f.Conditional(_f.IsType(root, T.Document), root,
+                        _f.TypeAssert(Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0050"), _f.String("The root of the tree containing the context node is not a document node")), T.Document)));
+                }
                 case AxisStep step:
                     return Step(step);
                 case PathExpr p:
@@ -332,6 +414,10 @@ namespace Xsl3.XPath31
                 {
                     return _scope[i].Value;
                 }
+            }
+            if (_env?.ResolveVariable(name) is QilNode hostVariable)
+            {
+                return hostVariable;
             }
             throw new XPathStaticException("XPST0008", $"Variable ${v.Name} is not declared", v.Span.Start);
         }
@@ -399,10 +485,10 @@ namespace Xsl3.XPath31
                     return _f.And(Bool(Build(b.Left)), Bool(Build(b.Right)));
                 case BinaryOp.GeneralEq: case BinaryOp.GeneralNe: case BinaryOp.GeneralLt:
                 case BinaryOp.GeneralLe: case BinaryOp.GeneralGt: case BinaryOp.GeneralGe:
-                    return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq));
+                    return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.ValueEq: case BinaryOp.ValueNe: case BinaryOp.ValueLt:
                 case BinaryOp.ValueLe: case BinaryOp.ValueGt: case BinaryOp.ValueGe:
-                    return Call(nameof(XsltLibrary.X31ValueCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.ValueEq));
+                    return Call(nameof(XsltLibrary.X31ValueCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.ValueEq), StaticId());
                 case BinaryOp.Is: case BinaryOp.Precedes: case BinaryOp.Follows:
                     return Call(nameof(XsltLibrary.X31NodeCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.Is));
                 case BinaryOp.StringConcat:
@@ -631,6 +717,11 @@ namespace Xsl3.XPath31
                 return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(target), _f.True());
             }
 
+            if (_env?.ResolveFunction(name, args, a => Items(Build(a))) is QilNode hostCall)
+            {
+                return hostCall;
+            }
+
             if (name.NamespaceUri == QName.Ns.Fn)
             {
                 switch (name.LocalName, args.Count)
@@ -681,7 +772,7 @@ namespace Xsl3.XPath31
                 5 => nameof(XsltLibrary.X31Call5),
                 _ => throw NotYetSupported(call, $"Calling {name}#{args.Count}"),
             };
-            return Call(method, T.ItemS, args.Prepend(_f.Double(def.Id)).ToArray());
+            return Call(method, T.ItemS, args.Prepend(StaticId()).Prepend(_f.Double(def.Id)).ToArray());
         }
     }
 
@@ -691,39 +782,24 @@ namespace Xsl3.XPath31
         public const string ControlNamespace = "urn:xsl3:xpath31";
         public const string ContextItemParam = "context-item";
         public const string ImplicitTimezoneParam = "implicit-timezone";
-        public const string StaticBaseUriParam = "static-base-uri";
-        public const string DecimalFormatsParam = "decimal-formats";
         public const string ReaderSettingsParam = "reader-settings";
-        public const string DefaultCollationParam = "default-collation";
 
         private readonly XmlILCommand _command;
-        private readonly string? _baseUri;
-        private readonly DecimalFormatTable _decimalFormats;
-        private readonly string _defaultCollation;
 
-        internal XPath31Executable(XmlILCommand command, string? baseUri, string defaultCollation, DecimalFormatTable decimalFormats)
+        internal XPath31Executable(XmlILCommand command)
         {
             _command = command;
-            _baseUri = baseUri;
-            _defaultCollation = defaultCollation;
-            _decimalFormats = decimalFormats;
         }
 
         public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null)
         {
             var args = new XsltArgumentList();
-            args.AddParam(DecimalFormatsParam, ControlNamespace, _decimalFormats);
-            args.AddParam(DefaultCollationParam, ControlNamespace, _defaultCollation);
             // fn:doc parses internal DTD subsets (for entities, attribute defaults and IDs); an external subset
             // is fetched through the caller's resolver, if any.
             args.AddParam(ReaderSettingsParam, ControlNamespace, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver, MaxCharactersFromEntities = 10_000_000 });
             if (contextItem != null)
             {
                 args.AddParam(ContextItemParam, ControlNamespace, contextItem);
-            }
-            if (_baseUri != null)
-            {
-                args.AddParam(StaticBaseUriParam, ControlNamespace, _baseUri);
             }
             if (implicitTimezoneMinutes is int tz)
             {

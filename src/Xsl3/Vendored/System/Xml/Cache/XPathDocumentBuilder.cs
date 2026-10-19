@@ -308,7 +308,13 @@ namespace MS.Internal.Xml.Cache
             Debug.Assert(_pageSibling != null);
             Debug.Assert(_pageSibling[_idxSibling].NodeType == XPathNodeType.Attribute);
 
-            _pageSibling[_idxSibling].SetValue(_textBldr.ReadText());
+            string value = _textBldr.ReadText();
+            if (_pageSibling[_idxSibling].LocalName == "id" && _pageSibling[_idxSibling].NamespaceUri == XmlReservedNs.NsXml)
+            {
+                // Xsl3: xml:id processing normalizes the value as the ID type does (xml:id 1.0 §4).
+                value = Xsl3.Xdm.Lexical.Collapse(value);
+            }
+            _pageSibling[_idxSibling].SetValue(value);
 
             if (_idAttrName != null)
             {

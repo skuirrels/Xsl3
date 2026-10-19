@@ -20,7 +20,7 @@ using XsltAttribute = Xsl3.Xslt.XsltInput.XsltAttribute;
 
 namespace Xsl3.Xslt
 {
-    internal sealed class XsltLoader : IErrorHelper
+    internal sealed partial class XsltLoader : IErrorHelper
     {
         private Compiler _compiler = null!;
         private XmlResolver _xmlResolver = null!;
@@ -31,6 +31,8 @@ namespace Xsl3.Xslt
         private Template? _curTemplate;       // Current template
 
         internal static readonly QilName nullMode = F.QName(string.Empty);
+        // Xsl3: mode="#current" on xsl:apply-templates, resolved by QilGenerator to the mode of the template rule.
+        internal static readonly QilName CurrentMode = F.QName("current-mode", "urn:xsl3:mode", "");
 
         // Flags which control attribute versioning
         public const int V1Opt = 1;
@@ -163,19 +165,18 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_elementAttributes);
             AtomizeAttributes(_attributeAttributes);
             AtomizeAttributes(_sortAttributes);
-#if XSLT2
-            AtomizeAttributes(characterMapAttributes);
-            AtomizeAttributes(outputCharacterAttributes);
-            AtomizeAttributes(functionAttributes);
-            AtomizeAttributes(importSchemaAttributes);
-            AtomizeAttributes(documentAttributes);
-            AtomizeAttributes(analyzeStringAttributes);
-            AtomizeAttributes(namespaceAttributes);
-            AtomizeAttributes(performSortAttributes);
-            AtomizeAttributes(forEachGroupAttributes);
-            AtomizeAttributes(sequenceAttributes);
-            AtomizeAttributes(resultDocumentAttributes);
-#endif
+            // Xsl3: XSLT 2.0 declarations and instructions
+            AtomizeAttributes(_sequenceAttributes);
+            AtomizeAttributes(_forEachGroupAttributes);
+            AtomizeAttributes(_analyzeStringAttributes);
+            AtomizeAttributes(_namespaceAttributes);
+            AtomizeAttributes(_performSortAttributes);
+            AtomizeAttributes(_documentAttributes);
+            AtomizeAttributes(_resultDocumentAttributes);
+            AtomizeAttributes(_functionAttributes);
+            AtomizeAttributes(_characterMapAttributes);
+            AtomizeAttributes(_outputCharacterAttributes);
+
         }
 
         private bool V1
@@ -186,9 +187,7 @@ namespace Xsl3.Xslt
                 return _compiler.Version == 1;
             }
         }
-#if XSLT2
-        private bool V2 { get { return ! V1; } }
-#endif
+        private bool V2 { get { return !V1; } }
 
         // Import/Include XsltInput management
 
@@ -434,14 +433,14 @@ namespace Xsl3.Xslt
                                 else if (_input.IsKeyword(_atoms.Template))
                                 {
                                     LoadTemplate(ctxInfo.nsList);
-#if XSLT2
-                            } else if (V2 && input.IsKeyword(atoms.CharacterMap)) {
-                                LoadCharacterMap(ctxInfo.nsList);
-                            } else if (V2 && input.IsKeyword(atoms.Function)) {
-                                LoadFunction(ctxInfo.nsList);
-                            } else if (V2 && input.IsKeyword(atoms.ImportSchema)) {
-                                LoadImportSchema();
-#endif
+                                }
+                                else if (V2 && _input.IsKeyword(_atoms.CharacterMap))
+                                {
+                                    LoadCharacterMap(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.IsKeyword(_atoms.Function))
+                                {
+                                    LoadFunction(ctxInfo.nsList);
                                 }
                                 else
                                 {
@@ -588,13 +587,13 @@ namespace Xsl3.Xslt
         {
             _input.GetAttributes(_outputAttributes);
 
-            Output output = _compiler.Output;
+            QilName? name = ParseQNameAttribute(0);
+            if (name != null && !V2) ReportNYI("xsl:output/@name");
+            // Xsl3: a named output definition (for xsl:result-document format="…") is kept apart from the unnamed one.
+            Output output = name == null ? _compiler.Output : _compiler.NamedOutputs.TryGetValue(name, out Output? named) ? named : _compiler.NamedOutputs[name] = new Output();
             XmlWriterSettings settings = output.Settings;
             int currentPrec = _compiler.CurrentPrecedence;
             TriState triState;
-
-            QilName? name = ParseQNameAttribute(0);
-            if (name != null) ReportNYI("xsl:output/@name");
 
             if (_input.MoveToXsltAttribute(1, "method"))
             {
@@ -612,12 +611,17 @@ namespace Xsl3.Xslt
                         settings.SetOutputMethod(outputMethod);
                         output.Method = method;
                         output.MethodPrec = currentPrec;
+                        output.Xhtml = method.Name == "xhtml" && method.Namespace.Length == 0;
                     }
                 }
             }
 
             TriState byteOrderMask = ParseYesNoAttribute(2, "byte-order-mark");
-            if (byteOrderMask != TriState.Unknown) ReportNYI("xsl:output/@byte-order-mark");
+            if (byteOrderMask != TriState.Unknown)
+            {
+                if (V2) output.ByteOrderMark = byteOrderMask;
+                else ReportNYI("xsl:output/@byte-order-mark");
+            }
 
             if (_input.MoveToXsltAttribute(3, "cdata-section-elements"))
             {
@@ -687,11 +691,16 @@ namespace Xsl3.Xslt
                 }
             }
 
+            // Xsl3: URI escaping of HTML attributes isn't done by the html writer either way.
             bool escapeUriAttributes = ParseYesNoAttribute(7, "escape-uri-attributes") != TriState.False;
-            if (!escapeUriAttributes) ReportNYI("xsl:output/@escape-uri-attributes == flase()");
+            if (!escapeUriAttributes && !V2) ReportNYI("xsl:output/@escape-uri-attributes == flase()");
 
-            bool includeContentType = ParseYesNoAttribute(8, "include-content-type") != TriState.False;
-            if (!includeContentType) ReportNYI("xsl:output/@include-content-type == flase()");
+            TriState includeContentType = ParseYesNoAttribute(8, "include-content-type");
+            if (includeContentType != TriState.Unknown)
+            {
+                if (V2) output.IncludeContentType = includeContentType == TriState.True;
+                else if (includeContentType == TriState.False) ReportNYI("xsl:output/@include-content-type == flase()");
+            }
 
             triState = ParseYesNoAttribute(9, "indent");
             if (triState != TriState.Unknown)
@@ -723,7 +732,18 @@ namespace Xsl3.Xslt
 
             if (_input.MoveToXsltAttribute(11, "normalization-form"))
             {
-                ReportNYI("xsl:output/@normalization-form");
+                if (!V2)
+                {
+                    ReportNYI("xsl:output/@normalization-form");
+                }
+                else if (Runtime.OutputExtras.TryParseNormalizationForm(_input.Value, out _))
+                {
+                    output.NormalizationForm = _input.Value;
+                }
+                else
+                {
+                    ReportError(SR.Xml_UserException, $"SESU0011: normalization-form=\"{_input.Value}\" is not supported");
+                }
             }
 
             triState = ParseYesNoAttribute(12, "omit-xml-declaration");
@@ -741,7 +761,8 @@ namespace Xsl3.Xslt
                 }
             }
 
-            triState = ParseYesNoAttribute(13, "standalone");
+            // Xsl3: standalone="omit" (XSLT 2.0) is the default, no standalone pseudo-attribute.
+            triState = V2 && _input.MoveToXsltAttribute(13, "standalone") && _input.Value.Trim() == "omit" ? TriState.Unknown : ParseYesNoAttribute(13, "standalone");
             if (triState != TriState.Unknown)
             {
                 if (output.StandalonePrec <= currentPrec)
@@ -756,11 +777,16 @@ namespace Xsl3.Xslt
                 }
             }
 
+            // Xsl3: undeclare-prefixes only matters for XML 1.1 output, which isn't supported.
             bool undeclarePrefixes = ParseYesNoAttribute(14, "undeclare-prefixes") == TriState.True;
-            if (undeclarePrefixes) ReportNYI("xsl:output/@undeclare-prefixes == true()");
+            if (undeclarePrefixes && !V2) ReportNYI("xsl:output/@undeclare-prefixes == true()");
 
             List<QilName> useCharacterMaps = ParseUseCharacterMaps(15);
-            if (useCharacterMaps.Count != 0) ReportNYI("xsl:output/@use-character-maps");
+            if (useCharacterMaps.Count != 0)
+            {
+                if (V2) (output.UseCharacterMaps ??= new List<QilName>()).AddRange(useCharacterMaps);
+                else ReportNYI("xsl:output/@use-character-maps");
+            }
 
             if (_input.MoveToXsltAttribute(16, "version"))
             {
@@ -787,8 +813,27 @@ namespace Xsl3.Xslt
         */
         private void ProcessOutputSettings()
         {
-            Output output = _compiler.Output;
+            ProcessOutputSettings(_compiler.Output);
+            foreach (Output named in _compiler.NamedOutputs.Values)
+            {
+                ProcessOutputSettings(named);
+            }
+        }
+
+        private static void ProcessOutputSettings(Output output)
+        {
             XmlWriterSettings settings = output.Settings;
+            // Xsl3: byte-order-mark (XSLT 2.0) chooses the encoding's preamble; .NET's UTF-8 and UTF-16 have one by default.
+            if (output.ByteOrderMark != TriState.Unknown)
+            {
+                bool bom = output.ByteOrderMark == TriState.True;
+                settings.Encoding = settings.Encoding switch
+                {
+                    UTF8Encoding => new UTF8Encoding(bom),
+                    UnicodeEncoding u => new UnicodeEncoding(u.CodePage == 1201, bom),
+                    var e => e,
+                };
+            }
 
             // version is ignored, indent="no" by default
             if (settings.OutputMethod == XmlOutputMethod.Html && output.IndentPrec == Output.NeverDeclaredPrec)
@@ -862,11 +907,11 @@ namespace Xsl3.Xslt
             QilName keyName = ParseQNameAttribute(0)!;
             string? match = ParseStringAttribute(1, "match");
             string? use = ParseStringAttribute(2, "use");
-            ParseCollationAttribute(3);
+            string? collation = ParseCollationAttribute(3);
 
             _input.MoveToElement();
 
-            List<XslNode>? content;
+            List<XslNode>? content = null;
 
             if (V1)
             {
@@ -891,13 +936,13 @@ namespace Xsl3.Xslt
                 {
                     ReportError(/*[XTSE1205]*/SR.Xslt_KeyCntUse);
                 }
-                else
-                {
-                    if (use == null) ReportNYI("xsl:key[count(@use) = 0]");
-                }
             }
 
-            Key key = (Key)SetInfo(F.Key(keyName, match, use, _input.XslVersion), null, ctxInfo);
+            Key key = (Key)SetInfo(F.Key(keyName, match, use, _input.XslVersion), V2 ? content : null, ctxInfo);
+            if (collation != null)
+            {
+                key.V2 = new XslNodeV2 { Collation = collation };
+            }
 
             if (_compiler.Keys.Contains(keyName))
             {
@@ -967,6 +1012,12 @@ namespace Xsl3.Xslt
             for (int idx = 0; idx < NumCharAttrs; idx++)
             {
                 characters[idx] = ParseCharAttribute(3 + idx, _decimalFormatAttributes[3 + idx].name, DefaultValues[idx]);
+            }
+
+            // Xsl3: zero-digit must be a digit whose value is zero (XTSE1295).
+            if (V2 && !(char.GetUnicodeCategory(characters[4]) == System.Globalization.UnicodeCategory.DecimalDigitNumber && char.GetNumericValue(characters[4]) == 0))
+            {
+                ReportError(SR.Xml_UserException, $"XTSE1295: zero-digit '{characters[4]}' is not a digit with numeric value zero");
             }
 
             // Check all NumSignAttrs signs are distinct
@@ -1058,7 +1109,15 @@ namespace Xsl3.Xslt
             {
                 // Namespace alias redefinition
                 _input.MoveToElement();
-                ReportWarning(/*[XT0810]*/SR.Xslt_DupNsAlias, stylesheetNsUri);
+                if (V2)
+                {
+                    // Xsl3: an error in 2.0 (XTSE0810), a warning in 1.0.
+                    ReportError(SR.Xml_UserException, $"XTSE0810: two xsl:namespace-alias declarations for {stylesheetNsUri} have the same import precedence");
+                }
+                else
+                {
+                    ReportWarning(/*[XT0810]*/SR.Xslt_DupNsAlias, stylesheetNsUri);
+                }
             }
         }
 
@@ -1181,12 +1240,15 @@ namespace Xsl3.Xslt
                 }
             }
 
-            if (_input.MoveToXsltAttribute(4, "as"))
-            {
-                ReportNYI("xsl:template/@as");
-            }
+            string? asType = V2 ? ParseStringAttribute(4, "as") : null;
 
             _curTemplate = F.Template(name, match, mode, priority, _input.XslVersion);
+            if (V2)
+            {
+                _curTemplate.V2 = new XslNodeV2 { As = asType, Modes = _templateModes, AllModes = _templateAllModes };
+                _templateModes = null;
+                _templateAllModes = false;
+            }
 
             // Template without match considered to not have mode and can't call xsl:apply-imports
             _input.CanHaveApplyImports = (match != null);
@@ -1202,89 +1264,7 @@ namespace Xsl3.Xslt
             _curTemplate = null;
         }
 
-#if XSLT2
-        //: http://www.w3.org/TR/xslt20/#element-character-map
-        XsltAttribute[] characterMapAttributes = {
-            new XsltAttribute("name"            , V2Req),
-            new XsltAttribute("use-character-maps", V2Opt)
-        };
-        XsltAttribute[] outputCharacterAttributes = {
-            new XsltAttribute("character", V2Req),
-            new XsltAttribute("string"   , V2Req)
-        };
-        private void LoadCharacterMap(NsDecl stylesheetNsList) {
-            ContextInfo ctxInfo = input.GetAttributes(characterMapAttributes);
-            ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
-            QilName name = ParseQNameAttribute(0);
-            List<QilName> useCharacterMaps = ParseUseCharacterMaps(1);
-
-            ReportNYI("xsl:character-map");
-
-            QName parentName = input.ElementName;
-            if (input.MoveToFirstChild()) {
-                do {
-                    switch (input.NodeType) {
-                    case XmlNodeType.Element:
-                        // Only xsl:output-character are allowed here
-                        if (input.IsXsltKeyword(atoms.OutputCharacter)) {
-                            input.GetAttributes(outputCharacterAttributes);
-                            ReportNYI("xsl:output-character");
-                            char ch  = ParseCharAttribute(0, "character", /*defVal:*/(char)0);
-                            string s = ParseStringAttribute(1, "string");
-                            CheckNoContent();
-                        } else {
-                            ReportError(/*[XT_006]*/SR.Xslt_UnexpectedElement, input.QualifiedName, parentName);
-                            input.SkipNode();
-                        }
-                        break;
-                    case XmlNodeType.Whitespace:
-                    case XmlNodeType.SignificantWhitespace:
-                        break;
-                    default:
-                        Debug.Assert(input.NodeType == XmlNodeType.Text);
-                        ReportError(/*[XT_006]*/SR.Xslt_TextNodesNotAllowed, parentName);
-                        break;
-                    }
-                } while (input.MoveToNextSibling());
-            }
-        }
-
-        //: http://www.w3.org/TR/xslt20/#stylesheet-functions
-        XsltAttribute[] functionAttributes = {
-            new XsltAttribute("name"    , V2Req),
-            new XsltAttribute("as"      , V2Opt),
-            new XsltAttribute("override", V2Opt)
-        };
-        private void LoadFunction(NsDecl stylesheetNsList) {
-            Debug.Assert(curTemplate == null);
-            ContextInfo ctxInfo = input.GetAttributes(functionAttributes);
-            ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
-
-            QilName name  = ParseQNameAttribute(0);
-            string asType = ParseStringAttribute(1, "as");
-            bool over     = ParseYesNoAttribute(2, "override") == TriState.True;
-
-            ReportNYI("xsl:function");
-
-            Debug.Assert(!input.CanHaveApplyImports);
-
-            curFunction = new Object();
-            LoadInstructions(InstructionFlags.AllowParam);
-            curFunction = null;
-        }
-
-        //: http://www.w3.org/TR/xslt20/#element-import-schema
-        XsltAttribute[] importSchemaAttributes = {
-            new XsltAttribute("namespace"     , V2Opt),
-            new XsltAttribute("schema-location", V2Opt)
-        };
-        private void LoadImportSchema() {
-            ContextInfo ctxInfo = input.GetAttributes(importSchemaAttributes);
-            ReportError(/*[XTSE1650]*/SR.Xslt_SchemaDeclaration, input.ElementName);
-            input.SkipNode();
-        }
-#endif
 
         private readonly XsltAttribute[] _scriptAttributes = {
             new XsltAttribute("implements-prefix", V1Req | V2Req),
@@ -1437,16 +1417,14 @@ namespace Xsl3.Xslt
                                     Ref.Equal(name, _atoms.Variable) ? XslVarPar() :
                                     Ref.Equal(name, _atoms.Param) ? XslVarPar() :
                                     Ref.Equal(name, _atoms.Sort) ? XslSort(sortNumber++) :
-#if XSLT2
-                                V2 && Ref.Equal(name, atoms.AnalyzeString  ) ? XslAnalyzeString() :
-                                V2 && Ref.Equal(name, "namespace"      ) ? XslNamespace() :
-                                V2 && Ref.Equal(name, atoms.PerformSort    ) ? XslPerformSort() :
-                                V2 && Ref.Equal(name, atoms.Document       ) ? XslDocument() :
-                                V2 && Ref.Equal(name, atoms.ForEachGroup   ) ? XslForEachGroup() :
-                                V2 && Ref.Equal(name, atoms.NextMatch      ) ? XslNextMatch() :
-                                V2 && Ref.Equal(name, atoms.Sequence       ) ? XslSequence() :
-                                V2 && Ref.Equal(name, atoms.ResultDocument ) ? XslResultDocument() :
-#endif
+                                    V2 && Ref.Equal(name, _atoms.AnalyzeString) ? XslAnalyzeString() :
+                                    V2 && name == "namespace" ? XslNamespace() :
+                                    V2 && Ref.Equal(name, _atoms.PerformSort) ? XslPerformSort() :
+                                    V2 && Ref.Equal(name, _atoms.Document) ? XslDocument() :
+                                    V2 && Ref.Equal(name, _atoms.ForEachGroup) ? XslForEachGroup() :
+                                    V2 && Ref.Equal(name, _atoms.NextMatch) ? XslNextMatch() :
+                                    V2 && Ref.Equal(name, _atoms.Sequence) ? XslSequence() :
+                                    V2 && Ref.Equal(name, _atoms.ResultDocument) ? XslResultDocument() :
                                     /*default:*/                                   LoadUnknownXsltInstruction(parentName)
                                 );
                             }
@@ -1550,9 +1528,8 @@ namespace Xsl3.Xslt
                 }
                 content = null;
             }
-            else
+            else if (content.Count == 0)
             {
-                if (content.Count != 0) ReportNYI("xsl:apply-imports/xsl:with-param");
                 content = null;
             }
 
@@ -1606,10 +1583,10 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_copyAttributes);
 
-            bool copyNamespaces = ParseYesNoAttribute(0, "copy-namespaces") != TriState.False;
-            bool inheritNamespaces = ParseYesNoAttribute(1, "inherit-namespaces") != TriState.False;
-            if (!copyNamespaces) ReportNYI("xsl:copy[@copy-namespaces    = 'no']");
-            if (!inheritNamespaces) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
+            TriState copyNamespacesAtt = ParseYesNoAttribute(0, "copy-namespaces");
+            TriState inheritNamespacesAtt = ParseYesNoAttribute(1, "inherit-namespaces");
+            if (V1 && copyNamespacesAtt == TriState.False) ReportNYI("xsl:copy[@copy-namespaces    = 'no']");
+            if (V1 && inheritNamespacesAtt == TriState.False) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
 
             List<XslNode> content = new List<XslNode>();
             if (_input.MoveToXsltAttribute(2, "use-attribute-sets"))
@@ -1620,7 +1597,12 @@ namespace Xsl3.Xslt
             ParseTypeAttribute(3);
             ParseValidationAttribute(4, /*defVal:*/false);
 
-            return SetInfo(F.Copy(), LoadEndTag(LoadInstructions(content)), ctxInfo);
+            XslNode copy = SetInfo(F.Copy(), LoadEndTag(LoadInstructions(content)), ctxInfo);
+            if (V2)
+            {
+                copy.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, InheritNamespaces = inheritNamespacesAtt };
+            }
+            return copy;
         }
 
         private readonly XsltAttribute[] _copyOfAttributes = {
@@ -1633,14 +1615,19 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_copyOfAttributes);
             string? select = ParseStringAttribute(0, "select");
-            bool copyNamespaces = ParseYesNoAttribute(1, "copy-namespaces") != TriState.False;
-            if (!copyNamespaces) ReportNYI("xsl:copy-of[@copy-namespaces    = 'no']");
+            TriState copyNamespacesAtt = ParseYesNoAttribute(1, "copy-namespaces");
+            if (V1 && copyNamespacesAtt == TriState.False) ReportNYI("xsl:copy-of[@copy-namespaces    = 'no']");
 
             ParseTypeAttribute(2);
             ParseValidationAttribute(3, /*defVal:*/false);
 
             CheckNoContent();
-            return SetInfo(F.CopyOf(select, _input.XslVersion), null, ctxInfo);
+            XslNode copyOf = SetInfo(F.CopyOf(select, _input.XslVersion), null, ctxInfo);
+            if (V2)
+            {
+                copyOf.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt };
+            }
+            return copyOf;
         }
 
         // http://www.w3.org/TR/xslt#fallback
@@ -1768,7 +1755,9 @@ namespace Xsl3.Xslt
             ContextInfo ctxInfo = _input.GetAttributes(_messageAttributes);
 
             string? select = ParseStringAttribute(0, "select");
-            bool terminate = ParseYesNoAttribute(1, /*attName:*/"terminate") == TriState.True;
+            // Xsl3: in 2.0 terminate is an attribute value template.
+            string? terminateAvt = V2 && _input.MoveToXsltAttribute(1, "terminate") && _input.Value.Contains('{') ? _input.Value : null;
+            bool terminate = terminateAvt == null && ParseYesNoAttribute(1, /*attName:*/"terminate") == TriState.True;
 
             List<XslNode> content = LoadInstructions();
             if (content.Count != 0)
@@ -1780,7 +1769,12 @@ namespace Xsl3.Xslt
                 content.Insert(0, F.CopyOf(select, _input.XslVersion));
             }
 
-            return SetInfo(F.Message(terminate), content, ctxInfo);
+            XslNode message = SetInfo(F.Message(terminate), content, ctxInfo);
+            if (terminateAvt != null)
+            {
+                message.V2 = new XslNodeV2 { NameAvt = terminateAvt };
+            }
+            return message;
         }
 
         // http://www.w3.org/TR/xslt#number
@@ -1804,7 +1798,7 @@ namespace Xsl3.Xslt
 
             string? value = ParseStringAttribute(0, "value");
             string? select = ParseStringAttribute(1, "select");
-            if (select != null) ReportNYI("xsl:number/@select");
+            if (V1 && select != null) ReportNYI("xsl:number/@select");
             NumberLevel level = NumberLevel.Single;
             if (_input.MoveToXsltAttribute(2, "level"))
             {
@@ -1827,7 +1821,7 @@ namespace Xsl3.Xslt
             string? lang = ParseStringAttribute(6, "lang");
             string? letterValue = ParseStringAttribute(7, "letter-value");
             string? ordinal = ParseStringAttribute(8, "ordinal");
-            if (!string.IsNullOrEmpty(ordinal)) ReportNYI("xsl:number/@ordinal");
+            if (V1 && !string.IsNullOrEmpty(ordinal)) ReportNYI("xsl:number/@ordinal");
             string? groupingSeparator = ParseStringAttribute(9, "grouping-separator");
             string? groupingSize = ParseStringAttribute(10, "grouping-size");
 
@@ -1835,13 +1829,18 @@ namespace Xsl3.Xslt
             format ??= "1";
 
             CheckNoContent();
-            return SetInfo(
+            XslNode number = SetInfo(
                 F.Number(level, count, from, value,
                     format, lang, letterValue, groupingSeparator, groupingSize,
                     _input.XslVersion
                 ),
                 null, ctxInfo
             );
+            if (V2)
+            {
+                number.V2 = new XslNodeV2 { Select = select, Ordinal = ordinal };
+            }
+            return number;
         }
 
         // http://www.w3.org/TR/xslt#value-of
@@ -1858,12 +1857,7 @@ namespace Xsl3.Xslt
             string? separator = ParseStringAttribute(1, "separator");
             bool doe = ParseYesNoAttribute(2, /*attName:*/"disable-output-escaping") == TriState.True;
 
-            if (separator != null)
-            {
-                ReportNYI("xsl:value-of/@separator");
-            }
-
-            List<XslNode>? content;
+            List<XslNode>? content = null;
 
             if (V1)
             {
@@ -1877,16 +1871,16 @@ namespace Xsl3.Xslt
             else
             {
                 content = LoadContent(select != null);
-                CheckError(select == null && content.Count == 0, /*[???]*/SR.Xslt_NoSelectNoContent, _input.ElementName);
-                if (content.Count != 0)
-                {
-                    ReportNYI("xsl:value-of/*");
-                }
             }
 
-            return SetInfo(F.XslNode(doe ? XslNodeType.ValueOfDoe : XslNodeType.ValueOf, null, select, _input.XslVersion),
-                null, ctxInfo
+            XslNode valueOf = SetInfo(F.XslNode(doe ? XslNodeType.ValueOfDoe : XslNodeType.ValueOf, null, select, _input.XslVersion),
+                content, ctxInfo
             );
+            if (V2)
+            {
+                valueOf.V2 = new XslNodeV2 { Separator = separator };
+            }
+            return valueOf;
         }
 
         //                    required tunnel select
@@ -1939,9 +1933,9 @@ namespace Xsl3.Xslt
             string? select = ParseStringAttribute(1, "select");
             string? asType = ParseStringAttribute(2, "as");
             TriState required = ParseYesNoAttribute(3, "required");
-            if (required == TriState.True) ReportNYI("xsl:param/@required == true()");
+            if (V1 && required == TriState.True) ReportNYI("xsl:param/@required == true()");
 
-            if (asType != null)
+            if (V1 && asType != null)
             {
                 ReportNYI("xsl:param/@as");
             }
@@ -1958,7 +1952,7 @@ namespace Xsl3.Xslt
                 }
                 else
                 {
-                    if (tunnel == TriState.True) ReportNYI("xsl:param/@tunnel == true()");
+                    if (V1 && tunnel == TriState.True) ReportNYI("xsl:param/@tunnel == true()");
                 }
             }
 
@@ -1967,6 +1961,10 @@ namespace Xsl3.Xslt
 
             VarPar result = F.VarPar(nodeType, name, select, _input.XslVersion);
             SetInfo(result, content, ctxInfo);
+            if (V2)
+            {
+                result.V2 = new XslNodeV2 { As = asType, Required = required == TriState.True, Tunnel = tunnel == TriState.True };
+            }
             return result;
         }
 
@@ -1979,9 +1977,14 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_commentAttributes);
             string? select = ParseStringAttribute(0, "select");
-            if (select != null) ReportNYI("xsl:comment/@select");
+            if (V1 && select != null) ReportNYI("xsl:comment/@select");
 
-            return SetInfo(F.Comment(), LoadContent(select != null), ctxInfo);
+            XslNode comment = SetInfo(F.Comment(), LoadContent(select != null), ctxInfo);
+            if (V2)
+            {
+                comment.V2 = new XslNodeV2 { Select = select };
+            }
+            return comment;
         }
 
         private List<XslNode> LoadContent(bool hasSelect)
@@ -2008,9 +2011,14 @@ namespace Xsl3.Xslt
             ContextInfo ctxInfo = _input.GetAttributes(_processingInstructionAttributes);
             string name = ParseNCNameAttribute(0);
             string? select = ParseStringAttribute(1, "select");
-            if (select != null) ReportNYI("xsl:processing-instruction/@select");
+            if (V1 && select != null) ReportNYI("xsl:processing-instruction/@select");
 
-            return SetInfo(F.PI(name, _input.XslVersion), LoadContent(select != null), ctxInfo);
+            XslNode pi = SetInfo(F.PI(name, _input.XslVersion), LoadContent(select != null), ctxInfo);
+            if (V2)
+            {
+                pi.V2 = new XslNodeV2 { Select = select };
+            }
+            return pi;
         }
 
         // http://www.w3.org/TR/xslt#section-Creating-Text
@@ -2072,7 +2080,7 @@ namespace Xsl3.Xslt
             CheckError(ns == XmlReservedNs.NsXmlNs, /*[XT_024]*/SR.Xslt_ReservedNS, ns);
 
             bool inheritNamespaces = ParseYesNoAttribute(2, "inherit-namespaces") != TriState.False;
-            if (!inheritNamespaces) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
+            if (V1 && !inheritNamespaces) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
 
             ParseTypeAttribute(4);
             ParseValidationAttribute(5, /*defVal:*/false);
@@ -2106,14 +2114,19 @@ namespace Xsl3.Xslt
             CheckError(ns == XmlReservedNs.NsXmlNs, /*[XT_024]*/SR.Xslt_ReservedNS, ns);
 
             string? select = ParseStringAttribute(2, "select");
-            if (select != null) ReportNYI("xsl:attribute/@select");
+            if (V1 && select != null) ReportNYI("xsl:attribute/@select");
             string? separator = ParseStringAttribute(3, "separator");
-            if (separator != null) ReportNYI("xsl:attribute/@separator");
+            if (V1 && separator != null) ReportNYI("xsl:attribute/@separator");
 
             ParseTypeAttribute(4);
             ParseValidationAttribute(5, /*defVal:*/false);
 
-            return SetInfo(F.Attribute(name, ns, _input.XslVersion), LoadContent(select != null), ctxInfo);
+            XslNode attribute = SetInfo(F.Attribute(name, ns, _input.XslVersion), LoadContent(select != null), ctxInfo);
+            if (V2)
+            {
+                attribute.V2 = new XslNodeV2 { Select = select, Separator = separator };
+            }
+            return attribute;
         }
 
         // http://www.w3.org/TR/xslt#sorting
@@ -2134,8 +2147,10 @@ namespace Xsl3.Xslt
             string? select = ParseStringAttribute(0, "select");
             string? lang = ParseStringAttribute(1, "lang");
             string? order = ParseStringAttribute(2, "order");
-            ParseCollationAttribute(3);
-            TriState stable = ParseYesNoAttribute(4, "stable");
+            string? collation = V2 ? ParseStringAttribute(3, "collation") : null;
+            if (V1) ParseCollationAttribute(3);
+            // Xsl3: stable is an attribute value template in 2.0; sorts are always stable, so its value doesn't matter.
+            TriState stable = V2 && _input.MoveToXsltAttribute(4, "stable") && _input.Value.Contains('{') ? TriState.True : ParseYesNoAttribute(4, "stable");
             string? caseOrder = ParseStringAttribute(5, "case-order");
             string? dataType = ParseStringAttribute(6, "data-type");
 
@@ -2144,7 +2159,7 @@ namespace Xsl3.Xslt
                 CheckError(sortNumber != 0, SR.Xslt_SortStable);
             }
 
-            List<XslNode>? content;
+            List<XslNode>? content = null;
             if (V1)
             {
                 CheckNoContent();
@@ -2152,337 +2167,24 @@ namespace Xsl3.Xslt
             else
             {
                 content = LoadContent(select != null);
-                if (content.Count != 0)
-                {
-                    ReportNYI("xsl:sort/*");
-                }
             }
 
-            select ??= ".";
+            if (V1 || content == null || content.Count == 0)
+            {
+                select ??= ".";
+            }
 
-            return SetInfo(F.Sort(select, lang, dataType, order, caseOrder, _input.XslVersion),
-                null, ctxInfo
+            XslNode sort = SetInfo(F.Sort(select, lang, dataType, order, caseOrder, _input.XslVersion),
+                V1 ? null : content, ctxInfo
             );
+            if (V2)
+            {
+                sort.V2 = new XslNodeV2 { Collation = collation, Required = stable != TriState.False };
+            }
+            return sort;
         }
 
-#if XSLT2
-        // http://www.w3.org/TR/xslt20/#element-document
-        XsltAttribute[] documentAttributes = {
-            new XsltAttribute("type"      , V2Opt),
-            new XsltAttribute("validation", V2Opt)
-        };
-        private XslNode XslDocument() {
-            ContextInfo ctxInfo = input.GetAttributes(documentAttributes);
 
-            ParseTypeAttribute(0);
-            ParseValidationAttribute(1, /*defVal:*/false);
-
-            ReportNYI("xsl:document");
-
-            List<XslNode> content = LoadEndTag(LoadInstructions());
-
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-analyze-string
-        XsltAttribute[] analyzeStringAttributes = {
-            new XsltAttribute("select", V2Req),
-            new XsltAttribute("regex" , V2Req),
-            new XsltAttribute("flags" , V2Opt)
-        };
-        private XslNode XslAnalyzeString() {
-            ContextInfo ctxInfo = input.GetAttributes(analyzeStringAttributes);
-
-            string select = ParseStringAttribute(0, "select");
-            string regex  = ParseStringAttribute(1, "regex" );
-            string flags  = ParseStringAttribute(2, "flags" ) ?? "";
-
-            ReportNYI("xsl:analyze-string");
-
-            XslNode matching = null;
-            XslNode nonMatching = null;
-            QName parentName = input.ElementName;
-            if (input.MoveToFirstChild()) {
-                do {
-                    switch (input.NodeType) {
-                    case XmlNodeType.Element:
-                        if (input.IsXsltKeyword(atoms.MatchingSubstring)) {
-                            ContextInfo ctxInfoChld = input.GetAttributes();
-                            CheckError(nonMatching != null, /*[???]*/SR.Xslt_AnalyzeStringChildOrder);
-                            CheckError(matching    != null, /*[???]*/SR.Xslt_AnalyzeStringDupChild, atoms.MatchingSubstring);
-                            // The current template rule becomes null, so we must not allow xsl:apply-import's within this element
-                            input.CanHaveApplyImports = false;
-                            matching = SetInfo(F.List(), LoadInstructions(), ctxInfoChld);
-                        } else if (input.IsXsltKeyword(atoms.NonMatchingSubstring)) {
-                            ContextInfo ctxInfoChld = input.GetAttributes();
-                            CheckError(nonMatching != null, /*[???]*/SR.Xslt_AnalyzeStringDupChild, atoms.NonMatchingSubstring);
-                            input.CanHaveApplyImports = false;
-                            nonMatching = SetInfo(F.List(), LoadInstructions(), ctxInfoChld);
-                        } else if (input.IsXsltKeyword(atoms.Fallback)) {
-                            XslFallback();
-                        } else {
-                            ReportError(/*[XT_017]*/SR.Xslt_UnexpectedElement, input.QualifiedName, parentName);
-                            input.SkipNode();
-                        }
-                        break;
-                    case XmlNodeType.Whitespace:
-                    case XmlNodeType.SignificantWhitespace:
-                        break;
-                    default:
-                        Debug.Assert(input.NodeType == XmlNodeType.Text);
-                        ReportError(/*[XT_017]*/SR.Xslt_TextNodesNotAllowed, parentName);
-                        break;
-                    }
-                } while (input.MoveToNextSibling());
-            }
-            CheckError(matching == nonMatching, /*[XTSE1130]*/SR.Xslt_AnalyzeStringEmpty);
-
-            ctxInfo.SaveExtendedLineInfo(input);
-
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-namespace
-        XsltAttribute[] namespaceAttributes = {
-            new XsltAttribute("name"  , V2Req),
-            new XsltAttribute("select", V2Opt)
-        };
-        private XslNode XslNamespace() {
-            ContextInfo ctxInfo = input.GetAttributes(namespaceAttributes);
-            string name = ParseNCNameAttribute(0);
-            string select= ParseStringAttribute(1, "select");
-
-            List<XslNode> content = LoadContent(select != null);
-            CheckError(select == null && content.Count == 0, /*[???]*/SR.Xslt_NoSelectNoContent, input.ElementName);
-
-            ReportNYI("xsl:namespace");
-
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-perform-sort
-        XsltAttribute[] performSortAttributes = {
-            new XsltAttribute("select", V2Opt)
-        };
-        private XslNode XslPerformSort() {
-            ContextInfo ctxInfo = input.GetAttributes(performSortAttributes);
-            string select = ParseStringAttribute(0, "select");
-
-            List<XslNode> content = LoadInstructions(InstructionFlags.AllowSort);
-            ctxInfo.SaveExtendedLineInfo(input);
-
-            if (select != null) {
-                foreach (XslNode node in content) {
-                    if (node.NodeType != XslNodeType.Sort) {
-                        ReportError(SR.Xslt_PerformSortCntSel);
-                        break;
-                    }
-                }
-            }
-
-            ReportNYI("xsl:perform-sort");
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-for-each-group
-        XsltAttribute[] forEachGroupAttributes = {
-            new XsltAttribute("select"             , V2Req),
-            new XsltAttribute("group-by"           , V2Opt),
-            new XsltAttribute("group-adjacent"     , V2Opt),
-            new XsltAttribute("group-starting-with", V2Opt),
-            new XsltAttribute("group-ending-with"  , V2Opt),
-            new XsltAttribute("collation"          , V2Opt)
-        };
-        private XslNode XslForEachGroup() {
-            ContextInfo ctxInfo = input.GetAttributes(forEachGroupAttributes);
-
-            string select            = ParseStringAttribute(   0, "select"             );
-            string groupBy           = ParseStringAttribute(   1, "group-by"           );
-            string groupAdjacent     = ParseStringAttribute(   2, "group-adjacent"     );
-            string groupStartingWith = ParseStringAttribute(   3, "group-starting-with");
-            string groupEndingWith   = ParseStringAttribute(   4, "group-ending-with"  );
-            string collation         = ParseCollationAttribute(5);
-
-            ReportNYI("xsl:for-each-group");
-
-            // The current template rule becomes null, so we must not allow xsl:apply-import's within this element
-            input.CanHaveApplyImports = false;
-            List<XslNode> content = LoadInstructions(InstructionFlags.AllowSort);
-            ctxInfo.SaveExtendedLineInfo(input);
-
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-next-match
-        private XslNode XslNextMatch() {
-            ContextInfo ctxInfo = input.GetAttributes();
-
-            // We need to do this dynamic any way:
-            //if (!input.CanHaveApplyImports) {
-            //    ReportError(/*[XT_015]*/SR.Xslt_InvalidApplyImports);
-            //    input.SkipNode();
-            //    return null;
-            //}
-
-            ReportNYI("xsl:next-match");
-
-            List<XslNode> content = LoadWithParams(InstructionFlags.AllowFallback);
-            ctxInfo.SaveExtendedLineInfo(input);
-
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-sequence
-        XsltAttribute[] sequenceAttributes = {
-            new XsltAttribute("select", V2Req)
-        };
-        private XslNode XslSequence() {
-            ContextInfo ctxInfo = input.GetAttributes(sequenceAttributes);
-            string select = ParseStringAttribute(0, "select");
-            ReportNYI("xsl:sequence");
-
-            QName parentName = input.ElementName;
-            if (input.MoveToFirstChild()) {
-                do {
-                    switch (input.NodeType) {
-                    case XmlNodeType.Element:
-                        if (input.IsXsltKeyword(atoms.Fallback)) {
-                            XslFallback();
-                        } else {
-                            ReportError(/*[XT_017]*/SR.Xslt_UnexpectedElement, input.QualifiedName, parentName);
-                            input.SkipNode();
-                        }
-                        break;
-                    case XmlNodeType.Whitespace:
-                    case XmlNodeType.SignificantWhitespace:
-                        break;
-                    default:
-                        Debug.Assert(input.NodeType == XmlNodeType.Text);
-                        ReportError(/*[XT_017]*/SR.Xslt_TextNodesNotAllowed, parentName);
-                        break;
-                    }
-                } while (input.MoveToNextSibling());
-            }
-            return null;
-        }
-
-        // http://www.w3.org/TR/xslt20/#element-result-document
-        XsltAttribute[] resultDocumentAttributes = {
-            new XsltAttribute("format"                , V2Opt), // 0
-            new XsltAttribute("href"                  , V2Opt), // 1
-            new XsltAttribute("validation"            , V2Opt), // 2
-            new XsltAttribute("type"                  , V2Opt), // 3
-            new XsltAttribute("name"                  , V2Opt), // 4
-            new XsltAttribute("method"                , V2Opt), // 5
-            new XsltAttribute("byte-order-mark"       , V2Opt), // 6
-            new XsltAttribute("cdata-section-elements", V2Opt), // 7
-            new XsltAttribute("doctype-public"        , V2Opt), // 8
-            new XsltAttribute("doctype-system"        , V2Opt), // 9
-            new XsltAttribute("encoding"              , V2Opt), // 10
-            new XsltAttribute("escape-uri-attributes" , V2Opt), // 11
-            new XsltAttribute("include-content-type"  , V2Opt), // 12
-            new XsltAttribute("indent"                , V2Opt), // 13
-            new XsltAttribute("media-type"            , V2Opt), // 14
-            new XsltAttribute("normalization-form"    , V2Opt), // 15
-            new XsltAttribute("omit-xml-declaration"  , V2Opt), // 16
-            new XsltAttribute("standalone"            , V2Opt), // 17
-            new XsltAttribute("undeclare-prefixes"    , V2Opt), // 18
-            new XsltAttribute("use-character-maps"    , V2Opt), // 19
-            new XsltAttribute("output-version"        , V2Opt)  // 20
-        };
-        private XslNode XslResultDocument() {
-            ContextInfo ctxInfo = input.GetAttributes(resultDocumentAttributes);
-
-            string format                  = ParseStringAttribute(0 , "format");
-            XmlWriterSettings settings = new XmlWriterSettings(); // we should use attFormat to determing settings
-            string href                    = ParseStringAttribute(1 , "href");
-            ParseValidationAttribute(2, /*defVal:*/false);
-            ParseTypeAttribute(3);
-            QilName  name                  = ParseQNameAttribute( 4);
-            TriState byteOrderMask         = ParseYesNoAttribute( 6 , "byte-order-mark");
-            string   docTypePublic         = ParseStringAttribute(8 , "doctype-public");
-            string   docTypeSystem         = ParseStringAttribute(9 , "doctype-system");
-            bool     escapeUriAttributes   = ParseYesNoAttribute( 11, "escape-uri-attributes") != TriState.False;
-            bool     includeContentType    = ParseYesNoAttribute( 12, "include-content-type") != TriState.False;
-            settings.Indent                = ParseYesNoAttribute( 13, "indent") == TriState.True;
-            string   mediaType             = ParseStringAttribute(14, "media-type");
-            string   normalizationForm     = ParseStringAttribute(15, "normalization-form");
-            settings.OmitXmlDeclaration    = ParseYesNoAttribute( 16, "omit-xml-declaration") == TriState.True;
-            settings.Standalone            = ParseYesNoAttribute( 17, "standalone"        ) == TriState.True ? XmlStandalone.Yes : XmlStandalone.No;
-            bool undeclarePrefixes         = ParseYesNoAttribute( 18, "undeclare-prefixes") == TriState.True;
-            List<QilName> useCharacterMaps = ParseUseCharacterMaps(19);
-            string   outputVersion         = ParseStringAttribute(20, "output-version");
-
-            ReportNYI("xsl:result-document");
-
-            if (format != null) ReportNYI("xsl:result-document/@format");
-
-            href ??= string.Empty;
-            // attHref is a BaseUri of new output tree. It should be resolved relative to "base output URI"
-
-
-            if (input.MoveToXsltAttribute(5, "method")) {
-                compiler.EnterForwardsCompatible();
-                XmlOutputMethod   outputMethod;
-                ParseOutputMethod(input.Value, out outputMethod);
-                if (compiler.ExitForwardsCompatible(input.ForwardCompatibility)) {
-                    settings.SetOutputMethod(outputMethod);
-                }
-            }
-            if (input.MoveToXsltAttribute(7, "cdata-section-elements")) {
-                // Do not check the import precedence, the effective value is the union of all specified values
-                compiler.EnterForwardsCompatible();
-                string[] qnames = XmlConvert.SplitString(input.Value);
-                List<XmlQualifiedName> list = new List<XmlQualifiedName>();
-                for (int i = 0; i < qnames.Length; i++) {
-                    list.Add(ResolveQName(/*ignoreDefaultNs:*/false, qnames[i]));
-                }
-                if (compiler.ExitForwardsCompatible(input.ForwardCompatibility)) {
-                    foreach (XmlQualifiedName qname in list) {
-                        settings.CDataSectionElements.Add(qname);
-                    }
-                }
-            }
-            if (input.MoveToXsltAttribute(10, "encoding")) {
-                try {
-                    // Encoding.GetEncoding() should never throw NotSupportedException, only ArgumentException
-                    settings.Encoding = Encoding.GetEncoding(input.Value);
-                } catch (ArgumentException) {
-                    if (!input.ForwardCompatibility) {
-                        ReportWarning(/*[XT_004]*/SR.Xslt_InvalidEncoding, input.Value);
-                    }
-                }
-            }
-
-            if (byteOrderMask != TriState.Unknown) ReportNYI("xsl:result-document/@byte-order-mark");
-            if (!escapeUriAttributes) ReportNYI("xsl:result-document/@escape-uri-attributes == flase()");
-            if (!includeContentType) ReportNYI("xsl:output/@include-content-type == flase()");
-            if (normalizationForm != null) ReportNYI("xsl:result-document/@normalization-form");
-            if (undeclarePrefixes) ReportNYI("xsl:result-document/@undeclare-prefixes == true()");
-
-            if (docTypePublic != null) {
-                settings.DocTypePublic = docTypePublic;
-            }
-
-            if (docTypeSystem != null) {
-                settings.DocTypeSystem = docTypeSystem;
-            }
-            if (mediaType != null) {
-                settings.MediaType = mediaType;
-            }
-
-            if (useCharacterMaps != null) ReportNYI("xsl:result-document/@use-character-maps");
-
-            if (outputVersion != null) {
-                // BUGBUG: Check that version is a valid nmtoken
-                // ignore version since we support only one version for both xml (1.0) and html (4.0)
-                ReportNYI("xsl:result-document/@output-version");
-            }
-
-            LoadInstructions();
-            return null;
-        }
-#endif
 
         // http://www.w3.org/TR/xslt#literal-result-element
         private XslNode LoadLiteralResultElement(bool asStylesheet)
@@ -2518,6 +2220,11 @@ namespace Xsl3.Xslt
                     // QilGenerator takes care of AVTs, and needs line info
                     AddInstruction(content, SetLineInfo(att, ctxInfo.lineInfo));
                 }
+                else if (V2 && !_input.ForwardCompatibility && !s_literalXsltAttributes.Contains(_input.LocalName))
+                {
+                    // Xsl3: XSLT 2.0 §11.1.2: no other attributes in the XSLT namespace (XTSE0805).
+                    ReportError(SR.Xml_UserException, $"XTSE0805: xsl:{_input.LocalName} is not an attribute of a literal result element");
+                }
                 else
                 {
                     // ignore all other xslt attributes. See XslInput.GetLiteralAttributes()
@@ -2527,6 +2234,13 @@ namespace Xsl3.Xslt
             content = LoadEndTag(LoadInstructions(content));
             return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
         }
+
+        private static readonly HashSet<string> s_literalXsltAttributes = new(StringComparer.Ordinal)
+        {
+            "version", "extension-element-prefixes", "exclude-result-prefixes", "use-attribute-sets", "xpath-default-namespace",
+            "default-collation", "use-when", "type", "validation", "inherit-namespaces", "expand-text", "default-mode",
+            "default-validation",
+        };
 
         private void CheckWithParam(List<XslNode> content, XslNode withParam)
         {
@@ -2633,8 +2347,7 @@ namespace Xsl3.Xslt
             }
             else if (!V1 && qname == "#current")
             {
-                ReportNYI("xsl:apply-templates[@mode='#current']");
-                mode = nullMode;
+                mode = CurrentMode;
             }
             else if (!V1 && qname == "#all")
             {
@@ -2665,7 +2378,8 @@ namespace Xsl3.Xslt
             string modeList = _input.Value;
             if (modeList == "#all")
             {
-                ReportNYI("xsl:template[@mode='#all']");
+                // Xsl3: the template applies in every mode.
+                _templateAllModes = true;
                 return nullMode;
             }
             else
@@ -2725,8 +2439,9 @@ namespace Xsl3.Xslt
                 }
                 if (1 < modes.Count)
                 {
-                    ReportNYI("Multiple modes");
-                    return nullMode;
+                    // Xsl3: the template is registered in each mode.
+                    _templateModes = modes;
+                    return modes[0];
                 }
                 if (modes.Count == 0)
                 {
@@ -2740,6 +2455,10 @@ namespace Xsl3.Xslt
         {
             if (_input.MoveToXsltAttribute(attNum, "collation"))
             {
+                if (V2)
+                {
+                    return _input.Value;
+                }
                 ReportNYI("@collation");
             }
             return null;
@@ -2879,6 +2598,8 @@ namespace Xsl3.Xslt
                     case "xml": method = XmlOutputMethod.Xml; break;
                     case "html": method = XmlOutputMethod.Html; break;
                     case "text": method = XmlOutputMethod.Text; break;
+                    // Xsl3: XHTML is XML syntax with the XHTML rules, which Runtime.OutputExtras applies.
+                    case "xhtml" when V2: method = XmlOutputMethod.Xml; break;
                     default:
                         ReportError(/*[XT1570]*/SR.Xslt_InvalidAttrValue, nameof(method), attValue);
                         return null;
@@ -2964,10 +2685,13 @@ namespace Xsl3.Xslt
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All Yes/No attributes are optional.");
             if (_input.MoveToXsltAttribute(attNum, attName))
             {
-                switch (_input.Value)
+                // Xsl3: XSLT 3.0 also accepts true/false and 1/0, with surrounding whitespace.
+                switch (V2 ? _input.Value.Trim() : _input.Value)
                 {
                     case "yes": return TriState.True;
                     case "no": return TriState.False;
+                    case "true" or "1" when V2: return TriState.True;
+                    case "false" or "0" when V2: return TriState.False;
                     default:
                         if (!_input.ForwardCompatibility)
                         {

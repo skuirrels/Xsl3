@@ -325,6 +325,9 @@ namespace Xsl3.Runtime
             data = dataStream.ToArray();
         }
 
+        /// <summary>Xsl3: serialization parameters the result writer applies (XSLT 2.0+), or null.</summary>
+        public OutputExtras? OutputExtras { get; set; }
+
         /// <summary>
         /// Return the default writer settings.
         /// </summary>

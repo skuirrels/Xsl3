@@ -27,6 +27,40 @@ namespace Xsl3.Runtime
     [EditorBrowsable(EditorBrowsableState.Never)]
     public sealed class XmlQueryRuntime
     {
+        // Xsl3: cancellation of a running transformation (SPEC §21.1). Checked, with the stack, at every template and
+        // function entry; set for the current thread by the API that runs the transformation.
+        [System.ThreadStatic]
+        private static System.Threading.CancellationToken t_cancellation;
+
+        internal static System.Threading.CancellationToken Cancellation
+        {
+            get => t_cancellation;
+            set => t_cancellation = value;
+        }
+
+        // Xsl3: where xsl:result-document writes secondary results (SPEC §21.1, EnableResultDocument): given the
+        // absolute URI and the output method, a writer for the serialization. Null: secondary results are refused.
+        [System.ThreadStatic]
+        private static System.Func<string, string, System.IO.TextWriter>? t_resultDocuments;
+
+        internal static System.Func<string, string, System.IO.TextWriter>? ResultDocumentHandler
+        {
+            get => t_resultDocuments;
+            set => t_resultDocuments = value;
+        }
+
+        // The secondary results written so far by this transformation (XTDE1490 for a second write to one URI).
+        internal readonly System.Collections.Generic.HashSet<string> ResultDocumentUris = new System.Collections.Generic.HashSet<string>();
+
+        internal static void CheckCancellation() => t_cancellation.ThrowIfCancellationRequested();
+
+        /// <summary>Called by generated code on entry to every template and function.</summary>
+        public static void EnterFunction()
+        {
+            System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+            t_cancellation.ThrowIfCancellationRequested();
+        }
+
         // Early-Bound Library Objects
         private readonly XmlQueryContext _ctxt;
         private XsltLibrary? _xsltLib;

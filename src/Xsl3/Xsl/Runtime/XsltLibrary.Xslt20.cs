@@ -1,0 +1,414 @@
+// Licensed under the MIT license. See LICENSE.TXT in the repository root.
+
+using System.Collections.Generic;
+using System.Text;
+using System.Xml.XPath;
+using Xsl3.XPath31;
+using Xsl3.XPath31.Functions;
+using Xsl3.Xdm;
+
+namespace Xsl3.Runtime
+{
+    /// <summary>
+    /// Xsl3: run-time support for the XSLT 2.0 rules that QilGenerator.V2 compiles: content of constructed nodes,
+    /// simple content, attribute value templates, sequence-type conversion of variables and parameters.
+    /// </summary>
+    public sealed partial class XsltLibrary
+    {
+        /// <summary>A sequence that must have at most one item, as a string (empty for an empty sequence).</summary>
+        public string X31String(IList<XPathItem> items)
+        {
+            AtomicValue? a = Sequences.AtomizeOptional(items, "the argument");
+            return a?.Value ?? "";
+        }
+
+        public XPathNavigator X31NodeItem(XPathItem item, string code) =>
+            item as XPathNavigator ?? throw new XdmException(code, "A node is required, but the item is an atomic value");
+
+        public double X31RaiseDouble(string code, string message) => throw new XdmException(code, message);
+
+        /// <summary>A sequence that must be exactly one node.</summary>
+        public XPathNavigator X31SingleNode(IList<XPathItem> items, string code) =>
+            items.Count == 1 && items[0] is XPathNavigator n ? n : throw new XdmException(code, items.Count == 1 ? "A node is required, but the item is an atomic value" : $"A single node is required, not {items.Count} items");
+
+        /// <summary>
+        /// Key values (xsl:key's use, key()'s second argument) as the strings the 1.0 key machinery compares:
+        /// the atomised values, encoded so that equal strings are values that are equal by eq (XSLT 3.0 §20.2.2).
+        /// Values that equal nothing (NaN) are dropped.
+        /// </summary>
+        public IList<XPathItem> X31KeyValues(IList<XPathItem> values)
+        {
+            var result = new List<XPathItem>(values.Count);
+            foreach (XPathItem item in Sequences.Atomize(values))
+            {
+                string? key = KeyString((AtomicValue)item);
+                if (key != null)
+                {
+                    result.Add(AtomicValue.OfString(key));
+                }
+            }
+            return result;
+        }
+
+        private static string? KeyString(AtomicValue a)
+        {
+            if (a.Type.IsNumeric)
+            {
+                double d = Numeric.ToDouble(a);
+                return double.IsNaN(d) ? null : "n" + d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            Primitive p = a.Type.Primitive;
+            return a switch
+            {
+                _ when p is Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri => "s" + a.Value,
+                // Dates and times are equal when they are the same instant (timezones normalised).
+                DateTimeValue dt => "t" + p + " " + dt.DateTime.ToTimeline(p, 0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                DurationValue d => "d" + d.Duration.Months + " " + d.Duration.Seconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                _ => "t" + p + " " + a.Value,
+            };
+        }
+
+        /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
+        public string X31AvtString(IList<XPathItem> items)
+        {
+            if (items.Count == 1)
+            {
+                return Sequences.Atomize(items[0]).Value;
+            }
+            IList<XPathItem> atoms = Sequences.Atomize(items);
+            var sb = new StringBuilder();
+            for (int i = 0; i < atoms.Count; i++)
+            {
+                if (i > 0) sb.Append(' ');
+                sb.Append(atoms[i].Value);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// The items of complex content (XSLT 3.0 §5.7.1): each run of adjacent atomic values becomes one string
+        /// with single spaces between the values (empty strings are dropped), and a document node is replaced by
+        /// its children. Nodes are returned as they are; the caller copies them.
+        /// </summary>
+        public IList<XPathItem> X31ContentItems(IList<XPathItem> items)
+        {
+            var result = new List<XPathItem>(items.Count);
+            StringBuilder? run = null;
+            void Flush()
+            {
+                if (run != null)
+                {
+                    if (run.Length > 0) result.Add(AtomicValue.OfString(run.ToString()));
+                    run = null;
+                }
+            }
+            foreach (XPathItem item in items)
+            {
+                if (item is XPathNavigator nav)
+                {
+                    Flush();
+                    if (nav.NodeType == XPathNodeType.Root)
+                    {
+                        XPathNavigator child = nav.Clone();
+                        if (child.MoveToFirstChild())
+                        {
+                            do
+                            {
+                                result.Add(child.Clone());
+                            }
+                            while (child.MoveToNext());
+                        }
+                    }
+                    else
+                    {
+                        result.Add(nav);
+                    }
+                }
+                else
+                {
+                    if (run == null)
+                    {
+                        run = new StringBuilder();
+                    }
+                    else
+                    {
+                        run.Append(' ');
+                    }
+                    run.Append(Sequences.Atomize(item).Value);
+                }
+            }
+            Flush();
+            return result;
+        }
+
+        /// <summary>
+        /// Simple content (XSLT 3.0 §5.7.2), for attributes, comments, processing instructions, namespace nodes and
+        /// xsl:value-of: adjacent text nodes merge, zero-length text nodes are dropped, every item is atomised, and
+        /// the strings are joined with <paramref name="separator"/>.
+        /// </summary>
+        public string X31SimpleContent(IList<XPathItem> items, string separator)
+        {
+            var parts = new List<string>(items.Count);
+            StringBuilder? text = null;
+            foreach (XPathItem item in items)
+            {
+                if (item is XPathNavigator { NodeType: XPathNodeType.Text or XPathNodeType.Whitespace or XPathNodeType.SignificantWhitespace } t)
+                {
+                    (text ??= new StringBuilder()).Append(t.Value);
+                    continue;
+                }
+                if (text != null)
+                {
+                    if (text.Length > 0) parts.Add(text.ToString());
+                    text = null;
+                }
+                if (item is XPathNavigator { NodeType: XPathNodeType.Root or XPathNodeType.Element } container)
+                {
+                    parts.Add(container.Value);
+                }
+                else
+                {
+                    parts.Add(Sequences.Atomize(item).Value);
+                }
+            }
+            if (text != null && text.Length > 0)
+            {
+                parts.Add(text.ToString());
+            }
+            return string.Join(separator, parts);
+        }
+
+        /// <summary>The function conversion rules to a variable's, parameter's or function's declared type.</summary>
+        public IList<XPathItem> X31Coerce(IList<XPathItem> value, double typeId, string errorCode)
+        {
+            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            return Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+        }
+
+        // ------------------------------------------------------------ xsl:result-document
+
+        /// <summary>
+        /// Writes a secondary result (XSLT 3.0 §25.1). An empty href means the principal result: the document's
+        /// children are returned to become part of it.
+        /// </summary>
+        public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string method, string baseUri)
+        {
+            var doc = (XPathNavigator)document[0];
+            if (href.Length == 0)
+            {
+                return X31ContentItems(document);
+            }
+            string uri = UriReference.IsAbsolute(href) || baseUri.Length == 0 || !UriReference.IsAbsolute(baseUri) ? href : UriReference.Resolve(href, baseUri);
+            if (!_runtime.ResultDocumentUris.Add(uri))
+            {
+                throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");
+            }
+            System.Func<string, string, System.IO.TextWriter>? handler = XmlQueryRuntime.ResultDocumentHandler;
+            if (handler == null)
+            {
+                throw new XdmException("XTDE1480", $"Secondary results are not enabled; can't write {uri}");
+            }
+            System.IO.TextWriter output = handler(uri, method);
+            var settings = new System.Xml.XmlWriterSettings { OmitXmlDeclaration = method is "text" or "html", ConformanceLevel = System.Xml.ConformanceLevel.Fragment, CloseOutput = true };
+            if (method == "text")
+            {
+                output.Write(doc.Value);
+                output.Dispose();
+                return Sequences.Empty;
+            }
+            using (System.Xml.XmlWriter w = System.Xml.XmlWriter.Create(output, settings))
+            {
+                XPathNavigator child = doc.Clone();
+                if (child.MoveToFirstChild())
+                {
+                    do
+                    {
+                        w.WriteNode(child, defattr: true);
+                    }
+                    while (child.MoveToNext());
+                }
+            }
+            return Sequences.Empty;
+        }
+
+        // ------------------------------------------------------------ xsl:number
+
+        public XPathItem X31IntegerItem(double value) => AtomicValue.OfInteger(new System.Numerics.BigInteger(value));
+
+        /// <summary>
+        /// xsl:number's formatting (XSLT 3.0 §12.4): the format string is split into format tokens and the
+        /// separators between them; the nth number uses the nth token (the last one again when there are fewer
+        /// tokens) and the separator before it. Each number is formatted as format-integer formats it.
+        /// </summary>
+        public string X31NumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang)
+        {
+            if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))
+            {
+                throw new XdmException("XTDE0030", $"xsl:number: lang=\"{lang}\" is not a language code");
+            }
+            var numbers = new List<System.Numerics.BigInteger>();
+            foreach (XPathItem item in Sequences.Atomize(values))
+            {
+                var a = (AtomicValue)item;
+                double d = a.Type.IsNumeric ? Numeric.ToDouble(a) : ToNumber(a);
+                if (double.IsNaN(d) || double.IsInfinity(d) || d < 0)
+                {
+                    // XSLT 2.0: a value that isn't a non-negative integer is a dynamic error.
+                    throw new XdmException("XTDE0980", $"xsl:number can't format {a.Value}: the value must be a non-negative integer");
+                }
+                numbers.Add(new System.Numerics.BigInteger(System.Math.Floor(d + 0.5))); // rounded as fn:round rounds
+            }
+
+            // Split the format into prefix, tokens and separators.
+            var tokens = new List<string>();
+            var separators = new List<string>();
+            int i = 0;
+            string prefix = ReadNonAlphanumeric(format, ref i);
+            while (i < format.Length)
+            {
+                tokens.Add(ReadAlphanumeric(format, ref i));
+                string sep = ReadNonAlphanumeric(format, ref i);
+                separators.Add(sep);
+            }
+            string suffix = "";
+            if (tokens.Count > 0 && separators.Count == tokens.Count)
+            {
+                suffix = separators[^1];
+                separators.RemoveAt(separators.Count - 1);
+            }
+            if (tokens.Count == 0)
+            {
+                // No format token: "1", with the format as both prefix and suffix.
+                tokens.Add("1");
+                suffix = prefix;
+            }
+
+            var sb = new StringBuilder(prefix);
+            for (int n = 0; n < numbers.Count; n++)
+            {
+                if (n > 0)
+                {
+                    sb.Append(separators.Count == 0 ? "." : separators[System.Math.Min(n - 1, separators.Count - 1)]);
+                }
+                string token = tokens[System.Math.Min(n, tokens.Count - 1)];
+                sb.Append(FormatNumberToken(numbers[n], token, groupingSeparator, groupingSize, ordinal, lang));
+            }
+            sb.Append(suffix);
+            return sb.ToString();
+        }
+
+        private static string FormatNumberToken(System.Numerics.BigInteger n, string token, string groupingSeparator, string groupingSize, string ordinal, string lang)
+        {
+            string picture = token;
+            if (groupingSeparator.Length > 0 && int.TryParse(groupingSize, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int size) && size > 0)
+            {
+                // A decimal token gets the grouping: build a picture with separators every `size` digits.
+                IntegerFormatter plain;
+                try
+                {
+                    plain = new IntegerFormatter(token, "XTDE0030");
+                }
+                catch (XdmException)
+                {
+                    plain = new IntegerFormatter("1");
+                }
+                if (plain.IsDecimal)
+                {
+                    string digits = plain.Format(n);
+                    var grouped = new StringBuilder();
+                    for (int i = 0; i < digits.Length; i++)
+                    {
+                        if (i > 0 && (digits.Length - i) % size == 0) grouped.Append(groupingSeparator);
+                        grouped.Append(digits[i]);
+                    }
+                    return grouped.ToString();
+                }
+            }
+            string modifier = ordinal.Length > 0 && ordinal != "no" ? ";o" : "";
+            try
+            {
+                return new IntegerFormatter(picture + modifier, "XTDE0030", allowEmpty: true).Format(n, lang.Length > 0 ? lang : null);
+            }
+            catch (XdmException)
+            {
+                // An unrecognised token formats as "1" does.
+                return new IntegerFormatter("1" + modifier).Format(n);
+            }
+        }
+
+        private static string ReadAlphanumeric(string s, ref int i)
+        {
+            int start = i;
+            while (i < s.Length && (char.IsLetterOrDigit(s, i) || char.GetUnicodeCategory(s, i) is System.Globalization.UnicodeCategory.OtherNumber or System.Globalization.UnicodeCategory.LetterNumber))
+            {
+                i += char.IsSurrogatePair(s, i) ? 2 : 1;
+            }
+            return s[start..i];
+        }
+
+        private static string ReadNonAlphanumeric(string s, ref int i)
+        {
+            int start = i;
+            while (i < s.Length && !(char.IsLetterOrDigit(s, i) || char.GetUnicodeCategory(s, i) is System.Globalization.UnicodeCategory.OtherNumber or System.Globalization.UnicodeCategory.LetterNumber))
+            {
+                i += char.IsSurrogatePair(s, i) ? 2 : 1;
+            }
+            return s[start..i];
+        }
+
+        // ------------------------------------------------------------ tunnel parameters
+
+        /// <summary>The tunnel parameters of a call: an immutable list of name/value frames.</summary>
+        internal sealed class TunnelFrame : AtomicValue
+        {
+            public TunnelFrame(TunnelFrame? outer, string ns, string local, IList<XPathItem> value) : base(AtomicTypes.String)
+            {
+                Outer = outer;
+                Ns = ns;
+                Local = local;
+                ParamValue = value;
+            }
+
+            public TunnelFrame? Outer { get; }
+
+            public string Ns { get; }
+
+            public string Local { get; }
+
+            public IList<XPathItem> ParamValue { get; }
+
+            public override string Value => "";
+
+            public override object ClrValue => this;
+
+            public TunnelFrame? Find(string ns, string local)
+            {
+                for (TunnelFrame? f = this; f != null; f = f.Outer)
+                {
+                    if (f.Local == local && f.Ns == ns) return f;
+                }
+                return null;
+            }
+        }
+
+        // The value is copied: QIL may pass it in a list it reuses (navigators are cloned for the same reason).
+        public IList<XPathItem> X31TunnelAdd(IList<XPathItem> frame, string ns, string local, IList<XPathItem> value) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], ns, local, CopyItems(value)) };
+
+        private static XPathItem[] CopyItems(IList<XPathItem> items)
+        {
+            var copy = new XPathItem[items.Count];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = items[i] is XPathNavigator n ? n.Clone() : items[i];
+            }
+            return copy;
+        }
+
+        public bool X31TunnelHas(IList<XPathItem> frame, string ns, string local) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(ns, local) != null;
+
+        public IList<XPathItem> X31TunnelGet(IList<XPathItem> frame, string ns, string local) =>
+            frame.Count == 0 ? Sequences.Empty : ((TunnelFrame)frame[0]).Find(ns, local)?.ParamValue ?? Sequences.Empty;
+    }
+}

@@ -53,7 +53,13 @@ namespace Xsl3
                 // create always take the wrapper path below. XslCompiledTransform's Stream, TextWriter and URI
                 // overloads instead pass Xsl3's own raw writer chain (XmlWriterSettingsInternals.CreateRawWriter),
                 // which is what upstream would have extracted, since XSLT output settings use ConformanceLevel.Auto.
-                if (writer is XmlRawWriter rawWriter)
+                if (_staticData.OutputExtras is OutputExtras extras && writer is not XmlRawWriter)
+                {
+                    // Xsl3: xhtml, character maps and normalization are applied in front of the result writer.
+                    // (XslCompiledTransform passes a normal writer, not a raw one, when there are extras.)
+                    Execute(defaultDocument, dataSources, argumentList, new XmlMergeSequenceWriter(new XmlRawWriterWrapper(extras.Wrap(writer))));
+                }
+                else if (writer is XmlRawWriter rawWriter)
                 {
                     Execute(defaultDocument, dataSources, argumentList, new XmlMergeSequenceWriter(rawWriter));
                 }
@@ -98,6 +104,10 @@ namespace Xsl3
             {
                 // Xsl3: raised by the guard at template and function entry (SPEC §21.2).
                 throw new XslTransformException(e, "Q{http://xsl3/err}recursion-limit: the transformation recursed too deeply for the available stack");
+            }
+            catch (System.OperationCanceledException e)
+            {
+                throw new XslTransformException(e, "Q{http://xsl3/err}cancelled: the transformation was cancelled");
             }
         }
     }

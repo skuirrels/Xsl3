@@ -465,8 +465,18 @@ namespace Xsl3.Xslt
                         _lastTextNode = numTextNodes - 1;
                         return true;
                     case XmlNodeType.Element:
+                        int depth = _reader.Depth;
                         _scopeManager.EnterScope();
                         _numAttributes = ReadElement();
+                        if (depth > 0 && !_skippingUseWhen && _compiler.Version == 2 && ExcludedByUseWhen())
+                        {
+                            // Xsl3: an element whose use-when is false is ignored, with its subtree (XSLT 3.0 §3.13.1).
+                            _skippingUseWhen = true;
+                            SkipNode();
+                            _skippingUseWhen = false;
+                            _scopeManager.ExitScope();
+                            continue;
+                        }
                         return true;
                     case XmlNodeType.EndElement:
                         _nodeType = XmlNodeType.EndElement;
@@ -478,6 +488,43 @@ namespace Xsl3.Xslt
                     default:
                         _reader.Read();
                         break;
+                }
+            }
+            return false;
+        }
+
+        private bool _skippingUseWhen;
+
+        // [xsl:]use-when on the element just read: no-namespace use-when on an XSLT element, xsl:use-when on others.
+        private bool ExcludedByUseWhen()
+        {
+            bool xslt = Ref.Equal(_records[0].nsUri, _atoms.UriXsl);
+            for (int i = 1; i <= _numAttributes; i++)
+            {
+                ref Record rec = ref _records[i];
+                if (rec.localName == "use-when" && (xslt ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
+                {
+                    var namespaces = new Dictionary<string, string>(StringComparer.Ordinal);
+                    foreach (CompilerScopeManager<VarPar>.ScopeRecord ns in _scopeManager)
+                    {
+                        if (ns.ncName != null && ns.nsUri != null && ns.ncName.Length > 0 && ns.ncName[0] != '#')
+                        {
+                            namespaces.TryAdd(ns.ncName, ns.nsUri);
+                        }
+                    }
+                    try
+                    {
+                        return !UseWhen.Evaluate(rec.value, namespaces, "", rec.baseUri);
+                    }
+                    catch (Xsl3.XPath31.XPathStaticException e)
+                    {
+                        ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                    }
+                    catch (Xsl3.Xdm.XdmException e)
+                    {
+                        ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                    }
+                    return false;
                 }
             }
             return false;
@@ -664,11 +711,8 @@ namespace Xsl3.Xslt
         {
             if (_compiler.Version == 0)
             {
-#if XSLT2
-                compiler.Version = version < 2.0 ? 1 : 2;
-#else
-                _compiler.Version = 1;
-#endif
+                // Xsl3: the principal module's version picks the processor (SPEC §4.3).
+                _compiler.Version = version < 2.0 || !Compiler.Xslt2Enabled ? 1 : 2;
             }
 
             if (_compiler.Version == 1)
@@ -784,6 +828,8 @@ namespace Xsl3.Xslt
                         else
                         if (Ref.Equal(localName, _atoms.UseWhen) && (V2)) { attUseWhen = attNum; }
                         else
+                        if (Ref.Equal(localName, _atoms.Version) && (V2)) { /* Xsl3: a standard attribute of every XSLT element in 2.0 */ }
+                        else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);
                         }
@@ -811,9 +857,10 @@ namespace Xsl3.Xslt
 
             InsertExNamespaces(attExtension, _ctxInfo!, /*extensions:*/ true);
             InsertExNamespaces(attExclude, _ctxInfo!, /*extensions:*/ false);
-            SetXPathDefaultNamespace(attNamespace);
-            SetDefaultCollation(attCollation);
-            if (attUseWhen != 0)
+            SetXPathDefaultNamespace(attNamespace, _ctxInfo!);
+            SetDefaultCollation(attCollation, _ctxInfo!);
+            // use-when was applied when the element was read (ExcludedByUseWhen); on the stylesheet element it is not supported.
+            if (attUseWhen != 0 && SS)
             {
                 ReportNYI(_atoms.UseWhen);
             }
@@ -900,9 +947,10 @@ namespace Xsl3.Xslt
                 // Parse other attributes (now that it's known this is a literal result element)
                 if (_compiler.Version == 2)
                 {
-                    SetXPathDefaultNamespace(attNamespace);
-                    SetDefaultCollation(attCollation);
-                    if (attUseWhen != 0)
+                    SetXPathDefaultNamespace(attNamespace, _ctxInfo!);
+                    SetDefaultCollation(attCollation, _ctxInfo!);
+                    // use-when was applied when the element was read (ExcludedByUseWhen).
+                    if (attUseWhen != 0 && asStylesheet)
                     {
                         ReportNYI(_atoms.UseWhen);
                     }
@@ -994,16 +1042,41 @@ namespace Xsl3.Xslt
             }
         }
 
-        private void SetXPathDefaultNamespace(int attNamespace)
+        // Xsl3: [xsl:]xpath-default-namespace and [xsl:]default-collation are scoped like namespace declarations, so
+        // they travel in the node's namespace list under reserved pseudo-prefixes (never output, never valid prefixes).
+        public const string XPathDefaultNamespacePrefix = "#xpath-default-namespace";
+        public const string DefaultCollationPrefix = "#default-collation";
+
+        private void SetXPathDefaultNamespace(int attNamespace, ContextInfo ctxInfo)
         {
             if (MoveToLiteralAttribute(attNamespace))
             {
                 Debug.Assert(IsKeyword(_atoms.XPathDefaultNamespace));
-                if (Value.Length != 0)
-                {
-                    ReportNYI(_atoms.XPathDefaultNamespace);
-                }
+                ctxInfo.nsList = new NsDecl(ctxInfo.nsList, XPathDefaultNamespacePrefix, Value);
             }
+        }
+
+        private void SetDefaultCollation(int attCollation, ContextInfo ctxInfo)
+        {
+            if (_compiler.Version == 2 && MoveToLiteralAttribute(attCollation))
+            {
+                // The first collation in the list that is supported (XTSE0125 if none).
+                foreach (string uri in XmlConvert.SplitString(Value))
+                {
+                    try
+                    {
+                        Xsl3.XPath31.Functions.Collation.Resolve(uri);
+                        ctxInfo.nsList = new NsDecl(ctxInfo.nsList, DefaultCollationPrefix, uri);
+                        return;
+                    }
+                    catch (Xsl3.Xdm.XdmException)
+                    {
+                    }
+                }
+                ReportErrorFC(/*[XTSE0125]*/SR.Xslt_CollationSyntax);
+                return;
+            }
+            SetDefaultCollation(attCollation);
         }
 
         private void SetDefaultCollation(int attCollation)

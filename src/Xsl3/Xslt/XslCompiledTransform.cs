@@ -250,6 +250,18 @@ namespace Xsl3
         // Transform methods which take an IXPathNavigable
         //------------------------------------------------
 
+        // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
+        // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
+        private XmlWriter CreateResultWriter(Stream results) =>
+            _command?.StaticData.OutputExtras != null
+                ? XmlWriter.Create(results, OutputSettings ?? s_defaultWriterSettings)
+                : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+
+        private XmlWriter CreateResultWriter(TextWriter results) =>
+            _command?.StaticData.OutputExtras != null
+                ? XmlWriter.Create(results, OutputSettings ?? s_defaultWriterSettings)
+                : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+
         public void Transform(IXPathNavigable input, XmlWriter results)
         {
             ArgumentNullException.ThrowIfNull(input);
@@ -271,7 +283,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(input);
             ArgumentNullException.ThrowIfNull(results);
 
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(input, arguments, writer, CreateDefaultResolver());
         }
 
@@ -280,7 +292,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(input);
             ArgumentNullException.ThrowIfNull(results);
 
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(input, arguments, writer, CreateDefaultResolver());
         }
 
@@ -309,7 +321,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(input);
             ArgumentNullException.ThrowIfNull(results);
 
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(input, arguments, writer, CreateDefaultResolver());
         }
 
@@ -318,7 +330,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(input);
             ArgumentNullException.ThrowIfNull(results);
 
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(input, arguments, writer, CreateDefaultResolver());
         }
 
@@ -353,7 +365,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             using XmlReader reader = XmlReader.Create(inputUri);
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(reader, arguments, writer, CreateDefaultResolver());
         }
 
@@ -363,7 +375,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             using XmlReader reader = XmlReader.Create(inputUri);
-            using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+            using XmlWriter writer = CreateResultWriter(results);
             Transform(reader, arguments, writer, CreateDefaultResolver());
         }
 

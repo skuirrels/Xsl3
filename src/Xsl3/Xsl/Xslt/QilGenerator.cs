@@ -147,6 +147,11 @@ namespace Xsl3.Xslt
             {
                 (new XslAstAnalyzer()).Analyze(compiler);
             }
+            if (IsV2)
+            {
+                // Xsl3: the analyzer reads expressions with the 1.0 parser, so 2.0 templates get the full focus.
+                SetFullFocusV2(compiler.Root!);
+            }
 
             // Global variables and external params are visible from everywhere, so we have
             // to prepopulate the scope with all of them before starting compilation
@@ -154,14 +159,30 @@ namespace Xsl3.Xslt
 
             try
             {
-                CompileKeys();
-                CompileAndSortMatches(compiler.Root!.Imports![0]);
-                PrecompileProtoTemplatesHeaders();
+                if (IsV2)
+                {
+                    // Patterns may call key() and stylesheet functions; key definitions may apply templates.
+                    CreateKeyFunctions31();
+                    PrecompileFunctions31();
+                    CompileAndSortMatches(compiler.Root!.Imports![0]);
+                    PrecompileProtoTemplatesHeaders();
+                    CompileKeyBodies31();
+                }
+                else
+                {
+                    CompileKeys();
+                    CompileAndSortMatches(compiler.Root!.Imports![0]);
+                    PrecompileProtoTemplatesHeaders();
+                }
                 CompileGlobalVariables();
 
                 foreach (ProtoTemplate tmpl in compiler.AllTemplates)
                 {
                     CompileProtoTemplate(tmpl);
+                }
+                if (IsV2)
+                {
+                    CompileFunctions31();
                 }
                 _varHelper.CheckEmpty();
             }
@@ -217,6 +238,10 @@ namespace Xsl3.Xslt
                 qil.WhitespaceRules = compiler.WhitespaceRules;
                 qil.IsDebug = IsDebug;
                 qil.DefaultWriterSettings = compiler.Output.Settings;
+                if (IsV2)
+                {
+                    qil.OutputExtras = OutputExtras31(compiler.Output);
+                }
             }
 
             QilDepthChecker.Check(qil);
@@ -299,7 +324,7 @@ namespace Xsl3.Xslt
                 : GenerateApply(_compiler.Root!, applyTmpls);
             _singlFocus.SetFocus(null);
 
-            return _f.DocumentCtor(result);
+            return _f.DocumentCtor(IsV2 ? ContentNodes(result) : result);
         }
 
         private QilList? EnterScope(XslNode node)
@@ -359,9 +384,14 @@ namespace Xsl3.Xslt
         // Returns context node
         private QilNode GetCurrentNode()
         {
+            if (_nodeContext31 != null)
+            {
+                return _nodeContext31; // Xsl3: a node-typed context for xsl:number in 2.0 (an iterator, so shareable)
+            }
             if (_curLoop.IsFocusSet)
             {
-                return _curLoop.GetCurrent()!;
+                // Xsl3: in 2.0 grouping and analyze-string loops the context item is derived from the loop item.
+                return (IsV2 ? FocusOverride() : null) ?? _curLoop.GetCurrent()!;
             }
             else if (_funcFocus.IsFocusSet)
             {
@@ -409,7 +439,7 @@ namespace Xsl3.Xslt
 
         private XmlQueryType ChooseBestType(VarPar var)
         {
-            if (IsDebug || !InferXPathTypes)
+            if (IsDebug || !InferXPathTypes || IsV2)
             {
                 return T.ItemS;
             }
@@ -490,7 +520,8 @@ namespace Xsl3.Xslt
                 QilList? nsList = EnterScope(tmpl);
                 if ((flags & XslFlags.Current) != 0)
                 {
-                    args.Add(CreateXslParam(CloneName(_nameCurrent), T.NodeNotRtf));
+                    // Xsl3: in 2.0 a named template's context item may be atomic; a template rule's is a node.
+                    args.Add(CreateXslParam(CloneName(_nameCurrent), IsV2 && !(tmpl is Template { Match: not null, Name: null }) ? T.Item : T.NodeNotRtf));
                 }
                 if ((flags & XslFlags.Position) != 0)
                 {
@@ -499,6 +530,11 @@ namespace Xsl3.Xslt
                 if ((flags & XslFlags.Last) != 0)
                 {
                     args.Add(CreateXslParam(CloneName(_nameLast), T.DoubleX));
+                }
+                if (IsV2)
+                {
+                    // Xsl3: tunnel parameters travel in one implicit argument (2.0).
+                    args.Add(CreateXslParam(CloneName(_nameTunnel), T.ItemS));
                 }
                 if (IsDebug && nsList != null)
                 {
@@ -528,6 +564,11 @@ namespace Xsl3.Xslt
                         if (node.NodeType == XslNodeType.Param)
                         {
                             VarPar xslPar = (VarPar)node;
+                            if (IsV2 && xslPar.V2 is { Tunnel: true })
+                            {
+                                // Xsl3: bound from the tunnel argument in CompileProtoTemplate.
+                                continue;
+                            }
                             EnterScope(xslPar);
                             if (_scope.IsLocalVariable(xslPar.Name!.LocalName, xslPar.Name.NamespaceUri))
                             {
@@ -541,7 +582,12 @@ namespace Xsl3.Xslt
                             }
                             else
                             {
-                                if ((xslPar.DefValueFlags & XslFlags.HasCalls) == 0)
+                                if (IsV2 && xslPar.V2 is { Required: true })
+                                {
+                                    // Xsl3: a required parameter that isn't supplied is a dynamic error here (XTSE0690 statically).
+                                    param.DefaultValue = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0700"), _f.String($"The required parameter ${xslPar.Name.QualifiedName} was not supplied"));
+                                }
+                                else if ((xslPar.DefValueFlags & XslFlags.HasCalls) == 0)
                                 {
                                     param.DefaultValue = CompileVarParValue(xslPar);
                                 }
@@ -591,6 +637,10 @@ namespace Xsl3.Xslt
                             ExitScope();
                             _scope.AddVariable(xslPar.Name, param);
                             args.Add(param);
+                            if (IsV2)
+                            {
+                                _paramDecls[param] = xslPar;
+                            }
                         }
                         else
                         {
@@ -603,7 +653,7 @@ namespace Xsl3.Xslt
 
                 tmpl.Function = _f.Function(args,
                     _f.Boolean((tmpl.Flags & XslFlags.SideEffects) != 0),
-                    tmpl is AttributeSet ? T.AttributeS : T.NodeNotRtfS
+                    tmpl is AttributeSet ? T.AttributeS : IsV2 ? TemplateType31(tmpl) : T.NodeNotRtfS // Xsl3: 2.0 templates may return sequences
                 );
                 tmpl.Function.DebugName = tmpl.GetDebugName();
                 Debug.Assert((template != null) == (tmpl.SourceLine != null), "Templates must have line information, and attribute sets must not");
@@ -674,7 +724,23 @@ namespace Xsl3.Xslt
                     _scope.AddVariable(arg.Name, arg);
                 }
             }
-            tmpl.Function.Definition = CompileInstructions(tmpl.Content);
+            // Xsl3: xsl:next-match needs the template rule being compiled; 2.0 parameters are converted to their
+            // types and tunnel parameters bound from the tunnel argument.
+            _currentTemplateRule = tmpl is Template { Match: not null } rule ? rule : null;
+            _modeRule31 = _currentTemplateRule;
+            List<QilIterator>? prologue = IsV2 ? BindTemplateParams31(tmpl) : null;
+            QilNode body = CompileInstructions(tmpl.Content);
+            if (IsV2)
+            {
+                body = FinishTemplate31(tmpl, body, prologue!);
+            }
+            if (IsV2 && tmpl.Function.XmlType == T.NodeNotRtfS)
+            {
+                body = ToNodes31(body);
+            }
+            tmpl.Function.Definition = body;
+            _currentTemplateRule = null;
+            _currentTunnel = null;
             // tmpl.Function.Definition = AddCurrentPositionLast(tmpl.Function.Definition); We don't mask Cur,Pos,Last parameters with Cur,Pos,Last wariables any more
             // tmpl.Function.Definition = SetDebugNs(tmpl.Function.Definition, nsList); We add it as parameter now.
             _funcFocus.StopFocus();
@@ -716,6 +782,13 @@ namespace Xsl3.Xslt
                 QilList? nsList = EnterScope(node);
                 QilNode result;
 
+                // Xsl3: 2.0 instructions, and the 2.0 rules for those 1.0 has too.
+                QilNode? v2Result = IsV2 ? CompileInstructionV2(node) : null;
+                if (v2Result != null)
+                {
+                    result = v2Result;
+                }
+                else
                 switch (nodeType)
                 {
                     case XslNodeType.ApplyImports: result = CompileApplyImports(node); break;
@@ -838,6 +911,10 @@ namespace Xsl3.Xslt
             {
                 string? recPrefix = rec.ncName;
                 string? recNsUri = rec.nsUri;
+                if (recPrefix != null && recPrefix.StartsWith('#'))
+                {
+                    continue; // Xsl3: xpath-default-namespace and default-collation, not namespaces
+                }
                 if (recNsUri != XmlReservedNs.NsXslt && !_scope.IsExNamespace(recNsUri!))
                 {
                     _compiler.ApplyNsAliases(ref recPrefix, ref recNsUri!);
@@ -866,7 +943,17 @@ namespace Xsl3.Xslt
                 }
             }
 
-            QilNode content = CompileInstructions(node.Content, nsList);
+            QilNode content;
+            if (IsV2)
+            {
+                // Xsl3: namespace declarations first, then the content under the 2.0 rules.
+                nsList.Add(ContentNodes(CompileInstructions(node.Content)));
+                content = nsList;
+            }
+            else
+            {
+                content = CompileInstructions(node.Content, nsList);
+            }
             _outputScope.PopScope();
 
             qname.Prefix = prefix;
@@ -912,6 +999,10 @@ namespace Xsl3.Xslt
             _outputScope.PushScope();
             _outputScope.InvalidateAllPrefixes();
             QilNode content = CompileInstructions(node.Content);
+            if (IsV2)
+            {
+                content = ContentNodes(content);
+            }
             _outputScope.PopScope();
 
             return _f.ElementCtor(qname, content);
@@ -1050,6 +1141,11 @@ namespace Xsl3.Xslt
                 if (pos < source.Length)
                 { // '{' encountered, parse an expression
                     pos++;
+                    if (IsV2)
+                    {
+                        result.Add(CompileAvtExpression31(source, ref pos));
+                        continue;
+                    }
                     QilNode exp = CompileXPathExpressionWithinAvt(source, ref pos);
                     result.Add(_f.ConvertToString(exp));
                 }
@@ -1222,6 +1318,22 @@ namespace Xsl3.Xslt
             Debug.Assert(node.NodeType == XslNodeType.ApplyImports);
             Debug.Assert(!_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each");
 
+            if (IsV2 && node.Content.Count > 0)
+            {
+                // Xsl3: xsl:apply-imports with xsl:with-param (XSLT 2.0).
+                int varScope = _varHelper.StartVariables();
+                foreach (VarPar withParam in node.Content)
+                {
+                    CompileWithParam(withParam);
+                    if (withParam.Value is not (QilIterator or QilLiteral))
+                    {
+                        QilIterator let = _f.Let(withParam.Value!);
+                        _varHelper.AddVariable(let);
+                        withParam.Value = let;
+                    }
+                }
+                return _varHelper.FinishVariables(GenerateApply((StylesheetLevel)node.Arg!, node), varScope);
+            }
             return GenerateApply((StylesheetLevel)node.Arg!, node);
         }
 
@@ -1465,7 +1577,8 @@ namespace Xsl3.Xslt
         private QilNode CompileVariable(XslNode node)
         {
             Debug.Assert(node.NodeType == XslNodeType.Variable);
-            if (_scope.IsLocalVariable(node.Name!.LocalName, node.Name.NamespaceUri))
+            // Xsl3: 2.0 allows a local variable to shadow another one.
+            if (!IsV2 && _scope.IsLocalVariable(node.Name!.LocalName, node.Name.NamespaceUri))
             {
                 ReportError(/*[XT_030]*/SR.Xslt_DupLocalVariable, node.Name.QualifiedName);
             }
@@ -1476,6 +1589,10 @@ namespace Xsl3.Xslt
         {
             Debug.Assert(node.NodeType == XslNodeType.Variable || node.NodeType == XslNodeType.Param || node.NodeType == XslNodeType.WithParam);
             VerifyXPathQName(node.Name!);
+            if (IsV2)
+            {
+                return CompileVarParValue31(node);
+            }
 
             string? baseUri = _lastScope!.SourceLine!.Uri;
             IList<XslNode> content = node.Content;
@@ -1525,6 +1642,10 @@ namespace Xsl3.Xslt
         // CompileSorts() creates helper variables in varHelper
         private QilList? CompileSorts(IList<XslNode> content, ref LoopFocus parentLoop)
         {
+            if (IsV2)
+            {
+                return CompileSorts31(content, ref parentLoop);
+            }
             QilList keyList = _f.BaseFactory.SortKeyList();
 
             int i = 0;
@@ -2380,6 +2501,10 @@ namespace Xsl3.Xslt
         private QilNode CompileMatchPattern(string pttrn)
         {
             Debug.Assert(pttrn != null);
+            if (IsV2)
+            {
+                return CompilePattern31(pttrn);
+            }
             XPathScanner scanner;
             QilNode result;
 
@@ -2406,6 +2531,10 @@ namespace Xsl3.Xslt
         private QilNode CompileNumberPattern(string pttrn)
         {
             Debug.Assert(pttrn != null);
+            if (IsV2)
+            {
+                return CompilePattern31(pttrn);
+            }
             XPathScanner scanner;
             QilNode result;
 
@@ -2528,7 +2657,9 @@ namespace Xsl3.Xslt
             {
                 return _f.Sequence();
             }
-            return InvokeApplyFunction(sheet, /*mode:*/node.Name!, node.Content);
+            // Xsl3: mode="#current" is the mode of the template rule being compiled (its first mode, if it has several).
+            QilName mode = ReferenceEquals(node.Name, XsltLoader.CurrentMode) ? CurrentMode31() : node.Name!;
+            return InvokeApplyFunction(sheet, mode, node.Content);
         }
 
         private static void SetArg(IList<XslNode> args, int pos, QilName name, QilNode value)
@@ -2562,6 +2693,12 @@ namespace Xsl3.Xslt
                 if ((flags & XslFlags.Current) != 0) { SetArg(args, pos++, _nameCurrent, GetCurrentNode()); }
                 if ((flags & XslFlags.Position) != 0) { SetArg(args, pos++, _namePosition, GetCurrentPosition()); }
                 if ((flags & XslFlags.Last) != 0) { SetArg(args, pos++, _nameLast, GetLastPosition()); }
+                if (IsV2)
+                {
+                    // Xsl3: the tunnel argument: the current tunnel parameters plus those of this call.
+                    QilNode tunnel = TunnelFrame31(args, pos);
+                    SetArg(args, pos++, _nameTunnel, tunnel);
+                }
             }
             return args;
         }
@@ -2619,7 +2756,7 @@ namespace Xsl3.Xslt
             return true;
         }
 
-        private QilNode InvokeApplyFunction(StylesheetLevel sheet, QilName mode, IList<XslNode>? actualArgs)
+        private QilNode InvokeApplyFunction(StylesheetLevel sheet, QilName mode, IList<XslNode>? actualArgs, Template? nextMatchBelow = null)
         {
             // Here we create function that has one argument for each with-param in apply-templates
             // We have actualArgs -- list of xsl:with-param(name, value)
@@ -2635,15 +2772,32 @@ namespace Xsl3.Xslt
                     flags = 0;
                 }
                 flags |= XslFlags.Current; // Due to recursive nature of Apply(Templates/Imports) we will need current node any way
+                if (IsV2)
+                {
+                    flags |= XslFlags.FullFocus; // Xsl3: 2.0 templates take the full focus
+                }
             }
             actualArgs = AddRemoveImplicitArgs(actualArgs, flags);
+            if (IsV2 && actualArgs![0] is VarPar currentArg && !currentArg.Value!.XmlType!.IsSubtypeOf(T.NodeNotRtf))
+            {
+                // Xsl3: template rules apply to nodes; a 2.0 context item may be atomic (XTTE0510).
+                currentArg.Value = Node31(currentArg.Value, "XTTE0510");
+            }
 
             QilList invokeArgs = _f.ActualParameterList();
             QilFunction? applyFunction = null;
 
             // Look at the list of all functions that have been already built.  If a suitable one is found, reuse it.
             List<QilFunction>? functionsForMode;
-            if (!sheet.ApplyFunctions.TryGetValue(mode, out functionsForMode))
+            if (nextMatchBelow != null)
+            {
+                // Xsl3: xsl:next-match functions, one family per template rule.
+                if (!_nextMatchFunctions.TryGetValue(nextMatchBelow, out functionsForMode))
+                {
+                    functionsForMode = _nextMatchFunctions[nextMatchBelow] = new List<QilFunction>();
+                }
+            }
+            else if (!sheet.ApplyFunctions.TryGetValue(mode, out functionsForMode))
             {
                 functionsForMode = sheet.ApplyFunctions[mode] = new List<QilFunction>();
             }
@@ -2685,7 +2839,7 @@ namespace Xsl3.Xslt
                 // 2. Function header
                 applyFunction = _f.Function(formalArgs,
                     _f.Boolean((flags & XslFlags.SideEffects) != 0),
-                    T.NodeNotRtfS
+                    IsV2 ? ModeType31(mode) : T.NodeNotRtfS // Xsl3: 2.0 templates may return sequences
                 );
                 string attMode = (mode.LocalName.Length == 0) ? string.Empty : $" mode=\"{mode.QualifiedName}\"";
                 applyFunction.DebugName = $"{(sheet is RootLevel ? "<xsl:apply-templates" : "<xsl:apply-imports")}{attMode}>";
@@ -2695,6 +2849,17 @@ namespace Xsl3.Xslt
                 // 3. Function body
                 Debug.Assert(actualArgs[0].Name == _nameCurrent, "Caller should always pass $current as a first argument to apply-* calls.");
                 QilIterator current = (QilIterator)formalArgs[0];
+                QilNode? savedTunnel = _currentTunnel;
+                if (IsV2)
+                {
+                    foreach (QilNode formal in formalArgs)
+                    {
+                        if (formal is QilParameter fp && fp.Name!.Equals(_nameTunnel))
+                        {
+                            _currentTunnel = fp;
+                        }
+                    }
+                }
 
                 // 3.1 Built-in templates:
                 // 3.1.1 loop over content of current element
@@ -2734,8 +2899,9 @@ namespace Xsl3.Xslt
                 );
 
                 // 3.2 Stylesheet templates
-                _matcherBuilder.CollectPatterns(sheet, mode);
+                _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates);
+                _currentTunnel = savedTunnel;
             }
             return _f.Invoke(applyFunction, invokeArgs);
         }

@@ -30,6 +30,55 @@ namespace Xsl3.XPath31
             return expr;
         }
 
+        private Parser(List<Token> tokens)
+        {
+            _tokens = tokens;
+        }
+
+        /// <summary>
+        /// Parses the expression of an attribute or text value template, starting after its '{' at
+        /// <paramref name="start"/> and ending at the matching '}', whose position is returned in
+        /// <paramref name="end"/>. Braces inside the expression (in string literals, comments, map constructors)
+        /// don't end it. Returns null for an empty expression.
+        /// </summary>
+        public static Expr? ParseEnclosedExpr(string text, int start, out int end)
+        {
+            var tokens = new List<Token>();
+            int i = start, depth = 0;
+            while (true)
+            {
+                bool space = Lexer.SkipSpace(text, ref i);
+                if (i >= text.Length)
+                {
+                    throw XPathStaticException.Syntax("Missing '}' at the end of an expression in a value template", start);
+                }
+                Token t = Lexer.NextToken(text, ref i, space);
+                if (t.Is("{"))
+                {
+                    depth++;
+                }
+                else if (t.Is("}"))
+                {
+                    if (depth == 0)
+                    {
+                        end = t.Start;
+                        break;
+                    }
+                    depth--;
+                }
+                tokens.Add(t);
+            }
+            if (tokens.Count == 0)
+            {
+                return null;
+            }
+            tokens.Add(new Token(TokenKind.End, "", end, end, false));
+            var parser = new Parser(tokens);
+            Expr expr = parser.Expr();
+            parser.ExpectEnd();
+            return expr;
+        }
+
         /// <summary>Parses a complete SequenceType (used by host languages, e.g. XSLT's <c>as</c> attributes).</summary>
         public static SequenceType ParseSequenceType(string text)
         {

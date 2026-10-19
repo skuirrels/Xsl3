@@ -41,6 +41,7 @@ namespace Xsl3.Runtime
         private readonly XmlQueryRuntime _runtime;            // The XmlQueryRuntime instance that keeps global state
         private XmlAttributeCache? _attrCache;        // Cache used to detect duplicate attributes
         private int _depth;                          // Depth of the currently constructing tree
+        private int _nestedRoots;                    // Xsl3: document constructors inside content, contributing their children
         private XmlState _xstate;                    // Current XML state
         private readonly XmlSequenceWriter? _seqwrt;           // Current XmlSequenceWriter
         private XmlNamespaceManager? _nsmgr;          // Output namespace manager
@@ -591,6 +592,12 @@ namespace Xsl3.Runtime
         /// </summary>
         public void WriteStartRoot()
         {
+            if (_depth > 0)
+            {
+                // Xsl3: in XSLT 2.0 a document node in the content of a node is replaced by its children (§5.7.1).
+                _nestedRoots++;
+                return;
+            }
             Debug.Assert(_depth == 0, "Root node can only be constructed at top-level.");
             if (_xstate != XmlState.WithinSequence)
                 ThrowInvalidStateError(XPathNodeType.Root);
@@ -604,6 +611,11 @@ namespace Xsl3.Runtime
         /// </summary>
         public void WriteEndRoot()
         {
+            if (_nestedRoots > 0)
+            {
+                _nestedRoots--;
+                return;
+            }
             Debug.Assert(_depth == 1, "Root node can only be constructed at top-level.");
             _depth--;
             EndTree();

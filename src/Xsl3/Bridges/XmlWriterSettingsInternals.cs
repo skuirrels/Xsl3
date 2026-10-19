@@ -112,8 +112,9 @@ namespace System.Xml
                 // Encoding encoding;
                 // NOTE: For Encoding we serialize only CodePage, and ignore EncoderFallback/DecoderFallback.
                 // It suffices for XSLT purposes, but not in the general case.
-                Debug.Assert(settings.Encoding.Equals(Encoding.GetEncoding(settings.Encoding.CodePage)), "Cannot serialize encoding correctly");
+                // Xsl3: and whether it writes a byte order mark (xsl:output byte-order-mark).
                 writer.Write(settings.Encoding.CodePage);
+                writer.Write(settings.Encoding.GetPreamble().Length > 0);
                 // bool omitXmlDecl;
                 writer.Write(settings.OmitXmlDeclaration);
                 // NewLineHandling newLineHandling;
@@ -163,7 +164,14 @@ namespace System.Xml
         {
             var settings = new XmlWriterSettings();
             // Encoding encoding;
-            settings.Encoding = Encoding.GetEncoding(reader.ReadInt32());
+            int codePage = reader.ReadInt32();
+            bool preamble = reader.ReadBoolean();
+            settings.Encoding = codePage switch
+            {
+                65001 => new UTF8Encoding(preamble),
+                1200 or 1201 => new UnicodeEncoding(codePage == 1201, preamble),
+                _ => Encoding.GetEncoding(codePage),
+            };
             // bool omitXmlDecl;
             settings.OmitXmlDeclaration = reader.ReadBoolean();
             // NewLineHandling newLineHandling;

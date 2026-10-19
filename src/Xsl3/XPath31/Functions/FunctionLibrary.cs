@@ -59,7 +59,11 @@ namespace Xsl3.XPath31.Functions
     /// </summary>
     internal static class Coercion
     {
-        public static IList<XPathItem> Coerce(IList<XPathItem> value, SequenceTypeTest expected, FunctionDefinition function, int argIndex)
+        public static IList<XPathItem> Coerce(IList<XPathItem> value, SequenceTypeTest expected, FunctionDefinition function, int argIndex) =>
+            CoerceTo(value, expected, "XPTY0004", () => $"Argument {argIndex + 1} of {function}");
+
+        /// <summary>The function conversion rules to <paramref name="expected"/>; <paramref name="errorCode"/> if the value doesn't conform.</summary>
+        public static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string> what)
         {
             ItemTest? itemTest = expected.Item;
             if (itemTest is AtomicTypeTest or NumericTest)
@@ -83,7 +87,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (!expected.Matches(value))
             {
-                throw Err.XPTY0004($"Argument {argIndex + 1} of {function} must be {expected}, but is {Describe(value)}");
+                throw new XdmException(errorCode, $"{what()} must be {expected}, but is {Describe(value)}");
             }
             return value;
         }

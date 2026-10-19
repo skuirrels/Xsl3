@@ -80,6 +80,10 @@ namespace Xsl3.XPath31
             }
         }
 
+        internal static bool SkipSpace(string text, ref int i) => SkipWhitespaceAndComments(text, ref i);
+
+        internal static Token NextToken(string text, ref int i, bool space) => Next(text, ref i, space);
+
         private static bool SkipWhitespaceAndComments(string text, ref int i)
         {
             int start = i;

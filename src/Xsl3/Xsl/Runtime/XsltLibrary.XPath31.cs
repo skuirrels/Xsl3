@@ -19,18 +19,44 @@ namespace Xsl3.Runtime
     /// </summary>
     public sealed partial class XsltLibrary
     {
-        private FunctionContext? _x31Context;
+        /// <summary>
+        /// A result that is one of the arguments (fn:data of atomic values, say) may be a list QIL reuses for the next
+        /// call (XmlQueryItemSequence.CreateOrReuse); return a copy so a variable bound to it keeps its value.
+        /// </summary>
+        internal static IList<XPathItem> Unshared(IList<XPathItem> result, IList<XPathItem>[] args)
+        {
+            foreach (IList<XPathItem> arg in args)
+            {
+                if (ReferenceEquals(result, arg) && result is XmlQuerySequence<XPathItem>)
+                {
+                    return new List<XPathItem>(result);
+                }
+            }
+            return result;
+        }
 
+        private FunctionContext? _x31Context;
+        private Dictionary<int, FunctionContext>? _x31Contexts;
+
+        /// <summary>The dynamic context: implicit timezone, current dateTime, documents. Without static parts.</summary>
         internal FunctionContext X31Context => _x31Context ??= new FunctionContext(
             ImplicitTimezoneOverride ?? FunctionContext.LocalTimezoneMinutes,
             (a, b) => _runtime.ComparePosition(a, b))
         {
             Runtime = _runtime,
-            StaticBaseUri = _runtime.ExternalContext.GetParameter(XPath31Executable.StaticBaseUriParam, XPath31Executable.ControlNamespace) as string,
-            DefaultCollation = _runtime.ExternalContext.GetParameter(XPath31Executable.DefaultCollationParam, XPath31Executable.ControlNamespace) is string collation
-                ? Collation.Resolve(collation) : Collation.Codepoint,
-            DecimalFormats = _runtime.ExternalContext.GetParameter(XPath31Executable.DecimalFormatsParam, XPath31Executable.ControlNamespace) as DecimalFormatTable ?? DecimalFormatTable.Empty,
         };
+
+        /// <summary>The context for code compiled with the static context <paramref name="sc"/> (a <see cref="StaticInfo"/> id).</summary>
+        internal FunctionContext X31ContextFor(double sc)
+        {
+            int id = (int)sc;
+            _x31Contexts ??= new Dictionary<int, FunctionContext>();
+            if (!_x31Contexts.TryGetValue(id, out FunctionContext? context))
+            {
+                _x31Contexts[id] = context = X31Context.WithStatic((StaticInfo)ConstantPool.Get(id));
+            }
+            return context;
+        }
 
         /// <summary>Set by the caller to fix the implicit timezone (minutes); otherwise the local timezone applies.</summary>
         internal int? ImplicitTimezoneOverride => _runtime.ExternalContext.GetParameter(XPath31Executable.ImplicitTimezoneParam, XPath31Executable.ControlNamespace) as int?;
@@ -78,6 +104,11 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31Raise(string code, string message) => throw new XdmException(code, message);
 
+        public XPathItem X31RaiseItem(string code, string message) => throw new XdmException(code, message);
+
+        /// <summary>A native QIL string (from host code) as an xs:string item.</summary>
+        public XPathItem X31StringItem(string s) => AtomicValue.OfString(s);
+
         // ------------------------------------------------------------ booleans
 
         public bool X31Ebv(IList<XPathItem> seq) => Sequences.EffectiveBooleanValue(seq);
@@ -94,7 +125,7 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ comparisons
 
-        public IList<XPathItem> X31ValueCompare(IList<XPathItem> left, IList<XPathItem> right, double op)
+        public IList<XPathItem> X31ValueCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
         {
             AtomicValue? a = Sequences.AtomizeOptional(left, "an operand of a value comparison");
             AtomicValue? b = Sequences.AtomizeOptional(right, "an operand of a value comparison");
@@ -102,19 +133,20 @@ namespace Xsl3.Runtime
             {
                 return Sequences.Empty;
             }
-            return Bool(Comparison.Compare(a, b, (ValueComparisonOp)(int)op, Tz, X31Context.DefaultCollation));
+            return Bool(Comparison.Compare(a, b, (ValueComparisonOp)(int)op, Tz, X31ContextFor(sc).DefaultCollation));
         }
 
         /// <summary>A general comparison (XPath 3.1 §3.7.2): true if any pair of atomised items compares true.</summary>
-        public bool X31GeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op)
+        public bool X31GeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
         {
             IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
             var opv = (ValueComparisonOp)(int)op;
+            IComparer<string> collation = X31ContextFor(sc).DefaultCollation;
             foreach (XPathItem x in a)
             {
                 foreach (XPathItem y in b)
                 {
-                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv))
+                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv, collation))
                     {
                         return true;
                     }
@@ -125,7 +157,7 @@ namespace Xsl3.Runtime
 
         // xs:untypedAtomic is cast to the other operand's type: xs:double against a numeric, xs:string against
         // xs:untypedAtomic or xs:string, else the other type itself.
-        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op)
+        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op, IComparer<string> collation)
         {
             bool ux = x.Type.Primitive == Primitive.UntypedAtomic, uy = y.Type.Primitive == Primitive.UntypedAtomic;
             if (ux && uy)
@@ -141,7 +173,7 @@ namespace Xsl3.Runtime
             {
                 y = Casting.Cast(y, x.Type.IsNumeric ? AtomicTypes.Double : x.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(x.Type.Primitive));
             }
-            return Comparison.Compare(x, y, op, Tz, X31Context.DefaultCollation);
+            return Comparison.Compare(x, y, op, Tz, collation);
         }
 
         /// <summary><c>is</c>, <c>&lt;&lt;</c>, <c>&gt;&gt;</c> (op 0, 1, 2).</summary>
@@ -347,18 +379,24 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ function calls
 
-        public IList<XPathItem> X31Call0(double id) => Call(id);
+        public IList<XPathItem> X31Call0(double id, double sc) => Call(id, sc);
 
-        public IList<XPathItem> X31Call1(double id, IList<XPathItem> a) => Call(id, a);
+        public IList<XPathItem> X31Call1(double id, double sc, IList<XPathItem> a) => Call(id, sc, a);
 
-        public IList<XPathItem> X31Call2(double id, IList<XPathItem> a, IList<XPathItem> b) => Call(id, a, b);
+        public IList<XPathItem> X31Call2(double id, double sc, IList<XPathItem> a, IList<XPathItem> b) => Call(id, sc, a, b);
 
-        public IList<XPathItem> X31Call3(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c) => Call(id, a, b, c);
+        public IList<XPathItem> X31Call3(double id, double sc, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c) => Call(id, sc, a, b, c);
 
-        public IList<XPathItem> X31Call4(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d) => Call(id, a, b, c, d);
+        public IList<XPathItem> X31Call4(double id, double sc, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d) => Call(id, sc, a, b, c, d);
 
-        public IList<XPathItem> X31Call5(double id, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d, IList<XPathItem> e) => Call(id, a, b, c, d, e);
+        public IList<XPathItem> X31Call5(double id, double sc, IList<XPathItem> a, IList<XPathItem> b, IList<XPathItem> c, IList<XPathItem> d, IList<XPathItem> e) => Call(id, sc, a, b, c, d, e);
 
-        private IList<XPathItem> Call(double id, params IList<XPathItem>[] args) => FunctionLibrary.ById((int)id).Invoke(X31Context, args);
+        private IList<XPathItem> Call(double id, double sc, params IList<XPathItem>[] args)
+        {
+            // Long XPath loops call functions, not templates: honour cancellation here too.
+            XmlQueryRuntime.CheckCancellation();
+            IList<XPathItem> result = FunctionLibrary.ById((int)id).Invoke(X31ContextFor(sc), args);
+            return Unshared(result, args);
+        }
     }
 }

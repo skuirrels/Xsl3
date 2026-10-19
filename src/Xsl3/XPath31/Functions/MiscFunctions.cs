@@ -149,6 +149,10 @@ namespace Xsl3.XPath31.Functions
                     throw new XdmException("FORG0002", $"'{relative}' is not a valid URI reference");
                 }
             }
+            if (relative.IndexOf('#') is int hash and >= 0 && relative.IndexOf('#', hash + 1) >= 0)
+            {
+                throw new XdmException("FORG0002", $"'{relative}' is not a valid URI reference: a fragment can't contain '#'");
+            }
             if (UriReference.IsAbsolute(relative))
             {
                 return relative;

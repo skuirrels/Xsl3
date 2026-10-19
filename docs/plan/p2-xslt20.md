@@ -58,29 +58,45 @@ with a separator, and every instruction is typed by sequence types rather than X
 
 ## Steps
 
-- [ ] **xslt30-test harness** (`tests/Xsl3.W3C/Xslt30`): catalogue, environments (sources by file or
-      content, roles, params, static params), test entry (stylesheet, initial template or mode, params),
-      dependency filtering (spec `XSLT10+`/`XSLT20+`/`XSLT20`, features), assertions (`assert-xml`,
-      `assert`, `assert-string-value`, `serialization-matches`, `assert-serialization`, `error`,
-      `assert-message`, `assert-result-document`, `any-of`/`all-of`/`not`), baseline, report.
-- [ ] **Entry points**: initial template (`xsl:initial-template` default), initial mode, global context item.
-- [ ] **Embedding the XPath 3.1 compiler**: shared factory, environment, focus, variables, XSLT functions.
-- [ ] **2.0 core instructions**: sequence constructors and content rules, `xsl:sequence`, `xsl:value-of`
+- [x] **xslt30-test harness** (`tests/Xsl3.W3C/Xslt30`): catalogue, environments, test entry, dependency
+      filtering, assertions, baseline, report. The `unicode-90` sets (hours of run time for character classes
+      QT3 covers) run only when named in `XSL3_XSLT30_SETS`.
+- [x] **Entry points**: initial template, initial mode.
+- [x] **Embedding the XPath 3.1 compiler**: shared factory, environment, focus, variables, XSLT functions.
+- [x] **2.0 core instructions**: sequence constructors and content rules, `xsl:sequence`, `xsl:value-of`
       separators, `xsl:variable`/`xsl:param` with `as`, temporary trees, `xsl:if`/`xsl:choose`,
       `xsl:for-each` over items, `xsl:copy-of`, `xsl:copy`, literal result elements and AVTs, `xsl:element`,
-      `xsl:attribute` (`select`, `separator`), `xsl:comment`/`xsl:processing-instruction` (`select`),
-      `xsl:namespace`, `xsl:text`, `xsl:message`.
-- [ ] **Templates and modes**: 2.0 patterns (parser and matcher), `mode="#all"`/lists, `#current`,
-      `xsl:next-match`, `xsl:apply-imports` with params, tunnel parameters, required parameters, `as` on
-      templates.
-- [ ] **`xsl:function`**, including recursion and `as` coercion.
-- [ ] **`xsl:for-each-group`** (all four grouping kinds, `current-group()`, `current-grouping-key()`,
-      collations), **`xsl:perform-sort`** and 2.0 `xsl:sort` (data types, collations, stable).
-- [ ] **`xsl:analyze-string`** and `regex-group()`.
-- [ ] **`xsl:result-document`** and `xsl:document`.
-- [ ] **`xsl:number`** 2.0 (`select`, `format` through the format-integer engine, `ordinal`).
-- [ ] **Keys** 2.0 (any `use` expression, collations), **`xsl:import-schema`** rejected cleanly (P6).
-- [ ] **Serialization**: `xml`, `html`, `xhtml`, `text` methods with the 2.0 output parameters, character
-      maps.
+      `xsl:attribute`, `xsl:comment`/`xsl:processing-instruction` (`select`), `xsl:namespace`, `xsl:text`,
+      `xsl:message` (`terminate` as an AVT).
+- [x] **Templates and modes**: 2.0 patterns (compiled by the XPath 3.1 front end, `XPath31/Patterns.cs`),
+      `mode="#all"`/lists, `#current` (the template rule's first mode), `xsl:next-match`, `xsl:apply-imports`
+      with params, tunnel parameters, required parameters, `as` on templates.
+- [x] **`xsl:function`**, including recursion and `as` coercion.
+- [x] **`xsl:for-each-group`**, **`xsl:perform-sort`** and 2.0 `xsl:sort` (data types, collations, stable,
+      XTDE1030 for incomparable keys).
+- [x] **`xsl:analyze-string`** and `regex-group()`.
+- [ ] **`xsl:result-document`** and `xsl:document`: secondary results, `format` with named `xsl:output`;
+      XTDE1490 for a second principal result is missing.
+- [x] **`xsl:number`** 2.0 (`select`, `format` through the format-integer engine, `ordinal`, the 2.0 rules
+      for `from`).
+- [x] **Keys** 2.0 (any `use` expression or content, typed values compared as by `eq`, `key()` with a third
+      argument, keys calling keys, collations checked), **`xsl:import-schema`** rejected cleanly (P6).
+- [ ] **Serialization**: `xml`, `html`, `xhtml`, `text` methods; `byte-order-mark`, `normalization-form`,
+      `include-content-type` (xhtml), `use-character-maps` and named outputs. Missing: `html-version`,
+      `escape-uri-attributes`, `include-content-type="no"` for html, serialization errors (SEPM/SESU/SERE).
+- [x] **`use-when`** (evaluated as the stylesheet is read; excluded subtrees are skipped).
 - [ ] **Backwards-compatible mode** for 1.0 modules inside 2.0+ stylesheets.
 - [ ] **Exit**: ≥ 95% of the applicable xslt30-test tests; upstream gate still 100%.
+
+## Status
+
+On 2026-10-19 the 2.0 path became the default for stylesheets with `version="2.0"` or later
+(`Compiler.Xslt2Enabled`; `XSL3_XSLT2=0` restores forwards-compatible 1.0 for comparisons). It passes 90.4%
+of the profile's tests that run, against 41.5% for the 1.0 engine in forwards-compatible mode.
+
+Template functions that can only return nodes are typed `node*` (`QilGenerator.Streaming.cs`), so they
+stream to the writer as in 1.0; only templates that may return atomic values are cached.
+
+The largest remaining groups of failures: static errors not detected (XTSE…), `xsl:result-document`
+details, base URIs (`xml:base`, `static-base-uri()`), serialization parameters and errors, tunnel
+parameters through built-in templates, `xsl:document`, and backwards-compatible mode.

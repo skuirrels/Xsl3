@@ -114,6 +114,9 @@ namespace Xsl3.Qil
             set { _isDebug = value ? _factory.True() : _factory.False(); }
         }
 
+        /// <summary>Xsl3: serialization parameters beyond XmlWriterSettings (XSLT 2.0+), or null.</summary>
+        public Xsl3.Runtime.OutputExtras? OutputExtras { get; set; }
+
         /// <summary>
         /// Default serialization options that will be used if the user does not supply a writer at execution time.
         /// </summary>

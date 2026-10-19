@@ -184,8 +184,9 @@ namespace Xsl3.XPath31.Functions
             while (elements.MoveNext())
             {
                 XPathNavigator e = elements.Current!;
-                string id = e.GetAttribute("id", QName.Ns.Xml);
-                if (id.Length > 0 && id == Lexical.Collapse(id)) // the parser does no xml:id normalization, so unnormalized values aren't IDs
+                // xml:id processing normalises the value as an ID (xml:id 1.0 §4); one that isn't an NCName is no ID.
+                string id = Lexical.Collapse(e.GetAttribute("id", QName.Ns.Xml));
+                if (id.Length > 0 && Casting.IsNCName(id))
                 {
                     result.TryAdd(id, e.Clone());
                 }

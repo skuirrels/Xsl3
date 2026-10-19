@@ -57,6 +57,35 @@ namespace Xsl3.Xslt
         public List<ProtoTemplate> AllTemplates = new List<ProtoTemplate>();
 
         public Dictionary<QilName, VarPar> AllGlobalVarPars = new Dictionary<QilName, VarPar>();
+
+        // Xsl3: stylesheet functions by name and arity (the highest import precedence wins), and character maps.
+        public Dictionary<(QilName Name, int Arity), (Template Function, int Precedence)> Functions = new Dictionary<(QilName, int), (Template, int)>();
+        public Dictionary<QilName, CharacterMap> CharacterMaps = new Dictionary<QilName, CharacterMap>();
+        public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
+
+        /// <summary>Xsl3: false if a function with this name and arity already has the same import precedence.</summary>
+        public bool AddFunction(QilName name, int arity, Template function, int precedence)
+        {
+            if (Functions.TryGetValue((name, arity), out var existing))
+            {
+                if (existing.Precedence == precedence)
+                {
+                    return false;
+                }
+                if (existing.Precedence > precedence)
+                {
+                    return true;
+                }
+            }
+            Functions[(name, arity)] = (function, precedence);
+            return true;
+        }
+
+        /// <summary>
+        /// Xsl3: whether stylesheets with version 2.0 or later compile as XSLT 2.0 (the 3.0 processor) rather than as
+        /// XSLT 1.0 in forwards-compatible mode. On by default; XSL3_XSLT2=0 turns it off (for comparisons).
+        /// </summary>
+        public static bool Xslt2Enabled = System.Environment.GetEnvironmentVariable("XSL3_XSLT2") != "0";
         public Dictionary<QilName, Template> NamedTemplates = new Dictionary<QilName, Template>();
         public Dictionary<QilName, AttributeSet> AttributeSets = new Dictionary<QilName, AttributeSet>();
         public Dictionary<string, NsAlias> NsAliases = new Dictionary<string, NsAlias>();
@@ -423,6 +452,13 @@ namespace Xsl3.Xslt
         public int DocTypeSystemPrec = NeverDeclaredPrec;
         public int IndentPrec = NeverDeclaredPrec;
         public int MediaTypePrec = NeverDeclaredPrec;
+
+        // Xsl3: XSLT 2.0 serialization parameters (applied through Runtime.OutputExtras).
+        public bool Xhtml;
+        public TriState ByteOrderMark = TriState.Unknown;
+        public bool? IncludeContentType;
+        public string? NormalizationForm;
+        public List<QilName>? UseCharacterMaps;
 
         public Output()
         {
