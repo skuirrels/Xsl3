@@ -164,6 +164,7 @@ namespace Xsl3
                 _helper.StaticData
             );
             staticData.OutputExtras = _qil.OutputExtras;
+            staticData.Xslt2 = _qil.Xslt2;
 
             // Create static constructor that initializes XmlQueryStaticData instance at runtime
             if (typeBldr != null)

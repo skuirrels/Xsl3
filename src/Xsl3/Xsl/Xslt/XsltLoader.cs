@@ -366,6 +366,12 @@ namespace Xsl3.Xslt
             ParseInputTypeAnnotationsAttribute(3);
 
             QName parentName = _input.ElementName;
+            if (_input.ModuleExcluded)
+            {
+                // Xsl3: use-when="false()" on the stylesheet element: the module contributes nothing.
+                _input.SkipNode();
+                return;
+            }
             if (_input.MoveToFirstChild())
             {
                 bool atTop = true;
@@ -606,7 +612,7 @@ namespace Xsl3.Xslt
                     {
                         if (currentPrec == output.MethodPrec && !output.Method!.Equals(method))
                         {
-                            ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "method");
+                            ReportOutputRedefinition("method");
                         }
                         settings.SetOutputMethod(outputMethod);
                         output.Method = method;
@@ -645,7 +651,7 @@ namespace Xsl3.Xslt
                 {
                     if (currentPrec == output.DocTypePublicPrec && settings.DocTypePublic != _input.Value)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "doctype-public");
+                        ReportOutputRedefinition("doctype-public");
                     }
                     settings.DocTypePublic = _input.Value;
                     output.DocTypePublicPrec = currentPrec;
@@ -658,7 +664,7 @@ namespace Xsl3.Xslt
                 {
                     if (currentPrec == output.DocTypeSystemPrec && settings.DocTypeSystem != _input.Value)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "doctype-system");
+                        ReportOutputRedefinition("doctype-system");
                     }
                     settings.DocTypeSystem = _input.Value;
                     output.DocTypeSystemPrec = currentPrec;
@@ -675,7 +681,7 @@ namespace Xsl3.Xslt
                         Encoding encoding = Encoding.GetEncoding(_input.Value);
                         if (currentPrec == output.EncodingPrec && output.Encoding != _input.Value)
                         {
-                            ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "encoding");
+                            ReportOutputRedefinition("encoding");
                         }
                         settings.Encoding = encoding;
                         output.Encoding = _input.Value;
@@ -710,7 +716,7 @@ namespace Xsl3.Xslt
                     bool indent = (triState == TriState.True);
                     if (currentPrec == output.IndentPrec && settings.Indent != indent)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "indent");
+                        ReportOutputRedefinition("indent");
                     }
                     settings.Indent = indent;
                     output.IndentPrec = currentPrec;
@@ -723,7 +729,7 @@ namespace Xsl3.Xslt
                 {
                     if (currentPrec == output.MediaTypePrec && settings.MediaType != _input.Value)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "media-type");
+                        ReportOutputRedefinition("media-type");
                     }
                     settings.MediaType = _input.Value;
                     output.MediaTypePrec = currentPrec;
@@ -754,7 +760,7 @@ namespace Xsl3.Xslt
                     bool omitXmlDeclaration = (triState == TriState.True);
                     if (currentPrec == output.OmitXmlDeclarationPrec && settings.OmitXmlDeclaration != omitXmlDeclaration)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "omit-xml-declaration");
+                        ReportOutputRedefinition("omit-xml-declaration");
                     }
                     settings.OmitXmlDeclaration = omitXmlDeclaration;
                     output.OmitXmlDeclarationPrec = currentPrec;
@@ -770,7 +776,7 @@ namespace Xsl3.Xslt
                     XmlStandalone standalone = (triState == TriState.True) ? XmlStandalone.Yes : XmlStandalone.No;
                     if (currentPrec == output.StandalonePrec && settings.Standalone != standalone)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "standalone");
+                        ReportOutputRedefinition("standalone");
                     }
                     settings.Standalone = standalone;
                     output.StandalonePrec = currentPrec;
@@ -794,7 +800,7 @@ namespace Xsl3.Xslt
                 {
                     if (currentPrec == output.VersionPrec && output.Version != _input.Value)
                     {
-                        ReportWarning(/*[XT1560]*/SR.Xslt_AttributeRedefinition, "version");
+                        ReportOutputRedefinition("version");
                     }
                     // BUGBUG: Check that version is a valid nmtoken
                     // ignore version since we support only one version for both xml (1.0) and html (4.0)
@@ -813,16 +819,21 @@ namespace Xsl3.Xslt
         */
         private void ProcessOutputSettings()
         {
-            ProcessOutputSettings(_compiler.Output);
+            ProcessOutputSettings(_compiler.Output, V2);
             foreach (Output named in _compiler.NamedOutputs.Values)
             {
-                ProcessOutputSettings(named);
+                ProcessOutputSettings(named, V2);
             }
         }
 
-        private static void ProcessOutputSettings(Output output)
+        private static void ProcessOutputSettings(Output output, bool v2)
         {
             XmlWriterSettings settings = output.Settings;
+            // Xsl3: in 2.0 a UTF-8 serialization has no byte order mark unless byte-order-mark="yes" asks for one.
+            if (v2 && output.ByteOrderMark == TriState.Unknown && settings.Encoding is UTF8Encoding)
+            {
+                output.ByteOrderMark = TriState.False;
+            }
             // Xsl3: byte-order-mark (XSLT 2.0) chooses the encoding's preamble; .NET's UTF-8 and UTF-16 have one by default.
             if (output.ByteOrderMark != TriState.Unknown)
             {
@@ -1036,7 +1047,11 @@ namespace Xsl3.Xslt
                 }
             }
 
-            if (_compiler.DecimalFormats.Contains(name))
+            if (V2 && _compiler.DecimalFormats.Contains(name) && _compiler.DecimalFormats[name].ImportPrecedence > _curStylesheet!.ImportPrecedence)
+            {
+                // Xsl3: overridden by a definition of higher import precedence (modules are read in decreasing order).
+            }
+            else if (_compiler.DecimalFormats.Contains(name))
             {
                 // Check all attributes have the same values
                 DecimalFormatDecl format = _compiler.DecimalFormats[name];
@@ -1055,6 +1070,7 @@ namespace Xsl3.Xslt
             {
                 // Add format to the global collection
                 DecimalFormatDecl format = new DecimalFormatDecl(name, infinity, nan, new string(characters));
+                format.ImportPrecedence = _curStylesheet!.ImportPrecedence;
                 _compiler.DecimalFormats.Add(format);
             }
             CheckNoContent();
@@ -1215,6 +1231,10 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(2, "priority"))
             {
                 priority = XPathConvert.StringToDouble(_input.Value);
+                if (V2 && !double.IsNaN(priority) && !IsDecimalLexical(_input.Value))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0530: priority=\"{_input.Value}\" is not a decimal");
+                }
                 if (double.IsNaN(priority) && !_input.ForwardCompatibility)
                 {
                     ReportError(/*[XT0530]*/SR.Xslt_InvalidAttrValue, "priority", _input.Value);
@@ -1242,6 +1262,7 @@ namespace Xsl3.Xslt
 
             string? asType = V2 ? ParseStringAttribute(4, "as") : null;
 
+            CheckReservedName(name, "template");
             _curTemplate = F.Template(name, match, mode, priority, _input.XslVersion);
             if (V2)
             {
@@ -1817,6 +1838,10 @@ namespace Xsl3.Xslt
             }
             string? count = ParseStringAttribute(3, "count");
             string? from = ParseStringAttribute(4, "from");
+            if (V2 && value != null && (count != null || from != null || _input.AttributeExists(2, "level") || select != null))
+            {
+                ReportError(SR.Xml_UserException, "XTSE0975: xsl:number with value can't have select, level, count or from");
+            }
             string? format = ParseStringAttribute(5, "format");
             string? lang = ParseStringAttribute(6, "lang");
             string? letterValue = ParseStringAttribute(7, "letter-value");
@@ -2235,6 +2260,35 @@ namespace Xsl3.Xslt
             return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
         }
 
+        // Xsl3: conflicting xsl:output values at the same import precedence are an error in 2.0 (XTSE1560).
+        private void ReportOutputRedefinition(string attribute, string? value = null)
+        {
+            if (V2)
+            {
+                ReportError(SR.Xml_UserException, $"XTSE1560: xsl:output/@{attribute} has two values at the same import precedence");
+            }
+            else
+            {
+                ReportWarning(SR.Xslt_AttributeRedefinition, attribute);
+            }
+        }
+
+        // Xsl3: the namespaces whose names stylesheets can't declare (XSLT 3.0 §3.5, XTSE0080).
+        internal static bool IsReservedNamespace(string ns) => ns is XmlReservedNs.NsXslt or XmlReservedNs.NsXml
+            or "http://www.w3.org/2005/xpath-functions" or "http://www.w3.org/2001/XMLSchema" or "http://www.w3.org/2001/XMLSchema-instance"
+            or "http://www.w3.org/2005/xpath-functions/math" or "http://www.w3.org/2005/xpath-functions/map" or "http://www.w3.org/2005/xpath-functions/array";
+
+        internal static bool IsDecimalLexical(string value) => System.Text.RegularExpressions.Regex.IsMatch(value, @"^\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*$");
+
+        private void CheckReservedName(QilName? name, string what)
+        {
+            // xsl:initial-template (XSLT 3.0) is the one name in the XSLT namespace a template may have.
+            if (V2 && name != null && IsReservedNamespace(name.NamespaceUri) && !(name.NamespaceUri == XmlReservedNs.NsXslt && name.LocalName == "initial-template"))
+            {
+                ReportError(SR.Xml_UserException, $"XTSE0080: the {what} {name.QualifiedName} is in a reserved namespace");
+            }
+        }
+
         private static readonly HashSet<string> s_literalXsltAttributes = new(StringComparer.Ordinal)
         {
             "version", "extension-element-prefixes", "exclude-result-prefixes", "use-attribute-sets", "xpath-default-namespace",
@@ -2559,6 +2613,11 @@ namespace Xsl3.Xslt
                 for (int i = 0; i < tokens.Length; i++)
                 {
                     string? prefix, localName, namespaceName;
+                    if (V2 && TryParseNameTest20(tokens[i], out localName, out namespaceName))
+                    {
+                        _curStylesheet!.AddWhitespaceRule((localName == null ? 1 : 0) + (namespaceName == null ? 1 : 0), new WhitespaceRule(localName, namespaceName, preserveSpace));
+                        continue;
+                    }
                     if (!_compiler.ParseNameTest(tokens[i], out prefix, out localName, (IErrorHelper)this))
                     {
                         namespaceName = _compiler.CreatePhantomNamespace();
@@ -2578,6 +2637,32 @@ namespace Xsl3.Xslt
                     _curStylesheet!.AddWhitespaceRule(index, new WhitespaceRule(localName, namespaceName, preserveSpace));
                 }
             }
+        }
+
+        // Xsl3: the 2.0/3.0 name tests of xsl:strip-space and xsl:preserve-space that 1.0 lacks: *:name, Q{uri}name,
+        // Q{uri}*, and unprefixed names in the xpath-default-namespace. False for the others (prefix:name, *, prefix:*).
+        private bool TryParseNameTest20(string token, out string? localName, out string? namespaceName)
+        {
+            localName = namespaceName = null;
+            if (token.StartsWith("*:", StringComparison.Ordinal))
+            {
+                localName = token[2..];
+                return true;
+            }
+            if (token.StartsWith("Q{", StringComparison.Ordinal) && token.IndexOf('}') is int close and > 0)
+            {
+                namespaceName = token[2..close];
+                string local = token[(close + 1)..];
+                localName = local == "*" ? null : local;
+                return true;
+            }
+            if (token != "*" && !token.Contains(':'))
+            {
+                localName = token;
+                namespaceName = _input.XPathDefaultNamespace;
+                return true;
+            }
+            return false;
         }
 
         // Does not suppress errors.  In case of error, null is returned.

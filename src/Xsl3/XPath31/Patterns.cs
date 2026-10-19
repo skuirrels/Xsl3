@@ -155,7 +155,7 @@ namespace Xsl3.XPath31
                     : IsOneOf(node, () => Nodes(Build(step), "XTTE0570"), node);
             }
 
-            var (kinds, nameTest) = NodeTestParts(axisStep.Axis, axisStep.Test);
+            var (kinds, nameTest) = NodeTestParts(axisStep.Axis, axisStep.Test, axisStep.ExplicitAxis);
             QilNode condition = kinds == 0 ? _f.False() : _f.IsType(node, T.NodeChoice(kinds));
             if (nameTest != null)
             {
@@ -304,7 +304,7 @@ namespace Xsl3.XPath31
         };
 
         /// <summary>The node kinds a step's node test admits on its axis, and its name condition, if any.</summary>
-        private (XmlNodeKindFlags Kinds, System.Func<QilIterator, QilNode>? Name) NodeTestParts(Axis axis, NodeTest test)
+        private (XmlNodeKindFlags Kinds, System.Func<QilIterator, QilNode>? Name) NodeTestParts(Axis axis, NodeTest test, bool explicitAxis)
         {
             XmlNodeKindFlags kinds;
             System.Func<QilIterator, QilNode>? condition = null;
@@ -371,6 +371,8 @@ namespace Xsl3.XPath31
                 Axis.Attribute => XmlNodeKindFlags.Attribute,
                 Axis.Namespace => XmlNodeKindFlags.Namespace,
                 Axis.Self or Axis.DescendantOrSelf => XmlNodeKindFlags.Any,
+                // document-node() as a pattern step matches a document node (which can only be the first step).
+                _ when test is KindNodeTest { Kind: DocumentTest } && !explicitAxis => XmlNodeKindFlags.Document,
                 _ => XmlNodeKindFlags.Content,
             };
             return (kinds & axisKinds, condition);

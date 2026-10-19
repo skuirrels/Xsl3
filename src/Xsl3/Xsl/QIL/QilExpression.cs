@@ -117,6 +117,9 @@ namespace Xsl3.Qil
         /// <summary>Xsl3: serialization parameters beyond XmlWriterSettings (XSLT 2.0+), or null.</summary>
         public Xsl3.Runtime.OutputExtras? OutputExtras { get; set; }
 
+        /// <summary>Xsl3: compiled by the XSLT 2.0+ path.</summary>
+        public bool Xslt2 { get; set; }
+
         /// <summary>
         /// Default serialization options that will be used if the user does not supply a writer at execution time.
         /// </summary>

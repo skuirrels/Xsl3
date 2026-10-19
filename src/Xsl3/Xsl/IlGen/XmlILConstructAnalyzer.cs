@@ -1056,6 +1056,11 @@ namespace Xsl3.IlGen
 
                 default:
                     Debug.Assert(nd.NodeType == QilNodeType.NamespaceDecl);
+                    if (nd.Left is not QilLiteral || nd.Right is not QilLiteral)
+                    {
+                        // Xsl3: a computed namespace node (xsl:namespace) isn't known to be in scope
+                        return false;
+                    }
                     prefix = (string)(QilLiteral)nd.Left;
                     ns = (string)(QilLiteral)nd.Right;
                     nodeType = XPathNodeType.Namespace;

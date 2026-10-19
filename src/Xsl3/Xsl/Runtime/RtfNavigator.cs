@@ -429,7 +429,8 @@ namespace Xsl3.Runtime
             if (_cache == null)
             {
                 // Create XPathDocument from event cache
-                InternalXPathDocument doc = new InternalXPathDocument(nameTable);
+                // Xsl3: a temporary tree has a base URI but no document URI (XSLT 3.0 §9.4).
+                InternalXPathDocument doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true };
                 XmlRawWriter writer = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames | (events.HasRootNode ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment), events.BaseUri);
 
                 events.EventsToWriter(writer);
@@ -451,7 +452,7 @@ namespace Xsl3.Runtime
             if (_cache == null)
             {
                 // Create XPathDocument
-                InternalXPathDocument doc = new InternalXPathDocument(nameTable);
+                InternalXPathDocument doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true };
                 XmlRawWriter writer = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames, baseUri);
                 writer.WriteString(text);
                 writer.Close();

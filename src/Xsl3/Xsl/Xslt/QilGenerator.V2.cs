@@ -152,7 +152,7 @@ namespace Xsl3.Xslt
         {
             var sc = new XPathStaticContext
             {
-                BaseUri = _lastScope?.SourceLine?.Uri,
+                BaseUri = StaticBaseUri31(),
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
             };
@@ -178,6 +178,13 @@ namespace Xsl3.Xslt
             return sc;
         }
 
+
+        // The static base URI: the module's URI, or the effective xml:base (XsltInput.XmlBasePrefix).
+        private string? StaticBaseUri31() => _scope.LookupNamespace(XsltInput.XmlBasePrefix) ?? _lastScope?.SourceLine?.Uri;
+
+        // A temporary tree (XSLT 3.0 §9.4): a document node whose base URI is the static base URI.
+        private QilNode TemporaryTree31(QilNode content) =>
+            _f.XsltConvert(_f.RtfCtor(ContentNodes(content), _f.String(StaticBaseUri31() ?? "")), T.NodeNotRtf);
 
         private DecimalFormatTable DecimalFormats31()
         {
@@ -367,26 +374,50 @@ namespace Xsl3.Xslt
                         return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1480"), _f.String("xsl:result-document can't be evaluated while a temporary tree is being constructed"));
                     }
                     QilNode href = v2.Href != null ? CompileStringAvt(v2.Href)! : _f.String("");
-                    string? formatMethod = null;
+                    // The output definition: format="…" names one (at run time if it is computed); else the unnamed one.
+                    Output baseOutput = _compiler.Output;
+                    QilNode formatName = _f.String("");
                     if (v2.Format != null)
                     {
-                        if (CompileStringAvt(v2.Format) is QilLiteral { NodeType: QilNodeType.LiteralString } literalFormat)
+                        QilNode format = CompileStringAvt(v2.Format)!;
+                        if (format is QilLiteral { NodeType: QilNodeType.LiteralString } literalFormat)
                         {
                             Output? named = ResolveOutputName((string)literalFormat);
                             if (named == null)
                             {
                                 return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1460"), _f.String($"There is no output definition named '{(string)literalFormat}'"));
                             }
-                            formatMethod = named.Method?.Name;
+                            baseOutput = named;
                         }
                         else
                         {
-                            return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1460"), _f.String("A computed format isn't supported"));
+                            formatName = format;
                         }
                     }
-                    QilNode method = v2.Method != null ? CompileStringAvt(v2.Method)! : _f.String(formatMethod ?? "");
+                    ResultFormat baseFormat = ResultFormat31(baseOutput);
+                    if (v2.UseCharacterMaps != null)
+                    {
+                        var map = new Dictionary<int, string>(baseFormat.Extras?.CharacterMap ?? new Dictionary<int, string>());
+                        foreach (string qname in XmlConvert.SplitString(v2.UseCharacterMaps))
+                        {
+                            AddCharacterMap(CharacterMapName(qname), map, new HashSet<QilName>());
+                        }
+                        OutputExtras extras = baseFormat.Extras?.Clone() ?? new OutputExtras();
+                        extras.CharacterMap = map;
+                        baseFormat = baseFormat with { Extras = extras };
+                    }
+                    // The serialization attributes, evaluated: name U+0001 value U+0002 …
+                    QilList parameters = _f.BaseFactory.Sequence();
+                    foreach (var (name, value) in v2.Serialization!)
+                    {
+                        parameters.Add(_f.String(name + SerializationParameters.NameEnd));
+                        parameters.Add(CompileStringAvt(value)!);
+                        parameters.Add(_f.String(SerializationParameters.ValueEnd.ToString()));
+                    }
                     QilNode doc = _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
-                    return X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, method, _f.String(_lastScope?.SourceLine?.Uri ?? ""));
+                    return X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
+                        _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
+                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()));
                 }
             }
             return null;
@@ -805,7 +836,7 @@ namespace Xsl3.Xslt
                 _temporaryOutput31++;
                 QilNode body = CompileInstructions(content);
                 _temporaryOutput31--;
-                value = asType == null ? _f.DocumentCtor(ContentNodes(body)) : Box(body);
+                value = asType == null ? TemporaryTree31(body) : Box(body);
                 _outputScope.PopScope();
             }
             else
@@ -856,6 +887,91 @@ namespace Xsl3.Xslt
             return _compiler.NamedOutputs.TryGetValue(name, out Output? output) ? output : null;
         }
 
+        // xsl:call-template: a non-tunnel xsl:with-param must name a parameter of the template (XTSE0680).
+        private void CheckWithParams31(IList<XslNode> withParams, Template tmpl)
+        {
+            foreach (XslNode withParam in withParams)
+            {
+                if (withParam.NodeType != XslNodeType.WithParam || withParam.V2?.Tunnel == true)
+                {
+                    continue;
+                }
+                bool declared = false;
+                foreach (XslNode n in tmpl.Content)
+                {
+                    if (n.NodeType == XslNodeType.Param && n.V2?.Tunnel != true && n.Name!.Equals(withParam.Name))
+                    {
+                        declared = true;
+                        break;
+                    }
+                }
+                if (!declared)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0680: the template {tmpl.Name!.QualifiedName} has no parameter {withParam.Name!.QualifiedName}");
+                }
+            }
+        }
+
+        // The character maps refer only to maps that exist (XTSE1590) and not to themselves (XTSE1600).
+        private void ValidateCharacterMaps31()
+        {
+            foreach (CharacterMap map in _compiler.CharacterMaps.Values)
+            {
+                CheckCharacterMap(map, new HashSet<QilName>());
+            }
+
+            void CheckCharacterMap(CharacterMap map, HashSet<QilName> active)
+            {
+                if (!active.Add(map.Name!))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE1600: character map {map.Name!.QualifiedName} uses itself");
+                    return;
+                }
+                foreach (QilName used in map.UseCharacterMaps)
+                {
+                    if (_compiler.CharacterMaps.TryGetValue(used, out CharacterMap? next))
+                    {
+                        if (active.Count < 64)
+                        {
+                            CheckCharacterMap(next, active);
+                        }
+                    }
+                    else
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE1590: there is no character map named {used.QualifiedName}");
+                    }
+                }
+                active.Remove(map.Name!);
+            }
+        }
+
+        private QilName CharacterMapName(string lexical)
+        {
+            int colon = lexical.IndexOf(':');
+            string ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]) ?? "";
+            return _f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns);
+        }
+
+        private ResultFormat ResultFormat31(Output output) =>
+            new(output.Settings, OutputExtras31(output), output.Settings.OutputMethod == XmlOutputMethod.Text);
+
+        private int? _resultFormats31;
+
+        // The named output definitions, for a computed format="…".
+        private int ResultFormats31()
+        {
+            if (_resultFormats31 == null)
+            {
+                var formats = new Dictionary<(string, string), ResultFormat>();
+                foreach (var (name, output) in _compiler.NamedOutputs)
+                {
+                    formats[(name.NamespaceUri, name.LocalName)] = ResultFormat31(output);
+                }
+                _resultFormats31 = ConstantPool.Add(formats);
+            }
+            return _resultFormats31.Value;
+        }
+
         // ------------------------------------------------------------ serialization
 
         /// <summary>The serialization parameters of an output definition that the result writer must apply.</summary>
@@ -866,6 +982,7 @@ namespace Xsl3.Xslt
                 Xhtml = output.Xhtml,
                 IncludeContentType = output.IncludeContentType ?? true,
                 Encoding = output.Encoding ?? "UTF-8",
+                MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
             };
             if (output.NormalizationForm != null && OutputExtras.TryParseNormalizationForm(output.NormalizationForm, out System.Text.NormalizationForm? form))
             {
@@ -880,7 +997,7 @@ namespace Xsl3.Xslt
                 }
                 extras.CharacterMap = map;
             }
-            return extras.IsEmpty ? null : extras;
+            return extras.IsEmpty && output.Encoding == null ? null : extras;
         }
 
         // A character map and the maps it uses (those first: its own characters take precedence).
@@ -893,12 +1010,14 @@ namespace Xsl3.Xslt
             }
             if (!active.Add(name))
             {
-                ReportError(SR.Xml_UserException, $"XTSE1600: character map {name.QualifiedName} uses itself");
-                return;
+                return; // reported by ValidateCharacterMaps31
             }
             foreach (QilName used in characterMap.UseCharacterMaps)
             {
-                AddCharacterMap(used, map, active);
+                if (_compiler.CharacterMaps.ContainsKey(used))
+                {
+                    AddCharacterMap(used, map, active);
+                }
             }
             active.Remove(name);
             foreach (var (c, s) in characterMap.Characters)
@@ -961,16 +1080,38 @@ namespace Xsl3.Xslt
         /// </summary>
         private readonly List<(Key Key, QilParameter Context, QilParameter Value)> _pendingKeys31 = new();
 
+        // The collation of each key, by name: key values are compared with it.
+        private readonly Dictionary<QilName, string> _keyCollations31 = new();
+
+        private string KeyCollation31(QilNode name)
+        {
+            if (name.NodeType == QilNodeType.LiteralString)
+            {
+                string lexical = (string)(QilLiteral)name;
+                int colon = lexical.IndexOf(':');
+                string? ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]);
+                if (ns != null && _keyCollations31.TryGetValue(_f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns), out string? c))
+                {
+                    return c;
+                }
+            }
+            return Collation.CodepointUri;
+        }
+
         private void CreateKeyFunctions31()
         {
             List<(Key Key, QilParameter Context, QilParameter Value)> pending = _pendingKeys31;
             for (int idx = 0; idx < _compiler.Keys.Count; idx++)
             {
                 // The definitions of a key must agree on the collation (XTSE1220), which must be supported (XTSE1210).
+                // A definition without collation="…" uses the default collation in scope.
                 string? first = null;
                 foreach (Key key in _compiler.Keys[idx])
                 {
-                    string collation = key.V2?.Collation ?? "";
+                    EnterScope(key);
+                    string collation = key.V2?.Collation ?? _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri;
+                    ExitScope();
+                    _keyCollations31[key.Name!] = collation;
                     if (collation.Length > 0)
                     {
                         try
@@ -1054,7 +1195,7 @@ namespace Xsl3.Xslt
         private QilNode CompileKeyUse31(Key key)
         {
             QilNode values = key.Use != null ? CompileXPath31(key.Use) : CompileInstructions(key.Content);
-            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values));
+            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(_keyCollations31.TryGetValue(key.Name!, out string? c) ? c : Collation.CodepointUri));
         }
 
         private QilNode CompileKey31(QilNode name, QilNode values, QilNode top, bool subtree)
@@ -1062,7 +1203,7 @@ namespace Xsl3.Xslt
             // key() may use its context node and name once per key definition: they are shared through Lets.
             QilIterator context = _f.Let(Node31(top, "XTDE1270"));
             QilIterator? nameLet = name.NodeType == QilNodeType.LiteralString ? null : _f.Let(name);
-            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values)));
+            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(KeyCollation31(name))));
             QilNode single;
             try
             {

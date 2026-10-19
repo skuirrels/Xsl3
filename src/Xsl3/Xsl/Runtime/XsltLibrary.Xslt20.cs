@@ -36,18 +36,33 @@ namespace Xsl3.Runtime
         /// the atomised values, encoded so that equal strings are values that are equal by eq (XSLT 3.0 §20.2.2).
         /// Values that equal nothing (NaN) are dropped.
         /// </summary>
-        public IList<XPathItem> X31KeyValues(IList<XPathItem> values)
+        public IList<XPathItem> X31KeyValues(IList<XPathItem> values, string collation)
         {
             var result = new List<XPathItem>(values.Count);
+            Collation? coll = collation == Collation.CodepointUri ? null : KeyCollation(collation);
             foreach (XPathItem item in Sequences.Atomize(values))
             {
-                string? key = KeyString((AtomicValue)item);
+                var a = (AtomicValue)item;
+                string? key = coll != null && a.Type.Primitive is Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri
+                    ? "c" + System.Convert.ToHexString(coll.KeyBytes(a.Value))
+                    : KeyString(a);
                 if (key != null)
                 {
                     result.Add(AtomicValue.OfString(key));
                 }
             }
             return result;
+        }
+
+        private readonly Dictionary<string, Collation> _keyCollations = new(System.StringComparer.Ordinal);
+
+        private Collation KeyCollation(string uri)
+        {
+            if (!_keyCollations.TryGetValue(uri, out Collation? c))
+            {
+                _keyCollations[uri] = c = Collation.Resolve(uri);
+            }
+            return c;
         }
 
         private static string? KeyString(AtomicValue a)
@@ -191,12 +206,34 @@ namespace Xsl3.Runtime
         /// Writes a secondary result (XSLT 3.0 §25.1). An empty href means the principal result: the document's
         /// children are returned to become part of it.
         /// </summary>
-        public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string method, string baseUri)
+        public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string baseUri, double formatId, string formatName,
+            double formatsId, string parameters, double namesId)
         {
             var doc = (XPathNavigator)document[0];
+            XsltNameContext names = (XsltNameContext)ConstantPool.Get((int)namesId);
+            var format = (ResultFormat)ConstantPool.Get((int)formatId);
+            if (formatName.Length > 0)
+            {
+                var (ns, local) = names.Resolve(formatName, "", "XTDE1460");
+                var formats = (Dictionary<(string, string), ResultFormat>)ConstantPool.Get((int)formatsId);
+                if (!formats.TryGetValue((ns, local), out format!))
+                {
+                    throw new XdmException("XTDE1460", $"There is no output definition named '{formatName}'");
+                }
+            }
+            var (settings, extras, text) = SerializationParameters.Apply(format, parameters, names);
             if (href.Length == 0)
             {
-                return X31ContentItems(document);
+                // The principal result.
+                PrincipalResult? principal = XmlQueryRuntime.Principal;
+                if (principal == null)
+                {
+                    return X31ContentItems(document);
+                }
+                principal.BeginExplicit(settings, extras);
+                WriteChildren(principal, doc);
+                principal.EndExplicit();
+                return Sequences.Empty;
             }
             string uri = UriReference.IsAbsolute(href) || baseUri.Length == 0 || !UriReference.IsAbsolute(baseUri) ? href : UriReference.Resolve(href, baseUri);
             if (!_runtime.ResultDocumentUris.Add(uri))
@@ -208,27 +245,33 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XTDE1480", $"Secondary results are not enabled; can't write {uri}");
             }
-            System.IO.TextWriter output = handler(uri, method);
-            var settings = new System.Xml.XmlWriterSettings { OmitXmlDeclaration = method is "text" or "html", ConformanceLevel = System.Xml.ConformanceLevel.Fragment, CloseOutput = true };
-            if (method == "text")
+            System.IO.TextWriter output = handler(uri, text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant());
+            if (text)
             {
                 output.Write(doc.Value);
                 output.Dispose();
                 return Sequences.Empty;
             }
-            using (System.Xml.XmlWriter w = System.Xml.XmlWriter.Create(output, settings))
+            settings.CloseOutput = true;
+            using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(output, s), settings, extras))
             {
-                XPathNavigator child = doc.Clone();
-                if (child.MoveToFirstChild())
-                {
-                    do
-                    {
-                        w.WriteNode(child, defattr: true);
-                    }
-                    while (child.MoveToNext());
-                }
+                WriteChildren(w, doc);
+                w.Flush();
             }
             return Sequences.Empty;
+        }
+
+        private static void WriteChildren(System.Xml.XmlWriter w, XPathNavigator doc)
+        {
+            XPathNavigator child = doc.Clone();
+            if (child.MoveToFirstChild())
+            {
+                do
+                {
+                    w.WriteNode(child, defattr: true);
+                }
+                while (child.MoveToNext());
+            }
         }
 
         // ------------------------------------------------------------ xsl:number

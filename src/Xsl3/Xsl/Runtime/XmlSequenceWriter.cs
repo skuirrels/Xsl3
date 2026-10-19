@@ -82,7 +82,7 @@ namespace Xsl3.Runtime
         {
             // Build XPathDocument
             // If rootType != XPathNodeType.Root, then build an XQuery fragment
-            _doc = new InternalXPathDocument(nameTable);
+            _doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true }; // Xsl3: constructed, no document URI
             _writer = _doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames | (rootType == XPathNodeType.Root ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment), string.Empty);
             _writer.NamespaceResolver = nsResolver;
             return _writer;

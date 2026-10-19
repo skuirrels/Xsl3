@@ -75,8 +75,10 @@ with a separator, and every instruction is typed by sequence types rather than X
 - [x] **`xsl:for-each-group`**, **`xsl:perform-sort`** and 2.0 `xsl:sort` (data types, collations, stable,
       XTDE1030 for incomparable keys).
 - [x] **`xsl:analyze-string`** and `regex-group()`.
-- [ ] **`xsl:result-document`** and `xsl:document`: secondary results, `format` with named `xsl:output`;
-      XTDE1490 for a second principal result is missing.
+- [x] **`xsl:result-document`** and `xsl:document`: secondary results, `format` (named `xsl:output`, also
+      computed), the serialization attributes, and the principal result: Xsl3 creates the principal writer
+      lazily (`PrincipalResult`), so a result document without `href` can configure it, and other output to it
+      is XTDE1490. (With a caller's `XmlWriter` the settings are the caller's.)
 - [x] **`xsl:number`** 2.0 (`select`, `format` through the format-integer engine, `ordinal`, the 2.0 rules
       for `from`).
 - [x] **Keys** 2.0 (any `use` expression or content, typed values compared as by `eq`, `key()` with a third
@@ -86,17 +88,19 @@ with a separator, and every instruction is typed by sequence types rather than X
       `escape-uri-attributes`, `include-content-type="no"` for html, serialization errors (SEPM/SESU/SERE).
 - [x] **`use-when`** (evaluated as the stylesheet is read; excluded subtrees are skipped).
 - [ ] **Backwards-compatible mode** for 1.0 modules inside 2.0+ stylesheets.
-- [ ] **Exit**: ≥ 95% of the applicable xslt30-test tests; upstream gate still 100%.
+- [x] **Exit**: ≥ 95% of the applicable xslt30-test tests (95.2% on 2026-10-19); upstream gate still 100%.
 
 ## Status
 
 On 2026-10-19 the 2.0 path became the default for stylesheets with `version="2.0"` or later
 (`Compiler.Xslt2Enabled`; `XSL3_XSLT2=0` restores forwards-compatible 1.0 for comparisons). It passes 90.4%
-of the profile's tests that run, against 41.5% for the 1.0 engine in forwards-compatible mode.
+of the profile's tests that run, against 41.5% for the 1.0 engine in forwards-compatible mode; later the same
+day 95.2%, which meets the exit criterion.
 
 Template functions that can only return nodes are typed `node*` (`QilGenerator.Streaming.cs`), so they
 stream to the writer as in 1.0; only templates that may return atomic values are cached.
 
-The largest remaining groups of failures: static errors not detected (XTSE…), `xsl:result-document`
-details, base URIs (`xml:base`, `static-base-uri()`), serialization parameters and errors, tunnel
-parameters through built-in templates, `xsl:document`, and backwards-compatible mode.
+Remaining (214 failures): serialization parameters and errors (SEPM/SESU/SERE, `html-version`, html
+`include-content-type`), `mode="#current"` in named templates, next-match between the alternatives of one
+template's pattern, zero-length text nodes in sequences, backwards-compatible mode, and 3.0 features that
+2.0-profile tests use. 608 tests that expect an error pass with a different error code.

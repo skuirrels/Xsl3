@@ -18,13 +18,18 @@ namespace Xsl3.Runtime
 
         public bool IncludeContentType { get; set; } = true;
 
-        /// <summary>The encoding named in the meta element of an XHTML head.</summary>
+        /// <summary>The encoding as the output definition names it (meta element, XML declaration).</summary>
         public string Encoding { get; set; } = "UTF-8";
+
+        /// <summary>The media type of the meta element of an XHTML head.</summary>
+        public string MediaType { get; set; } = "text/html";
 
         public NormalizationForm? Normalization { get; set; }
 
         /// <summary>The character map (use-character-maps), code point to string.</summary>
         public IReadOnlyDictionary<int, string>? CharacterMap { get; set; }
+
+        public OutputExtras Clone() => (OutputExtras)MemberwiseClone();
 
         public bool IsEmpty => !Xhtml && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
@@ -77,7 +82,7 @@ namespace Xsl3.Runtime
                 _pendingHead = false;
                 _inner.WriteStartElement("meta", XhtmlNs);
                 _inner.WriteAttributeString("http-equiv", "Content-Type");
-                _inner.WriteAttributeString("content", "text/html; charset=" + _extras.Encoding);
+                _inner.WriteAttributeString("content", _extras.MediaType + "; charset=" + _extras.Encoding);
                 _inner.WriteEndElement();
             }
         }

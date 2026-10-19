@@ -38,7 +38,8 @@ The failures include the XPath 3.1 maps and arrays, which arrive in P3 with high
 `Xslt30RunTests` runs the xslt30-test cases that apply to the current profile (P2: tests for "XSLT 1.0 or
 later" and "XSLT 2.0 or later", without the schema-aware, streaming and higher-order-function features), at
 the commit `eng/fetch-w3c.sh` pins. Known failures are listed in `tests/Xsl3.W3C/baselines/xslt30-run.txt`.
-Expected errors pass on any error for now (577 of those passes raised a different code than the test names).
+Expected errors pass on any error for now (608 of those passes raised a different code than the test names).
+The baseline is generated from a Release build, as CI runs it.
 The `unicode-90` sets, which loop over every Unicode character, run only on request (`XSL3_XSLT30_SETS`), so
 the later rows count about 1,460 fewer tests.
 
@@ -46,6 +47,8 @@ the later rows count about 1,460 fewer tests.
 |---|---:|---:|---:|---:|---|
 | 2026-10-19 | 2,437 | 3,429 | 194 | 41.5% | Upstream's 1.0 engine; 2.0 stylesheets run in forwards-compatible mode |
 | 2026-10-19 | 4,031 | 391 | 178 | 91.2% | The 2.0 path on by default (`XSL3_XSLT2=0` restores the row above); without `unicode-90` |
+| 2026-10-19 | 4,171 | 251 | 178 | 94.3% | Static checks, base URIs, `xsl:result-document` serialization |
+| 2026-10-19 | 4,208 | 214 | 178 | 95.2% | Key collations, `use-when` on modules, 2.0 `xsl:strip-space` names; P2 exit criterion met |
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

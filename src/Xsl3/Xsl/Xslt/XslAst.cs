@@ -89,6 +89,8 @@ namespace Xsl3.Xslt
         public bool HasContent;
         public TriState CopyNamespaces = TriState.Unknown, InheritNamespaces = TriState.Unknown;
         public List<QilName>? Modes;
+        public List<(string Name, string Value)>? Serialization; // xsl:result-document's serialization attributes (AVTs)
+        public string? UseCharacterMaps;
         public bool AllModes;
     }
 
@@ -176,6 +178,7 @@ namespace Xsl3.Xslt
         public readonly QilName? Name;
         public readonly List<QilName> UseCharacterMaps;
         public readonly Dictionary<int, string> Characters = new Dictionary<int, string>();
+        public int Precedence;
 
         public CharacterMap(QilName? name, List<QilName> useCharacterMaps)
         {

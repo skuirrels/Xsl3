@@ -212,6 +212,9 @@ namespace Xsl3.XPath31
 
     internal sealed record AxisStep(Axis Axis, NodeTest Test, IReadOnlyList<Expr> Predicates) : Expr
     {
+        /// <summary>Written with an explicit axis (<c>child::x</c>), not abbreviated (<c>x</c>).</summary>
+        public bool ExplicitAxis { get; init; }
+
         public override string ToString() => AxisNames.Name(Axis) + "::" + Test + string.Concat(Predicates.Select(p => "[" + p + "]"));
     }
 

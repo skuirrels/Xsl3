@@ -616,7 +616,7 @@ namespace Xsl3.XPath31
                 Advance();
                 Advance();
                 NodeTest test = NodeTest(axis);
-                return At(start, new AxisStep(axis, test, PredicateList()));
+                return At(start, new AxisStep(axis, test, PredicateList()) { ExplicitAxis = true });
             }
             if (t.Kind == TokenKind.Wildcard || t.Is("*"))
             {

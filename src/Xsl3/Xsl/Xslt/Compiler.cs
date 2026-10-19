@@ -484,6 +484,7 @@ namespace Xsl3.Xslt
         public readonly string InfinitySymbol;
         public readonly string NanSymbol;
         public readonly char[] Characters;
+        public int ImportPrecedence; // Xsl3: in 2.0 a definition of higher import precedence wins
 
         public static readonly DecimalFormatDecl Default = new DecimalFormatDecl(new XmlQualifiedName(), "Infinity", "NaN", ".,%\u20300#;-");
 

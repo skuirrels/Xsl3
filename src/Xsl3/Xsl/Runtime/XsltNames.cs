@@ -126,6 +126,9 @@ namespace Xsl3.Runtime
 
         public XPathItem X31TypeAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).TypeAvailable(name));
 
+        /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
+        public XPathItem X31AbsentFocus() => AtomicValue.OfString("");
+
         /// <summary>The value of a yes/no attribute value template (XTDE0030 for other values).</summary>
         public bool X31YesNo(string value, string attribute) => value.Trim() switch
         {

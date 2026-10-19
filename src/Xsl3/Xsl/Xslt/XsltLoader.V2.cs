@@ -243,7 +243,24 @@ namespace Xsl3.Xslt
                 Format = ParseStringAttribute(0, "format"),
                 Href = ParseStringAttribute(1, "href"),
                 Method = ParseStringAttribute(4, "method"),
+                Serialization = new List<(string, string)>(),
             };
+            // The serialization attributes are attribute value templates; use-character-maps names maps.
+            for (int i = 4; i < _resultDocumentAttributes.Length; i++)
+            {
+                string attName = _resultDocumentAttributes[i].name;
+                if (_input.MoveToXsltAttribute(i, attName))
+                {
+                    if (attName == "use-character-maps")
+                    {
+                        v2.UseCharacterMaps = _input.Value;
+                    }
+                    else
+                    {
+                        v2.Serialization.Add((attName, _input.Value));
+                    }
+                }
+            }
             _input.CanHaveApplyImports = false;
             XslNode result = SetInfo(F.XslNode(XslNodeType.ResultDocument, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
             result.V2 = v2;
@@ -280,6 +297,28 @@ namespace Xsl3.Xslt
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;
+            CheckReservedName(name, "function");
+            // Function parameters: distinct names (XTSE0580), no default value (XTSE0760), not tunnel (XTSE0020).
+            var paramNames = new HashSet<QilName>();
+            foreach (XslNode n in function.Content)
+            {
+                if (n.NodeType != XslNodeType.Param)
+                {
+                    continue;
+                }
+                if (!paramNames.Add(n.Name!))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0580: two parameters of the function are named {n.Name!.QualifiedName}");
+                }
+                if (n.Select != null || n.Content.Count > 0)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0760: the function parameter {n.Name!.QualifiedName} can't have a default value");
+                }
+                if (n.V2?.Tunnel == true)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0020: the function parameter {n.Name!.QualifiedName} can't be a tunnel parameter");
+                }
+            }
             if (name != null)
             {
                 int arity = 0;
@@ -352,7 +391,20 @@ namespace Xsl3.Xslt
             }
             if (name != null)
             {
-                _compiler.CharacterMaps[name] = map;
+                // Modules are read in decreasing import precedence: a second map of the same name at the same
+                // precedence is an error (XTSE1580); one of lower precedence is overridden.
+                if (_compiler.CharacterMaps.TryGetValue(name, out CharacterMap? existing))
+                {
+                    if (existing.Precedence == _curStylesheet!.ImportPrecedence)
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE1580: two character maps are named {name.QualifiedName}");
+                    }
+                }
+                else
+                {
+                    map.Precedence = _curStylesheet!.ImportPrecedence;
+                    _compiler.CharacterMaps[name] = map;
+                }
             }
         }
 

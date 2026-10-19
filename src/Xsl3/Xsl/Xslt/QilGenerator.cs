@@ -240,7 +240,9 @@ namespace Xsl3.Xslt
                 qil.DefaultWriterSettings = compiler.Output.Settings;
                 if (IsV2)
                 {
+                    ValidateCharacterMaps31();
                     qil.OutputExtras = OutputExtras31(compiler.Output);
+                    qil.Xslt2 = true;
                 }
             }
 
@@ -1339,7 +1341,10 @@ namespace Xsl3.Xslt
 
         private QilNode CompileCallTemplate(XslNodeEx node)
         {
-            VerifyXPathQName(node.Name!);
+            if (node != _compiler.StartApplyTemplates)
+            {
+                VerifyXPathQName(node.Name!); // (an initial template's name comes from the API, not a prefix)
+            }
             int varScope = _varHelper.StartVariables();
 
             IList<XslNode> content = node.Content;
@@ -1363,6 +1368,10 @@ namespace Xsl3.Xslt
                 if (_compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl))
                 {
                     Debug.Assert(tmpl.Function != null, "All templates should be already compiled");
+                    if (IsV2)
+                    {
+                        CheckWithParams31(content, tmpl);
+                    }
                     result = _invkGen.GenerateInvoke(tmpl.Function, AddRemoveImplicitArgs(node.Content, tmpl.Flags)!);
                 }
                 else
@@ -2690,9 +2699,11 @@ namespace Xsl3.Xslt
                     args = new List<XslNode>(3);
                 }
                 int pos = 0;
-                if ((flags & XslFlags.Current) != 0) { SetArg(args, pos++, _nameCurrent, GetCurrentNode()); }
-                if ((flags & XslFlags.Position) != 0) { SetArg(args, pos++, _namePosition, GetCurrentPosition()); }
-                if ((flags & XslFlags.Last) != 0) { SetArg(args, pos++, _nameLast, GetLastPosition()); }
+                // Xsl3: in a function body the focus is absent; a called template gets an absent focus too.
+                bool absent = IsV2 && FocusAbsent;
+                if ((flags & XslFlags.Current) != 0) { SetArg(args, pos++, _nameCurrent, absent ? X31(nameof(XsltLibrary.X31AbsentFocus), T.Item) : GetCurrentNode()); }
+                if ((flags & XslFlags.Position) != 0) { SetArg(args, pos++, _namePosition, absent ? _f.Double(0) : GetCurrentPosition()); }
+                if ((flags & XslFlags.Last) != 0) { SetArg(args, pos++, _nameLast, absent ? _f.Double(0) : GetLastPosition()); }
                 if (IsV2)
                 {
                     // Xsl3: the tunnel argument: the current tunnel parameters plus those of this call.

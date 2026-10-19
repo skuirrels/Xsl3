@@ -217,4 +217,38 @@ public class Xslt20Tests
             "<xsl:template match='/'><xsl:variable name='v' as='xs:integer*'><xsl:apply-templates select='doc/i'/></xsl:variable><out><xsl:value-of select='sum($v)'/></out></xsl:template>" +
             "<xsl:template match='i'><xsl:sequence select='xs:integer(@n)'/></xsl:template>",
             "<doc><i n='1'/><i n='2'/><i n='3'/></doc>"));
+
+    private static string RunToText(string templates)
+    {
+        string stylesheet = $"<xsl:stylesheet version='2.0' xmlns:xsl='{Xsl}'>" + templates + "</xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw, null);
+        return sw.ToString();
+    }
+
+    [Fact]
+    public void ResultDocumentWithoutHrefConfiguresThePrincipalResult() =>
+        Assert.Equal("<!DOCTYPE out SYSTEM \"out.dtd\"><out>hello</out>", RunToText(
+            "<xsl:template match='/'><xsl:result-document omit-xml-declaration='yes' doctype-system='out.dtd'><out>hello</out></xsl:result-document></xsl:template>"));
+
+    [Fact]
+    public void OtherOutputBesidesAPrincipalResultDocumentIsAnError()
+    {
+        var e = Assert.ThrowsAny<System.Exception>(() => RunToText(
+            "<xsl:template match='/'><xsl:result-document><a/></xsl:result-document><b/></xsl:template>"));
+        Assert.Contains("XTDE1490", e.ToString());
+    }
+
+    [Fact]
+    public void Utf8OutputHasNoByteOrderMarkAndNamesTheEncodingAsDeclared()
+    {
+        string stylesheet = $"<xsl:stylesheet version='2.0' xmlns:xsl='{Xsl}'><xsl:output encoding='UTF-8'/><xsl:template match='/'><out/></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var bytes = new MemoryStream();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+        Assert.Equal("<?xml version=\"1.0\" encoding=\"UTF-8\"?><out />", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+    }
 }

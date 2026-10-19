@@ -253,14 +253,57 @@ namespace Xsl3
         // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
         // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
         private XmlWriter CreateResultWriter(Stream results) =>
-            _command?.StaticData.OutputExtras != null
-                ? XmlWriter.Create(results, OutputSettings ?? s_defaultWriterSettings)
+            _command?.StaticData.Xslt2 == true
+                ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateResultWriter(TextWriter results) =>
-            _command?.StaticData.OutputExtras != null
-                ? XmlWriter.Create(results, OutputSettings ?? s_defaultWriterSettings)
+            _command?.StaticData.Xslt2 == true
+                ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+
+        /// <summary>
+        /// Xsl3: transforms to a <see cref="TextWriter"/>, resolving documents with <paramref name="documentResolver"/>.
+        /// The output is serialized as the stylesheet's output definition (or an xsl:result-document without href) says.
+        /// </summary>
+        public void Transform(IXPathNavigable input, XsltArgumentList? arguments, TextWriter results, XmlResolver? documentResolver)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            ArgumentNullException.ThrowIfNull(results);
+
+            using XmlWriter writer = CreateResultWriter(results);
+            Transform(input, arguments, writer, documentResolver);
+        }
+
+        /// <summary>Xsl3: transforms to a <see cref="Stream"/>, resolving documents with <paramref name="documentResolver"/>.</summary>
+        public void Transform(IXPathNavigable input, XsltArgumentList? arguments, Stream results, XmlResolver? documentResolver)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            ArgumentNullException.ThrowIfNull(results);
+
+            using XmlWriter writer = CreateResultWriter(results);
+            Transform(input, arguments, writer, documentResolver);
+        }
+
+        /// <summary>Xsl3: transforms to a <see cref="Stream"/>, resolving documents with <paramref name="documentResolver"/>.</summary>
+        public void Transform(XmlReader input, XsltArgumentList? arguments, Stream results, XmlResolver? documentResolver)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            ArgumentNullException.ThrowIfNull(results);
+
+            using XmlWriter writer = CreateResultWriter(results);
+            Transform(input, arguments, writer, documentResolver);
+        }
+
+        /// <summary>Xsl3: transforms to a <see cref="TextWriter"/>, resolving documents with <paramref name="documentResolver"/>.</summary>
+        public void Transform(XmlReader input, XsltArgumentList? arguments, TextWriter results, XmlResolver? documentResolver)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            ArgumentNullException.ThrowIfNull(results);
+
+            using XmlWriter writer = CreateResultWriter(results);
+            Transform(input, arguments, writer, documentResolver);
+        }
 
         public void Transform(IXPathNavigable input, XmlWriter results)
         {

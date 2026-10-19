@@ -53,11 +53,21 @@ namespace Xsl3
                 // create always take the wrapper path below. XslCompiledTransform's Stream, TextWriter and URI
                 // overloads instead pass Xsl3's own raw writer chain (XmlWriterSettingsInternals.CreateRawWriter),
                 // which is what upstream would have extracted, since XSLT output settings use ConformanceLevel.Auto.
-                if (_staticData.OutputExtras is OutputExtras extras && writer is not XmlRawWriter)
+                if (_staticData.Xslt2 && writer is not XmlRawWriter)
                 {
-                    // Xsl3: xhtml, character maps and normalization are applied in front of the result writer.
-                    // (XslCompiledTransform passes a normal writer, not a raw one, when there are extras.)
-                    Execute(defaultDocument, dataSources, argumentList, new XmlMergeSequenceWriter(new XmlRawWriterWrapper(extras.Wrap(writer))));
+                    // Xsl3: the principal result of a 2.0+ stylesheet goes through a PrincipalResult, which applies
+                    // xhtml, character maps and normalization and serves xsl:result-document without href.
+                    PrincipalResult principal = writer as PrincipalResult ?? new PrincipalResult(writer, _staticData.OutputExtras);
+                    PrincipalResult? saved = XmlQueryRuntime.Principal;
+                    XmlQueryRuntime.Principal = principal;
+                    try
+                    {
+                        Execute(defaultDocument, dataSources, argumentList, new XmlMergeSequenceWriter(new XmlRawWriterWrapper(principal)));
+                    }
+                    finally
+                    {
+                        XmlQueryRuntime.Principal = saved;
+                    }
                 }
                 else if (writer is XmlRawWriter rawWriter)
                 {

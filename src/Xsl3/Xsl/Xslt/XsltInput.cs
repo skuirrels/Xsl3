@@ -282,7 +282,25 @@ namespace Xsl3.Xslt
                 }
                 return false;
             }
-            else if (rec.prefix.Length == 0 && Ref.Equal(rec.localName, _atoms.Xmlns))
+            else if ((_compiler.Version == 2 || _compiler.Version == 0 && Compiler.Xslt2Enabled) && rec.localName == "base" && Ref.Equal(rec.prefix, _atoms.Xml))
+            {
+                // Xsl3: xml:base sets the static base URI of the element and its descendants (XSLT 3.0 §5.1). It is
+                // tracked like a namespace, under a pseudo-prefix; the attribute itself is kept (an LRE copies it).
+                string current = _scopeManager.LookupNamespace(XmlBasePrefix) ?? _reader.BaseURI;
+                string value = _reader.Value;
+                string resolved = Xsl3.XPath31.Functions.UriReference.IsAbsolute(value) || !Xsl3.XPath31.Functions.UriReference.IsAbsolute(current)
+                    ? value : Xsl3.XPath31.Functions.UriReference.Resolve(value, current);
+                string atomized = _atoms.NameTable.Add(resolved);
+                _scopeManager.AddNsDeclaration(XmlBasePrefix, atomized);
+                _ctxInfo!.AddNamespace(XmlBasePrefix, atomized);
+            }
+            else if (rec.localName == "xpath-default-namespace" && _compiler.Version != 1 &&
+                (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
+            {
+                // Xsl3: tracked for use-when, which is evaluated before the element's attributes are processed.
+                _scopeManager.AddNsDeclaration(XPathDefaultNamespacePrefix, _atoms.NameTable.Add(_reader.Value));
+            }
+            if (rec.prefix.Length == 0 && Ref.Equal(rec.localName, _atoms.Xmlns))
             {  // xmlns="NS_FOO"
                 string atomizedValue = _atoms.NameTable.Add(_reader.Value);
                 _scopeManager.AddNsDeclaration(string.Empty, atomizedValue);
@@ -423,6 +441,12 @@ namespace Xsl3.Xslt
                     case XmlNodeType.EndEntity:
                         _reader.Read();
                         break;
+                    case XmlNodeType.Comment when _compiler.Version == 2:
+                    case XmlNodeType.ProcessingInstruction when _compiler.Version == 2:
+                        // Xsl3: comments and processing instructions are removed before adjacent text is merged and
+                        // whitespace is stripped (XSLT 3.0 §4.2); 1.0 keeps upstream's behaviour.
+                        _reader.Read();
+                        break;
                     default:
                         _nodeType = (
                             !textIsWhite ? XmlNodeType.Text :
@@ -495,6 +519,12 @@ namespace Xsl3.Xslt
 
         private bool _skippingUseWhen;
 
+        /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
+        public string XPathDefaultNamespace => _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "";
+
+        /// <summary>Xsl3: the stylesheet element's use-when is false.</summary>
+        public bool ModuleExcluded { get; private set; }
+
         // [xsl:]use-when on the element just read: no-namespace use-when on an XSLT element, xsl:use-when on others.
         private bool ExcludedByUseWhen()
         {
@@ -514,7 +544,7 @@ namespace Xsl3.Xslt
                     }
                     try
                     {
-                        return !UseWhen.Evaluate(rec.value, namespaces, "", rec.baseUri);
+                        return !UseWhen.Evaluate(rec.value, namespaces, _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "", rec.baseUri);
                     }
                     catch (Xsl3.XPath31.XPathStaticException e)
                     {
@@ -696,6 +726,13 @@ namespace Xsl3.Xslt
             MoveToLiteralAttribute(attVersion);
             Debug.Assert(IsKeyword(_atoms.Version));
             double version = XPathConvert.StringToDouble(Value);
+            if (Compiler.Xslt2Enabled && !XsltLoader.IsDecimalLexical(Value) &&
+                double.TryParse(Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double asDouble) && asDouble >= 2)
+            {
+                // Xsl3: a version must be an xs:decimal (XTSE0110), whatever forwards-compatible mode allows.
+                _compiler.ReportError(BuildNameLineInfo(), SR.Xml_UserException, $"XTSE0110: version=\"{Value}\" is not a decimal");
+                version = 2.0;
+            }
             if (double.IsNaN(version))
             {
                 ReportError(/*[XT0110]*/SR.Xslt_InvalidAttrValue, _atoms.Version, Value);
@@ -859,10 +896,11 @@ namespace Xsl3.Xslt
             InsertExNamespaces(attExclude, _ctxInfo!, /*extensions:*/ false);
             SetXPathDefaultNamespace(attNamespace, _ctxInfo!);
             SetDefaultCollation(attCollation, _ctxInfo!);
-            // use-when was applied when the element was read (ExcludedByUseWhen); on the stylesheet element it is not supported.
-            if (attUseWhen != 0 && SS)
+            // use-when was applied when the element was read (ExcludedByUseWhen); on the stylesheet element, whose
+            // version is only known now, it excludes the module's declarations.
+            if (attUseWhen != 0 && SS && V2)
             {
-                ReportNYI(_atoms.UseWhen);
+                ModuleExcluded = ExcludedByUseWhen();
             }
 
             MoveToElement();
@@ -979,6 +1017,7 @@ namespace Xsl3.Xslt
                         break;
                     }
                 }
+                MoveToElement(); // Xsl3: back from the attribute, as callers expect
             }
             _attributesRead = true;
         }
@@ -1046,6 +1085,7 @@ namespace Xsl3.Xslt
         // they travel in the node's namespace list under reserved pseudo-prefixes (never output, never valid prefixes).
         public const string XPathDefaultNamespacePrefix = "#xpath-default-namespace";
         public const string DefaultCollationPrefix = "#default-collation";
+        public const string XmlBasePrefix = "#xml-base";
 
         private void SetXPathDefaultNamespace(int attNamespace, ContextInfo ctxInfo)
         {

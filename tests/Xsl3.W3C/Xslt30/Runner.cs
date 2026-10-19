@@ -121,7 +121,7 @@ public sealed class Runner
     {
         var messages = new List<string>();
         var secondary = new Dictionary<string, StringWriter>(StringComparer.Ordinal);
-        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new StringWriter();
+        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new Utf8StringWriter();
         try
         {
             var resolver = new TestResolver(envs);
@@ -156,14 +156,21 @@ public sealed class Runner
             }
 
             var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode };
-            transform.Load(stylesheet, new XsltSettings(enableDocumentFunction: true, enableScript: false), resolver);
+            // Some stylesheets declare entities in an internal DTD subset.
+            using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
+            {
+                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false), resolver);
+            }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
             XPathNavigator context = input ?? EmptyDocument();
             try
             {
-                using XmlWriter writer = XmlWriter.Create(sw, OutputSettings(transform));
-                transform.Transform(context, args, writer, resolver);
+                // The engine creates the principal writer, so xsl:result-document without href can configure it; the
+                // bytes are decoded as their XML declaration says.
+                var bytes = new MemoryStream();
+                transform.Transform(context, args, bytes, resolver);
+                sw.Write(Decode(bytes.ToArray()));
             }
             catch (Exception e) when (inputSource != null && e.Message.StartsWith("Whitespace cannot be stripped", StringComparison.Ordinal))
             {
@@ -175,8 +182,9 @@ public sealed class Runner
                 using XmlReader reader = inputSource.Content != null
                     ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? "")
                     : XmlReader.Create(inputSource.File!, settings);
-                using XmlWriter writer = XmlWriter.Create(sw, OutputSettings(transform));
-                transform.Transform(reader, args, writer, resolver);
+                var bytes = new MemoryStream();
+                transform.Transform(reader, args, bytes, resolver);
+                sw.Write(Decode(bytes.ToArray()));
             }
             return new RunResult(sw.ToString(), null, messages) { SecondaryResults = secondary };
         }
@@ -184,6 +192,32 @@ public sealed class Runner
         {
             return new RunResult(null, e, messages);
         }
+    }
+
+    // Serialized output as text: the encoding of its XML declaration (or byte order mark), else UTF-8.
+    private static string Decode(byte[] bytes)
+    {
+        Encoding encoding = new UTF8Encoding(false);
+        if (bytes.Length >= 2 && (bytes[0] == 0xFF && bytes[1] == 0xFE || bytes[0] == 0xFE && bytes[1] == 0xFF))
+        {
+            encoding = bytes[0] == 0xFF ? Encoding.Unicode : Encoding.BigEndianUnicode;
+        }
+        else
+        {
+            string head = Encoding.ASCII.GetString(bytes, 0, Math.Min(bytes.Length, 200));
+            var m = System.Text.RegularExpressions.Regex.Match(head, @"^<\?xml[^>]*encoding=[""']([^""']+)");
+            if (m.Success)
+            {
+                try
+                {
+                    encoding = Encoding.GetEncoding(m.Groups[1].Value);
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+        }
+        return encoding.GetString(bytes); // a byte order mark stays, as U+FEFF
     }
 
     private static XmlWriterSettings OutputSettings(XslCompiledTransform transform)
@@ -485,4 +519,10 @@ public sealed class Runner
             return base.GetEntity(absoluteUri, role, ofObjectToReturn);
         }
     }
+}
+
+/// <summary>A StringWriter whose writers declare UTF-8, the encoding the test results assume.</summary>
+internal sealed class Utf8StringWriter : StringWriter
+{
+    public override Encoding Encoding => Encoding.UTF8;
 }

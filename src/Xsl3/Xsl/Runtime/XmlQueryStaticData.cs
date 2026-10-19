@@ -328,6 +328,9 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: serialization parameters the result writer applies (XSLT 2.0+), or null.</summary>
         public OutputExtras? OutputExtras { get; set; }
 
+        /// <summary>Xsl3: compiled by the XSLT 2.0+ path (its principal result is a <see cref="PrincipalResult"/>).</summary>
+        public bool Xslt2 { get; set; }
+
         /// <summary>
         /// Return the default writer settings.
         /// </summary>

@@ -49,6 +49,16 @@ namespace Xsl3.Runtime
             set => t_resultDocuments = value;
         }
 
+        // Xsl3: the principal result of the running XSLT 2.0+ transformation, for xsl:result-document without href.
+        [System.ThreadStatic]
+        private static PrincipalResult? t_principal;
+
+        internal static PrincipalResult? Principal
+        {
+            get => t_principal;
+            set => t_principal = value;
+        }
+
         // The secondary results written so far by this transformation (XTDE1490 for a second write to one URI).
         internal readonly System.Collections.Generic.HashSet<string> ResultDocumentUris = new System.Collections.Generic.HashSet<string>();
 
