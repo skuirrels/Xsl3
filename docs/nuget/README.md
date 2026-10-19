@@ -5,7 +5,7 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 as they do with stock .NET.
 
 > **Alpha.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and higher-order
-> functions. Most of XSLT 3.0 works, but packages' visibility rules, `xsl:evaluate` and streaming don't yet.
+> functions. Most of XSLT 3.0 works, including packages; `xsl:evaluate`, schema awareness and streaming don't yet.
 > The API may change before 1.0.
 
 ## Getting started
@@ -32,14 +32,13 @@ Targets .NET 8 and .NET 10.
 |---|---|
 | XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
 | XPath 3.1 | 99.3% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,058 of the 7,939 applicable W3C xslt30-test cases pass (88.9%) |
+| XSLT 2.0 / 3.0 | 7,193 of the 7,939 applicable W3C xslt30-test cases pass (90.6%) |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
-templates, `xsl:mode`, static parameters and shadow attributes, `xsl:use-package`, the JSON functions, and
-json and adaptive output.
+templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,
+`xsl:override`), the JSON functions, and json and adaptive output.
 
-Not yet: package visibility rules (`xsl:accept`, `xsl:expose`, `xsl:original`), `xsl:evaluate`, schema
-awareness and streaming.
+Not yet: `xsl:evaluate`, schema awareness and streaming.
 
 ## Links
 

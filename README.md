@@ -24,7 +24,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,058 passed, 881 failed, 86 not run (88.9%; package tests now run) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,193 passed, 746 failed, 86 not run (90.6%) |
 | XSLT 1.0 speed against stock | parity (±3%, [docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -44,15 +44,14 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `xsl:sequence` with content, `xsl:context-item`, predicate patterns and template rules for atomic values,
   maps and arrays, `xsl:import` anywhere, `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
   accumulators (`accumulator-before`/`accumulator-after`), `xsl:merge` (without streaming), `xsl:map` and
-  `xsl:map-entry`, `xsl:mode on-multiple-match`, packages: `xsl:package`, `xsl:use-package` with version ranges (resolved from a package library) and `xsl:override`.
+  `xsl:map-entry`, `xsl:mode on-multiple-match`, packages: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`, `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes.
 - **Serialization**: XML, HTML (including HTML5 via `html-version`), XHTML, text, JSON and adaptive;
   character maps, Unicode normalization; `fn:serialize` with an element or a map of parameters.
 
 ## What's outstanding
 
-- **XSLT 3.0 instructions**: `xsl:evaluate`, `xsl:assert`, package visibility rules (`xsl:accept`,
-  `xsl:expose`, `xsl:original`; used packages are loaded like imports, sharing one name space), a public API
-  for the package library, initial functions, `fn:current-output-uri` and the base
+- **XSLT 3.0 instructions**: `xsl:evaluate`, `xsl:assert`, a public API for the package library (the
+  harness uses an internal one), initial functions, `fn:current-output-uri` and the base
   output URI, copying accumulator values with `copy-accumulators`, `use-accumulators`.
 - **Serialization**: `json` and `adaptive` for `xsl:result-document`, the html method's `meta` element and
   URI escaping details, `err:line-number`/`err:column-number` in `xsl:catch`.
@@ -121,7 +120,7 @@ From [SPEC.md §22](SPEC.md):
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 88.9% of 7,939 run ([plan](docs/plan/p3-xslt30.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 90.6% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: compact tree, dispatch tables, build-time AOT | Not started |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |

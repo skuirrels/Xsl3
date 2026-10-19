@@ -144,6 +144,9 @@ namespace Xsl3.Xslt
         public readonly XslVersion XslVersion;
         public XslFlags Flags;
         public XslNodeV2? V2; // Xsl3: 2.0+ attributes
+        public int PackageId; // Xsl3: the package a declaration belongs to (0: the principal one)
+        public string? Visibility; // Xsl3: a declaration's visibility attribute
+        public int OverrideOf = -1; // Xsl3: in xsl:override, the package whose component it overrides
         private List<XslNode>? _content;
 
         public XslNode(XslNodeType nodeType, QilName? name, object? arg, XslVersion xslVer)

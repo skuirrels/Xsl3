@@ -184,4 +184,42 @@ public class Xslt30Tests
             "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
             "<xsl:template match='/'><out><xsl:for-each select='//g'><n b=\"{accumulator-before('count')}\" a=\"{accumulator-after('count')}\"/></xsl:for-each></out></xsl:template>",
             "<doc><g><i/><i/></g><g><i/></g></doc>"));
+
+    [Fact]
+    public void PackagesHidePrivateComponentsAndHonourOverrides()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "xsl3-packages-" + System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string used = Path.Combine(dir, "used.xsl");
+            File.WriteAllText(used,
+                $"<xsl:package name='urn:used' package-version='1.2.0' version='3.0' xmlns:xsl='{Xsl}' xmlns:u='urn:u'>" +
+                "<xsl:function name='u:secret' visibility='private'><xsl:sequence select=\"'secret'\"/></xsl:function>" +
+                "<xsl:function name='u:greet' visibility='public'><xsl:param name='n'/><xsl:sequence select=\"u:prefix() || $n || u:secret()\"/></xsl:function>" +
+                "<xsl:function name='u:prefix' visibility='public'><xsl:sequence select=\"'hello '\"/></xsl:function>" +
+                "</xsl:package>");
+            string principal =
+                $"<xsl:package name='urn:main' version='3.0' xmlns:xsl='{Xsl}' xmlns:u='urn:u' exclude-result-prefixes='u'>" +
+                "<xsl:use-package name='urn:used' package-version='1.*'><xsl:override>" +
+                "<xsl:function name='u:prefix' visibility='public'><xsl:sequence select=\"'[' || xsl:original() || ']'\"/></xsl:function>" +
+                "</xsl:override></xsl:use-package>" +
+                "<xsl:template name='xsl:initial-template' visibility='public'><out><xsl:value-of select=\"u:greet('you'), function-available('u:secret')\"/></out></xsl:template>" +
+                "</xsl:package>";
+            var transform = new XslCompiledTransform
+            {
+                InitialTemplate = new XmlQualifiedName("initial-template", Xsl),
+                Packages = new List<(string, string, System.Uri)> { ("urn:used", "1.2.0", new System.Uri(used)) },
+            };
+            transform.Load(XmlReader.Create(new StringReader(principal)), new XsltSettings(), new XmlUrlResolver());
+            var sw = new StringWriter();
+            transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+            // The override replaces u:prefix everywhere, even in the used package; u:secret stays private to it.
+            Assert.EndsWith("<out>[hello ]yousecret false</out>", sw.ToString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

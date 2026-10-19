@@ -358,6 +358,10 @@ namespace Xsl3.XPath31
                         // A literal name: the function is looked up as a named function reference would be,
                         // which finds the host's functions too; no such function gives the empty sequence.
                         string local = lexical.Value.Contains(':') ? lexical.Value[(lexical.Value.IndexOf(':') + 1)..] : lexical.Value;
+                        if (ns.Value == "http://www.w3.org/1999/XSL/Transform" && local == "original")
+                        {
+                            return _f.Sequence(); // xsl:original isn't available to function-lookup (XSLT 3.0 §3.5.3.3)
+                        }
                         try
                         {
                             return NamedFunctionReference(new NamedFunctionRef(new LexicalQName(null, local, ns.Value), arity.Value) { Span = args[0].Span });

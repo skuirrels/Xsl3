@@ -69,7 +69,47 @@ namespace Xsl3.Xslt
         QilNode IXPath31Environment.ContextLast() =>
             FocusAbsent ? X31(nameof(XsltLibrary.X31RaiseDouble), T.DoubleX, _f.String("XPDY0002"), _f.String("The focus is absent in a function body")) : GetLastPosition();
 
-        QilNode? IXPath31Environment.ResolveVariable(QName name) => _scope.LookupVariable(name.LocalName, name.NamespaceUri);
+        QilNode? IXPath31Environment.ResolveVariable(QName name)
+        {
+            if (_scope.IsLocalVariable(name.LocalName, name.NamespaceUri) || _compiler.PackageInfos.Count <= 1)
+            {
+                return _scope.LookupVariable(name.LocalName, name.NamespaceUri);
+            }
+            // Xsl3: a global variable as the package whose code this is sees it (Packages.cs).
+            QilName? global = ResolveComponent31('V', _f.QName(name.LocalName, name.NamespaceUri), -1);
+            return global == null ? null : _scope.LookupVariable(global.LocalName, global.NamespaceUri);
+        }
+
+        // ------------------------------------------------------------ packages
+
+        // The package whose code is being compiled, and the component (for xsl:original).
+        private int _package31;
+        private XslNode? _component31;
+
+        private void EnterComponent31(XslNode component)
+        {
+            _package31 = component.PackageId;
+            _component31 = component;
+        }
+
+        /// <summary>
+        /// The registered name of the component a name in the current package's code refers to (null if it is
+        /// hidden there); xsl:original, in an overriding component, is the component it overrides (XTSE3075
+        /// elsewhere).
+        /// </summary>
+        private QilName? ResolveComponent31(char kind, QilName name, int arity)
+        {
+            if (name.NamespaceUri == XmlReservedNs.NsXslt && name.LocalName == "original")
+            {
+                if (_component31 != null && _compiler.PackageOriginals.TryGetValue(_component31, out QilName? original))
+                {
+                    return original;
+                }
+                ReportXPath31Error("XTSE3075", "xsl:original is only available in a component that overrides one in xsl:override");
+                return null;
+            }
+            return PackageComponents.Resolve(_compiler, _package31, kind, name, arity);
+        }
 
         // The lifted functions of the stylesheet's function items, and their dispatcher (completed by Compile).
         private FunctionItemRegistry? _functionItems31;
@@ -79,7 +119,8 @@ namespace Xsl3.Xslt
         QilNode? IXPath31Environment.ResolveFunction(QName name, IReadOnlyList<XPath31.Expr> args, System.Func<XPath31.Expr, QilNode> compile)
         {
             // Stylesheet functions (xsl:function) first: they may not override F&O functions, but have their own namespaces.
-            if (_compiler.Functions.TryGetValue((_f.QName(name.LocalName, name.NamespaceUri), args.Count), out var entry))
+            if ((IsV2 ? ResolveComponent31('F', _f.QName(name.LocalName, name.NamespaceUri), args.Count) : _f.QName(name.LocalName, name.NamespaceUri)) is QilName functionName &&
+                _compiler.Functions.TryGetValue((functionName, args.Count), out var entry))
             {
                 QilList actual = _f.ActualParameterList();
                 for (int i = 0; i < args.Count; i++)
@@ -1219,6 +1260,7 @@ namespace Xsl3.Xslt
             foreach (var (name, (decl, _)) in _compiler.Accumulators)
             {
                 EnterScope(decl);
+                EnterComponent31(decl);
                 var phases = new List<bool>();
                 int offset = items.Count;
                 items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () => CompileXPath31(decl.Select!)), 1));
@@ -2219,6 +2261,7 @@ namespace Xsl3.Xslt
             foreach (var (key, context, value) in _pendingKeys31)
             {
                 EnterScope(key);
+                EnterComponent31(key);
                 _singlFocus.SetFocus(context);
                 QilIterator values = _f.For(_f.OptimizeBarrier(CompileKeyMatch31(key.Match, context)));
                 _singlFocus.SetFocus(values);
@@ -2585,9 +2628,10 @@ namespace Xsl3.Xslt
 
         private void CompileFunctions31()
         {
-            foreach (var (_, (function, _)) in _compiler.Functions)
+            foreach (var ((functionName, functionArity), (function, _)) in _compiler.Functions)
             {
                 EnterScope(function);
+                EnterComponent31(function);
                 bool savedNoFocus = _noFocus;
                 _noFocus = true;
                 _temporaryOutput31++; // a function's result is a temporary tree (XTDE1480 for xsl:result-document)
@@ -2628,6 +2672,12 @@ namespace Xsl3.Xslt
                 for (int i = coerced.Count - 1; i >= 0; i--)
                 {
                     result = _f.Loop(coerced[i].Item1, result);
+                }
+                if (PackageComponents.IsAbstractWithoutOverride(_compiler, 'F', function, functionName, functionArity))
+                {
+                    // An abstract function that no package overrides (XSLT 3.0 §3.5.3.1).
+                    result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"The abstract function {functionName.LocalName} isn't overridden"));
+                    prologue = null;
                 }
                 function.Function!.Definition = prologue ?? result;
                 _noFocus = savedNoFocus;

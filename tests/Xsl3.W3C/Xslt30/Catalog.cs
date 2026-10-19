@@ -180,11 +180,35 @@ public sealed class TestEnvironment
     }
 
     /// <summary>The packages (other than the principal one) an environment or test supplies for xsl:use-package.</summary>
-    internal static List<(string Name, string Version, Uri Location)> SecondaryPackages(XElement element, string baseDirectory) =>
-        element.Elements(Catalog.Ns + "package")
-            .Where(p => (string?)p.Attribute("role") != "principal" && p.Attribute("uri") != null && p.Attribute("file") != null)
-            .Select(p => ((string)p.Attribute("uri")!, (string?)p.Attribute("package-version") ?? "1", new Uri(Path.GetFullPath(Path.Combine(baseDirectory, (string)p.Attribute("file")!)))))
-            .ToList();
+    // The package's name and version are its xsl:package's (the catalog's uri and package-version otherwise).
+    internal static List<(string Name, string Version, Uri Location)> SecondaryPackages(XElement element, string baseDirectory)
+    {
+        var packages = new List<(string, string, Uri)>();
+        foreach (XElement p in element.Elements(Catalog.Ns + "package"))
+        {
+            if ((string?)p.Attribute("role") == "principal" || p.Attribute("file") == null)
+            {
+                continue;
+            }
+            string path = Path.GetFullPath(Path.Combine(baseDirectory, (string)p.Attribute("file")!));
+            string? name = (string?)p.Attribute("uri"), version = (string?)p.Attribute("package-version");
+            try
+            {
+                XElement root = XDocument.Load(path).Root!;
+                name = (string?)root.Attribute("name") ?? name;
+                version = (string?)root.Attribute("package-version") ?? version;
+            }
+            catch (Exception)
+            {
+                // unreadable: the catalog's values
+            }
+            if (name != null)
+            {
+                packages.Add((name.Trim(), (version ?? "1").Trim(), new Uri(path)));
+            }
+        }
+        return packages;
+    }
 
     public IReadOnlyList<(string Name, string Version, Uri Location)> Packages { get; }
 

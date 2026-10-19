@@ -70,6 +70,10 @@ namespace Xsl3.Xslt
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
         public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
         public QilName? DefaultInitialMode; // Xsl3: the principal stylesheet module's default-mode
+        // Xsl3: packages (Packages.cs): their tables, overridden components' redirects, overrides' originals.
+        public List<PackageInfo> PackageInfos = new();
+        public Dictionary<string, QilName> PackageRedirects = new(System.StringComparer.Ordinal);
+        public Dictionary<XslNode, QilName> PackageOriginals = new();
         public Dictionary<QilName, (XslNode Declaration, int Precedence)> Accumulators = new(); // Xsl3: xsl:accumulator
 
         /// <summary>Xsl3: false if a function with this name and arity already has the same import precedence.</summary>
@@ -121,6 +125,7 @@ namespace Xsl3.Xslt
             Debug.Assert(Root == null, "Compiler cannot be reused");
 
             new XsltLoader().Load(this, stylesheet, xmlResolver, origResolver);
+            PackageComponents.Build(this); // Xsl3: the packages' component tables (Packages.cs)
             qil = QilGenerator.CompileStylesheet(this);
             SortErrors();
             return CompilerErrorColl;
@@ -449,6 +454,7 @@ namespace Xsl3.Xslt
         public string OnMultipleMatch = "use-last";
         public Dictionary<string, string> Attributes = new(); // the attributes given, for XTSE0545
         public int ImportPrecedence;
+        public ModeDeclNode? Declaration; // Xsl3: for packages: the declaration's line, package and visibility
     }
 
     internal sealed class Output

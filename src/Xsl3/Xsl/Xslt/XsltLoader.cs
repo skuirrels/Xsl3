@@ -183,6 +183,8 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_sourceDocumentAttributes);
             AtomizeAttributes(_contextItemAttributes);
             AtomizeAttributes(_mapEntryAttributes);
+            AtomizeAttributes(_packageRuleAttributes);
+            AtomizeAttributes(_usePackageAttributes);
             AtomizeAttributes(_accumulatorAttributes);
             AtomizeAttributes(_mergeSourceAttributes);
             AtomizeAttributes(_mergeKeyAttributes);
@@ -249,6 +251,63 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Xsl3: packages (Packages.cs): the package whose modules are being loaded, the package an xsl:override's
+        // declarations override components of (-1 outside xsl:override), and the packages found by location.
+        private int _packageId;
+        private int _overrideTarget = -1;
+        private bool _packageTopModule;
+        private bool _loadingInclude;
+        private readonly HashSet<int> _packageTopModules = new();
+
+        // XSLT 3.0 §3.5.1: integers separated by dots, then optionally "-" and an NCName (XML 1.0 fifth edition).
+        private static bool IsPackageVersion(string version)
+        {
+            version = version.Trim();
+            int dash = version.IndexOf('-');
+            if (!System.Text.RegularExpressions.Regex.IsMatch(dash < 0 ? version : version[..dash], @"^[0-9]+(\.[0-9]+)*$"))
+            {
+                return false;
+            }
+            if (dash < 0)
+            {
+                return true;
+            }
+            string name = version[(dash + 1)..];
+            for (int i = 0; i < name.Length; i++)
+            {
+                int c = char.IsSurrogatePair(name, i) ? char.ConvertToUtf32(name[i], name[++i]) : name[i];
+                bool start = c is '_' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= 0xC0 and <= 0xD6 or >= 0xD8 and <= 0xF6 or >= 0xF8 and <= 0x2FF or
+                    >= 0x370 and <= 0x37D or >= 0x37F and <= 0x1FFF or >= 0x200C and <= 0x200D or >= 0x2070 and <= 0x218F or >= 0x2C00 and <= 0x2FEF or
+                    >= 0x3001 and <= 0xD7FF or >= 0xF900 and <= 0xFDCF or >= 0xFDF0 and <= 0xFFFD or >= 0x10000 and <= 0xEFFFF;
+                bool other = c is '-' or '.' or 0xB7 or >= '0' and <= '9' or >= 0x300 and <= 0x36F or >= 0x203F and <= 0x2040;
+                if (!(start || other && i > 0))
+                {
+                    return false;
+                }
+            }
+            return name.Length > 0;
+        }
+        private readonly Dictionary<string, int> _packageLocations = new(StringComparer.Ordinal);
+
+        // A declaration of a used package is registered under a name of its own package (Packages.cs).
+        private void PackageDeclaration(XslNode declaration, string? visibility)
+        {
+            declaration.PackageId = _packageId;
+            declaration.Visibility = visibility;
+            declaration.OverrideOf = _overrideTarget;
+            if (_packageId > 0 && declaration.Name != null)
+            {
+                declaration.Name.NamespaceUri = PackageComponents.MangleNamespace(_packageId, declaration.Name.NamespaceUri);
+            }
+        }
+
+        // A mode named in a used package (or in an xsl:override, the overridden package's mode) is that package's.
+        private QilName PackageMode(QilName mode)
+        {
+            int package = _overrideTarget >= 0 ? _overrideTarget : _packageId;
+            return package > 0 && !ReferenceEquals(mode, CurrentMode) ? PackageComponents.Mangle(mode, package) : mode;
+        }
+
         private Stylesheet LoadStylesheet(XmlReader reader, bool include)
         {
             string baseUri = reader.BaseURI!;
@@ -258,10 +317,13 @@ namespace Xsl3.Xslt
 
             Stylesheet? prevStylesheet = _curStylesheet;
             XsltInput prevInput = _input;
+            bool prevTopModule = _packageTopModule;
             Stylesheet thisStylesheet = include ? _curStylesheet! : _compiler.CreateStylesheet();
 
             _input = new XsltInput(reader, _compiler, _atoms);
             _curStylesheet = thisStylesheet;
+            bool prevLoadingInclude = _loadingInclude;
+            _loadingInclude = include;
 
             try
             {
@@ -275,7 +337,20 @@ namespace Xsl3.Xslt
                     // Imports should be compiled in the reverse order. Template lookup logic relies on that.
                     for (int i = importHrefs.Count; 0 <= --i;)
                     {
-                        _curStylesheet.Imports[i] = LoadStylesheet(importHrefs[i], /*include:*/false);
+                        // Xsl3: a used package is loaded like an import, as its own package.
+                        int savedPackage = _packageId;
+                        if (_packageLocations.TryGetValue(importHrefs[i].ToString(), out int package))
+                        {
+                            _packageId = package;
+                        }
+                        try
+                        {
+                            _curStylesheet.Imports[i] = LoadStylesheet(importHrefs[i], /*include:*/false);
+                        }
+                        finally
+                        {
+                            _packageId = savedPackage;
+                        }
                     }
                 }
             }
@@ -303,6 +378,8 @@ namespace Xsl3.Xslt
                 _documentUriInUse.Remove(baseUri);
                 _input = prevInput;
                 _curStylesheet = prevStylesheet;
+                _packageTopModule = prevTopModule;
+                _loadingInclude = prevLoadingInclude;
             }
             return thisStylesheet;
         }
@@ -377,10 +454,35 @@ namespace Xsl3.Xslt
         private void LoadRealStylesheet()
         {
             Debug.Assert(_input.IsXsltNamespace() && (_input.IsKeyword(_atoms.Stylesheet) || _input.IsKeyword(_atoms.Transform) || _input.LocalName == "package"));
+            bool isPackage = _input.LocalName == "package"; // (before the attributes are read)
             ContextInfo ctxInfo = _input.GetAttributes(_stylesheetAttributes);
 
             ParseValidationAttribute(2, /*defVal:*/true);
             ParseInputTypeAnnotationsAttribute(3);
+            // Xsl3: xsl:use-package is only allowed in the top-level module of a package and the modules it
+            // includes, not those it imports (XTSE3008).
+            if (!_loadingInclude)
+            {
+                _packageTopModule = V2 && _packageTopModules.Add(_packageId);
+            }
+            if (V2 && isPackage && _input.MoveToXsltAttribute(5, "package-version") && !IsPackageVersion(_input.Value))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "package-version", _input.Value);
+            }
+            if (V2)
+            {
+                // Xsl3: the package this module begins (XSLT 3.0 §3.5): the principal one, or one xsl:use-package found.
+                while (_compiler.PackageInfos.Count <= _packageId)
+                {
+                    _compiler.PackageInfos.Add(new PackageInfo(_compiler.PackageInfos.Count));
+                }
+                PackageInfo info = _compiler.PackageInfos[_packageId];
+                if (isPackage && !info.IsPackage)
+                {
+                    info.IsPackage = true;
+                    info.DeclaredModes = ParseYesNoAttribute(6, "declared-modes") != TriState.False;
+                }
+            }
             if (V2 && _compiler.DefaultInitialMode == null)
             {
                 // Xsl3: the principal module's default-mode is the default initial mode (XSLT 3.0 §2.3.2).
@@ -487,7 +589,15 @@ namespace Xsl3.Xslt
                                 {
                                     LoadUsePackage(ctxInfo, parentName);
                                 }
-                                else if (V2 && _input.LocalName is "global-context-item" or "expose")
+                                else if (V2 && _input.LocalName == "expose")
+                                {
+                                    PackageRule? expose = LoadPackageRule("expose");
+                                    if (expose != null)
+                                    {
+                                        _compiler.PackageInfos[_packageId].Expose.Add(expose);
+                                    }
+                                }
+                                else if (V2 && _input.LocalName is "global-context-item")
                                 {
                                     // Xsl3: declarations about the context item and package interfaces, not enforced yet.
                                     _input.SkipNode();
@@ -1035,6 +1145,7 @@ namespace Xsl3.Xslt
             }
 
             Key key = (Key)SetInfo(F.Key(keyName, match, use, _input.XslVersion), V2 ? content : null, ctxInfo);
+            key.PackageId = _packageId; // Xsl3: its code's names are its package's
             if (collation != null)
             {
                 key.V2 = new XslNodeV2 { Collation = collation };
@@ -1232,6 +1343,11 @@ namespace Xsl3.Xslt
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             QilName? setName = ParseQNameAttribute(0);
+            if (V2 && setName != null && _packageId > 0)
+            {
+                setName.NamespaceUri = PackageComponents.MangleNamespace(_packageId, setName.NamespaceUri);
+            }
+            string? setVisibility = _input.Visibility;
             Debug.Assert(setName != null, "Required attribute always != null");
 
             AttributeSet? set;
@@ -1246,6 +1362,12 @@ namespace Xsl3.Xslt
                     // to ensure stable order of prototemplate functions in QilExpression
                     _compiler.AllTemplates.Add(set);
                 }
+            }
+            if (V2)
+            {
+                set.PackageId = _packageId;
+                set.Visibility ??= setVisibility;
+                set.OverrideOf = _overrideTarget;
             }
 
             List<XslNode> content = new List<XslNode>();
@@ -1291,6 +1413,10 @@ namespace Xsl3.Xslt
             Debug.Assert(_curTemplate == null);
             Debug.Assert(!_input.CanHaveApplyImports);
             VarPar var = XslVarPar();
+            if (V2)
+            {
+                PackageDeclaration(var, var.Visibility);
+            }
             // Preserving namespaces to parse content later
             var.Namespaces = MergeNamespaces(var.Namespaces, stylesheetNsList);
             CheckError(!_curStylesheet!.AddVarPar(var), /*[XT0630]*/SR.Xslt_DupGlobalVariable, var.Name!.QualifiedName);
@@ -1308,6 +1434,7 @@ namespace Xsl3.Xslt
         {
             Debug.Assert(_curTemplate == null);
             ContextInfo ctxInfo = _input.GetAttributes(_templateAttributes);
+            string? templateVisibility = _input.Visibility;
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             string? match = ParseStringAttribute(0, "match");
@@ -1349,6 +1476,10 @@ namespace Xsl3.Xslt
 
             CheckReservedName(name, "template");
             _curTemplate = F.Template(name, match, mode, priority, _input.XslVersion);
+            if (V2)
+            {
+                PackageDeclaration(_curTemplate, templateVisibility);
+            }
             if (V2)
             {
                 _curTemplate.V2 = new XslNodeV2 { As = asType, Modes = _templateModes, AllModes = _templateAllModes };
@@ -2075,6 +2206,7 @@ namespace Xsl3.Xslt
                 nodeType == XslNodeType.Param ? _paramAttributes :
                 /*default:*/                       _withParamAttributes
             );
+            string? visibility = nodeType == XslNodeType.Variable && _input.MoveToXsltAttribute(6, "visibility") ? _input.Value.Trim() : null;
 
             QilName? name = ParseQNameAttribute(0);
             string? select = ParseStringAttribute(1, "select");
@@ -2128,6 +2260,7 @@ namespace Xsl3.Xslt
                     }
                 }
             }
+            result.Visibility = visibility;
             return result;
         }
 
@@ -2585,11 +2718,11 @@ namespace Xsl3.Xslt
             string? mode = V2 ? _input.DefaultMode : null;
             if (mode == null || mode == "#unnamed")
             {
-                return nullMode;
+                return PackageMode(nullMode);
             }
             _compiler.EnterForwardsCompatible();
             QilName result = CreateXPathQName(mode);
-            return _compiler.ExitForwardsCompatible(_input.ForwardCompatibility) ? result : nullMode;
+            return PackageMode(_compiler.ExitForwardsCompatible(_input.ForwardCompatibility) ? result : nullMode);
         }
 
         // Suppresses errors if FCB is enabled
@@ -2632,7 +2765,7 @@ namespace Xsl3.Xslt
             {
                 mode = nullMode;
             }
-            return mode;
+            return V2 ? PackageMode(mode) : mode;
         }
 
         // Parse mode when it is list. V1: -, V2: xsl:template
@@ -2711,6 +2844,10 @@ namespace Xsl3.Xslt
                     modes.Clear();
                     modes.Add(nullMode);
                 }
+                for (int m = 0; m < modes.Count; m++)
+                {
+                    modes[m] = PackageMode(modes[m]);
+                }
                 if (1 < modes.Count)
                 {
                     // Xsl3: the template is registered in each mode.
@@ -2719,7 +2856,7 @@ namespace Xsl3.Xslt
                 }
                 if (modes.Count == 0)
                 {
-                    return nullMode;
+                    return PackageMode(nullMode);
                 }
                 return modes[0];
             }

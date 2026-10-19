@@ -323,6 +323,8 @@ namespace Xsl3.Xslt
         {
             // Compile start apply-templates call
             CheckSingletonFocus();
+            _package31 = 0; // Xsl3: the entry point is the principal package's
+            _component31 = null;
             _singlFocus.SetFocus(SingletonFocusType.InitialContextNode);
             // Xsl3: the entry point is apply-templates in a mode, or a call of the initial named template.
             QilNode result = applyTmpls.NodeType == XslNodeType.CallTemplate
@@ -725,6 +727,7 @@ namespace Xsl3.Xslt
             Debug.Assert(tmpl != null && tmpl.Function != null && tmpl.Function.Definition.NodeType == QilNodeType.Unknown);
 
             EnterScope(tmpl);
+            EnterComponent31(tmpl);
 
             CheckSingletonFocus();
             _funcFocus.StartFocus(tmpl.Function.Arguments, !IsDebug ? tmpl.Flags : XslFlags.FullFocus);
@@ -762,6 +765,12 @@ namespace Xsl3.Xslt
             if (IsV2 && tmpl.Function.XmlType == T.NodeNotRtfS)
             {
                 body = ToNodes31(body);
+            }
+            if (IsV2 && tmpl is Template { Name: QilName abstractName } && PackageComponents.IsAbstractWithoutOverride(_compiler, 'T', tmpl, abstractName, -1))
+            {
+                // Xsl3: an abstract template that no package overrides (XSLT 3.0 §3.5.3.1).
+                body = _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"),
+                    _f.String($"The abstract template {abstractName.LocalName} isn't overridden")), tmpl.Function.XmlType!);
             }
             tmpl.Function.Definition = body;
             _currentTemplateRule = null;
@@ -1399,7 +1408,8 @@ namespace Xsl3.Xslt
             QilNode result;
             {
                 Template? tmpl;
-                if (_compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl))
+                if (IsV2 ? ResolveComponent31('T', node.Name!, -1) is QilName called && _compiler.NamedTemplates.TryGetValue(called, out tmpl)
+                    : _compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl))
                 {
                     Debug.Assert(tmpl.Function != null, "All templates should be already compiled");
                     if (IsV2)
@@ -1438,7 +1448,8 @@ namespace Xsl3.Xslt
             _outputScope.InvalidateAllPrefixes();
 
             AttributeSet? attSet;
-            if (_compiler.AttributeSets.TryGetValue(node.Name!, out attSet))
+            if (IsV2 ? ResolveComponent31('A', node.Name!, -1) is QilName used && _compiler.AttributeSets.TryGetValue(used, out attSet)
+                : _compiler.AttributeSets.TryGetValue(node.Name!, out attSet))
             {
                 Debug.Assert(attSet.Function != null, "All templates should be already compiled");
                 return _invkGen.GenerateInvoke(attSet.Function, AddRemoveImplicitArgs(node.Content, attSet.Flags)!);
@@ -2314,6 +2325,7 @@ namespace Xsl3.Xslt
                 if (template.Match != null)
                 {
                     EnterScope(template);
+                    EnterComponent31(template);
                     _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
                     QilNode result = CompileMatchPattern(template.Match);
                     _templatePattern31 = false;
@@ -2433,6 +2445,7 @@ namespace Xsl3.Xslt
             QilIterator it = (QilIterator)varPar.Value!;
 
             QilList? nsList = EnterScope(varPar);
+            EnterComponent31(varPar);
             QilNode content = CompileVarParValue(varPar);
             SetLineInfo(content, it.SourceLine);
             content = AddCurrentPositionLast(content);
@@ -2703,7 +2716,8 @@ namespace Xsl3.Xslt
                 return _f.Sequence();
             }
             // Xsl3: mode="#current" is the mode of the template rule being compiled (its first mode, if it has several).
-            QilName mode = ReferenceEquals(node.Name, XsltLoader.CurrentMode) ? CurrentMode31() : node.Name!;
+            QilName mode = ReferenceEquals(node.Name, XsltLoader.CurrentMode) ? CurrentMode31()
+                : IsV2 && node.Name!.LocalName.Length != 0 ? ResolveComponent31('M', node.Name, -1) ?? node.Name : node.Name!;
             return InvokeApplyFunction(sheet, mode, node.Content);
         }
 
@@ -3012,7 +3026,7 @@ namespace Xsl3.Xslt
         [Conditional("DEBUG")]
         private void VerifyXPathQName(QilName qname)
         {
-            Debug.Assert(
+            Debug.Assert(PackageComponents.Demangle(qname.NamespaceUri).Package != 0 || // Xsl3: a used package's name
                 Compiler.IsPhantomName(qname) ||
                 qname.NamespaceUri == ResolvePrefix(/*ignoreDefaultNs:*/true, qname.Prefix),
                 "QilGenerator must resolve the prefix to the same namespace as XsltLoader"

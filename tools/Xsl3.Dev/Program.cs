@@ -1,7 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 // A developer tool for working on Xsl3 itself (not the packaged CLI of SPEC §21.3):
-//   Xsl3.Dev run  <stylesheet> [<input>] [-it <template>] [-im <mode>]   transform to stdout
+//   Xsl3.Dev run  <stylesheet> [<input>] [-it <template>] [-im <mode>] [-p <package file>]...   transform to stdout
 //   Xsl3.Dev qil  <stylesheet>                                            the QIL the compiler produces
 // Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path.
 
@@ -21,12 +21,19 @@ if (args.Length < 2)
 
 string command = args[0], stylesheet = Path.GetFullPath(args[1]);
 string? input = null, initialTemplate = null, initialMode = null;
+var packages = new System.Collections.Generic.List<(string, string, Uri)>();
 for (int i = 2; i < args.Length; i++)
 {
     switch (args[i])
     {
         case "-it": initialTemplate = args[++i]; break;
         case "-im": initialMode = args[++i]; break;
+        case "-p":
+            // A package xsl:use-package can find: its name and version are its xsl:package's.
+            string file = Path.GetFullPath(args[++i]);
+            var root = System.Xml.Linq.XDocument.Load(file).Root!;
+            packages.Add(((string?)root.Attribute("name") ?? "", (string?)root.Attribute("package-version") ?? "1", new Uri(file)));
+            break;
         default: input = args[i]; break;
     }
 }
@@ -49,6 +56,7 @@ var transform = new XslCompiledTransform
 {
     InitialTemplate = initialTemplate == null ? null : new XmlQualifiedName(initialTemplate),
     InitialMode = initialMode == null ? null : new XmlQualifiedName(initialMode),
+    Packages = packages,
 };
 transform.Load(stylesheet, settings, new XmlUrlResolver());
 // An XmlReader, so that xsl:strip-space applies to the input.

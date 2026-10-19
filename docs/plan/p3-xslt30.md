@@ -19,7 +19,8 @@ result is delivered raw and serialized by `Runtime.ItemSerializer`), `fn:seriali
 `xsl:map`/`xsl:map-entry`, accumulators, `xsl:merge`, `on-multiple-match="fail"`, single-package stylesheets.
 Then `xsl:use-package` (the package is loaded like an import, from a package library; `xsl:override` declarations
 belong to the using package), so the package tests run: 7,058 passed of 7,939 run (88.9%).
-Next: package visibility, `xsl:original`, initial functions, `xsl:evaluate`, the html serializer details.
+Then package visibility (decision 9): 7,193 passed (90.6%).
+Next: initial functions, `xsl:evaluate`, the html serializer details, error-code coverage.
 
 ## Where P2 leaves us
 
@@ -58,6 +59,11 @@ Next: package visibility, `xsl:original`, initial functions, `xsl:evaluate`, the
    first so no partial result escapes; `X31Iterate` in a loop, the body's value ending in a control item for
    `xsl:next-iteration` (the new parameter values) or `xsl:break`. The positions of captured focus iterators
    are captured separately, since a captured iterator is a `Let`.
+9. **Packages share one compiled program.** Every component of a used package is registered under a name in a
+   namespace of its own (`PackageComponents.Mangle`); each package has a table of the components its code can
+   see, by plain name, built from the visibility rules (`xsl:expose`, `xsl:accept`, defaults), with overridden
+   components redirected to their overrides. The compiler resolves template, function, variable, attribute-set
+   and mode names through the table of the package whose code it is compiling.
 8. **Template rules match any item.** A template rule whose pattern is a predicate pattern (`.`, `.[…]`) takes
    an `item()` context; `xsl:apply-templates` over items that aren't nodes goes to a second matcher per mode
    that tries only those rules, then the built-in rules for items (text-only-copy: the value as text).

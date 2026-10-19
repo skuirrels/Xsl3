@@ -60,16 +60,34 @@ namespace Xsl3.Xslt
         private void LoadUsePackage(ContextInfo ctxInfo, QName parentName)
         {
             _input.GetAttributes(_usePackageAttributes);
+            if (!_packageTopModule)
+            {
+                ReportError(SR.Xml_UserException, "XTSE3008: xsl:use-package must be in the top-level module of a package, not one it imports or includes");
+            }
             string name = ParseStringAttribute(0, "name")?.Trim() ?? "";
             string version = ParseStringAttribute(1, "package-version")?.Trim() ?? "*";
+            ISourceLineInfo line = _input.BuildNameLineInfo();
             Uri? location = Xsl3.Xslt.PackageVersions.Find(_compiler.Packages, name, version);
+            UsedPackage? used = null;
             if (location == null)
             {
                 ReportError(SR.Xml_UserException, $"XTSE3000: no package named {name} with version {version} is available");
             }
-            else if (!_documentUriInUse.Contains(location.ToString()) && !_curStylesheet!.ImportHrefs.Contains(location))
+            else
             {
-                _curStylesheet!.ImportHrefs.Add(location);
+                // Each package is loaded once, with an id of its own.
+                if (!_packageLocations.TryGetValue(location.ToString(), out int id))
+                {
+                    id = _compiler.PackageInfos.Count;
+                    _compiler.PackageInfos.Add(new PackageInfo(id));
+                    _packageLocations[location.ToString()] = id;
+                    if (!_documentUriInUse.Contains(location.ToString()) && !_curStylesheet!.ImportHrefs.Contains(location))
+                    {
+                        _curStylesheet!.ImportHrefs.Add(location);
+                    }
+                }
+                used = new UsedPackage(id, line);
+                _compiler.PackageInfos[_packageId].Uses.Add(used);
             }
             if (_input.MoveToFirstChild())
             {
@@ -78,15 +96,117 @@ namespace Xsl3.Xslt
                     if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "override")
                     {
                         _input.GetAttributes();
-                        LoadDeclarations(ctxInfo, parentName, importAnywhere: true);
+                        int savedTarget = _overrideTarget;
+                        _overrideTarget = used?.Id ?? -1;
+                        try
+                        {
+                            LoadDeclarations(ctxInfo, parentName, importAnywhere: true);
+                        }
+                        finally
+                        {
+                            _overrideTarget = savedTarget;
+                        }
+                    }
+                    else if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "accept")
+                    {
+                        if (LoadPackageRule("accept") is PackageRule accept)
+                        {
+                            used?.Accept.Add(accept);
+                        }
                     }
                     else if (_input.NodeType == XmlNodeType.Element)
                     {
-                        _input.SkipNode(); // xsl:accept: visibility isn't enforced
+                        ReportError(SR.Xml_UserException, $"XTSE0010: {_input.QualifiedName} isn't allowed in xsl:use-package");
+                        _input.SkipNode();
                     }
                 }
                 while (_input.MoveToNextSibling());
             }
+        }
+
+        // XSLT 3.0 §3.5.3
+        private readonly XsltAttribute[] _packageRuleAttributes = {
+            new XsltAttribute("component",  V2Req),
+            new XsltAttribute("names",      V2Req),
+            new XsltAttribute("visibility", V2Req),
+        };
+
+        // xsl:expose or xsl:accept: the component kind, name tests (prefixes resolved) and visibility.
+        private PackageRule? LoadPackageRule(string element)
+        {
+            _input.GetAttributes(_packageRuleAttributes);
+            ISourceLineInfo line = _input.BuildNameLineInfo();
+            string component = ParseStringAttribute(0, "component")?.Trim() ?? "*";
+            string names = ParseStringAttribute(1, "names") ?? "";
+            string visibility = ParseStringAttribute(2, "visibility")?.Trim() ?? "private";
+            CheckNoContent();
+            char kind = component switch
+            {
+                "template" => 'T',
+                "function" => 'F',
+                "attribute-set" => 'A',
+                "variable" => 'V',
+                "mode" => 'M',
+                "*" => '*',
+                _ => '?',
+            };
+            if (kind == '?')
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "component", component);
+                return null;
+            }
+            bool hiddenAllowed = element == "accept";
+            if (visibility is not ("public" or "private" or "final" or "abstract") && !(hiddenAllowed && visibility == "hidden"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", visibility);
+                return null;
+            }
+            var tests = new List<PackageNameTest>();
+            foreach (string token in names.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string nameToken = token;
+                int? arity = null;
+                if (token.StartsWith('#'))
+                {
+                    // #unnamed and #default: the unnamed mode is always private to its package.
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "names", token);
+                    continue;
+                }
+                int hash = token.LastIndexOf('#');
+                if (hash > 0 && int.TryParse(token.AsSpan(hash + 1), out int n))
+                {
+                    arity = n;
+                    nameToken = token[..hash];
+                }
+                if (nameToken == "*")
+                {
+                    tests.Add(new PackageNameTest(null, null, arity, token));
+                }
+                else if (nameToken.StartsWith("*:", StringComparison.Ordinal))
+                {
+                    tests.Add(new PackageNameTest(null, nameToken[2..], arity, token));
+                }
+                else if (nameToken.EndsWith(":*", StringComparison.Ordinal))
+                {
+                    tests.Add(new PackageNameTest(_input.LookupXmlNamespace(nameToken[..^2]) ?? "", null, arity, token));
+                }
+                else if (nameToken.StartsWith("Q{", StringComparison.Ordinal) && nameToken.IndexOf('}') is int close and > 0)
+                {
+                    string local = nameToken[(close + 1)..];
+                    tests.Add(new PackageNameTest(nameToken[2..close], local == "*" ? null : local, arity, token));
+                }
+                else
+                {
+                    int colon = nameToken.IndexOf(':');
+                    string ns = colon < 0 ? "" : _input.LookupXmlNamespace(nameToken[..colon]) ?? "";
+                    tests.Add(new PackageNameTest(ns, colon < 0 ? nameToken : nameToken[(colon + 1)..], arity, token));
+                }
+            }
+            if (kind == '*' && tests.Any(t => !t.IsWildcard))
+            {
+                ReportError(SR.Xml_UserException, $"XTSE3022: xsl:{element} with component=\"*\" must name components with wildcards");
+            }
+            return new PackageRule(kind, tests, visibility, line);
         }
 
         // XSLT 3.0 §15
@@ -272,6 +392,7 @@ namespace Xsl3.Xslt
                 return;
             }
             XslNode decl = F.XslNode(XslNodeType.Accumulator, name, initial, _input.XslVersion);
+            decl.PackageId = _packageId;
             decl.V2 = new XslNodeV2 { As = asType };
             SetInfo(decl, rules, ctxInfo);
             int precedence = _curStylesheet!.ImportPrecedence;
@@ -824,6 +945,7 @@ namespace Xsl3.Xslt
         {
             Debug.Assert(_curTemplate == null);
             ContextInfo ctxInfo = _input.GetAttributes(_functionAttributes);
+            string? functionVisibility = _input.MoveToXsltAttribute(3, "visibility") ? _input.Value.Trim() : null;
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             QilName? name = ParseQNameAttribute(0);
@@ -835,6 +957,7 @@ namespace Xsl3.Xslt
             _input.CanHaveApplyImports = false;
             var function = new Template(name, /*match:*/null, nullMode, double.NaN, _input.XslVersion);
             function.IsFunction = true;
+            PackageDeclaration(function, functionVisibility);
             function.V2 = new XslNodeV2 { As = asType };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
@@ -890,8 +1013,13 @@ namespace Xsl3.Xslt
         private void LoadMode()
         {
             _input.GetAttributes(_modeAttributes);
-            QilName mode = _input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() != "#unnamed" ? ParseQNameAttribute(0) ?? nullMode : nullMode;
+            QilName mode = PackageMode(_input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() != "#unnamed" ? ParseQNameAttribute(0) ?? nullMode : nullMode);
             var decl = new ModeDecl { ImportPrecedence = _curStylesheet!.ImportPrecedence };
+            decl.Declaration = new ModeDeclNode(mode) { PackageId = _packageId, OverrideOf = _overrideTarget, SourceLine = _input.BuildNameLineInfo() };
+            if (_input.MoveToXsltAttribute(6, "visibility"))
+            {
+                decl.Declaration.Visibility = _input.Value.Trim();
+            }
             if (_input.MoveToXsltAttribute(1, "on-no-match"))
             {
                 decl.OnNoMatch = _input.Value.Trim();
