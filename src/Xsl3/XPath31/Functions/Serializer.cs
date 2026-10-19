@@ -176,6 +176,92 @@ namespace Xsl3.XPath31.Functions
                 }
             }
 
+            return Serialize(items, method, separator, standalone, indent, omitDeclaration, characterMap);
+        }
+
+        /// <summary>fn:serialize with the parameters as a map (F&amp;O 3.1 §14.1.1), which also selects json and adaptive.</summary>
+        public static string Serialize(IList<XPathItem> items, XdmMap parameters)
+        {
+            // The option parameter conventions (F&O 3.1 §1.5): each value is converted to the parameter's type,
+            // xs:untypedAtomic by casting; anything else is XPTY0004.
+            AtomicValue? Option(string name, AtomicType type)
+            {
+                if (parameters.Get(AtomicValue.OfString(name)) is not { Count: > 0 } value)
+                {
+                    return null;
+                }
+                IList<XPathItem> atoms = Sequences.Atomize(value);
+                if (atoms.Count != 1)
+                {
+                    throw Err.XPTY0004($"The serialization parameter {name} must be a single {type.Name}");
+                }
+                var a = (AtomicValue)atoms[0];
+                if (a.Type.Primitive == Primitive.UntypedAtomic)
+                {
+                    return Casting.Cast(a, type);
+                }
+                return a.Type.DerivesFrom(type) ? a : throw Err.XPTY0004($"The serialization parameter {name} must be {type.Name}, not {a.Type.Name}");
+            }
+            string? String(string name) => Option(name, AtomicTypes.String)?.Value;
+            bool? Boolean(string name) => Option(name, AtomicTypes.Boolean) is BooleanValue b ? b.Boolean : null;
+            string method = parameters.Get(AtomicValue.OfString("method")) is { Count: 1 } m && m[0] is QNameValue q ? q.QName.LocalName : String("method") ?? "xml";
+            bool indent = Boolean("indent") ?? false;
+            var characterMap = new Dictionary<int, string>();
+            if (parameters.Get(AtomicValue.OfString("use-character-maps")) is { Count: > 0 } maps)
+            {
+                if (maps.Count != 1 || maps[0] is not XdmMap characters)
+                {
+                    throw Err.XPTY0004("The serialization parameter use-character-maps must be a map(xs:string, xs:string)");
+                }
+                foreach (var (key, value) in characters.Entries)
+                {
+                    if (!key.Type.DerivesFrom(AtomicTypes.String) || value.Count != 1 || value[0] is not AtomicValue v || !v.Type.DerivesFrom(AtomicTypes.String))
+                    {
+                        throw Err.XPTY0004("The serialization parameter use-character-maps must be a map(xs:string, xs:string)");
+                    }
+                    string c = key.Value;
+                    if (c.Length == 0 || c.Length > 2 || (c.Length == 2 && !char.IsSurrogatePair(c[0], c[1])))
+                    {
+                        throw new XdmException("SEPM0016", $"The key '{c}' of use-character-maps must be a single character");
+                    }
+                    characterMap[char.ConvertToUtf32(c, 0)] = v.Value;
+                }
+            }
+            string? separator = String("item-separator");
+            bool allowDuplicates = Boolean("allow-duplicate-names") ?? false;
+            string? jsonNodes = parameters.Get(AtomicValue.OfString("json-node-output-method")) is { Count: 1 } j && j[0] is QNameValue jq ? jq.QName.LocalName : String("json-node-output-method");
+            bool? standaloneOption = Boolean("standalone");
+            bool omitDeclaration = Boolean("omit-xml-declaration") ?? true;
+            foreach (string name in new[] { "byte-order-mark", "escape-uri-attributes", "include-content-type", "undeclare-prefixes" })
+            {
+                Boolean(name);
+            }
+            foreach (string name in new[] { "doctype-public", "doctype-system", "encoding", "media-type", "normalization-form", "version" })
+            {
+                String(name);
+            }
+            Option("html-version", AtomicTypes.Decimal);
+            if (method is "json" or "adaptive")
+            {
+                var extras = new Xsl3.Runtime.OutputExtras
+                {
+                    RawMethod = method,
+                    Indent = indent,
+                    ItemSeparator = separator,
+                    AllowDuplicateNames = allowDuplicates,
+                    JsonNodeOutputMethod = jsonNodes,
+                };
+                var sw = new StringWriter();
+                Xsl3.Runtime.ItemSerializer.Write(items, extras, sw);
+                return sw.ToString();
+            }
+            string? standalone = standaloneOption is bool sa ? (sa ? "yes" : "no") : null;
+            return Serialize(items, method, separator, standalone, indent, omitDeclaration, characterMap);
+        }
+
+        private static string Serialize(IList<XPathItem> items, string method, string? separator, string? standalone, bool indent, bool omitDeclaration,
+            Dictionary<int, string> characterMap)
+        {
             var sb = new StringBuilder();
             if (method == "text")
             {

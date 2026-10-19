@@ -182,6 +182,11 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_iterateAttributes);
             AtomizeAttributes(_sourceDocumentAttributes);
             AtomizeAttributes(_contextItemAttributes);
+            AtomizeAttributes(_mapEntryAttributes);
+            AtomizeAttributes(_accumulatorAttributes);
+            AtomizeAttributes(_mergeSourceAttributes);
+            AtomizeAttributes(_mergeKeyAttributes);
+            AtomizeAttributes(_accumulatorRuleAttributes);
             AtomizeAttributes(_catchAttributes);
 
         }
@@ -314,7 +319,8 @@ namespace Xsl3.Xslt
             {
                 if (
                     _input.IsKeyword(_atoms.Stylesheet) ||
-                    _input.IsKeyword(_atoms.Transform)
+                    _input.IsKeyword(_atoms.Transform) ||
+                    _input.LocalName == "package" // Xsl3: a package used on its own is its stylesheet (XSLT 3.0 §3.5)
                 )
                 {
                     LoadRealStylesheet();
@@ -363,10 +369,14 @@ namespace Xsl3.Xslt
             new XsltAttribute("id",                     V1Opt | V2Opt),
             new XsltAttribute("default-validation",     V2Opt),
             new XsltAttribute("input-type-annotations", V2Opt),
+            // Xsl3: xsl:package (XSLT 3.0 §3.5.1)
+            new XsltAttribute("name",                   V2Opt),
+            new XsltAttribute("package-version",        V2Opt),
+            new XsltAttribute("declared-modes",         V2Opt),
         };
         private void LoadRealStylesheet()
         {
-            Debug.Assert(_input.IsXsltNamespace() && (_input.IsKeyword(_atoms.Stylesheet) || _input.IsKeyword(_atoms.Transform)));
+            Debug.Assert(_input.IsXsltNamespace() && (_input.IsKeyword(_atoms.Stylesheet) || _input.IsKeyword(_atoms.Transform) || _input.LocalName == "package"));
             ContextInfo ctxInfo = _input.GetAttributes(_stylesheetAttributes);
 
             ParseValidationAttribute(2, /*defVal:*/true);
@@ -461,6 +471,15 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.LocalName == "mode")
                                 {
                                     LoadMode();
+                                }
+                                else if (V2 && _input.LocalName == "accumulator")
+                                {
+                                    LoadAccumulator(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName is "global-context-item" or "expose")
+                                {
+                                    // Xsl3: declarations about the context item and package interfaces, not enforced yet.
+                                    _input.SkipNode();
                                 }
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {
@@ -835,6 +854,22 @@ namespace Xsl3.Xslt
                 }
             }
 
+            if (V2 && _input.MoveToXsltAttribute(19, "item-separator"))
+            {
+                output.ItemSeparator = _input.Value;
+            }
+            if (V2 && _input.MoveToXsltAttribute(20, "json-node-output-method"))
+            {
+                output.JsonNodeOutputMethod = _input.Value.Trim();
+            }
+            if (V2)
+            {
+                TriState duplicates = ParseYesNoAttribute(21, "allow-duplicate-names");
+                if (duplicates != TriState.Unknown)
+                {
+                    output.AllowDuplicateNames = duplicates == TriState.True;
+                }
+            }
             if (V2 && _input.MoveToXsltAttribute(17, "html-version"))
             {
                 // Xsl3: XSLT 3.0 §26 (HTML5 serialization, Serialization 3.1 §7.1).
@@ -1497,6 +1532,9 @@ namespace Xsl3.Xslt
                                     V2 && name == "iterate" ? XslIterate() :
                                     V2 && name == "source-document" ? XslSourceDocument() :
                                     V2 && name == "context-item" ? XslContextItem() :
+                                    V2 && name == "map" ? XslMap() :
+                                    V2 && name == "merge" ? XslMerge() :
+                                    V2 && name == "map-entry" ? XslMapEntry() :
                                     V2 && name == "on-completion" ? XslOnCompletion() :
                                     V2 && name == "next-iteration" ? XslNextIteration() :
                                     V2 && name == "break" ? XslBreak() :
@@ -2856,6 +2894,8 @@ namespace Xsl3.Xslt
                     case "text": method = XmlOutputMethod.Text; break;
                     // Xsl3: XHTML is XML syntax with the XHTML rules, which Runtime.OutputExtras applies.
                     case "xhtml" when V2: method = XmlOutputMethod.Xml; break;
+                    // Xsl3: the raw result sequence, serialized by Runtime.ItemSerializer (XSLT 3.0 §26).
+                    case "json" or "adaptive" when V2: method = XmlOutputMethod.Text; break;
                     default:
                         ReportError(/*[XT1570]*/SR.Xslt_InvalidAttrValue, nameof(method), attValue);
                         return null;

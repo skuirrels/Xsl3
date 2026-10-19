@@ -801,6 +801,11 @@ namespace Xsl3.Runtime
         /// </summary>
         public bool MatchesXmlType(XPathItem item, int indexType)
         {
+            if (!item.IsNode && item.XmlType == null)
+            {
+                // Xsl3: function items, maps and arrays, which QIL types don't describe, match only item().
+                return XmlQueryTypeFactory.Item.IsSubtypeOf(GetXmlType(indexType));
+            }
             return CreateXmlType(item).IsSubtypeOf(GetXmlType(indexType));
         }
 

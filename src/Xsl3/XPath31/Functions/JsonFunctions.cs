@@ -71,9 +71,11 @@ namespace Xsl3.XPath31.Functions
             o.Escape = Flag("escape", false);
             o.Validate = Flag("validate", false);
             o.Indent = Flag("indent", false);
-            if (map.Get(AtomicValue.OfString("duplicates")) is IList<XPathItem> d)
+            if (map.Get(AtomicValue.OfString("duplicates")) is IList<XPathItem> options)
             {
-                if (d.Count != 1 || d[0] is not AtomicValue s || !s.Type.DerivesFrom(AtomicTypes.String))
+                // The function conversion rules: atomized, xs:untypedAtomic cast to xs:string.
+                IList<XPathItem> d = Sequences.Atomize(options);
+                if (d.Count != 1 || d[0] is not AtomicValue s || !(s.Type.DerivesFrom(AtomicTypes.String) || s.Type.Primitive == Primitive.UntypedAtomic))
                 {
                     throw Err.XPTY0004("The duplicates option must be an xs:string");
                 }

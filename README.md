@@ -19,9 +19,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,685 passed, 199 failed (99.1%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 6,791 passed, 790 failed, 444 not run (89.6%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 6,880 passed, 701 failed, 444 not run (90.8%) |
 | XSLT 1.0 speed against stock | parity (±3%, [docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -40,15 +40,18 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `xsl:on-non-empty`, `xsl:fork` and `xsl:source-document` (without streaming), `xsl:copy select`,
   `xsl:sequence` with content, `xsl:context-item`, predicate patterns and template rules for atomic values,
   maps and arrays, `xsl:import` anywhere, `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
-  HTML5 serialization (`html-version`).
+  accumulators (`accumulator-before`/`accumulator-after`), `xsl:merge` (without streaming), `xsl:map` and
+  `xsl:map-entry`, `xsl:mode on-multiple-match`, a stylesheet that is an `xsl:package` on its own.
+- **Serialization**: XML, HTML (including HTML5 via `html-version`), XHTML, text, JSON and adaptive;
+  character maps, Unicode normalization; `fn:serialize` with an element or a map of parameters.
 
 ## What's outstanding
 
-- **XSLT 3.0 instructions**: `xsl:merge`, accumulators, `xsl:map`/`xsl:map-entry`/`xsl:array`,
-  `xsl:evaluate`, `xsl:assert`, `xsl:mode on-multiple-match`, packages (`xsl:package`, `xsl:use-package`,
-  visibility) and initial functions, `fn:current-output-uri` and the base output URI.
-- **Serialization**: the `json` and `adaptive` methods, `err:line-number`/`err:column-number` in
-  `xsl:catch`.
+- **XSLT 3.0 instructions**: `xsl:evaluate`, `xsl:assert`, packages made of several modules
+  (`xsl:use-package`, visibility, `xsl:override`) and initial functions, `fn:current-output-uri` and the base
+  output URI, copying accumulator values with `copy-accumulators`, `use-accumulators`.
+- **Serialization**: `json` and `adaptive` for `xsl:result-document`, the html method's `meta` element and
+  URI escaping details, `err:line-number`/`err:column-number` in `xsl:catch`.
 - **Known gaps**: the HTML5-only void elements (`wbr`, `embed`, `source`, `track`) get end tags with the html method, dynamic errors in patterns treated as non-matches, static variables declared in modules
   imported after their use, regex character classes follow .NET's Unicode version rather than the suite's.
 - **Later phases**: performance work (P4), schema-awareness (P6) and streaming (P7) haven't started.
@@ -111,9 +114,9 @@ From [SPEC.md §22](SPEC.md):
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.1%, xslt30-test 3.0 profile 89.6% ([plan](docs/plan/p3-xslt30.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 90.8% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: compact tree, dispatch tables, build-time AOT | Not started |
-| P5 | `xsl:evaluate`, JSON and adaptive serialization | Not started (the JSON functions are in) |
+| P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |
 

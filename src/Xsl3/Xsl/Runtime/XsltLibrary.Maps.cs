@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Xml.XPath;
 using Xsl3.Xdm;
+using Xsl3.XPath31.Functions;
 
 namespace Xsl3.Runtime
 {
@@ -23,6 +24,39 @@ namespace Xsl3.Runtime
         }
 
         public XPathItem X31MapNew() => new Builder();
+
+        /// <summary>xsl:map-entry (XSLT 3.0 §21.2): a map with one entry; the key is one atomic value (XTTE3375).</summary>
+        public XPathItem X31MapSingleton(IList<XPathItem> key, IList<XPathItem> value)
+        {
+            IList<XPathItem> atoms = Sequences.Atomize(key);
+            if (atoms.Count != 1)
+            {
+                throw new XdmException("XPTY0004", $"The key of xsl:map-entry must be one atomic value, not {Coercion.Describe(atoms)}");
+            }
+            return XdmMap.Empty.Put((AtomicValue)atoms[0], Copy(value));
+        }
+
+        /// <summary>xsl:map: the maps its content gives, merged; anything else is XTTE3375, a duplicate key XTDE3365.</summary>
+        public XPathItem X31MapMerge(IList<XPathItem> maps)
+        {
+            XdmMap result = XdmMap.Empty;
+            foreach (XPathItem item in maps)
+            {
+                if (item is not XdmMap map)
+                {
+                    throw new XdmException("XTTE3375", $"The content of xsl:map must be maps, not {Coercion.Describe(Sequences.One(item))}");
+                }
+                foreach (var (key, value) in map.Entries)
+                {
+                    if (result.ContainsKey(key))
+                    {
+                        throw new XdmException("XTDE3365", $"xsl:map has two entries with the key {key.Value}");
+                    }
+                    result = result.Put(key, value);
+                }
+            }
+            return result;
+        }
 
         /// <summary>An entry of a map constructor: the key is a single atomic value (XPTY0004), not already present (XQDY0137).</summary>
         public XPathItem X31MapEntry(XPathItem builder, IList<XPathItem> key, IList<XPathItem> value)

@@ -31,9 +31,10 @@ raised a different code are counted separately.
 | 2026-10-19 | 19,077 | 969 | 99 | 95.2% |
 | 2026-10-19 | 19,222 | 822 | 99 | 95.9% |
 | 2026-10-19 | 21,685 | 199 | 99 | 99.1% | Maps, arrays, function items, JSON; `higherOrderFunctions` claimed (1,840 more tests apply) |
+| 2026-10-19 | 21,731 | 153 | 99 | 99.3% | `fn:serialize` with a map (json, adaptive); maps keep insertion order |
 
-The remaining failures are mostly the json and adaptive serialization methods, fn:random-number-generator
-and fn:function-lookup corner cases.
+The remaining failures are mostly fn:serialize details (html doctype, CDATA, character maps),
+fn:random-number-generator and fn:function-lookup corner cases.
 
 ## XSLT 2.0 / 3.0 (xslt30-test)
 
@@ -66,6 +67,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,516 | 1,065 | 444 | 86.0% | `xsl:iterate` |
 | 2026-10-19 | 6,670 | 911 | 444 | 88.0% | Whitespace stripping of loaded documents, HTML5 serialization, `fn:available-system-properties` |
 | 2026-10-19 | 6,791 | 790 | 444 | 89.6% | `xsl:source-document`, `xsl:copy select`, `default-mode`, `xsl:sequence` content, `xsl:context-item` |
+| 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

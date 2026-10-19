@@ -119,38 +119,55 @@ namespace Xsl3.Xdm
         public override int GetHashCode() => HashCode.Combine(Kind, Normal);
     }
 
-    /// <summary>An XDM map (XPath 3.1 §2.8.4): immutable; updates share structure with the original.</summary>
+    /// <summary>
+    /// An XDM map (XPath 3.1 §2.8.4): immutable; updates share structure with the original. Entries come back in
+    /// the order they were added (the order is implementation-dependent; this one is at least deterministic).
+    /// </summary>
     internal sealed class XdmMap : XdmFunction
     {
-        public static readonly XdmMap Empty = new(ImmutableDictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>>.Empty);
+        private readonly record struct Entry(AtomicValue Key, IList<XPathItem> Value, long Order);
 
-        private readonly ImmutableDictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>> _entries;
+        private static long s_order;
 
-        private XdmMap(ImmutableDictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>> entries)
+        public static readonly XdmMap Empty = new(ImmutableDictionary<MapKey, Entry>.Empty);
+
+        private readonly ImmutableDictionary<MapKey, Entry> _entries;
+
+        private XdmMap(ImmutableDictionary<MapKey, Entry> entries)
         {
             _entries = entries;
         }
 
         public int Count => _entries.Count;
 
-        public IEnumerable<AtomicValue> Keys => _entries.Values.Select(e => e.Key);
+        public IEnumerable<AtomicValue> Keys => Ordered.Select(e => e.Key);
 
-        public IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> Entries => _entries.Values;
+        public IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> Entries => Ordered.Select(e => new KeyValuePair<AtomicValue, IList<XPathItem>>(e.Key, e.Value));
+
+        private IEnumerable<Entry> Ordered => _entries.Count <= 1 ? _entries.Values : _entries.Values.OrderBy(e => e.Order);
 
         public bool ContainsKey(AtomicValue key) => _entries.ContainsKey(new MapKey(key));
 
         public IList<XPathItem>? Get(AtomicValue key) => _entries.TryGetValue(new MapKey(key), out var e) ? e.Value : null;
 
-        public XdmMap Put(AtomicValue key, IList<XPathItem> value) => new(_entries.SetItem(new MapKey(key), new(key, value)));
+        // A replaced entry keeps its place.
+        public XdmMap Put(AtomicValue key, IList<XPathItem> value)
+        {
+            var k = new MapKey(key);
+            long order = _entries.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
+            return new(_entries.SetItem(k, new Entry(key, value, order)));
+        }
 
         public XdmMap Remove(AtomicValue key) => new(_entries.Remove(new MapKey(key)));
 
         public static XdmMap Of(IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> entries)
         {
-            var builder = ImmutableDictionary.CreateBuilder<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>>();
+            var builder = ImmutableDictionary.CreateBuilder<MapKey, Entry>();
             foreach (var e in entries)
             {
-                builder[new MapKey(e.Key)] = e;
+                var k = new MapKey(e.Key);
+                long order = builder.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
+                builder[k] = new Entry(e.Key, e.Value, order);
             }
             return new XdmMap(builder.ToImmutable());
         }

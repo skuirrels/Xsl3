@@ -46,6 +46,230 @@ namespace Xsl3.Xslt
             new XsltAttribute("select", V2Opt),
         };
 
+        // XSLT 3.0 §15
+        private readonly XsltAttribute[] _mergeSourceAttributes = {
+            new XsltAttribute("name",              V2Opt),
+            new XsltAttribute("for-each-item",     V2Opt),
+            new XsltAttribute("for-each-source",   V2Opt),
+            new XsltAttribute("select",            V2Req),
+            new XsltAttribute("streamable",        V2Opt),
+            new XsltAttribute("use-accumulators",  V2Opt),
+            new XsltAttribute("sort-before-merge", V2Opt),
+            new XsltAttribute("validation",        V2Opt),
+            new XsltAttribute("type",              V2Opt),
+        };
+        private readonly XsltAttribute[] _mergeKeyAttributes = {
+            new XsltAttribute("select",     V2Opt),
+            new XsltAttribute("lang",       V2Opt),
+            new XsltAttribute("order",      V2Opt),
+            new XsltAttribute("collation",  V2Opt),
+            new XsltAttribute("case-order", V2Opt),
+            new XsltAttribute("data-type",  V2Opt),
+        };
+
+        private XslNode XslMerge()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes();
+            var content = new List<XslNode>();
+            bool action = false;
+            if (_input.MoveToFirstChild())
+            {
+                do
+                {
+                    if (_input.NodeType != XmlNodeType.Element)
+                    {
+                        if (_input.NodeType == XmlNodeType.Text)
+                        {
+                            ReportError(SR.Xml_UserException, "XTSE0010: text isn't allowed in xsl:merge");
+                        }
+                        continue;
+                    }
+                    string local = _input.LocalName;
+                    if (!_input.IsXsltNamespace())
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE0010: {_input.QualifiedName} isn't allowed in xsl:merge");
+                        _input.SkipNode();
+                    }
+                    else if (local == "merge-source" && !action)
+                    {
+                        content.Add(XslMergeSource());
+                    }
+                    else if (local == "merge-action" && !action && content.Count > 0)
+                    {
+                        action = true;
+                        ContextInfo actionInfo = _input.GetAttributes();
+                        content.Add(SetInfo(F.XslNode(XslNodeType.MergeAction, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), actionInfo));
+                    }
+                    else if (local == "fallback" && action)
+                    {
+                        _input.SkipNode();
+                    }
+                    else
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE0010: xsl:{local} isn't allowed here in xsl:merge");
+                        _input.SkipNode();
+                    }
+                }
+                while (_input.MoveToNextSibling());
+            }
+            if (!action)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:merge needs one or more xsl:merge-source elements and an xsl:merge-action");
+            }
+            return SetInfo(F.XslNode(XslNodeType.Merge, null, null, _input.XslVersion), content, ctxInfo);
+        }
+
+        private XslNode XslMergeSource()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_mergeSourceAttributes);
+            string? name = ParseStringAttribute(0, "name")?.Trim();
+            string? forEachItem = ParseStringAttribute(1, "for-each-item");
+            string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            string? select = ParseStringAttribute(3, "select");
+            ParseYesNoAttribute(4, "streamable");
+            TriState sortBefore = ParseYesNoAttribute(6, "sort-before-merge");
+            if (forEachItem != null && forEachSource != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE3195: xsl:merge-source can't have both for-each-item and for-each-source");
+            }
+            var keys = new List<XslNode>();
+            if (_input.MoveToFirstChild())
+            {
+                do
+                {
+                    if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "merge-key")
+                    {
+                        ContextInfo keyInfo = _input.GetAttributes(_mergeKeyAttributes);
+                        string? keySelect = ParseStringAttribute(0, "select");
+                        string? order = ParseStringAttribute(2, "order")?.Trim();
+                        string? collation = ParseStringAttribute(3, "collation")?.Trim();
+                        List<XslNode> keyContent = LoadInstructions();
+                        CheckError(keySelect != null && keyContent.Count != 0, /*[XTSE3200]*/SR.Xslt_ElementCntSel, "xsl:merge-key");
+                        if (order is not (null or "ascending" or "descending") && !order.Contains('{'))
+                        {
+                            ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "order", order);
+                        }
+                        XslNode key = F.XslNode(XslNodeType.MergeKey, null, keySelect ?? (keyContent.Count == 0 ? "." : null), _input.XslVersion);
+                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation };
+                        keys.Add(SetInfo(key, LoadEndTag(keyContent), keyInfo));
+                    }
+                    else if (_input.NodeType == XmlNodeType.Element)
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE0010: {_input.QualifiedName} isn't allowed in xsl:merge-source");
+                        _input.SkipNode();
+                    }
+                }
+                while (_input.MoveToNextSibling());
+            }
+            if (keys.Count == 0)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:merge-source needs one or more xsl:merge-key elements");
+            }
+            XslNode source = F.XslNode(XslNodeType.MergeSource, null, select, _input.XslVersion);
+            source.V2 = new XslNodeV2 { NameAvt = name, ForEachItem = forEachItem, ForEachSource = forEachSource, SortBeforeMerge = sortBefore == TriState.True };
+            return SetInfo(source, keys, ctxInfo);
+        }
+
+        // XSLT 3.0 §18.2.1
+        private readonly XsltAttribute[] _accumulatorAttributes = {
+            new XsltAttribute("name",          V2Req),
+            new XsltAttribute("initial-value", V2Req),
+            new XsltAttribute("as",            V2Opt),
+            new XsltAttribute("streamable",    V2Opt),
+        };
+        private readonly XsltAttribute[] _accumulatorRuleAttributes = {
+            new XsltAttribute("match",  V2Req),
+            new XsltAttribute("phase",  V2Opt),
+            new XsltAttribute("select", V2Opt),
+        };
+
+        private void LoadAccumulator(NsDecl? stylesheetNsList)
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_accumulatorAttributes);
+            ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
+            QilName? name = ParseQNameAttribute(0);
+            string? initial = ParseStringAttribute(1, "initial-value");
+            string? asType = ParseStringAttribute(2, "as");
+            ParseYesNoAttribute(3, "streamable");
+            var rules = new List<XslNode>();
+            if (_input.MoveToFirstChild())
+            {
+                do
+                {
+                    if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "accumulator-rule")
+                    {
+                        ContextInfo ruleInfo = _input.GetAttributes(_accumulatorRuleAttributes);
+                        string? match = ParseStringAttribute(0, "match");
+                        string phase = ParseStringAttribute(1, "phase")?.Trim() ?? "start";
+                        if (phase is not ("start" or "end"))
+                        {
+                            ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "phase", phase);
+                        }
+                        string? select = ParseStringAttribute(2, "select");
+                        List<XslNode> content = LoadInstructions();
+                        CheckError(select != null && content.Count != 0, /*[XTSE3300]*/SR.Xslt_ElementCntSel, "xsl:accumulator-rule");
+                        XslNode rule = F.XslNode(XslNodeType.AccumulatorRule, null, select, _input.XslVersion);
+                        rule.V2 = new XslNodeV2 { Match = match, Phase = phase };
+                        rules.Add(SetInfo(rule, LoadEndTag(content), ruleInfo));
+                    }
+                    else if (_input.NodeType == XmlNodeType.Element)
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE0010: {_input.QualifiedName} isn't allowed in xsl:accumulator");
+                        _input.SkipNode();
+                    }
+                    else if (_input.NodeType == XmlNodeType.Text)
+                    {
+                        ReportError(SR.Xml_UserException, "XTSE0010: text isn't allowed in xsl:accumulator");
+                    }
+                }
+                while (_input.MoveToNextSibling());
+            }
+            if (name == null)
+            {
+                return;
+            }
+            XslNode decl = F.XslNode(XslNodeType.Accumulator, name, initial, _input.XslVersion);
+            decl.V2 = new XslNodeV2 { As = asType };
+            SetInfo(decl, rules, ctxInfo);
+            int precedence = _curStylesheet!.ImportPrecedence;
+            if (_compiler.Accumulators.TryGetValue(name, out var existing))
+            {
+                if (existing.Precedence == precedence)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE3350: there are two accumulators named {name.QualifiedName}");
+                }
+                if (existing.Precedence >= precedence)
+                {
+                    return; // modules are read in decreasing order of precedence
+                }
+            }
+            _compiler.Accumulators[name] = (decl, precedence);
+        }
+
+        // XSLT 3.0 §21.2
+        private readonly XsltAttribute[] _mapEntryAttributes = {
+            new XsltAttribute("key",    V2Req),
+            new XsltAttribute("select", V2Opt),
+        };
+
+        private XslNode XslMap()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes();
+            return SetInfo(F.XslNode(XslNodeType.Map, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
+        }
+
+        private XslNode XslMapEntry()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_mapEntryAttributes);
+            string? key = ParseStringAttribute(0, "key");
+            string? select = ParseStringAttribute(1, "select");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3280]*/SR.Xslt_ElementCntSel, "xsl:map-entry");
+            XslNode node = F.XslNode(XslNodeType.MapEntry, null, select, _input.XslVersion);
+            node.V2 = new XslNodeV2 { NameAvt = key ?? "()" };
+            return SetInfo(node, LoadEndTag(content), ctxInfo);
+        }
+
         // XSLT 3.0 §10.1.2
         private readonly XsltAttribute[] _contextItemAttributes = {
             new XsltAttribute("as",  V2Opt),
@@ -641,10 +865,37 @@ namespace Xsl3.Xslt
             ParseYesNoAttribute(3, "warning-on-no-match");
             ParseYesNoAttribute(4, "warning-on-multiple-match");
             ParseYesNoAttribute(7, "streamable");
-            // Declarations of higher import precedence win (modules are read in decreasing precedence).
-            if (!_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? existing) || existing.ImportPrecedence == decl.ImportPrecedence)
+            for (int i = 1; i < _modeAttributes.Length; i++)
+            {
+                if (_input.MoveToXsltAttribute(i, _modeAttributes[i].name))
+                {
+                    decl.Attributes[_modeAttributes[i].name] = _input.Value.Trim();
+                }
+            }
+            // Declarations of higher import precedence win (modules are read in decreasing precedence); those of the
+            // same precedence combine, and may not give an attribute two values (XTSE0545).
+            if (!_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? existing))
             {
                 _compiler.ModeDecls[mode] = decl;
+            }
+            else if (existing.ImportPrecedence == decl.ImportPrecedence)
+            {
+                foreach (var (attribute, value) in decl.Attributes)
+                {
+                    if (existing.Attributes.TryGetValue(attribute, out string? other) && other != value)
+                    {
+                        ReportError(SR.Xml_UserException, $"XTSE0545: two xsl:mode declarations give {attribute} different values");
+                    }
+                    existing.Attributes[attribute] = value;
+                }
+                if (decl.Attributes.ContainsKey("on-no-match"))
+                {
+                    existing.OnNoMatch = decl.OnNoMatch;
+                }
+                if (decl.Attributes.ContainsKey("on-multiple-match"))
+                {
+                    existing.OnMultipleMatch = decl.OnMultipleMatch;
+                }
             }
             CheckNoContent();
         }

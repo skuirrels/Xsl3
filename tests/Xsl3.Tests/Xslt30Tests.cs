@@ -152,4 +152,36 @@ public class Xslt30Tests
         transform.Transform(doc, null, sw);
         Assert.Equal("2", sw.ToString());
     }
+
+    private static string RunText(string stylesheetBody, string input = "<doc/>")
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:xs='http://www.w3.org/2001/XMLSchema' exclude-result-prefixes='xs'>{stylesheetBody}</xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader(input)), null, sw);
+        return sw.ToString();
+    }
+
+    [Fact]
+    public void JsonOutputOfMapsAndArrays() =>
+        Assert.Equal("{\"a\":[1,\"x\\/y\"]}", RunText(
+            "<xsl:output method='json'/><xsl:template match='/'><xsl:map><xsl:map-entry key=\"'a'\" select=\"[1, 'x/y']\"/></xsl:map></xsl:template>"));
+
+    [Fact]
+    public void AdaptiveOutput() =>
+        Assert.Equal("\"a\"\n1\ntrue()\n<e/>", RunText(
+            "<xsl:output method='adaptive'/><xsl:template match='/'><xsl:sequence select=\"'a', 1, true()\"/><e/></xsl:template>"));
+
+    [Fact]
+    public void SerializeWithAMapOfParameters() =>
+        Assert.Equal("<out>[1,2]</out>", Run(
+            "<xsl:template match='/'><out><xsl:value-of select=\"serialize([1, 2], map{'method': 'json'})\"/></out></xsl:template>"));
+
+    [Fact]
+    public void AccumulatorsCountElementsInDocumentOrder() =>
+        Assert.Equal("<out><n b=\"0\" a=\"2\" /><n b=\"2\" a=\"3\" /></out>", Run(
+            "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
+            "<xsl:template match='/'><out><xsl:for-each select='//g'><n b=\"{accumulator-before('count')}\" a=\"{accumulator-after('count')}\"/></xsl:for-each></out></xsl:template>",
+            "<doc><g><i/><i/></g><g><i/></g></doc>"));
 }

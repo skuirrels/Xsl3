@@ -55,9 +55,7 @@ transform.Load(stylesheet, settings, new XmlUrlResolver());
 using XmlReader source = input != null
     ? XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse })
     : XmlReader.Create(new StringReader("<empty/>"));
-using (XmlWriter writer = XmlWriter.Create(Console.Out, transform.OutputSettings))
-{
-    transform.Transform(source, null, writer, new XmlUrlResolver());
-}
+// The TextWriter overload serializes as the stylesheet's output definition says (xhtml, html5, json, …).
+transform.Transform(source, null, Console.Out, new XmlUrlResolver());
 Console.WriteLine();
 return 0;

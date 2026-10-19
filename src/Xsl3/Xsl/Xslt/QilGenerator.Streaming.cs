@@ -142,6 +142,18 @@ namespace Xsl3.Xslt
                             return true;
                         }
                         break;
+                    case XslNodeType.Map:
+                    case XslNodeType.MapEntry:
+                        return true;
+                    case XslNodeType.Merge:
+                        foreach (XslNode part in node.Content)
+                        {
+                            if (part.NodeType == XslNodeType.MergeAction && MayReturnItems(part.Content, contextMayBeAtomic: true, scope))
+                            {
+                                return true;
+                            }
+                        }
+                        break;
                     case XslNodeType.Iterate:
                         if (MayReturnItems(node.Content, node.Select == null || !IsNodeExpression(node.Select, contextMayBeAtomic, scope), scope))
                         {

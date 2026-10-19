@@ -256,12 +256,14 @@ namespace Xsl3
         // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
         // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
         private XmlWriter CreateResultWriter(Stream results) =>
-            _command?.StaticData.Xslt2 == true
+            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, null, results)
+            : _command?.StaticData.Xslt2 == true
                 ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateResultWriter(TextWriter results) =>
-            _command?.StaticData.Xslt2 == true
+            _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, results, null)
+            : _command?.StaticData.Xslt2 == true
                 ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
@@ -448,6 +450,11 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             CheckCommand();
+            if (results is RawResultWriter raw)
+            {
+                raw.Write(_command.Evaluate(input, documentResolver, arguments));
+                return;
+            }
             _command.Execute(input, documentResolver, arguments, results);
         }
 
@@ -459,6 +466,11 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             CheckCommand();
+            if (results is RawResultWriter raw)
+            {
+                raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments));
+                return;
+            }
             _command.Execute(input.CreateNavigator()!, documentResolver, arguments, results);
         }
 
@@ -479,6 +491,54 @@ namespace Xsl3
             }
 
             return XmlResolver.ThrowingResolver;
+        }
+
+        /// <summary>
+        /// Xsl3: the target of a transformation whose output method is json or adaptive: the raw result sequence
+        /// is serialized to the text writer or stream (Runtime.ItemSerializer); it isn't written as XML events.
+        /// </summary>
+        private sealed class RawResultWriter(Xsl3.Runtime.OutputExtras extras, TextWriter? text, Stream? stream) : XmlWriter
+        {
+            public void Write(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> items)
+            {
+                if (text != null)
+                {
+                    Xsl3.Runtime.ItemSerializer.Write(items, extras, text);
+                    text.Flush();
+                    return;
+                }
+                System.Text.Encoding encoding = extras.Encoding.Equals("UTF-8", StringComparison.OrdinalIgnoreCase)
+                    ? new System.Text.UTF8Encoding(false) : System.Text.Encoding.GetEncoding(extras.Encoding);
+                using var writer = new StreamWriter(stream!, encoding, 4096, leaveOpen: true);
+                Xsl3.Runtime.ItemSerializer.Write(items, extras, writer);
+            }
+
+            private static NotSupportedException Unused() => new("The json and adaptive output methods don't write XML events");
+
+            public override WriteState WriteState => WriteState.Start;
+            public override void Flush() => text?.Flush();
+            public override string? LookupPrefix(string ns) => null;
+            public override void WriteBase64(byte[] buffer, int index, int count) => throw Unused();
+            public override void WriteCData(string? text) => throw Unused();
+            public override void WriteCharEntity(char ch) => throw Unused();
+            public override void WriteChars(char[] buffer, int index, int count) => throw Unused();
+            public override void WriteComment(string? text) => throw Unused();
+            public override void WriteDocType(string name, string? pubid, string? sysid, string? subset) => throw Unused();
+            public override void WriteEndAttribute() => throw Unused();
+            public override void WriteEndDocument() => throw Unused();
+            public override void WriteEndElement() => throw Unused();
+            public override void WriteEntityRef(string name) => throw Unused();
+            public override void WriteFullEndElement() => throw Unused();
+            public override void WriteProcessingInstruction(string name, string? text) => throw Unused();
+            public override void WriteRaw(char[] buffer, int index, int count) => throw Unused();
+            public override void WriteRaw(string data) => throw Unused();
+            public override void WriteStartAttribute(string? prefix, string localName, string? ns) => throw Unused();
+            public override void WriteStartDocument() => throw Unused();
+            public override void WriteStartDocument(bool standalone) => throw Unused();
+            public override void WriteStartElement(string? prefix, string localName, string? ns) => throw Unused();
+            public override void WriteString(string? text) => throw Unused();
+            public override void WriteSurrogateCharEntity(char lowChar, char highChar) => throw Unused();
+            public override void WriteWhitespace(string? ws) => throw Unused();
         }
     }
 }

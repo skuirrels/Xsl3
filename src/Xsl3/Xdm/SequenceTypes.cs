@@ -86,7 +86,7 @@ namespace Xsl3.Xdm
 
         public AtomicType Type { get; }
 
-        public override bool Matches(XPathItem item) => item is AtomicValue a ? a.Type.DerivesFrom(Type) : (!item.IsNode && Sequences.Atomize(item).Type.DerivesFrom(Type));
+        public override bool Matches(XPathItem item) => item is AtomicValue a ? a.Type.DerivesFrom(Type) : (!item.IsNode && item is not XdmFunction && Sequences.Atomize(item).Type.DerivesFrom(Type));
 
         public override string ToString() => Type.Name.ToString();
     }

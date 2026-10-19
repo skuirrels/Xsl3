@@ -870,7 +870,7 @@ namespace Xsl3.Xslt
             int attExpandText = 0;
 
             bool isXslOutput = IsXsltNamespace() && IsKeyword(_atoms.Output);
-            bool SS = IsXsltNamespace() && (IsKeyword(_atoms.Stylesheet) || IsKeyword(_atoms.Transform));
+            bool SS = IsXsltNamespace() && (IsKeyword(_atoms.Stylesheet) || IsKeyword(_atoms.Transform) || LocalName == "package");
             bool V2 = _compiler.Version == 2;
 
             for (int i = 0; i < attributes.Length; i++)
@@ -934,6 +934,9 @@ namespace Xsl3.Xslt
                         if (localName == "expand-text" && V2) { attExpandText = attNum; }
                         else
                         if (localName == "default-mode" && V2) { /* Xsl3: tracked in ReadAttribute */ }
+                        else
+                        // Xsl3: package visibility and accumulator copying don't change a single-package transformation.
+                        if (localName is "visibility" or "copy-accumulators" && V2) { }
                         else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);

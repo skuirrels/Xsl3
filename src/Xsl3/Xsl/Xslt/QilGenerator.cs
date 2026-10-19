@@ -184,6 +184,7 @@ namespace Xsl3.Xslt
                 if (IsV2)
                 {
                     CompileFunctions31();
+                    CompileAccumulators31();
                     _functionItems31?.Finish();
                 }
                 _varHelper.CheckEmpty();
@@ -329,6 +330,11 @@ namespace Xsl3.Xslt
                 : GenerateApply(_compiler.Root!, applyTmpls);
             _singlFocus.SetFocus(null);
 
+            if (IsV2 && _compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" })
+            {
+                // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
+                return Box(result);
+            }
             return _f.DocumentCtor(IsV2 ? ContentNodes(result) : result);
         }
 
@@ -2982,7 +2988,8 @@ namespace Xsl3.Xslt
 
                 // 3.2 Stylesheet templates
                 _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
-                applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates);
+                applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
+                    IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
                 _currentTunnel = savedTunnel;
             }
             return _f.Invoke(applyFunction, invokeArgs);

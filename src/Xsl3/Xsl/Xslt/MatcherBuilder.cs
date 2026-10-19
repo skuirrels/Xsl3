@@ -119,6 +119,9 @@ namespace Xsl3.Xslt
 
         public Template Template => _template;
 
+        /// <summary>Xsl3: the priority (explicit or default) of this alternative.</summary>
+        public double Priority => _priority;
+
         public QilFunction? TemplateFunction
         {
             get { return _template.Function; }
@@ -554,7 +557,7 @@ namespace Xsl3.Xslt
         }
 
 #if !DISABLE_MATCH_OPTIMIZATION
-        public QilNode BuildMatcher(QilIterator it, IList<XslNode> actualArgs, QilNode otherwise)
+        public QilNode BuildMatcher(QilIterator it, IList<XslNode> actualArgs, QilNode otherwise, bool failOnMultipleMatch = false)
         {
             QilNode matcher = _f.Int32(NoMatch);
 
@@ -578,9 +581,29 @@ namespace Xsl3.Xslt
 
             foreach (List<TemplateMatch> list in _allMatches)
             {
-                foreach (TemplateMatch match in list)
+                for (int m = 0; m < list.Count; m++)
                 {
-                    branches[++priority] = _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs);
+                    TemplateMatch match = list[m];
+                    QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs);
+                    if (failOnMultipleMatch)
+                    {
+                        // Xsl3: on-multiple-match="fail" (XSLT 3.0 §6.4): another rule of the same precedence and
+                        // priority that also matches is XTDE0540 (the chosen rule is the last of them).
+                        QilNode? conflict = null;
+                        for (int o = 0; o < m; o++)
+                        {
+                            if (list[o].Priority == match.Priority && list[o].Template != match.Template)
+                            {
+                                QilNode test = MatchPattern(it, list[o]);
+                                conflict = conflict == null ? test : _f.Or(conflict, test);
+                            }
+                        }
+                        if (conflict != null)
+                        {
+                            invoke = _f.Conditional(conflict, _f.Error(_f.String("XTDE0540: more than one template rule matches the node with the same precedence and priority")), invoke);
+                        }
+                    }
+                    branches[++priority] = invoke;
                 }
             }
 

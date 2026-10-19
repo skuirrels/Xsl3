@@ -78,8 +78,12 @@ namespace Xsl3.XPath31.Functions
             Define("fn:unparsed-text-available($href as xs:string?, $encoding as xs:string) as xs:boolean", (c, a) => Bool(a[0].Count != 0 && TextAvailable(S(a[0]), S(a[1]), c)));
             Define("fn:parse-xml($arg as xs:string?) as document-node(element(*))?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: false, c)));
             Define("fn:parse-xml-fragment($arg as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: true, c)));
-            Define("fn:serialize($arg as item()*) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], null)));
-            Define("fn:serialize($arg as item()*, $params as element()?) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], Node(a[1]))));
+            Define("fn:serialize($arg as item()*) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], (XPathNavigator?)null)));
+            Define("fn:serialize($arg as item()*, $params as item()?) as xs:string", (c, a) => Str(a[1] is [XdmMap map]
+                ? Serializer.Serialize(a[0], map)
+                : a[1] is [] or [XPathNavigator { NodeType: XPathNodeType.Element }]
+                    ? Serializer.Serialize(a[0], Node(a[1]))
+                    : throw Err.XPTY0004("The serialization parameters must be an output:serialization-parameters element or a map")));
         }
 
         // The base URI with XML Base applied: xml:base on an element (or an ancestor) is resolved against the

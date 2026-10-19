@@ -69,6 +69,7 @@ namespace Xsl3.Xslt
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
         public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
         public QilName? DefaultInitialMode; // Xsl3: the principal stylesheet module's default-mode
+        public Dictionary<QilName, (XslNode Declaration, int Precedence)> Accumulators = new(); // Xsl3: xsl:accumulator
 
         /// <summary>Xsl3: false if a function with this name and arity already has the same import precedence.</summary>
         public bool AddFunction(QilName name, int arity, Template function, int precedence)
@@ -445,6 +446,7 @@ namespace Xsl3.Xslt
     {
         public string OnNoMatch = "text-only-copy";
         public string OnMultipleMatch = "use-last";
+        public Dictionary<string, string> Attributes = new(); // the attributes given, for XTSE0545
         public int ImportPrecedence;
     }
 
@@ -475,6 +477,8 @@ namespace Xsl3.Xslt
         public string? NormalizationForm;
         public List<QilName>? UseCharacterMaps;
         public string? HtmlVersion; // Xsl3: xsl:output/@html-version
+        public string? ItemSeparator, JsonNodeOutputMethod; // Xsl3
+        public bool AllowDuplicateNames; // Xsl3
 
         public Output()
         {

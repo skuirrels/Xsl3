@@ -76,6 +76,14 @@ namespace Xsl3.Xslt
         Catch,
         Iterate,
         ContextItem,
+        Map,
+        MapEntry,
+        Accumulator,
+        AccumulatorRule,
+        Merge,
+        MergeSource,
+        MergeKey,
+        MergeAction,
         OnCompletion,
         NextIteration,
         Break,
@@ -106,6 +114,9 @@ namespace Xsl3.Xslt
         public int? StaticValue; // a static variable's value (ConstantPool id)
         public bool AllModes;
         public List<string>? Errors; // xsl:catch/@errors as EQNames, "Q{ns}*", "*:local" or "*"
+        public string? Match, Phase; // xsl:accumulator-rule
+        public string? ForEachItem, ForEachSource, Order; // xsl:merge-source, xsl:merge-key
+        public bool SortBeforeMerge;
     }
 
     internal sealed class NsDecl

@@ -128,6 +128,34 @@ namespace Xsl3.Xslt
                 }
                 case ("system-property", 1):
                     return CompileSystemProperty31(args[0], compile);
+                case ("current-merge-group", 0):
+                case ("current-merge-group", 1):
+                case ("current-merge-key", 0):
+                    if (_currentMerge31 is not var (group, key, sources, names))
+                    {
+                        return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3480"), _f.String($"{name.LocalName}() is absent outside xsl:merge-action"));
+                    }
+                    if (name.LocalName == "current-merge-key")
+                    {
+                        return key;
+                    }
+                    if (args.Count == 0)
+                    {
+                        return group;
+                    }
+                    if (args[0] is XPath31.StringLiteral sourceName)
+                    {
+                        int index = names.IndexOf(sourceName.Value);
+                        return index < 0
+                            ? ReportXPath31Error("XTDE3490", $"There is no merge source named {sourceName.Value}")
+                            : X31(nameof(XsltLibrary.X31MergeSourceGroup), T.ItemS, sources, _f.Double(index));
+                    }
+                    return X31(nameof(XsltLibrary.X31MergeSourceGroupNamed), T.ItemS, sources, String31(compile(args[0])),
+                        _f.Double(ConstantPool.Add(names.ToArray())));
+                case ("accumulator-before" or "accumulator-after", 1):
+                    return X31(nameof(XsltLibrary.X31AccumulatorValue), T.ItemS, AccumulatorItems31(), _f.Double(_accumulatorTable31),
+                        String31(compile(args[0])), _f.Double(NameContext31()), Box(compile(new XPath31.ContextItemExpr())),
+                        _f.Boolean(name.LocalName == "accumulator-after"));
                 case ("copy-of", 0):
                 case ("copy-of", 1):
                     return Box(CopyItems31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
@@ -380,6 +408,13 @@ namespace Xsl3.Xslt
                     return CompileTry31(node);
                 case XslNodeType.Iterate:
                     return CompileIterate31(node);
+                case XslNodeType.Merge:
+                    return CompileMerge31(node);
+                case XslNodeType.Map:
+                    // XSLT 3.0 §21.2: the maps of the content, merged (XTDE3365 for a duplicate key).
+                    return X31(nameof(XsltLibrary.X31MapMerge), T.Item, Box(CompileInstructions(node.Content)));
+                case XslNodeType.MapEntry:
+                    return X31(nameof(XsltLibrary.X31MapSingleton), T.Item, Box(CompileXPath31(node.V2!.NameAvt!)), Box(SelectOrContent31(node, node.Select)));
                 case XslNodeType.ContextItem:
                     // The context item a template rule or named template requires (XSLT 3.0 §10.1.2).
                     return node.V2?.As is string contextType && !FocusAbsent
@@ -1033,6 +1068,255 @@ namespace Xsl3.Xslt
             return _resultFormats31.Value;
         }
 
+        // ------------------------------------------------------------ xsl:merge
+
+        // In xsl:merge-action: the current merge group, the merge key, the group's items of each source (an array)
+        // and the sources' names.
+        private (QilNode Group, QilNode Key, QilNode Sources, List<string?> Names)? _currentMerge31;
+
+        /// <summary>
+        /// xsl:merge (XSLT 3.0 §15), unstreamed: each source's inputs are computed here (as arrays, one per input
+        /// sequence), its merge keys and the action are lifted into functions, and the run-time library merges the
+        /// inputs by key and calls the action for each group (X31Merge).
+        /// </summary>
+        private QilNode CompileMerge31(XslNode node)
+        {
+            var sources = new List<XslNode>();
+            XslNode? action = null;
+            foreach (XslNode n in node.Content)
+            {
+                if (n.NodeType == XslNodeType.MergeSource)
+                {
+                    sources.Add(n);
+                }
+                else if (n.NodeType == XslNodeType.MergeAction)
+                {
+                    action = n;
+                }
+            }
+            if (action == null || sources.Count == 0)
+            {
+                return _f.Sequence();
+            }
+            var names = new List<string?>();
+            var spec = new MergeSpec();
+            QilList inputs = _f.BaseFactory.Sequence();
+            QilList keyFunctions = _f.BaseFactory.Sequence();
+            QilList orders = _f.BaseFactory.Sequence(); // the order attribute value templates of the first source's keys
+            foreach (XslNode source in sources)
+            {
+                EnterScope(source);
+                string? sourceName = source.V2?.NameAvt;
+                if (sourceName != null && names.Contains(sourceName))
+                {
+                    ReportXPath31Error("XTSE3190", $"Two merge sources are named {sourceName}");
+                }
+                names.Add(sourceName);
+                if (source.Content.Count != sources[0].Content.Count)
+                {
+                    ReportXPath31Error("XTSE2200", "The merge sources have different numbers of merge keys");
+                }
+                spec.SortBeforeMerge.Add(source.V2!.SortBeforeMerge);
+                string? forEach = source.V2.ForEachItem ?? (source.V2.ForEachSource is string uris ? $"({uris}) ! doc(.)" : null);
+                QilNode sourceInputs;
+                if (forEach == null)
+                {
+                    sourceInputs = X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(CompileXPath31(source.Select!)));
+                }
+                else
+                {
+                    QilIterator each = _f.For(Box(CompileXPath31(forEach)));
+                    sourceInputs = _f.Loop(each, WithFixedFocus31(each, () => X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(CompileXPath31(source.Select!)))));
+                }
+                inputs.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(sourceInputs)));
+                keyFunctions.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () =>
+                {
+                    QilList keys = _f.BaseFactory.Sequence();
+                    foreach (XslNode key in source.Content)
+                    {
+                        EnterScope(key);
+                        keys.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(SelectOrContent31(key, key.Select))));
+                        ExitScope();
+                    }
+                    return Box(keys);
+                }), 1));
+                if (spec.Descending.Count == 0)
+                {
+                    foreach (XslNode key in source.Content)
+                    {
+                        EnterScope(key);
+                        spec.Descending.Add(key.V2?.Order == "descending");
+                        orders.Add(X31(nameof(XsltLibrary.X31StringItem), T.Item, CompileStringAvt(key.V2?.Order ?? "ascending")));
+                        string? collation = key.V2?.Collation;
+                        spec.Collations.Add(collation != null && !collation.Contains('{')
+                            ? XPath31.Functions.UriReference.IsAbsolute(collation) || StaticBaseUri31() is not string b ? collation : XPath31.Functions.UriReference.Resolve(collation, b)
+                            : StaticContext31().DefaultCollation);
+                        ExitScope();
+                    }
+                }
+                ExitScope();
+            }
+
+            var savedMerge = _currentMerge31;
+            QilNode actionItem = Lift31(own => WithFixedFocus31(_f.TypeAssert(X31(nameof(XsltLibrary.X31FirstItem), T.ItemS, own[0]), T.Item), () =>
+            {
+                var savedFixed = _fixedFocus31;
+                _fixedFocus31 = (savedFixed!.Value.Current, X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, own[3]),
+                    X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, own[4]));
+                _currentMerge31 = (own[0], own[1], own[2], names);
+                try
+                {
+                    EnterScope(action);
+                    QilNode result = CompileInstructions(action.Content);
+                    ExitScope();
+                    return result;
+                }
+                finally
+                {
+                    _currentMerge31 = savedMerge;
+                    _fixedFocus31 = savedFixed;
+                }
+            }), 5);
+
+            QilIterator inputsLet = _f.Let(Box(inputs)), keysLet = _f.Let(Box(keyFunctions)), actionLet = _f.Let(actionItem), ordersLet = _f.Let(Box(orders));
+            return _f.Loop(inputsLet, _f.Loop(keysLet, _f.Loop(actionLet, _f.Loop(ordersLet,
+                X31(nameof(XsltLibrary.X31Merge), T.ItemS, inputsLet, keysLet, actionLet, ordersLet, _f.Double(ConstantPool.Add(spec)))))));
+        }
+
+        // ------------------------------------------------------------ accumulators
+
+        // The function items of every accumulator (a global variable, compiled by CompileAccumulators31), and the
+        // table (ConstantPool) of where each accumulator's items are.
+        private QilIterator? _accumulatorItems31;
+        private int _accumulatorTable31;
+
+        private QilIterator AccumulatorItems31()
+        {
+            if (_accumulatorItems31 == null)
+            {
+                _accumulatorItems31 = _f.Let(_f.TypeAssert(_f.Sequence(), T.ItemS));
+                _accumulatorItems31.DebugName = "<xsl:accumulator>";
+                _gloVars.Add(_accumulatorItems31);
+                _accumulatorTable31 = ConstantPool.Add(new Dictionary<string, AccumulatorInfo>());
+            }
+            return _accumulatorItems31;
+        }
+
+        /// <summary>
+        /// The accumulators (XSLT 3.0 §18.2), if accumulator-before or accumulator-after is called: for each, a
+        /// function of the root for the initial value, and per rule a function of a node for the priority of the
+        /// rule's pattern if the node matches (else nothing) and one of the node and $value for the new value.
+        /// The run-time library walks each tree once, in document order, with them (X31AccumulatorValue).
+        /// </summary>
+        private void CompileAccumulators31()
+        {
+            if (_accumulatorItems31 == null)
+            {
+                return;
+            }
+            var table = (Dictionary<string, AccumulatorInfo>)ConstantPool.Get(_accumulatorTable31);
+            QilList items = _f.BaseFactory.Sequence();
+            foreach (var (name, (decl, _)) in _compiler.Accumulators)
+            {
+                EnterScope(decl);
+                var phases = new List<bool>();
+                int offset = items.Count;
+                items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () => CompileXPath31(decl.Select!)), 1));
+                // The rules, in decreasing order of preference among equal priorities: the last one wins.
+                for (int i = decl.Content.Count - 1; i >= 0; i--)
+                {
+                    XslNode rule = decl.Content[i];
+                    EnterScope(rule);
+                    phases.Add(rule.V2!.Phase == "end");
+                    items.Add(Lift31(own => AccumulatorMatch31(rule.V2!.Match!, own[0]), 1));
+                    items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () =>
+                    {
+                        _scope.EnterScope();
+                        try
+                        {
+                            _scope.AddVariable(_f.QName("value"), own[1]);
+                            return SelectOrContent31(rule, rule.Select);
+                        }
+                        finally
+                        {
+                            _scope.ExitScope();
+                        }
+                    }), 2));
+                    ExitScope();
+                }
+                SequenceTypeTest? type = null;
+                if (decl.V2?.As is string asType)
+                {
+                    try
+                    {
+                        XPathStaticContext sc = StaticContext31();
+                        type = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace)
+                            .Resolve(Parser.ParseSequenceType(asType));
+                    }
+                    catch (XPathStaticException e)
+                    {
+                        ReportXPath31Error(e.Code, e.Message);
+                    }
+                }
+                table[new QName(name.NamespaceUri, name.LocalName).EQName] = new AccumulatorInfo(offset, phases.ToArray(), type);
+                ExitScope();
+            }
+            _accumulatorItems31.Binding = Box(items);
+        }
+
+        // The pattern of an accumulator rule: the priority of the best alternative the node matches, else nothing.
+        private QilNode AccumulatorMatch31(string pattern, QilParameter node)
+        {
+            QilNode compiled = CompilePattern31(pattern);
+            var alternatives = new List<QilLoop>();
+            if (compiled.NodeType == QilNodeType.Sequence)
+            {
+                foreach (QilNode n in (QilList)compiled)
+                {
+                    alternatives.Add((QilLoop)n);
+                }
+            }
+            else
+            {
+                alternatives.Add((QilLoop)compiled);
+            }
+            alternatives.Sort((a, b) => XPathPatternBuilder.GetPriority(b).CompareTo(XPathPatternBuilder.GetPriority(a)));
+            QilIterator subject = _f.Let(_f.TypeAssert(node, T.NodeNotRtf));
+            QilNode result = _f.TypeAssert(_f.Sequence(), T.ItemS);
+            for (int i = alternatives.Count - 1; i >= 0; i--)
+            {
+                QilLoop alternative = alternatives[i];
+                QilNode condition = _refReplacer.Replace(alternative.Body, alternative.Variable, subject);
+                result = _f.Conditional(condition, Box(_f.Double(XPathPatternBuilder.GetPriority(alternative))), result);
+            }
+            return _f.Loop(subject, result);
+        }
+
+        // Compiles with the item as the focus (position and size 1), as the body of xsl:iterate does.
+        private QilNode WithFixedFocus31(QilNode item, System.Func<QilNode> compile)
+        {
+            LoopFocus savedLoop = _curLoop;
+            var savedFixed = _fixedFocus31;
+            QilIterator? savedNodeContext = _nodeContext31;
+            bool savedNoFocus = _noFocus;
+            QilIterator current = _f.Let(item);
+            try
+            {
+                _curLoop = new LoopFocus(_f);
+                _fixedFocus31 = (current, _f.Double(1), _f.Double(1));
+                _nodeContext31 = null;
+                _noFocus = false;
+                return _f.Loop(current, compile());
+            }
+            finally
+            {
+                _curLoop = savedLoop;
+                _fixedFocus31 = savedFixed;
+                _nodeContext31 = savedNodeContext;
+                _noFocus = savedNoFocus;
+            }
+        }
+
         // ------------------------------------------------------------ xsl:iterate
 
         // The focus of the body of xsl:iterate: the item, its position and the size of the sequence.
@@ -1403,8 +1687,13 @@ namespace Xsl3.Xslt
             int varScope = _varHelper.StartVariables();
             QilNode body = _varHelper.FinishVariables(Box(compile(own)), varScope);
 
-            // Global variables are captured too, so that their errors aren't caught by xsl:try (XSLT 3.0 §8.3).
+            // Global variables are captured too, so that their errors aren't caught by xsl:try (XSLT 3.0 §8.3);
+            // not the accumulators' items, which are made of lifted functions.
             var exclude = new HashSet<QilNode>(own);
+            if (_accumulatorItems31 != null)
+            {
+                exclude.Add(_accumulatorItems31);
+            }
             foreach (QilList globals in new[] { _extPars, _nsVars })
             {
                 foreach (QilNode g in globals)
@@ -1717,6 +2006,15 @@ namespace Xsl3.Xslt
                 Encoding = output.Encoding ?? "UTF-8",
                 MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
             };
+            if (output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } raw)
+            {
+                // Serialization 3.1 §10, §11: the raw result is serialized, not a tree.
+                extras.RawMethod = raw.Name;
+                extras.ItemSeparator = output.ItemSeparator;
+                extras.JsonNodeOutputMethod = output.JsonNodeOutputMethod;
+                extras.AllowDuplicateNames = output.AllowDuplicateNames;
+                extras.Indent = output.Settings.Indent;
+            }
             // HTML5: html-version="5", or version="5.0" with the html method (Serialization 3.1 §7.1).
             bool html = output.Settings.OutputMethod == XmlOutputMethod.Html;
             string? htmlVersion = output.HtmlVersion ?? (html ? output.Version : null);

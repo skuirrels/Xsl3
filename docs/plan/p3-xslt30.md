@@ -14,8 +14,10 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
 `xsl:where-populated`, `xsl:on-empty`/`xsl:on-non-empty`, `xsl:try`/`xsl:catch`, `xsl:iterate`,
 `xsl:fork` (unstreamed), template rules for items that aren't nodes, `fn:copy-of`, `fn:snapshot`,
 `xsl:source-document` (unstreamed), `xsl:copy select`, `default-mode`, `xsl:context-item`, HTML5
-serialization. xslt30-test 3.0 profile: 89.6%.
-Next: `xsl:merge`, accumulators, `xsl:map`/`xsl:array`, `xsl:evaluate`, `default-mode`, packages.
+serialization. xslt30-test 3.0 profile: 89.6%. Then the json and adaptive output methods (the principal
+result is delivered raw and serialized by `Runtime.ItemSerializer`), `fn:serialize` with a map,
+`xsl:map`/`xsl:map-entry`, accumulators, `xsl:merge`, `on-multiple-match="fail"`, single-package stylesheets.
+Next: packages with `xsl:use-package`, initial functions, `xsl:evaluate`, the html serializer details.
 
 ## Where P2 leaves us
 
@@ -67,13 +69,13 @@ Next: `xsl:merge`, accumulators, `xsl:map`/`xsl:array`, `xsl:evaluate`, `default
       function expressions.
 - [x] Function library: `map:*`, `array:*`, the higher-order `fn:*` functions, `fn:function-lookup`,
       `fn:function-name`, `fn:function-arity`. (Missing: `fn:random-number-generator`.)
-- [ ] JSON: `fn:parse-json`, `fn:json-doc`, `fn:json-to-xml`, `fn:xml-to-json` (done; the `fallback` option
-      isn't called), the `json` and `adaptive` serialization methods.
+- [x] JSON: `fn:parse-json`, `fn:json-doc`, `fn:json-to-xml`, `fn:xml-to-json` (the `fallback` option
+      isn't called), the `json` and `adaptive` output methods (principal result only).
 - [ ] XSLT 3.0 instructions: text value templates, `xsl:iterate`, `xsl:try`/`xsl:catch`, `xsl:where-populated`,
       `xsl:on-empty`/`xsl:on-non-empty`, `xsl:fork`, static parameters and shadow attributes, `xsl:import`
-      anywhere, predicate patterns and template rules for items (done); `xsl:mode` (`on-no-match` done;
-      `on-multiple-match`, `default-mode`), `xsl:merge`, accumulators, `xsl:evaluate`, `xsl:assert`,
-      `xsl:map`/`xsl:array`, packages. Known gaps: `err:line-number`/`err:column-number`, static variables
+      anywhere, predicate patterns and template rules for items, `xsl:mode` (`on-no-match`,
+      `on-multiple-match`), `default-mode`, `xsl:merge`, accumulators, `xsl:map`/`xsl:map-entry` (done);
+      `xsl:evaluate`, `xsl:assert`, packages with `xsl:use-package`. Known gaps: `err:line-number`/`err:column-number`, static variables
       from modules imported after a reference, dynamic errors in patterns as non-matches.
 - [x] XSLT 3.0 functions: `fn:copy-of`, `fn:snapshot`.
 - [x] Profile: claim XSLT 3.0 basic, XPath 3.1 and higher-order functions in the xslt30-test harness.

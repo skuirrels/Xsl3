@@ -29,6 +29,17 @@ namespace Xsl3.Runtime
         /// <summary>The character map (use-character-maps), code point to string.</summary>
         public IReadOnlyDictionary<int, string>? CharacterMap { get; set; }
 
+        /// <summary>"json" or "adaptive": the raw result sequence is serialized by <see cref="ItemSerializer"/>.</summary>
+        public string? RawMethod { get; set; }
+
+        public string? ItemSeparator { get; set; }
+
+        public string? JsonNodeOutputMethod { get; set; }
+
+        public bool AllowDuplicateNames { get; set; }
+
+        public bool Indent { get; set; }
+
         /// <summary>HTML5 serialization (html-version 5): its void elements, and &lt;!DOCTYPE html&gt; by default.</summary>
         public bool Html5 { get; set; }
 
@@ -40,7 +51,7 @@ namespace Xsl3.Runtime
 
         public OutputExtras Clone() => (OutputExtras)MemberwiseClone();
 
-        public bool IsEmpty => !Xhtml && !Html5 && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
+        public bool IsEmpty => !Xhtml && !Html5 && RawMethod == null && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
         public XmlWriter Wrap(XmlWriter writer) => IsEmpty ? writer : new SerializationWriter(writer, this);
 
