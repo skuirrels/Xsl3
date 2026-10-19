@@ -53,6 +53,11 @@ namespace Xsl3.Runtime
             plain.RawMethod = null;
             XmlWriterSettings s = settings.Clone();
             s.ConformanceLevel = ConformanceLevel.Fragment;
+            if (extras.ItemSeparator is { } separator && separator.AsSpan().IndexOfAny('\r', '\n') >= 0)
+            {
+                // The separator is written as it is: its newline isn't replaced by the platform's (\r\n on Windows).
+                s.NewLineHandling = NewLineHandling.None;
+            }
             using XmlWriter w = PrincipalResult.Create(factory, s, plain);
             for (int i = 0; i < items.Count; i++)
             {
