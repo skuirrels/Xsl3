@@ -54,12 +54,18 @@ the later rows count about 1,460 fewer tests.
 
 From P3 the harness runs the XSLT 3.0 profile: tests for "XSLT 3.0 or later" too, with higher-order functions
 and XPath 3.1 claimed (`XSL3_XSLT30_PROFILE=2.0` still runs the 2.0 one). Stylesheets with `version="3.0"` are
-no longer compiled in forwards-compatible mode.
+no longer compiled in forwards-compatible mode. Tests that need packages, initial functions, collections or
+a schema aren't run yet (the report's "Not run" line counts them by reason).
 
 | Date | Passed | Failed | Not run | Pass rate | Notes |
 |---|---:|---:|---:|---:|---|
 | 2026-10-19 | 4,881 | 1,077 | 2,067 | 81.9% | XSLT 3.0 profile, first run |
 | 2026-10-19 | 5,023 | 935 | 2,067 | 84.3% | Text value templates, `xsl:mode` |
+| 2026-10-19 | 6,198 | 1,201 | 626 | 83.8% | The harness runs tests whose stylesheet comes from their environment |
+| 2026-10-19 | 6,494 | 1,087 | 444 | 85.7% | Static parameters, shadow attributes, `xsl:where-populated`, `xsl:on-empty`, `xsl:try`, predicate patterns |
+| 2026-10-19 | 6,516 | 1,065 | 444 | 86.0% | `xsl:iterate` |
+| 2026-10-19 | 6,670 | 911 | 444 | 88.0% | Whitespace stripping of loaded documents, HTML5 serialization, `fn:available-system-properties` |
+| 2026-10-19 | 6,791 | 790 | 444 | 89.6% | `xsl:source-document`, `xsl:copy select`, `default-mode`, `xsl:sequence` content, `xsl:context-item` |
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

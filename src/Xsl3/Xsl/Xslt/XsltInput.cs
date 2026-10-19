@@ -294,6 +294,12 @@ namespace Xsl3.Xslt
                 _scopeManager.AddNsDeclaration(XmlBasePrefix, atomized);
                 _ctxInfo!.AddNamespace(XmlBasePrefix, atomized);
             }
+            else if (rec.localName == "default-mode" && _compiler.Version != 1 &&
+                (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
+            {
+                // Xsl3: [xsl:]default-mode (XSLT 3.0 §6.6.1), scoped like a namespace declaration.
+                _scopeManager.AddNsDeclaration(DefaultModePrefix, _atoms.NameTable.Add(_reader.Value.Trim()));
+            }
             else if (rec.localName == "xpath-default-namespace" && _compiler.Version != 1 &&
                 (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
             {
@@ -492,6 +498,10 @@ namespace Xsl3.Xslt
                         int depth = _reader.Depth;
                         _scopeManager.EnterScope();
                         _numAttributes = ReadElement();
+                        if (_compiler.Version == 2 && !_skippingUseWhen)
+                        {
+                            ApplyShadowAttributes();
+                        }
                         if (depth > 0 && !_skippingUseWhen && _compiler.Version == 2 && ExcludedByUseWhen())
                         {
                             // Xsl3: an element whose use-when is false is ignored, with its subtree (XSLT 3.0 §3.13.1).
@@ -519,8 +529,64 @@ namespace Xsl3.Xslt
 
         private bool _skippingUseWhen;
 
+        /// <summary>Xsl3: the namespaces in scope at the current element, for static expressions.</summary>
+        public Dictionary<string, string> StaticNamespaces()
+        {
+            var namespaces = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (CompilerScopeManager<VarPar>.ScopeRecord ns in _scopeManager)
+            {
+                if (ns.ncName != null && ns.nsUri != null && ns.ncName.Length > 0 && ns.ncName[0] != '#')
+                {
+                    namespaces.TryAdd(ns.ncName, ns.nsUri);
+                }
+            }
+            return namespaces;
+        }
+
+        /// <summary>Xsl3: the static base URI at the current element (xml:base applied).</summary>
+        public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _reader.BaseURI;
+
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
         public string XPathDefaultNamespace => _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "";
+
+        // Xsl3: shadow attributes (XSLT 3.0 §3.13.2): on an XSLT element, _name="{static AVT}" is evaluated now and
+        // stands for the attribute name, which it overrides.
+        private void ApplyShadowAttributes()
+        {
+            if (!Ref.Equal(_records[0].nsUri, _atoms.UriXsl))
+            {
+                return;
+            }
+            for (int i = 1; i <= _numAttributes; i++)
+            {
+                ref Record rec = ref _records[i];
+                if (rec.nsUri.Length != 0 || rec.localName.Length < 2 || rec.localName[0] != '_')
+                {
+                    continue;
+                }
+                string name = _atoms.NameTable.Add(rec.localName[1..]);
+                try
+                {
+                    rec.value = UseWhen.EvaluateAvt(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues);
+                }
+                catch (Xsl3.XPath31.XPathStaticException e)
+                {
+                    ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                }
+                catch (Xsl3.Xdm.XdmException e)
+                {
+                    ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                }
+                for (int j = 1; j <= _numAttributes; j++)
+                {
+                    if (j != i && _records[j].nsUri.Length == 0 && Ref.Equal(_records[j].localName, name))
+                    {
+                        _records[j].nsUri = _atoms.NameTable.Add("urn:xsl3:shadowed"); // overridden: ignored as a foreign attribute
+                    }
+                }
+                rec.localName = name;
+            }
+        }
 
         /// <summary>Xsl3: the stylesheet element's use-when is false.</summary>
         public bool ModuleExcluded { get; private set; }
@@ -534,17 +600,9 @@ namespace Xsl3.Xslt
                 ref Record rec = ref _records[i];
                 if (rec.localName == "use-when" && (xslt ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
                 {
-                    var namespaces = new Dictionary<string, string>(StringComparer.Ordinal);
-                    foreach (CompilerScopeManager<VarPar>.ScopeRecord ns in _scopeManager)
-                    {
-                        if (ns.ncName != null && ns.nsUri != null && ns.ncName.Length > 0 && ns.ncName[0] != '#')
-                        {
-                            namespaces.TryAdd(ns.ncName, ns.nsUri);
-                        }
-                    }
                     try
                     {
-                        return !UseWhen.Evaluate(rec.value, namespaces, _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "", rec.baseUri);
+                        return !UseWhen.Evaluate(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues);
                     }
                     catch (Xsl3.XPath31.XPathStaticException e)
                     {
@@ -744,8 +802,12 @@ namespace Xsl3.Xslt
             }
             SetVersion(version);
         }
+        /// <summary>Xsl3: the [xsl:]version of the element last read that has one.</summary>
+        public double LastVersion { get; private set; }
+
         private void SetVersion(double version)
         {
+            LastVersion = version;
             if (_compiler.Version == 0)
             {
                 // Xsl3: the principal module's version picks the processor (SPEC §4.3).
@@ -784,7 +846,7 @@ namespace Xsl3.Xslt
         private XsltAttribute[]? _attributes;
         // Mapping of attribute names as they ordered in 'attributes' array
         // to there's numbers in actual stylesheet as they ordered in 'records' array
-        private readonly int[] _xsltAttributeNumber = new int[21];
+        private readonly int[] _xsltAttributeNumber = new int[32];
 
         public ContextInfo GetAttributes()
         {
@@ -870,6 +932,8 @@ namespace Xsl3.Xslt
                         if (Ref.Equal(localName, _atoms.Version) && (V2)) { /* Xsl3: a standard attribute of every XSLT element in 2.0 */ }
                         else
                         if (localName == "expand-text" && V2) { attExpandText = attNum; }
+                        else
+                        if (localName == "default-mode" && V2) { /* Xsl3: tracked in ReadAttribute */ }
                         else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);
@@ -1096,6 +1160,10 @@ namespace Xsl3.Xslt
         public const string DefaultCollationPrefix = "#default-collation";
         public const string XmlBasePrefix = "#xml-base";
         public const string ExpandTextPrefix = "#expand-text";
+        public const string DefaultModePrefix = "#default-mode";
+
+        /// <summary>Xsl3: the [xsl:]default-mode in scope at the current element (a lexical QName or #unnamed), if any.</summary>
+        public string? DefaultMode => _scopeManager.LookupNamespace(DefaultModePrefix);
 
         // Xsl3: [xsl:]expand-text (XSLT 3.0 §5.6.2): text in the sequence constructors in scope are text value templates.
         private void SetExpandText(int attExpandText, ContextInfo ctxInfo)

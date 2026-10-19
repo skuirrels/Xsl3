@@ -109,7 +109,7 @@ namespace Xsl3.Xslt
             }
             else
             {
-                compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : nullMode);
+                compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : compiler.DefaultInitialMode ?? nullMode);
             }
             ProcessOutputSettings();
             foreach (AttributeSet attSet in compiler.AttributeSets.Values)
@@ -177,6 +177,12 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_characterMapAttributes);
             AtomizeAttributes(_outputCharacterAttributes);
             AtomizeAttributes(_modeAttributes);
+            AtomizeAttributes(_onEmptyAttributes);
+            AtomizeAttributes(_tryAttributes);
+            AtomizeAttributes(_iterateAttributes);
+            AtomizeAttributes(_sourceDocumentAttributes);
+            AtomizeAttributes(_contextItemAttributes);
+            AtomizeAttributes(_catchAttributes);
 
         }
 
@@ -365,6 +371,11 @@ namespace Xsl3.Xslt
 
             ParseValidationAttribute(2, /*defVal:*/true);
             ParseInputTypeAnnotationsAttribute(3);
+            if (V2 && _compiler.DefaultInitialMode == null)
+            {
+                // Xsl3: the principal module's default-mode is the default initial mode (XSLT 3.0 §2.3.2).
+                _compiler.DefaultInitialMode = DefaultMode31();
+            }
 
             QName parentName = _input.ElementName;
             if (_input.ModuleExcluded)
@@ -373,6 +384,8 @@ namespace Xsl3.Xslt
                 _input.SkipNode();
                 return;
             }
+            // Xsl3: XSLT 3.0 lets xsl:import come after other declarations (XTSE0200 is 2.0 only).
+            bool importAnywhere = V2 && _input.LastVersion >= 3.0;
             if (_input.MoveToFirstChild())
             {
                 bool atTop = true;
@@ -386,7 +399,7 @@ namespace Xsl3.Xslt
                             {
                                 if (_input.IsKeyword(_atoms.Import))
                                 {
-                                    if (!atTop)
+                                    if (!atTop && !importAnywhere)
                                     {
                                         ReportError(/*[XT0200]*/SR.Xslt_NotAtTop, _input.QualifiedName, parentName);
                                         _input.SkipNode();
@@ -592,7 +605,15 @@ namespace Xsl3.Xslt
             new XsltAttribute("standalone",             V1Opt | V2Opt),
             new XsltAttribute("undeclare-prefixes",     V2Opt),
             new XsltAttribute("use-character-maps",     V2Opt),
-            new XsltAttribute("version",                V1Opt | V2Opt)
+            new XsltAttribute("version",                V1Opt | V2Opt),
+            // Xsl3: XSLT 3.0
+            new XsltAttribute("html-version",           V2Opt),
+            new XsltAttribute("build-tree",             V2Opt),
+            new XsltAttribute("item-separator",         V2Opt),
+            new XsltAttribute("json-node-output-method", V2Opt),
+            new XsltAttribute("allow-duplicate-names",  V2Opt),
+            new XsltAttribute("parameter-document",     V2Opt),
+            new XsltAttribute("suppress-indentation",   V2Opt),
         };
         private void LoadOutput()
         {
@@ -811,6 +832,19 @@ namespace Xsl3.Xslt
                     // ignore version since we support only one version for both xml (1.0) and html (4.0)
                     output.Version = _input.Value;
                     output.VersionPrec = currentPrec;
+                }
+            }
+
+            if (V2 && _input.MoveToXsltAttribute(17, "html-version"))
+            {
+                // Xsl3: XSLT 3.0 §26 (HTML5 serialization, Serialization 3.1 §7.1).
+                if (!IsDecimal31(_input.Value))
+                {
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "html-version", _input.Value);
+                }
+                else
+                {
+                    output.HtmlVersion = _input.Value.Trim().TrimStart('+');
                 }
             }
 
@@ -1418,6 +1452,14 @@ namespace Xsl3.Xslt
                                         continue;
                                     }
                                 }
+                                else if (V2 && name == "context-item")
+                                {
+                                    // Xsl3: the first child of xsl:template (XSLT 3.0 §10.1.2), before its parameters.
+                                    if (!atTop || content.Exists(n => n.NodeType != XslNodeType.Text) || !((string)parentName).EndsWith("template", StringComparison.Ordinal))
+                                    {
+                                        ReportError(SR.Xml_UserException, "XTSE0010: xsl:context-item must be the first child of xsl:template");
+                                    }
+                                }
                                 else
                                 {
                                     atTop = false;
@@ -1449,6 +1491,18 @@ namespace Xsl3.Xslt
                                     V2 && Ref.Equal(name, _atoms.Document) ? XslDocument() :
                                     V2 && Ref.Equal(name, _atoms.ForEachGroup) ? XslForEachGroup() :
                                     V2 && Ref.Equal(name, _atoms.NextMatch) ? XslNextMatch() :
+                                    V2 && name == "where-populated" ? XslWherePopulated() :
+                                    V2 && name == "fork" ? XslFork() :
+                                    V2 && name == "try" ? XslTry() :
+                                    V2 && name == "iterate" ? XslIterate() :
+                                    V2 && name == "source-document" ? XslSourceDocument() :
+                                    V2 && name == "context-item" ? XslContextItem() :
+                                    V2 && name == "on-completion" ? XslOnCompletion() :
+                                    V2 && name == "next-iteration" ? XslNextIteration() :
+                                    V2 && name == "break" ? XslBreak() :
+                                    V2 && name == "catch" ? XslCatch() :
+                                    V2 && name == "on-empty" ? XslOnEmpty(XslNodeType.OnEmpty) :
+                                    V2 && name == "on-non-empty" ? XslOnEmpty(XslNodeType.OnNonEmpty) :
                                     V2 && Ref.Equal(name, _atoms.Sequence) ? XslSequence() :
                                     V2 && Ref.Equal(name, _atoms.ResultDocument) ? XslResultDocument() :
                                     /*default:*/                                   LoadUnknownXsltInstruction(parentName)
@@ -1603,7 +1657,8 @@ namespace Xsl3.Xslt
             new XsltAttribute("inherit-namespaces", V2Opt),
             new XsltAttribute("use-attribute-sets", V1Opt | V2Opt),
             new XsltAttribute("type",               V2Opt),
-            new XsltAttribute("validation",         V2Opt)
+            new XsltAttribute("validation",         V2Opt),
+            new XsltAttribute("select",             V2Opt), // Xsl3: XSLT 3.0
         };
         private XslNode XslCopy()
         {
@@ -1623,10 +1678,20 @@ namespace Xsl3.Xslt
             ParseTypeAttribute(3);
             ParseValidationAttribute(4, /*defVal:*/false);
 
+            string? select = V2 ? ParseStringAttribute(5, "select") : null;
             XslNode copy = SetInfo(F.Copy(), LoadEndTag(LoadInstructions(content)), ctxInfo);
             if (V2)
             {
                 copy.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, InheritNamespaces = inheritNamespacesAtt };
+            }
+            if (select != null)
+            {
+                // Xsl3: xsl:copy select (XSLT 3.0 §11.9.1) copies the item it selects, which is the context item
+                // of its content; none gives nothing, several are an error (XTTE3180).
+                string single = $"let $Q{{urn:xsl3}}copy := ({select}) return if (count($Q{{urn:xsl3}}copy) gt 1) " +
+                    "then error(QName('http://www.w3.org/2005/xqt-errors', 'XTTE3180'), 'The select expression of xsl:copy gives more than one item') " +
+                    "else $Q{urn:xsl3}copy";
+                return SetInfo(F.ForEach(single, ctxInfo, _input.XslVersion), new List<XslNode> { copy }, ctxInfo);
             }
             return copy;
         }
@@ -1927,14 +1992,17 @@ namespace Xsl3.Xslt
             new XsltAttribute("select",   V1Opt | V2Opt),
             new XsltAttribute("as",       V2Opt),
             new XsltAttribute("required", 0),
-            new XsltAttribute("tunnel",   0)
+            new XsltAttribute("tunnel",   0),
+            new XsltAttribute("static",   V2Opt),
+            new XsltAttribute("visibility", V2Opt),
         };
         private readonly XsltAttribute[] _paramAttributes = {
             new XsltAttribute("name",     V1Req | V2Req),
             new XsltAttribute("select",   V1Opt | V2Opt),
             new XsltAttribute("as",       V2Opt),
             new XsltAttribute("required", V2Opt),
-            new XsltAttribute("tunnel",   V2Opt)
+            new XsltAttribute("tunnel",   V2Opt),
+            new XsltAttribute("static",   V2Opt),
         };
         private readonly XsltAttribute[] _withParamAttributes = {
             new XsltAttribute("name",    V1Req | V2Req),
@@ -1986,6 +2054,7 @@ namespace Xsl3.Xslt
                 }
             }
 
+            TriState isStatic = nodeType != XslNodeType.WithParam && V2 ? ParseYesNoAttribute(5, "static") : TriState.Unknown;
             List<XslNode> content = LoadContent(select != null);
             CheckError((required == TriState.True) && (select != null || content.Count != 0), /*[???]*/SR.Xslt_RequiredAndSelect, name!.ToString());
 
@@ -1994,6 +2063,21 @@ namespace Xsl3.Xslt
             if (V2)
             {
                 result.V2 = new XslNodeV2 { As = asType, Required = required == TriState.True, Tunnel = tunnel == TriState.True };
+                if (isStatic == TriState.True)
+                {
+                    if (_curTemplate != null)
+                    {
+                        ReportError(SR.Xml_UserException, "XTSE0020: only global variables and parameters can be static");
+                    }
+                    else
+                    {
+                        if (content.Count != 0)
+                        {
+                            ReportError(SR.Xml_UserException, "XTSE0010: a static variable or parameter takes its value from select");
+                        }
+                        result.V2.StaticValue = EvaluateStatic(result);
+                    }
+                }
             }
             return result;
         }
@@ -2294,6 +2378,67 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Xsl3: a static variable or parameter (XSLT 3.0 §9.6): its value is computed now, from a supplied static
+        // parameter or from select, and serves use-when, shadow attributes and the stylesheet.
+        private int? EvaluateStatic(VarPar var)
+        {
+            var name = new Xsl3.Xdm.QName(var.Name!.NamespaceUri, var.Name.LocalName);
+            IList<System.Xml.XPath.XPathItem> value;
+            var key = new XmlQualifiedName(var.Name.LocalName, var.Name.NamespaceUri);
+            if (var.NodeType == XslNodeType.Param && _compiler.StaticParameters != null && _compiler.StaticParameters.TryGetValue(key, out var supplied))
+            {
+                value = supplied;
+            }
+            else if (var.Select != null)
+            {
+                try
+                {
+                    value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues);
+                }
+                catch (Xsl3.XPath31.XPathStaticException e)
+                {
+                    ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                    return null;
+                }
+                catch (Xsl3.Xdm.XdmException e)
+                {
+                    ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                    return null;
+                }
+            }
+            else if (var.V2!.Required)
+            {
+                ReportError(SR.Xml_UserException, $"XTDE0050: no value was supplied for the required static parameter ${var.Name.QualifiedName}");
+                return null;
+            }
+            else
+            {
+                // Without select: a zero-length string, or the empty sequence when there is an as attribute (§9.3).
+                value = var.V2!.As != null ? System.Array.Empty<System.Xml.XPath.XPathItem>() : Xsl3.Xdm.Sequences.One(Xsl3.Xdm.AtomicValue.OfString(""));
+            }
+            if (var.V2!.As != null)
+            {
+                try
+                {
+                    var sc = new Xsl3.XPath31.StaticTypeResolver(p => _input.StaticNamespaces().TryGetValue(p, out string? uri) ? uri : null, _input.XPathDefaultNamespace);
+                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, sc.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(var.V2.As)), "XTTE0590", () => $"${var.Name.QualifiedName}");
+                }
+                catch (Xsl3.Xdm.XdmException e)
+                {
+                    ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");
+                    return null;
+                }
+            }
+            int id = Xsl3.XPath31.ConstantPool.Add(value);
+            if (_compiler.StaticValues.ContainsKey(name) && !_input.ForwardCompatibility)
+            {
+                // A static variable can't be redeclared at the same precedence (XTSE3450); a lower one is ignored.
+                return _compiler.StaticValues[name];
+            }
+            _compiler.StaticValues[name] = id;
+            return id;
+        }
+
         private static readonly HashSet<string> s_literalXsltAttributes = new(StringComparer.Ordinal)
         {
             "version", "extension-element-prefixes", "exclude-result-prefixes", "use-attribute-sets", "xpath-default-namespace",
@@ -2385,6 +2530,19 @@ namespace Xsl3.Xslt
 
         // ------------------ little helper methods ---------------------
 
+        // Xsl3: the mode of [xsl:]default-mode in scope (XSLT 3.0 §6.6.1); the unnamed mode without one.
+        private QilName DefaultMode31()
+        {
+            string? mode = V2 ? _input.DefaultMode : null;
+            if (mode == null || mode == "#unnamed")
+            {
+                return nullMode;
+            }
+            _compiler.EnterForwardsCompatible();
+            QilName result = CreateXPathQName(mode);
+            return _compiler.ExitForwardsCompatible(_input.ForwardCompatibility) ? result : nullMode;
+        }
+
         // Suppresses errors if FCB is enabled
         private QilName ParseModeAttribute(int attNum)
         {
@@ -2394,7 +2552,7 @@ namespace Xsl3.Xslt
             //);
             if (!_input.MoveToXsltAttribute(attNum, "mode"))
             {
-                return nullMode;
+                return DefaultMode31();
             }
             // mode is always optional attribute
             _compiler.EnterForwardsCompatible();
@@ -2402,7 +2560,11 @@ namespace Xsl3.Xslt
             QilName mode;
             if (!V1 && qname == "#default")
             {
-                mode = nullMode;
+                mode = DefaultMode31();
+            }
+            else if (V2 && qname == "#unnamed")
+            {
+                mode = nullMode; // Xsl3: XSLT 3.0
             }
             else if (!V1 && qname == "#current")
             {
@@ -2431,7 +2593,7 @@ namespace Xsl3.Xslt
             //Debug.Assert(input.IsXsltKeyword(atoms.Template) && !V1);
             if (!_input.MoveToXsltAttribute(attNum, "mode"))
             {
-                return nullMode;
+                return DefaultMode31();
             }
 
             string modeList = _input.Value;
@@ -2459,7 +2621,11 @@ namespace Xsl3.Xslt
                         QilName mode;
                         if (qname == "#default")
                         {
-                            mode = nullMode;
+                            mode = DefaultMode31();
+                        }
+                        else if (qname == "#unnamed")
+                        {
+                            mode = nullMode; // Xsl3: XSLT 3.0
                         }
                         else if (qname == "#current")
                         {

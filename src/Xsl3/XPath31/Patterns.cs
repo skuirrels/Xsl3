@@ -26,17 +26,40 @@ namespace Xsl3.XPath31
         /// that may depend on the position are tested by selecting the step from the parent; patterns outside
         /// the forms recognised here are evaluated as expressions from each ancestor-or-self (the definition).
         /// </remarks>
-        public static List<PatternAlternative> CompilePattern(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env, System.Func<QilIterator> newNode)
+        /// <param name="newNode">The iterator for an alternative; its argument is whether the alternative is a
+        /// predicate pattern (".", ".[…]"), which matches any item, not only nodes.</param>
+        public static List<PatternAlternative> CompilePattern(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env, System.Func<bool, QilIterator> newNode)
         {
             var compiler = new XPath31Compiler(sc, f, env);
             var result = new List<PatternAlternative>();
+            if (ast is BinaryExpr { Op: BinaryOp.Union } && Alternatives(ast).Any(IsPredicatePattern))
+            {
+                // Pattern30 ::= PredicatePattern | UnionExprP: a predicate pattern is a whole pattern.
+                throw new XPathStaticException("XTSE0340", "A predicate pattern can't be an operand of a union", ast.Span.Start);
+            }
             foreach (Expr alternative in Alternatives(ast))
             {
-                QilIterator node = newNode();
+                QilIterator node = newNode(IsPredicatePattern(alternative));
                 QilNode condition = compiler.PatternCondition(alternative, node);
                 result.Add(new PatternAlternative(node, condition, DefaultPriority(alternative)));
             }
             return result;
+        }
+
+        /// <summary>A predicate pattern (XSLT 3.0 §5.5.2): "." with zero or more predicates.</summary>
+        public static bool IsPredicatePattern(Expr e) => e is ContextItemExpr or FilterExpr { Base: ContextItemExpr };
+
+        /// <summary>Whether some alternative of a pattern is a predicate pattern (so may match items that aren't nodes).</summary>
+        public static bool MatchesItems(string pattern)
+        {
+            try
+            {
+                return Alternatives(Parser.ParseXPath(pattern)).Any(IsPredicatePattern);
+            }
+            catch (XPathStaticException)
+            {
+                return false;
+            }
         }
 
         private static IEnumerable<Expr> Alternatives(Expr e) =>
@@ -48,6 +71,10 @@ namespace Xsl3.XPath31
             if (e is RootExpr)
             {
                 return -0.5;
+            }
+            if (IsPredicatePattern(e))
+            {
+                return e is ContextItemExpr ? -1 : 1;
             }
             if (e is not AxisStep { Predicates.Count: 0 } step || step.Axis is not (Axis.Child or Axis.Attribute or Axis.Namespace))
             {

@@ -1,5 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
+using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Xml;
@@ -22,8 +24,266 @@ namespace Xsl3.Xslt
 
         // http://www.w3.org/TR/xslt20/#element-sequence
         private readonly XsltAttribute[] _sequenceAttributes = {
+            new XsltAttribute("select", V2Opt), // Xsl3: optional in 3.0, which allows a sequence constructor
+        };
+        // XSLT 3.0 §8.4
+        private XslNode XslWherePopulated()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes();
+            return SetInfo(F.XslNode(XslNodeType.WherePopulated, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
+        }
+
+        private readonly XsltAttribute[] _onEmptyAttributes = {
+            new XsltAttribute("select", V2Opt),
+        };
+        // XSLT 3.0 §8.3
+        private readonly XsltAttribute[] _tryAttributes = {
+            new XsltAttribute("select",          V2Opt),
+            new XsltAttribute("rollback-output", V2Opt),
+        };
+        private readonly XsltAttribute[] _catchAttributes = {
+            new XsltAttribute("errors", V2Opt),
+            new XsltAttribute("select", V2Opt),
+        };
+
+        // XSLT 3.0 §10.1.2
+        private readonly XsltAttribute[] _contextItemAttributes = {
+            new XsltAttribute("as",  V2Opt),
+            new XsltAttribute("use", V2Opt),
+        };
+
+        private XslNode XslContextItem()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_contextItemAttributes);
+            string? asType = ParseStringAttribute(0, "as");
+            string? use = ParseStringAttribute(1, "use")?.Trim();
+            if (use is not (null or "required" or "optional" or "absent"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "use", use);
+            }
+            else if (asType != null && asType.TrimEnd().Length > 0 && asType.TrimEnd()[^1] is '?' or '*' or '+')
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "as", asType);
+            }
+            else if (use == "absent" && asType != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE3089: xsl:context-item with use=\"absent\" can't have an as attribute");
+            }
+            CheckNoContent();
+            XslNode node = F.XslNode(XslNodeType.ContextItem, null, use, _input.XslVersion);
+            node.V2 = new XslNodeV2 { As = asType };
+            return SetInfo(node, null, ctxInfo);
+        }
+
+        // XSLT 3.0 §18.1
+        private readonly XsltAttribute[] _sourceDocumentAttributes = {
+            new XsltAttribute("href",             V2Req),
+            new XsltAttribute("streamable",       V2Opt),
+            new XsltAttribute("use-accumulators", V2Opt),
+            new XsltAttribute("validation",       V2Opt),
+            new XsltAttribute("type",             V2Opt),
+        };
+
+        /// <summary>
+        /// xsl:source-document without streaming: the content is evaluated with the document as the context item,
+        /// as by xsl:for-each over doc(href), the attribute value template.
+        /// </summary>
+        private XslNode XslSourceDocument()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_sourceDocumentAttributes);
+            string href = ParseStringAttribute(0, "href") ?? "";
+            ParseYesNoAttribute(1, "streamable");
+            _input.CanHaveApplyImports = false;
+            List<XslNode> content = LoadInstructions();
+            ctxInfo.SaveExtendedLineInfo(_input);
+            return SetInfo(F.ForEach($"doc({AvtAsXPath31(href)})", ctxInfo, _input.XslVersion), content, ctxInfo);
+        }
+
+        // An attribute value template as an XPath expression of its string value.
+        internal static string AvtAsXPath31(string avt)
+        {
+            var parts = new List<string>();
+            var literal = new System.Text.StringBuilder();
+            void Flush()
+            {
+                if (literal.Length != 0)
+                {
+                    parts.Add("'" + literal.ToString().Replace("'", "''") + "'");
+                    literal.Clear();
+                }
+            }
+            int i = 0;
+            while (i < avt.Length)
+            {
+                char ch = avt[i];
+                if ((ch == '{' || ch == '}') && i + 1 < avt.Length && avt[i + 1] == ch)
+                {
+                    literal.Append(ch);
+                    i += 2;
+                    continue;
+                }
+                if (ch == '{')
+                {
+                    // The expression ends at the matching brace outside string literals.
+                    int depth = 0, j = i + 1;
+                    char quote = '\0';
+                    for (; j < avt.Length; j++)
+                    {
+                        char c = avt[j];
+                        if (quote != '\0')
+                        {
+                            if (c == quote)
+                            {
+                                quote = '\0';
+                            }
+                        }
+                        else if (c is '\'' or '"')
+                        {
+                            quote = c;
+                        }
+                        else if (c == '{')
+                        {
+                            depth++;
+                        }
+                        else if (c == '}')
+                        {
+                            if (depth == 0)
+                            {
+                                break;
+                            }
+                            depth--;
+                        }
+                    }
+                    Flush();
+                    parts.Add($"string-join(({avt[(i + 1)..System.Math.Min(j, avt.Length)]}) ! string(.), ' ')");
+                    i = j + 1;
+                    continue;
+                }
+                literal.Append(ch);
+                i++;
+            }
+            Flush();
+            return parts.Count == 0 ? "''" : parts.Count == 1 ? parts[0] : $"string-join(({string.Join(", ", parts)}), '')";
+        }
+
+        // XSLT 3.0 §7.2
+        private readonly XsltAttribute[] _iterateAttributes = {
             new XsltAttribute("select", V2Req),
         };
+
+        private XslNode XslIterate()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_iterateAttributes);
+            string? select = ParseStringAttribute(0, "select");
+            List<XslNode> content = LoadInstructions(InstructionFlags.AllowParam);
+            if (content.Count(n => n.NodeType == XslNodeType.OnCompletion) > 1)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:iterate has more than one xsl:on-completion");
+            }
+            return SetInfo(F.XslNode(XslNodeType.Iterate, null, select, _input.XslVersion), LoadEndTag(content), ctxInfo);
+        }
+
+        private XslNode XslOnCompletion()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_onEmptyAttributes);
+            string? select = ParseStringAttribute(0, "select");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3125]*/SR.Xslt_ElementCntSel, "xsl:on-completion");
+            return SetInfo(F.XslNode(XslNodeType.OnCompletion, null, select, _input.XslVersion), LoadEndTag(content), ctxInfo);
+        }
+
+        private XslNode XslNextIteration()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes();
+            List<XslNode> content = LoadWithParams(InstructionFlags.None);
+            return SetInfo(F.XslNode(XslNodeType.NextIteration, null, null, _input.XslVersion), content, ctxInfo);
+        }
+
+        private XslNode XslBreak()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_onEmptyAttributes);
+            string? select = ParseStringAttribute(0, "select");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3125]*/SR.Xslt_ElementCntSel, "xsl:break");
+            return SetInfo(F.XslNode(XslNodeType.Break, null, select, _input.XslVersion), LoadEndTag(content), ctxInfo);
+        }
+
+        private XslNode XslTry()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_tryAttributes);
+            string? select = ParseStringAttribute(0, "select");
+            ParseYesNoAttribute(1, "rollback-output");
+            List<XslNode> content = LoadInstructions();
+            // The content: the sequence constructor, then one or more xsl:catch (and xsl:fallback) (XTSE0010).
+            int firstCatch = content.FindIndex(n => n.NodeType == XslNodeType.Catch);
+            bool ordered = firstCatch >= 0 && content.Skip(firstCatch).All(n => n.NodeType is XslNodeType.Catch or XslNodeType.Nop || n.NodeType == XslNodeType.Text && IsWhitespace31(n));
+            if (!ordered)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:try must end with one or more xsl:catch elements");
+            }
+            if (select != null && content.Take(firstCatch < 0 ? content.Count : firstCatch).Any(n => !(n.NodeType == XslNodeType.Text && IsWhitespace31(n)) && n.NodeType != XslNodeType.Nop))
+            {
+                ReportError(SR.Xml_UserException, "XTSE3140: xsl:try has both a select attribute and a sequence constructor");
+            }
+            return SetInfo(F.XslNode(XslNodeType.Try, null, select, _input.XslVersion), LoadEndTag(content), ctxInfo);
+        }
+
+        private static bool IsWhitespace31(XslNode text) => text.Select != null && XmlCharType.IsOnlyWhitespace(text.Select);
+
+        private XslNode XslCatch()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_catchAttributes);
+            var errors = new List<string>();
+            if (_input.MoveToXsltAttribute(0, "errors"))
+            {
+                foreach (string token in _input.Value.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    errors.Add(ResolveNameTest31(token));
+                }
+            }
+            else
+            {
+                errors.Add("*");
+            }
+            string? select = ParseStringAttribute(1, "select");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3150]*/SR.Xslt_ElementCntSel, "xsl:catch");
+            XslNode node = F.XslNode(XslNodeType.Catch, null, select, _input.XslVersion);
+            node.V2 = new XslNodeV2 { Errors = errors };
+            return SetInfo(node, LoadEndTag(content), ctxInfo);
+        }
+
+        // A NameTest of xsl:catch/@errors, with its prefix resolved: "*", "Q{ns}*", "*:local" or "Q{ns}local".
+        private string ResolveNameTest31(string token)
+        {
+            if (token == "*" || token.StartsWith("*:", StringComparison.Ordinal) || token.StartsWith("Q{", StringComparison.Ordinal))
+            {
+                return token;
+            }
+            int colon = token.IndexOf(':');
+            string prefix = colon < 0 ? "" : token[..colon];
+            string local = colon < 0 ? token : token[(colon + 1)..];
+            // Unprefixed names are in no namespace (the default namespace doesn't apply).
+            string ns = prefix.Length == 0 ? "" : _input.LookupXmlNamespace(prefix) ?? "";
+            return $"Q{{{ns}}}{local}";
+        }
+
+        // XSLT 3.0 §18.2.4: without streaming, xsl:fork is the concatenation of its prongs.
+        private XslNode XslFork()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes();
+            return SetInfo(F.List(), LoadEndTag(LoadInstructions()), ctxInfo);
+        }
+
+        private XslNode XslOnEmpty(XslNodeType kind)
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_onEmptyAttributes);
+            string? select = ParseStringAttribute(0, "select");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3185]*/SR.Xslt_ElementCntSel, kind == XslNodeType.OnEmpty ? "xsl:on-empty" : "xsl:on-non-empty");
+            return SetInfo(F.XslNode(kind, null, select, _input.XslVersion), LoadEndTag(content), ctxInfo);
+        }
+
         private XslNode XslSequence()
         {
             ContextInfo ctxInfo = _input.GetAttributes(_sequenceAttributes);
@@ -234,7 +494,18 @@ namespace Xsl3.Xslt
             new XsltAttribute("undeclare-prefixes",     V2Opt),
             new XsltAttribute("use-character-maps",     V2Opt),
             new XsltAttribute("output-version",         V2Opt),
+            new XsltAttribute("html-version",           V2Opt),
+            new XsltAttribute("build-tree",             V2Opt),
+            new XsltAttribute("item-separator",         V2Opt),
+            new XsltAttribute("json-node-output-method", V2Opt),
+            new XsltAttribute("allow-duplicate-names",  V2Opt),
+            new XsltAttribute("parameter-document",     V2Opt),
+            new XsltAttribute("suppress-indentation",   V2Opt),
         };
+        internal static bool IsDecimal31(string value) =>
+            decimal.TryParse(value.Trim(), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign,
+                System.Globalization.CultureInfo.InvariantCulture, out _);
+
         private XslNode XslResultDocument()
         {
             ContextInfo ctxInfo = _input.GetAttributes(_resultDocumentAttributes);
@@ -254,6 +525,10 @@ namespace Xsl3.Xslt
                     if (attName == "use-character-maps")
                     {
                         v2.UseCharacterMaps = _input.Value;
+                    }
+                    else if (attName == "html-version" && !_input.Value.Contains('{') && !IsDecimal31(_input.Value))
+                    {
+                        ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, attName, _input.Value);
                     }
                     else
                     {

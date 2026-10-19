@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Xsl3.Qil;
@@ -397,6 +398,10 @@ namespace Xsl3.Xslt
                 // Xsl3: in 2.0 grouping and analyze-string loops the context item is derived from the loop item.
                 return (IsV2 ? FocusOverride() : null) ?? _curLoop.GetCurrent()!;
             }
+            else if (_fixedFocus31 is var (current, _, _))
+            {
+                return current; // Xsl3: the body of xsl:iterate
+            }
             else if (_funcFocus.IsFocusSet)
             {
                 return _funcFocus.GetCurrent();
@@ -414,6 +419,10 @@ namespace Xsl3.Xslt
             {
                 return _curLoop.GetPosition();
             }
+            else if (_fixedFocus31 is var (_, position, _))
+            {
+                return position;
+            }
             else if (_funcFocus.IsFocusSet)
             {
                 return _funcFocus.GetPosition();
@@ -430,6 +439,10 @@ namespace Xsl3.Xslt
             if (_curLoop.IsFocusSet)
             {
                 return _curLoop.GetLast();
+            }
+            else if (_fixedFocus31 is var (_, _, last))
+            {
+                return last;
             }
             else if (_funcFocus.IsFocusSet)
             {
@@ -525,7 +538,9 @@ namespace Xsl3.Xslt
                 if ((flags & XslFlags.Current) != 0)
                 {
                     // Xsl3: in 2.0 a named template's context item may be atomic; a template rule's is a node.
-                    args.Add(CreateXslParam(CloneName(_nameCurrent), IsV2 && !(tmpl is Template { Match: not null, Name: null }) ? T.Item : T.NodeNotRtf));
+                    // Xsl3: in 2.0 a named template's context item may be atomic; a template rule's is a node, unless
+                    // its pattern is a predicate pattern (XSLT 3.0 §5.5.2).
+                    args.Add(CreateXslParam(CloneName(_nameCurrent), IsV2 && !(tmpl is Template { Match: not null, Name: null } t && !Xsl3.XPath31.XPath31Compiler.MatchesItems(t.Match)) ? T.Item : T.NodeNotRtf));
                 }
                 if ((flags & XslFlags.Position) != 0)
                 {
@@ -559,7 +574,7 @@ namespace Xsl3.Xslt
                     for (int i = 0; i < tmpl.Content.Count; i++)
                     {
                         XslNode node = tmpl.Content[i];
-                        if (node.NodeType == XslNodeType.Text)
+                        if (node.NodeType is XslNodeType.Text or XslNodeType.ContextItem)
                         {
                             // NOTE: We should take care of a bizarre case when xsl:param comes after TextCtor:
                             // <xsl:template match="/" xml:space="preserve">  <xsl:param name="par"/>
@@ -775,6 +790,10 @@ namespace Xsl3.Xslt
         private QilNode CompileInstructions(IList<XslNode> instructions, int from, QilList content)
         {
             Debug.Assert(instructions != null);
+            if (IsV2 && from == 0 && content.Count == 0 && HasOnEmpty31(instructions))
+            {
+                return CompileWithOnEmpty31(instructions);
+            }
             for (int i = from; i < instructions.Count; i++)
             {
                 XslNode node = instructions[i];
@@ -2289,7 +2308,9 @@ namespace Xsl3.Xslt
                 if (template.Match != null)
                 {
                     EnterScope(template);
+                    _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
                     QilNode result = CompileMatchPattern(template.Match);
+                    _templatePattern31 = false;
                     if (result.NodeType == QilNodeType.Sequence)
                     {
                         QilList filters = (QilList)result;
@@ -2800,9 +2821,45 @@ namespace Xsl3.Xslt
             actualArgs = AddRemoveImplicitArgs(actualArgs, flags);
             if (IsV2 && actualArgs![0] is VarPar currentArg && !currentArg.Value!.XmlType!.IsSubtypeOf(T.NodeNotRtf))
             {
-                // Xsl3: template rules apply to nodes; a 2.0 context item may be atomic (XTTE0510).
-                currentArg.Value = Node31(currentArg.Value, "XTTE0510");
+                // Xsl3: apply-templates to items that aren't nodes (XSLT 3.0 §6.8): the template rules with
+                // predicate patterns, else the built-in rules for items.
+                QilIterator item = _f.Let(currentArg.Value);
+                currentArg.Value = item;
+                // Both branches pass the arguments: those that aren't references are bound once.
+                var lets = new List<QilIterator> { item };
+                foreach (XslNode a in actualArgs)
+                {
+                    if (a is VarPar { Value: not (QilIterator or QilLiteral) } vp)
+                    {
+                        QilIterator let = _f.Let(vp.Value!);
+                        lets.Add(let);
+                        vp.Value = let;
+                    }
+                }
+                QilNode[] saved = actualArgs.Select(a => ((VarPar)a).Value!).ToArray();
+                currentArg.Value = _f.TypeAssert(item, T.NodeNotRtf);
+                QilNode forNodes = InvokeApplyFunction(sheet, mode, actualArgs, flags, nextMatchBelow);
+                for (int i = 0; i < saved.Length; i++)
+                {
+                    ((VarPar)actualArgs[i]).Value = saved[i];
+                }
+                QilNode forItems = InvokeItemApplyFunction31(sheet, mode, actualArgs, flags, nextMatchBelow);
+                for (int i = 0; i < saved.Length; i++)
+                {
+                    ((VarPar)actualArgs[i]).Value = saved[i];
+                }
+                QilNode result = _f.Conditional(_f.IsType(item, T.NodeNotRtf), forNodes, forItems);
+                for (int i = lets.Count - 1; i >= 0; i--)
+                {
+                    result = _f.Loop(lets[i], result);
+                }
+                return result;
             }
+            return InvokeApplyFunction(sheet, mode, actualArgs, flags, nextMatchBelow);
+        }
+
+        private QilNode InvokeApplyFunction(StylesheetLevel sheet, QilName mode, IList<XslNode>? actualArgs, XslFlags flags, Template? nextMatchBelow = null)
+        {
 
             QilList invokeArgs = _f.ActualParameterList();
             QilFunction? applyFunction = null;

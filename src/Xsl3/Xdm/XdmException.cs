@@ -22,6 +22,15 @@ namespace Xsl3.Xdm
 
         /// <summary>The local part of the error code.</summary>
         public string Code { get; }
+
+        /// <summary>The error code, if it isn't in the err namespace (fn:error with a QName).</summary>
+        public QName? Name { get; init; }
+
+        /// <summary>The error object of fn:error, if any.</summary>
+        public System.Collections.Generic.IList<System.Xml.XPath.XPathItem>? ErrorObject { get; init; }
+
+        /// <summary>The description, without the code.</summary>
+        public string? Description { get; init; }
     }
 
     /// <summary>The errors of XPath 3.1 Appendix F and F&amp;O 3.1 Appendix C used by the XDM layer.</summary>

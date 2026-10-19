@@ -52,6 +52,9 @@ namespace Xsl3.Runtime
         // Xsl3: the compiled dispatcher of function items, for the run-time library.
         internal System.Func<XmlQueryRuntime, XPathItem, IList<XPathItem>>? Dispatcher { get; }
 
+        // Xsl3: compiled by the XSLT 2.0+ path.
+        internal bool IsXslt2 { get; }
+
         // Xsl3: the principal result of the running XSLT 2.0+ transformation, for xsl:result-document without href.
         [System.ThreadStatic]
         private static PrincipalResult? t_principal;
@@ -119,6 +122,7 @@ namespace Xsl3.Runtime
         {
             Debug.Assert(data != null);
             Dispatcher = data.Dispatcher;
+            IsXslt2 = data.Xslt2;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;

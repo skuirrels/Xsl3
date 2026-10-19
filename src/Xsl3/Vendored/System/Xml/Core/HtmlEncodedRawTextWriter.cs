@@ -105,6 +105,8 @@ namespace System.Xml
                 if (_trackTextContent && _inTextContent) { ChangeTextContentMark(false); }
 
                 _currentElementProperties = TernaryTreeReadOnly.FindElementProperty(localName);
+                // Xsl3: an HTML5 void element
+                if (Xsl3.Runtime.HtmlVoidElements.Html5) _currentElementProperties |= ElementProperties.EMPTY;
                 base._bufChars[_bufPos++] = (char)'<';
                 base.RawText(localName);
                 base._attrEndPos = _bufPos;
@@ -824,6 +826,8 @@ namespace System.Xml
                 Debug.Assert(prefix.Length == 0);
 
                 base._currentElementProperties = TernaryTreeReadOnly.FindElementProperty(localName);
+                // Xsl3: an HTML5 void element
+                if (Xsl3.Runtime.HtmlVoidElements.Html5) base._currentElementProperties |= ElementProperties.EMPTY;
 
                 if (_endBlockPos == base._bufPos && (base._currentElementProperties & ElementProperties.BLOCK_WS) != 0)
                 {

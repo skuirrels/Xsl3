@@ -50,7 +50,8 @@ namespace Xsl3.Xslt
                     {
                         continue;
                     }
-                    bool contextMayBeAtomic = t.Match == null || t.Name != null; // a named template gets its caller's context item
+                    // A named template gets its caller's context item; a predicate pattern matches any item.
+                    bool contextMayBeAtomic = t.Match == null || t.Name != null || Xsl3.XPath31.XPath31Compiler.MatchesItems(t.Match);
                     if (t.V2?.As != null || MayReturnItems(t.Content, contextMayBeAtomic, new Scope31(null, null, null)))
                     {
                         _itemTemplates31.Add(t);
@@ -137,6 +138,24 @@ namespace Xsl3.Xslt
                         break;
                     case XslNodeType.ForEachGroup:
                         if (MayReturnItems(node.Content, node.Select == null || !IsNodeExpression(node.Select, contextMayBeAtomic, scope), scope))
+                        {
+                            return true;
+                        }
+                        break;
+                    case XslNodeType.Iterate:
+                        if (MayReturnItems(node.Content, node.Select == null || !IsNodeExpression(node.Select, contextMayBeAtomic, scope), scope))
+                        {
+                            return true;
+                        }
+                        break;
+                    case XslNodeType.Try:
+                    case XslNodeType.Catch:
+                    case XslNodeType.OnCompletion:
+                    case XslNodeType.Break:
+                    case XslNodeType.OnEmpty:
+                    case XslNodeType.OnNonEmpty:
+                    case XslNodeType.WherePopulated:
+                        if (node.Select != null ? !IsNodeExpression(node.Select, contextMayBeAtomic, scope) : MayReturnItems(node.Content, contextMayBeAtomic, scope))
                         {
                             return true;
                         }

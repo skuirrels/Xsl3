@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml.XPath;
 using Xsl3.Qil;
 using Xsl3.Runtime;
@@ -18,7 +19,13 @@ namespace Xsl3.Xslt
     /// </summary>
     internal static class UseWhen
     {
-        public static bool Evaluate(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri)
+        public static bool Evaluate(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
+            IReadOnlyDictionary<QName, int>? staticValues = null) =>
+            Sequences.EffectiveBooleanValue(EvaluateValue(expression, namespaces, defaultElementNamespace, baseUri, staticValues));
+
+        /// <summary>A static expression's value (use-when, static variables, shadow attributes).</summary>
+        public static IList<XPathItem> EvaluateValue(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
+            IReadOnlyDictionary<QName, int>? staticValues)
         {
             var sc = new XPathStaticContext { BaseUri = baseUri, DefaultElementNamespace = defaultElementNamespace };
             sc.Namespaces.Clear();
@@ -28,11 +35,43 @@ namespace Xsl3.Xslt
             }
             sc.Namespaces["xml"] = XmlReservedNs.NsXml;
             int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()));
-            XPath31Executable executable = XPath31Compiler.CompileHosted(Parser.ParseXPath(expression), sc, f => new Environment(f, names));
-            return Sequences.EffectiveBooleanValue(executable.Evaluate());
+            XPath31Executable executable = XPath31Compiler.CompileHosted(Parser.ParseXPath(expression), sc, f => new Environment(f, names, staticValues));
+            return executable.Evaluate();
         }
 
-        private sealed class Environment(QilPatternFactory f, int names) : IXPath31Environment
+        /// <summary>A static attribute value template (a shadow attribute, XSLT 3.0 §3.13.2).</summary>
+        public static string EvaluateAvt(string avt, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
+            IReadOnlyDictionary<QName, int>? staticValues)
+        {
+            var sb = new System.Text.StringBuilder();
+            int i = 0;
+            while (i < avt.Length)
+            {
+                char ch = avt[i];
+                if (ch == '{' && i + 1 < avt.Length && avt[i + 1] == '{' || ch == '}' && i + 1 < avt.Length && avt[i + 1] == '}')
+                {
+                    sb.Append(ch);
+                    i += 2;
+                    continue;
+                }
+                if (ch == '{')
+                {
+                    Expr? e = Parser.ParseEnclosedExpr(avt, i + 1, out int end);
+                    if (e != null)
+                    {
+                        IList<XPathItem> value = EvaluateValue(avt[(i + 1)..end], namespaces, defaultElementNamespace, baseUri, staticValues);
+                        sb.Append(string.Join(" ", Sequences.Atomize(value).Select(v => v.Value)));
+                    }
+                    i = end + 1;
+                    continue;
+                }
+                sb.Append(ch);
+                i++;
+            }
+            return sb.ToString();
+        }
+
+        private sealed class Environment(QilPatternFactory f, int names, IReadOnlyDictionary<QName, int>? staticValues) : IXPath31Environment
         {
             private QilNode Raise(string code, string message, XmlQueryType type) =>
                 XPath31Compiler.Invoke(f, type == T.DoubleX ? nameof(XsltLibrary.X31RaiseDouble) : nameof(XsltLibrary.X31RaiseItem), type, f.String(code), f.String(message));
@@ -45,7 +84,8 @@ namespace Xsl3.Xslt
 
             public QilNode ContextLast() => Raise("XPDY0002", "There is no focus in a use-when expression", T.DoubleX);
 
-            public QilNode? ResolveVariable(QName name) => null;
+            public QilNode? ResolveVariable(QName name) =>
+                staticValues != null && staticValues.TryGetValue(name, out int id) ? XPath31Compiler.Invoke(f, nameof(XsltLibrary.X31StaticValue), T.ItemS, f.Double(id)) : null;
 
             public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile)
             {

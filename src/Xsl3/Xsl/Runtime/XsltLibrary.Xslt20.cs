@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Xml.XPath;
 using Xsl3.XPath31;
@@ -149,7 +150,15 @@ namespace Xsl3.Runtime
                     {
                         run.Append(' ');
                     }
-                    run.Append(Sequences.Atomize(item).Value);
+                    if (item is XdmArray array)
+                    {
+                        // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2).
+                        run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(array)).Select(a => a.Value)));
+                    }
+                    else
+                    {
+                        run.Append(Sequences.Atomize(item).Value);
+                    }
                 }
             }
             Flush();
@@ -181,6 +190,13 @@ namespace Xsl3.Runtime
                 {
                     parts.Add(container.Value);
                 }
+                else if (item is XdmArray array)
+                {
+                    foreach (XPathItem atom in Sequences.Atomize(Sequences.One(array)))
+                    {
+                        parts.Add(atom.Value);
+                    }
+                }
                 else
                 {
                     parts.Add(Sequences.Atomize(item).Value);
@@ -198,6 +214,64 @@ namespace Xsl3.Runtime
         {
             var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
             return Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+        }
+
+        /// <summary>The value, if it is an instance of the type (no conversion is applied); else the error.</summary>
+        public IList<XPathItem> X31InstanceCheck(IList<XPathItem> value, double typeId, string errorCode)
+        {
+            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            return type.Matches(value) ? value : throw new XdmException(errorCode, $"The context item must be {type}, but is {Coercion.Describe(value)}");
+        }
+
+        /// <summary>Nothing: the argument is evaluated for its errors (a type check).</summary>
+        public IList<XPathItem> X31Discard(IList<XPathItem> value) => Sequences.Empty;
+
+        /// <summary>The text of the built-in template rule for an item that isn't a node: an atomic value's string value.</summary>
+        public string X31ItemText(XPathItem item) => item is AtomicValue a ? a.Value : "";
+
+        // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty
+
+        /// <summary>Whether a sequence has only vacuous items (XSLT 3.0 §8.4.2): zero-length strings and text nodes, documents without children, empty arrays.</summary>
+        public bool X31Vacuous(IList<XPathItem> items)
+        {
+            foreach (XPathItem item in items)
+            {
+                if (!IsVacuous(item))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool IsVacuous(XPathItem item) => item switch
+        {
+            XPathNavigator n => n.NodeType switch
+            {
+                XPathNodeType.Text or XPathNodeType.Whitespace or XPathNodeType.SignificantWhitespace => n.Value.Length == 0,
+                XPathNodeType.Root => !n.HasChildren,
+                _ => false,
+            },
+            XdmArray a => a.Members.All(m => m.All(IsVacuous)),
+            XdmFunction => false,
+            AtomicValue v => v.Type.Primitive is Primitive.String or Primitive.UntypedAtomic && v.Value.Length == 0,
+            _ => false,
+        };
+
+        /// <summary>xsl:where-populated: the items without those deemed empty (also elements without children).</summary>
+        public IList<XPathItem> X31Populated(IList<XPathItem> items)
+        {
+            var result = new List<XPathItem>(items.Count);
+            foreach (XPathItem item in items)
+            {
+                bool empty = IsVacuous(item) || item is XPathNavigator { NodeType: XPathNodeType.Element, HasChildren: false } ||
+                    item is XdmMap { Count: 0 };
+                if (!empty)
+                {
+                    result.Add(item is XPathNavigator n ? n.Clone() : item);
+                }
+            }
+            return result;
         }
 
         // ------------------------------------------------------------ xsl:result-document

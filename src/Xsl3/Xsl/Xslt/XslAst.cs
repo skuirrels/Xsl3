@@ -67,6 +67,18 @@ namespace Xsl3.Xslt
         Document,
         ResultDocument,
         NextMatch,
+
+        // Xsl3: XSLT 3.0 instructions
+        WherePopulated,
+        OnEmpty,
+        OnNonEmpty,
+        Try,
+        Catch,
+        Iterate,
+        ContextItem,
+        OnCompletion,
+        NextIteration,
+        Break,
     }
 
     /// <summary>
@@ -91,7 +103,9 @@ namespace Xsl3.Xslt
         public List<QilName>? Modes;
         public List<(string Name, string Value)>? Serialization; // xsl:result-document's serialization attributes (AVTs)
         public string? UseCharacterMaps;
+        public int? StaticValue; // a static variable's value (ConstantPool id)
         public bool AllModes;
+        public List<string>? Errors; // xsl:catch/@errors as EQNames, "Q{ns}*", "*:local" or "*"
     }
 
     internal sealed class NsDecl

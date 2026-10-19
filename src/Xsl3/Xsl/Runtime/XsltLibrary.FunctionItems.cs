@@ -205,6 +205,76 @@ namespace Xsl3.Runtime
             return acc;
         }
 
+        /// <summary>
+        /// xsl:try (XSLT 3.0 §8.3): the value of the try function, or, if it raises a dynamic error, of the first
+        /// catch function whose name tests match the error code, called with the error's code, description, value,
+        /// module, line and column numbers and additional information.
+        /// </summary>
+        public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
+        {
+            try
+            {
+                return Copy(CallFunction((XdmFunction)tryFunction[0]));
+            }
+            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
+            {
+                var errors = (List<List<string>>)ConstantPool.Get((int)errorsId);
+                for (int i = 0; i < errors.Count; i++)
+                {
+                    if (errors[i].Exists(test => ErrorNameMatches(test, code)))
+                    {
+                        IList<XPathItem> none = System.Array.Empty<XPathItem>();
+                        return Copy(CallFunction((XdmFunction)catchFunctions[i], Sequences.One(new QNameValue(AtomicTypes.QName, code)),
+                            Sequences.One(AtomicValue.OfString(description)), value, module.Length == 0 ? none : Sequences.One(AtomicValue.OfString(module)), none, none, none));
+                    }
+                }
+                throw;
+            }
+        }
+
+        /// <summary>A captured number (a position) back as a double.</summary>
+        public double X31CapturedNumber(IList<XPathItem> value) => System.Xml.XmlConvert.ToDouble(value[0].Value);
+
+        // The code, description and value of a dynamic error, or null for exceptions that aren't errors.
+        private static (QName, string, IList<XPathItem>)? DynamicError(System.Exception e)
+        {
+            switch (e)
+            {
+                case XdmException x:
+                    return (x.Name ?? new QName(XdmException.ErrorNamespace, x.Code, "err"), x.Description ?? Describe(x.Message, x.Code),
+                        x.ErrorObject ?? System.Array.Empty<XPathItem>());
+                case XslTransformException or System.Xml.XmlException or System.FormatException or System.OverflowException or System.DivideByZeroException:
+                    string message = e.Message;
+                    var m = System.Text.RegularExpressions.Regex.Match(message, @"^([A-Z]{4}[0-9]{4})\b");
+                    string code = m.Success ? m.Groups[1].Value : "XTDE0000";
+                    return (new QName(XdmException.ErrorNamespace, code, "err"), Describe(message, code), System.Array.Empty<XPathItem>());
+                case System.Reflection.TargetInvocationException { InnerException: System.Exception inner }:
+                    return DynamicError(inner);
+                default:
+                    return null;
+            }
+        }
+
+        private static string Describe(string message, string code) =>
+            message.StartsWith(code + ": ", System.StringComparison.Ordinal) ? message[(code.Length + 2)..] : message;
+
+        // A NameTest of xsl:catch/@errors: "*", "Q{ns}*", "*:local" or "Q{ns}local".
+        private static bool ErrorNameMatches(string test, QName code)
+        {
+            if (test == "*")
+            {
+                return true;
+            }
+            if (test.StartsWith("*:", System.StringComparison.Ordinal))
+            {
+                return code.LocalName == test[2..];
+            }
+            int close = test.IndexOf('}');
+            string ns = test[2..close];
+            string local = test[(close + 1)..];
+            return code.NamespaceUri == ns && (local == "*" || local == code.LocalName);
+        }
+
         // ---------------------------------------------------------------- function item accessors
 
         public IList<XPathItem> X31FunctionName(IList<XPathItem> function) =>

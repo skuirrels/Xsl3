@@ -45,6 +45,11 @@ namespace Xsl3.Xslt
         // Xsl3: the entry point (XSLT 3.0 §2.3): a named template, else template rules in a mode.
         public XmlQualifiedName? InitialTemplate;
         public XmlQualifiedName? InitialMode;
+
+        // Xsl3: static parameters supplied by the API, and the values of the static variables and parameters
+        // (by expanded name), as ConstantPool ids of their sequences.
+        public Dictionary<XmlQualifiedName, IList<System.Xml.XPath.XPathItem>>? StaticParameters;
+        public Dictionary<Xsl3.Xdm.QName, int> StaticValues = new Dictionary<Xsl3.Xdm.QName, int>();
         public RootLevel? Root;
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Scripts Scripts;
@@ -63,6 +68,7 @@ namespace Xsl3.Xslt
         public Dictionary<QilName, CharacterMap> CharacterMaps = new Dictionary<QilName, CharacterMap>();
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
         public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
+        public QilName? DefaultInitialMode; // Xsl3: the principal stylesheet module's default-mode
 
         /// <summary>Xsl3: false if a function with this name and arity already has the same import precedence.</summary>
         public bool AddFunction(QilName name, int arity, Template function, int precedence)
@@ -468,6 +474,7 @@ namespace Xsl3.Xslt
         public bool? IncludeContentType;
         public string? NormalizationForm;
         public List<QilName>? UseCharacterMaps;
+        public string? HtmlVersion; // Xsl3: xsl:output/@html-version
 
         public Output()
         {

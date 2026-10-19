@@ -157,8 +157,11 @@ namespace Xsl3.XPath31.Functions
             Define("fn:error() as item()*", (c, a) => throw new XdmException("FOER0000", "fn:error() called"));
             Define("fn:error($code as xs:QName?) as item()*", (c, a) => throw ErrorFrom(a[0], null));
             Define("fn:error($code as xs:QName?, $description as xs:string) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1])));
-            Define("fn:error($code as xs:QName?, $description as xs:string, $error-object as item()*) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1])));
+            Define("fn:error($code as xs:QName?, $description as xs:string, $error-object as item()*) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1]), a[2]));
             Define("fn:trace($value as item()*) as item()*", (c, a) => a[0]);
+            // XSLT 3.0 §20.4.5
+            Define("fn:available-system-properties() as xs:QName*", (c, a) => Xsl3.Runtime.XsltNameContext.SystemProperties
+                .Select(p => (XPathItem)new QNameValue(AtomicTypes.QName, new QName("http://www.w3.org/1999/XSL/Transform", p, "xsl"))).ToList());
             Define("fn:trace($value as item()*, $label as xs:string) as item()*", (c, a) => a[0]);
 
             // ---------------------------------------------------------- QNames (F&O §10)
@@ -190,13 +193,13 @@ namespace Xsl3.XPath31.Functions
             _ => null,
         };
 
-        private static XdmException ErrorFrom(IList<XPathItem> code, string? description)
+        private static XdmException ErrorFrom(IList<XPathItem> code, string? description, IList<XPathItem>? errorObject = null)
         {
             if (Opt(code) is QNameValue q)
             {
-                return new XdmException(q.QName.LocalName, description ?? $"Error {q.QName}");
+                return new XdmException(q.QName.LocalName, description ?? $"Error {q.QName}") { Name = q.QName, ErrorObject = errorObject, Description = description };
             }
-            return new XdmException("FOER0000", description ?? "fn:error called");
+            return new XdmException("FOER0000", description ?? "fn:error called") { ErrorObject = errorObject, Description = description };
         }
     }
 }

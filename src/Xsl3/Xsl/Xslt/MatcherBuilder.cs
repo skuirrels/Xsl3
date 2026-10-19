@@ -468,12 +468,8 @@ namespace Xsl3.Xslt
 
         private static bool IsNoMatch(QilNode matcher)
         {
-            if (matcher.NodeType == QilNodeType.LiteralInt32)
-            {
-                Debug.Assert((int)(QilLiteral)matcher == NoMatch);
-                return true;
-            }
-            return false;
+            // Xsl3: a pattern that matches every item (match=".") folds to its priority.
+            return matcher.NodeType == QilNodeType.LiteralInt32 && (int)(QilLiteral)matcher == NoMatch;
         }
 
         private QilNode MatchPatternsWhosePriorityGreater(QilIterator it, List<Pattern> patternList, QilNode matcher)
@@ -535,6 +531,26 @@ namespace Xsl3.Xslt
 
             matcher = MatchPatternsWhosePriorityGreater(it, patternBag.NonFixedNamePatterns, matcher);
             return _f.Conditional(_f.IsType(it, xt), matcher, otherwise);
+        }
+
+        /// <summary>
+        /// Xsl3: the matcher for items that aren't nodes: the template rules whose patterns are predicate patterns,
+        /// in decreasing order of preference.
+        /// </summary>
+        public QilNode BuildItemMatcher(QilIterator it, IList<XslNode> actualArgs, QilNode otherwise)
+        {
+            QilNode result = otherwise;
+            foreach (List<TemplateMatch> list in _allMatches)
+            {
+                foreach (TemplateMatch match in list)
+                {
+                    if (!match.Iterator.XmlType!.IsSubtypeOf(XmlQueryTypeFactory.NodeS))
+                    {
+                        result = _f.Conditional(MatchPattern(it, match), _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs), result);
+                    }
+                }
+            }
+            return result;
         }
 
 #if !DISABLE_MATCH_OPTIMIZATION

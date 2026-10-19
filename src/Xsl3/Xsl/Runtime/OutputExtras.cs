@@ -29,9 +29,18 @@ namespace Xsl3.Runtime
         /// <summary>The character map (use-character-maps), code point to string.</summary>
         public IReadOnlyDictionary<int, string>? CharacterMap { get; set; }
 
+        /// <summary>HTML5 serialization (html-version 5): its void elements, and &lt;!DOCTYPE html&gt; by default.</summary>
+        public bool Html5 { get; set; }
+
+        /// <summary>With <see cref="Html5"/>: the html method (not xhtml).</summary>
+        public bool HtmlMethod { get; set; }
+
+        /// <summary>With <see cref="Html5"/>: no doctype-system, so &lt;!DOCTYPE html&gt; precedes the html element.</summary>
+        public bool DefaultDoctype { get; set; }
+
         public OutputExtras Clone() => (OutputExtras)MemberwiseClone();
 
-        public bool IsEmpty => !Xhtml && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
+        public bool IsEmpty => !Xhtml && !Html5 && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
         public XmlWriter Wrap(XmlWriter writer) => IsEmpty ? writer : new SerializationWriter(writer, this);
 
@@ -51,6 +60,13 @@ namespace Xsl3.Runtime
     }
 
     /// <summary>The writer <see cref="OutputExtras"/> puts in front of the result writer.</summary>
+    /// <summary>Xsl3: tells the html method's writers that the element being started is an HTML5 void element.</summary>
+    internal static class HtmlVoidElements
+    {
+        [System.ThreadStatic]
+        public static bool Html5;
+    }
+
     internal sealed class SerializationWriter : XmlWriter
     {
         private const string XhtmlNs = "http://www.w3.org/1999/xhtml";
@@ -62,8 +78,21 @@ namespace Xsl3.Runtime
             "area", "base", "basefont", "br", "col", "frame", "hr", "img", "input", "isindex", "link", "meta", "param",
         };
 
+        // The void elements of HTML5 (Serialization 3.1 §7.1).
+        private static readonly HashSet<string> s_voidElements5 = new(System.StringComparer.Ordinal)
+        {
+            "area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr",
+        };
+
+        // The HTML5 void elements the html method's writer doesn't know as empty (HTML 4.01).
+        internal static readonly HashSet<string> NewVoidElements5 = new(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "embed", "keygen", "source", "track", "wbr",
+        };
+
         private readonly XmlWriter _inner;
         private readonly OutputExtras _extras;
+        private bool _seenElement;
         private readonly Stack<bool> _void = new();
         private bool _inAttribute;
         private bool _pendingHead;
@@ -131,9 +160,33 @@ namespace Xsl3.Runtime
         public override void WriteStartElement(string? prefix, string localName, string? ns)
         {
             Content();
-            _inner.WriteStartElement(prefix, localName, ns);
+            if (!_seenElement)
+            {
+                _seenElement = true;
+                if (_extras.Html5 && _extras.DefaultDoctype && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    _inner.WriteRaw("<!DOCTYPE html>"); // the html writer would write "<!DOCTYPE html >"
+                }
+            }
+            if (_extras.Html5 && _extras.HtmlMethod && string.IsNullOrEmpty(ns) && NewVoidElements5.Contains(localName))
+            {
+                // The html method's writer reads this while it starts the element.
+                HtmlVoidElements.Html5 = true;
+                try
+                {
+                    _inner.WriteStartElement(prefix, localName, ns);
+                }
+                finally
+                {
+                    HtmlVoidElements.Html5 = false;
+                }
+            }
+            else
+            {
+                _inner.WriteStartElement(prefix, localName, ns);
+            }
             bool xhtml = _extras.Xhtml && ns == XhtmlNs;
-            _void.Push(!_extras.Xhtml || xhtml && s_voidElements.Contains(localName));
+            _void.Push(!_extras.Xhtml || xhtml && (_extras.Html5 ? s_voidElements5 : s_voidElements).Contains(localName));
             if (xhtml && localName == "head" && _extras.IncludeContentType)
             {
                 _pendingHead = true;

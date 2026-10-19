@@ -38,6 +38,7 @@ public class Xslt30RunTests
         var failures = new Dictionary<string, string>(StringComparer.Ordinal);
         var perSet = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // pass, fail, not run
         int wrongErrorCode = 0;
+        var notRunReasons = new SortedDictionary<string, int>(StringComparer.Ordinal);
         // XSL3_XSLT30_TRACE=file appends each test id before running it, to find a test that crashes the process.
         string? trace = Environment.GetEnvironmentVariable("XSL3_XSLT30_TRACE");
 
@@ -62,6 +63,10 @@ public class Xslt30RunTests
             {
                 failures[test.Id] = outcome.Detail.ReplaceLineEndings(" ");
             }
+            else if (outcome.Kind == OutcomeKind.NotRun)
+            {
+                notRunReasons[outcome.Detail] = notRunReasons.GetValueOrDefault(outcome.Detail) + 1;
+            }
             else if (outcome.Kind == OutcomeKind.Pass && outcome.Detail.StartsWith("error code", StringComparison.Ordinal))
             {
                 wrongErrorCode++;
@@ -71,7 +76,7 @@ public class Xslt30RunTests
         int pass = perSet.Values.Sum(v => v[0]), fail = perSet.Values.Sum(v => v[1]), notRun = perSet.Values.Sum(v => v[2]);
         string summary = $"xslt30-test (XSLT {(p2 ? "2.0" : "3.0")} profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
         _output.WriteLine(summary);
-        WriteReport(summary, perSet, failures);
+        WriteReport(summary, perSet, failures, notRunReasons);
         if (sets != null || p2)
         {
             return;
@@ -80,10 +85,11 @@ public class Xslt30RunTests
         Assert.True(problems.Length == 0, problems);
     }
 
-    private static void WriteReport(string summary, SortedDictionary<string, int[]> perSet, Dictionary<string, string> failures)
+    private static void WriteReport(string summary, SortedDictionary<string, int[]> perSet, Dictionary<string, string> failures, SortedDictionary<string, int> notRunReasons)
     {
         var sb = new StringBuilder();
         sb.AppendLine("# " + summary).AppendLine();
+        sb.AppendLine("Not run: " + string.Join(", ", notRunReasons.Select(kv => $"{kv.Key} ({kv.Value})"))).AppendLine();
         sb.AppendLine("| Test set | Passed | Failed | Not run | Pass rate |").AppendLine("|---|---:|---:|---:|---:|");
         foreach (var (set, c) in perSet)
         {

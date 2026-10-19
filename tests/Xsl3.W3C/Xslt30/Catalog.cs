@@ -173,7 +173,13 @@ public sealed class TestEnvironment
             (string?)s.Attribute("validation"),
             (string?)s.Attribute("defines-stylesheet") is "true" or "yes")).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();
+        Stylesheets = element.Elements(Catalog.Ns + "stylesheet")
+            .Where(s => (string?)s.Attribute("role") is null or "principal" && s.Attribute("file") != null)
+            .Select(s => Path.Combine(baseDirectory, (string)s.Attribute("file")!)).ToList();
     }
+
+    /// <summary>The principal stylesheet the environment supplies to tests that don't name their own.</summary>
+    public IReadOnlyList<string> Stylesheets { get; }
 
     internal static Param Param0(XElement p) =>
         new((string)p.Attribute("name")!, (string?)p.Attribute("select"), (string?)p.Attribute("as"), (string?)p.Attribute("static") is "yes" or "true", p);
@@ -188,7 +194,7 @@ public sealed class TestEnvironment
 
     /// <summary>Parts of the environment the runner can't honour yet; tests that use them aren't run.</summary>
     public IEnumerable<string> UnsupportedParts =>
-        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema" or "stylesheet" or "package")
+        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema" or "package")
             .Concat(Sources.Where(s => s.Validation is "strict" or "lax").Select(_ => "validation"))
             .Concat(Sources.Where(s => s.DefinesStylesheet).Select(_ => "defines-stylesheet"))
             .Distinct();

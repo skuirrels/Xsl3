@@ -199,7 +199,16 @@ namespace Xsl3.Runtime
             else if (dataSource is IXPathNavigable xPathNavigable)
             {
                 if (_wsRules != null)
+                {
+                    XPathNavigator? loaded = xPathNavigable.CreateNavigator();
+                    if (_runtime.IsXslt2 && loaded is { NodeType: XPathNodeType.Root })
+                    {
+                        // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
+                        using XmlReader copy = loaded.ReadSubtree();
+                        return new InternalXPathDocument(WhitespaceRuleReader.CreateReader(copy, _wsRules), XmlSpace.Preserve).CreateNavigator();
+                    }
                     throw new XslTransformException(SR.XmlIl_CantStripNav, string.Empty);
+                }
 
                 return xPathNavigable.CreateNavigator();
             }

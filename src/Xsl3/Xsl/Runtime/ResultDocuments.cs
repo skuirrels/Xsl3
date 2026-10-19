@@ -26,6 +26,7 @@ namespace Xsl3.Runtime
             OutputExtras? extras = format.Extras?.Clone();
             bool text = format.Text;
             OutputExtras Extras() => extras ??= new OutputExtras();
+            string? htmlVersion = null;
             foreach (string pair in parameters.Split(ValueEnd, System.StringSplitOptions.RemoveEmptyEntries))
             {
                 int end = pair.IndexOf(NameEnd);
@@ -110,8 +111,23 @@ namespace Xsl3.Runtime
                         YesNo(value, name);
                         break;
                     case "output-version":
+                        if (settings.OutputMethod == XmlOutputMethod.Html)
+                        {
+                            htmlVersion ??= value;
+                        }
+                        break;
+                    case "html-version":
+                        htmlVersion = value;
                         break;
                 }
+            }
+            bool html = settings.OutputMethod == XmlOutputMethod.Html;
+            if (htmlVersion != null && htmlVersion.StartsWith('5') && (html || extras?.Xhtml == true))
+            {
+                // HTML5 serialization (Serialization 3.1 §7.1).
+                Extras().Html5 = true;
+                extras!.HtmlMethod = html;
+                extras.DefaultDoctype = settings.DocTypeSystem == null;
             }
             return (settings, extras, text);
         }

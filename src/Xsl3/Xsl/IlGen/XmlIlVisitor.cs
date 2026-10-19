@@ -4955,7 +4955,8 @@ namespace Xsl3.IlGen
                 case QilNodeType.TypeAssert:
                     QilTargetType ndTypeAssert = (QilTargetType)nd;
                     // Check if TypeAssert would be no-op
-                    return CachesResult(ndTypeAssert.Source) && GetItemStorageType(ndTypeAssert.Source) == GetItemStorageType(ndTypeAssert);
+                    // Xsl3: an assertion to a singleton isn't a cached sequence, even of a cached source.
+                    return !ndTypeAssert.XmlType!.IsSingleton && CachesResult(ndTypeAssert.Source) && GetItemStorageType(ndTypeAssert.Source) == GetItemStorageType(ndTypeAssert);
             }
 
             return false;

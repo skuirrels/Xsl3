@@ -21,13 +21,15 @@ namespace Xsl3.Runtime
             "analyze-string", "apply-imports", "apply-templates", "attribute", "call-template", "choose", "comment", "copy",
             "copy-of", "document", "element", "fallback", "for-each", "for-each-group", "if", "message", "namespace", "next-match",
             "number", "perform-sort", "processing-instruction", "result-document", "sequence", "text", "value-of", "variable",
+            // XSLT 3.0
+            "where-populated", "on-empty", "on-non-empty", "try", "iterate", "next-iteration", "break", "fork", "source-document",
         };
 
         public static readonly HashSet<(string, int)> XsltFunctions = new()
         {
             ("current", 0), ("current-group", 0), ("current-grouping-key", 0), ("document", 1), ("document", 2), ("element-available", 1),
             ("format-number", 2), ("format-number", 3), ("function-available", 1), ("function-available", 2), ("key", 2), ("key", 3),
-            ("regex-group", 1), ("system-property", 1), ("type-available", 1), ("unparsed-entity-public-id", 1), ("unparsed-entity-uri", 1),
+            ("regex-group", 1), ("system-property", 1), ("type-available", 1), ("copy-of", 0), ("copy-of", 1), ("snapshot", 0), ("snapshot", 1), ("unparsed-entity-public-id", 1), ("unparsed-entity-uri", 1),
         };
 
         /// <summary>
@@ -60,6 +62,14 @@ namespace Xsl3.Runtime
             return Namespaces.TryGetValue(prefix, out string? ns) ? (ns, rest) : throw new XdmException(code, $"The prefix of '{name}' is not declared");
         }
 
+        /// <summary>The system properties in the XSLT namespace (XSLT 3.0 §20.4.4), for fn:available-system-properties.</summary>
+        public static readonly string[] SystemProperties =
+        {
+            "version", "vendor", "vendor-url", "product-name", "product-version", "is-schema-aware", "supports-serialization",
+            "supports-backwards-compatibility", "supports-namespace-axis", "supports-streaming", "supports-dynamic-evaluation",
+            "supports-higher-order-functions", "xpath-version", "xsd-version",
+        };
+
         public string SystemProperty(string name)
         {
             var (ns, local) = Resolve(name, "", "XTDE1390");
@@ -74,8 +84,8 @@ namespace Xsl3.Runtime
                 "vendor-url" => "https://github.com/skuirrels/Xsl3",
                 "product-name" => "Xsl3",
                 "product-version" => typeof(XsltNameContext).Assembly.GetName().Version?.ToString() ?? "0",
-                "supports-serialization" or "supports-backwards-compatibility" or "supports-namespace-axis" => "yes",
-                "is-schema-aware" or "supports-streaming" or "supports-dynamic-evaluation" or "supports-higher-order-functions" => "no",
+                "supports-serialization" or "supports-backwards-compatibility" or "supports-namespace-axis" or "supports-higher-order-functions" => "yes",
+                "is-schema-aware" or "supports-streaming" or "supports-dynamic-evaluation" => "no",
                 "xpath-version" => "3.1",
                 "xsd-version" => "1.0",
                 _ => "",
@@ -91,7 +101,8 @@ namespace Xsl3.Runtime
                 {
                     continue;
                 }
-                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) || (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n))))
+                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) || (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n))) ||
+                    XPath31Compiler.CompiledHigherOrderFunctions.Contains((ns, local, n)))
                 {
                     return true;
                 }
@@ -125,6 +136,9 @@ namespace Xsl3.Runtime
         public XPathItem X31ElementAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).ElementAvailable(name));
 
         public XPathItem X31TypeAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).TypeAvailable(name));
+
+        /// <summary>The value of a static variable or parameter, computed when the stylesheet was compiled.</summary>
+        public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)ConstantPool.Get((int)id);
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
         public XPathItem X31AbsentFocus() => AtomicValue.OfString("");

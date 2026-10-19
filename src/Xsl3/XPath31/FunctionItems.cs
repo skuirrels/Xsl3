@@ -299,6 +299,16 @@ namespace Xsl3.XPath31
         // ---------------------------------------------------------------- higher-order functions
 
         /// <summary>The higher-order functions of F&amp;O 3.1, compiled so their calls go through the dispatcher; null for others.</summary>
+        /// <summary>The higher-order functions compiled here rather than in the function library (for function-available).</summary>
+        public static readonly HashSet<(string Ns, string Local, int Arity)> CompiledHigherOrderFunctions = new()
+        {
+            (QName.Ns.Fn, "for-each", 2), (QName.Ns.Fn, "filter", 2), (QName.Ns.Fn, "fold-left", 3), (QName.Ns.Fn, "fold-right", 3),
+            (QName.Ns.Fn, "for-each-pair", 3), (QName.Ns.Fn, "sort", 3), (QName.Ns.Fn, "apply", 2), (QName.Ns.Fn, "function-name", 1),
+            (QName.Ns.Fn, "function-arity", 1), (QName.Ns.Fn, "function-lookup", 2), (QName.Ns.Map, "for-each", 2),
+            (QName.Ns.Array, "for-each", 2), (QName.Ns.Array, "filter", 2), (QName.Ns.Array, "fold-left", 3), (QName.Ns.Array, "fold-right", 3),
+            (QName.Ns.Array, "for-each-pair", 3), (QName.Ns.Array, "sort", 3),
+        };
+
         private QilNode? HigherOrderFunction(QName name, IReadOnlyList<Expr> args)
         {
             string key = name.NamespaceUri switch

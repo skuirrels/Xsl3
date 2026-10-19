@@ -78,22 +78,19 @@ public sealed class Runner
             return Outcome.NotRun("packages and initial functions (P3+)");
         }
         XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal");
-        if (sheet == null)
+        string? stylesheetPath = sheet != null ? Path.Combine(test.Set.Directory, (string)sheet.Attribute("file")!) : envs.SelectMany(e => e.Stylesheets).FirstOrDefault();
+        if (stylesheetPath == null)
         {
             return Outcome.NotRun("no principal stylesheet");
         }
         var parameters = t.Elements(Catalog.Ns + "param").Select(TestEnvironment.Param0).Concat(envs.SelectMany(e => e.Params)).ToList();
-        if (parameters.Any(p => p.Static))
-        {
-            return Outcome.NotRun("static parameters (P3)");
-        }
         XElement? initialMode = t.Element(Catalog.Ns + "initial-mode");
         if (initialMode?.Attribute("select") != null)
         {
             return Outcome.NotRun("initial match selection by expression");
         }
 
-        RunResult run = Execute(test, envs, Path.Combine(test.Set.Directory, (string)sheet.Attribute("file")!),
+        RunResult run = Execute(test, envs, stylesheetPath,
             ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), ResolveQName(initialMode, "name"), parameters);
         return Check(test, test.Result, run);
     }
@@ -149,10 +146,19 @@ public sealed class Runner
                     }
                 }
             }
+            var staticParameters = new Dictionary<XmlQualifiedName, IList<XPathItem>>();
             foreach (TestEnvironment.Param p in parameters)
             {
                 (string ns, string local) = SplitParamName(p);
-                args.AddParam(local, ns, ToArgument(Evaluate(p.Select ?? "()", p.Element, input)));
+                IList<XPathItem> value = Evaluate(p.Select ?? "()", p.Element, input);
+                if (p.Static)
+                {
+                    staticParameters[new XmlQualifiedName(local, ns)] = value;
+                }
+                else
+                {
+                    args.AddParam(local, ns, ToArgument(value));
+                }
             }
 
             // XSLT 3.0 §2.3.2: with no source document and no initial template or mode named, a stylesheet's
@@ -162,7 +168,7 @@ public sealed class Runner
             {
                 initialTemplate = new XmlQualifiedName("initial-template", "http://www.w3.org/1999/XSL/Transform");
             }
-            var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode };
+            var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters };
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
@@ -362,7 +368,7 @@ public sealed class Runner
                 case "assert-string-value":
                 {
                     string actual = ResultDocument(serialized).Value, expected = assertion.Value;
-                    if ((string?)assertion.Attribute("normalize-space") is "true" or "1")
+                    if ((string?)assertion.Attribute("normalize-space") is not ("false" or "0")) // the default is true
                     {
                         actual = Lexical.Collapse(actual);
                         expected = Lexical.Collapse(expected);

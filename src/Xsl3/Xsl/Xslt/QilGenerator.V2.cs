@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Xml;
 using System.Xml.Schema;
@@ -127,6 +128,12 @@ namespace Xsl3.Xslt
                 }
                 case ("system-property", 1):
                     return CompileSystemProperty31(args[0], compile);
+                case ("copy-of", 0):
+                case ("copy-of", 1):
+                    return Box(CopyItems31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
+                case ("snapshot", 0):
+                case ("snapshot", 1):
+                    return X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]));
                 case ("function-available", 1):
                 case ("function-available", 2):
                 case ("element-available", 1):
@@ -367,6 +374,28 @@ namespace Xsl3.Xslt
                     return CompilePerformSort31(node);
                 case XslNodeType.NextMatch:
                     return CompileNextMatch31(node);
+                case XslNodeType.WherePopulated:
+                    return CompileWherePopulated31(node);
+                case XslNodeType.Try:
+                    return CompileTry31(node);
+                case XslNodeType.Iterate:
+                    return CompileIterate31(node);
+                case XslNodeType.ContextItem:
+                    // The context item a template rule or named template requires (XSLT 3.0 §10.1.2).
+                    return node.V2?.As is string contextType && !FocusAbsent
+                        ? X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), contextType, "XTTE0590"))
+                        : _f.Sequence();
+                case XslNodeType.NextIteration:
+                    return CompileNextIteration31(node);
+                case XslNodeType.Break:
+                    return CompileBreak31(node);
+                case XslNodeType.OnCompletion:
+                    return ReportXPath31Error("XTSE0010", "xsl:on-completion is only allowed in xsl:iterate");
+                case XslNodeType.Catch:
+                    return ReportXPath31Error("XTSE0010", "xsl:catch is only allowed in xsl:try");
+                case XslNodeType.OnEmpty or XslNodeType.OnNonEmpty:
+                    // Outside a sequence constructor with other instructions (handled by CompileWithOnEmpty31).
+                    return node.NodeType == XslNodeType.OnEmpty ? SelectOrContent31(node, node.Select) : _f.Sequence();
                 case XslNodeType.Number:
                     return CompileNumber31((Number)node);
                 case XslNodeType.ResultDocument:
@@ -684,6 +713,11 @@ namespace Xsl3.Xslt
         {
             QilNode select = CompileXPath31(node.Select);
             _outputScope.InvalidateAllPrefixes();
+            return CopyItems31(select);
+        }
+
+        private QilNode CopyItems31(QilNode select)
+        {
             QilIterator it;
             if (select.XmlType!.IsSubtypeOf(T.NodeS))
             {
@@ -719,7 +753,9 @@ namespace Xsl3.Xslt
         {
             IList<XslNode> content = node.Content;
             int varScope = _varHelper.StartVariables();
-            QilIterator select = _f.Let(Nodes31(CompileXPath31(node.Select), "XTTE0520"));
+            // XSLT 3.0 applies templates to any items (§6.8): those that aren't nodes go to the item matcher.
+            QilNode selected = CompileXPath31(node.Select);
+            QilIterator select = _f.Let(selected.XmlType!.IsSubtypeOf(T.NodeNotRtfS) ? selected : Box(selected));
             _varHelper.AddVariable(select);
             for (int i = 0; i < content.Count; i++)
             {
@@ -826,6 +862,10 @@ namespace Xsl3.Xslt
         /// </summary>
         private QilNode CompileVarParValue31(XslNode node)
         {
+            if (node.V2?.StaticValue is int staticValue)
+            {
+                return _f.TypeAssert(X31(nameof(XsltLibrary.X31StaticValue), T.ItemS, _f.Double(staticValue)), T.ItemS);
+            }
             IList<XslNode> content = node.Content;
             string? select = node.Select;
             string? asType = node.V2?.As;
@@ -858,6 +898,22 @@ namespace Xsl3.Xslt
         }
 
         /// <summary>The function conversion rules to the sequence type <paramref name="asType"/> (an <c>as</c> attribute).</summary>
+        // The value, if it is an instance of the type (no conversion), else the error.
+        private QilNode InstanceCheck31(QilNode value, string asType, string errorCode)
+        {
+            try
+            {
+                XPathStaticContext sc = StaticContext31();
+                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+                SequenceTypeTest test = resolver.Resolve(Parser.ParseSequenceType(asType));
+                return X31(nameof(XsltLibrary.X31InstanceCheck), T.ItemS, Box(value), _f.Double(ConstantPool.Add(test)), _f.String(errorCode));
+            }
+            catch (XPathStaticException e)
+            {
+                return ReportXPath31Error(e.Code, e.Message);
+            }
+        }
+
         private QilNode Coerce31(QilNode value, string asType, string errorCode)
         {
             try
@@ -977,6 +1033,571 @@ namespace Xsl3.Xslt
             return _resultFormats31.Value;
         }
 
+        // ------------------------------------------------------------ xsl:iterate
+
+        // The focus of the body of xsl:iterate: the item, its position and the size of the sequence.
+        private (QilNode Current, QilNode Position, QilNode Last)? _fixedFocus31;
+
+        // The xsl:iterate instructions being compiled: their parameters and the variables holding their values.
+        private readonly Stack<(List<VarPar> Params, List<QilIterator> Values)> _iterate31 = new();
+
+        /// <summary>
+        /// xsl:iterate (XSLT 3.0 §7.2): the body and xsl:on-completion are lifted into functions and the run-time
+        /// library loops over the items, passing the parameters' values on. The body's value ends with a control
+        /// item when it ends in xsl:next-iteration (the new values) or xsl:break.
+        /// </summary>
+        private QilNode CompileIterate31(XslNode node)
+        {
+            var parameters = new List<VarPar>();
+            XslNode? onCompletion = null;
+            var body = new List<XslNode>();
+            foreach (XslNode n in node.Content)
+            {
+                if (n is VarPar { NodeType: XslNodeType.Param } p)
+                {
+                    parameters.Add(p);
+                }
+                else if (n.NodeType == XslNodeType.OnCompletion)
+                {
+                    onCompletion = n;
+                }
+                else
+                {
+                    body.Add(n);
+                }
+            }
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                if (parameters.FindIndex(p => p.Name!.Equals(parameters[i].Name)) != i)
+                {
+                    return ReportXPath31Error("XTSE0580", $"Two parameters of xsl:iterate are named ${parameters[i].Name!.QualifiedName}");
+                }
+            }
+            if (!InTailPosition31(body, tail: true))
+            {
+                return ReportXPath31Error("XTSE3120", "xsl:next-iteration and xsl:break must be in a tail position of the body of xsl:iterate");
+            }
+            var lets = new List<QilIterator>();
+            QilIterator Bind(QilNode value)
+            {
+                QilIterator let = _f.Let(value);
+                lets.Add(let);
+                return let;
+            }
+
+            QilIterator select = Bind(Box(CompileXPath31(node.Select)));
+            QilNode initial = X31(nameof(XsltLibrary.X31IterationNew), T.Item, _f.False());
+            foreach (VarPar p in parameters)
+            {
+                EnterScope(p);
+                QilNode value = Box(CompileVarParValue(p));
+                ExitScope();
+                if (p.V2?.As is string asType)
+                {
+                    value = Coerce31(value, asType, "XTTE0590");
+                }
+                initial = X31(nameof(XsltLibrary.X31IterationAdd), T.Item, initial, Bind(value));
+            }
+            QilIterator initialLet = Bind(initial);
+
+            QilNode bodyItem = Lift31(own =>
+            {
+                LoopFocus savedLoop = _curLoop;
+                var savedFixed = _fixedFocus31;
+                QilIterator? savedNodeContext = _nodeContext31;
+                bool savedNoFocus = _noFocus;
+                _scope.EnterScope();
+                try
+                {
+                    var focus = new List<QilIterator>
+                    {
+                        _f.Let(_f.TypeAssert(own[0], T.Item)),
+                        _f.Let(X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, own[1])),
+                        _f.Let(X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, own[2])),
+                    };
+                    _curLoop = new LoopFocus(_f);
+                    _fixedFocus31 = (focus[0], focus[1], focus[2]);
+                    _nodeContext31 = null;
+                    _noFocus = false;
+                    List<QilIterator> values = BindIterateParams31(parameters, own, 3, focus);
+                    _iterate31.Push((parameters, values));
+                    QilNode result = CompileInstructions(body);
+                    _iterate31.Pop();
+                    for (int i = focus.Count - 1; i >= 0; i--)
+                    {
+                        result = _f.Loop(focus[i], result);
+                    }
+                    return result;
+                }
+                finally
+                {
+                    _scope.ExitScope();
+                    _curLoop = savedLoop;
+                    _fixedFocus31 = savedFixed;
+                    _nodeContext31 = savedNodeContext;
+                    _noFocus = savedNoFocus;
+                }
+            }, 3 + parameters.Count);
+            QilIterator bodyLet = Bind(bodyItem);
+
+            QilNode completion = _f.TypeAssert(_f.Sequence(), T.ItemS);
+            if (onCompletion != null)
+            {
+                completion = Lift31(own =>
+                {
+                    // The focus is absent in xsl:on-completion (XPDY0002).
+                    LoopFocus savedLoop = _curLoop;
+                    var savedFixed = _fixedFocus31;
+                    QilIterator? savedNodeContext = _nodeContext31;
+                    bool savedNoFocus = _noFocus;
+                    _curLoop = new LoopFocus(_f);
+                    _fixedFocus31 = null;
+                    _nodeContext31 = null;
+                    _noFocus = true;
+                    _scope.EnterScope();
+                    try
+                    {
+                        var lets2 = new List<QilIterator>();
+                        BindIterateParams31(parameters, own, 0, lets2);
+                        EnterScope(onCompletion);
+                        QilNode result = SelectOrContent31(onCompletion, onCompletion.Select);
+                        ExitScope();
+                        for (int i = lets2.Count - 1; i >= 0; i--)
+                        {
+                            result = _f.Loop(lets2[i], result);
+                        }
+                        return result;
+                    }
+                    finally
+                    {
+                        _scope.ExitScope();
+                        _curLoop = savedLoop;
+                        _fixedFocus31 = savedFixed;
+                        _nodeContext31 = savedNodeContext;
+                        _noFocus = savedNoFocus;
+                    }
+                }, parameters.Count);
+            }
+            QilIterator completionLet = Bind(completion);
+
+            QilNode loop = X31(nameof(XsltLibrary.X31Iterate), T.ItemS, select, bodyLet, completionLet, initialLet);
+            for (int i = lets.Count - 1; i >= 0; i--)
+            {
+                loop = _f.Loop(lets[i], loop);
+            }
+            return loop;
+        }
+
+        // Whether every xsl:next-iteration and xsl:break of a sequence constructor is in a tail position (XSLT 3.0
+        // §7.2): last, or last in an xsl:if, xsl:choose branch or xsl:try/xsl:catch that is itself in one.
+        private static bool InTailPosition31(IList<XslNode> content, bool tail)
+        {
+            int last = content.Count - 1;
+            while (last >= 0 && content[last] is { NodeType: XslNodeType.Text } t && t.Select != null && t.Select.Trim().Length == 0)
+            {
+                last--;
+            }
+            for (int i = 0; i < content.Count; i++)
+            {
+                XslNode n = content[i];
+                bool isTail = tail && i == last;
+                switch (n.NodeType)
+                {
+                    case XslNodeType.NextIteration:
+                    case XslNodeType.Break:
+                        if (!isTail)
+                        {
+                            return false;
+                        }
+                        break;
+                    case XslNodeType.Iterate:
+                        break; // its own body is checked when it is compiled
+                    case XslNodeType.Choose:
+                        foreach (XslNode branch in n.Content)
+                        {
+                            if (!InTailPosition31(branch.Content, isTail))
+                            {
+                                return false;
+                            }
+                        }
+                        break;
+                    case XslNodeType.Try:
+                        if (!InTailPosition31(n.Content.TakeWhile(c => c.NodeType != XslNodeType.Catch).ToList(), isTail) ||
+                            !n.Content.Where(c => c.NodeType == XslNodeType.Catch).All(c => InTailPosition31(c.Content, isTail)))
+                        {
+                            return false;
+                        }
+                        break;
+                    case XslNodeType.If:
+                    case XslNodeType.Otherwise:
+                        if (!InTailPosition31(n.Content, isTail))
+                        {
+                            return false;
+                        }
+                        break;
+                    default:
+                        if (n.Content != null && n.Content.Count != 0 && !InTailPosition31(n.Content, tail: false))
+                        {
+                            return false;
+                        }
+                        break;
+                }
+            }
+            return true;
+        }
+
+        // The parameters of xsl:iterate as variables, from the function's parameters (from `first` on).
+        private List<QilIterator> BindIterateParams31(List<VarPar> parameters, IReadOnlyList<QilParameter> own, int first, List<QilIterator> lets)
+        {
+            var values = new List<QilIterator>();
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                QilIterator let = _f.Let(own[first + i]);
+                lets.Add(let);
+                values.Add(let);
+                _scope.AddVariable(parameters[i].Name!, let);
+            }
+            return values;
+        }
+
+        // xsl:next-iteration: a control item with the parameters' new values (the current ones where not given).
+        private QilNode CompileNextIteration31(XslNode node)
+        {
+            if (_iterate31.Count == 0)
+            {
+                return ReportXPath31Error("XTSE3120", "xsl:next-iteration is only allowed in the body of xsl:iterate");
+            }
+            var (parameters, values) = _iterate31.Peek();
+            var given = new Dictionary<QilName, VarPar>();
+            foreach (XslNode n in node.Content)
+            {
+                if (n is VarPar { NodeType: XslNodeType.WithParam } wp)
+                {
+                    if (!parameters.Exists(p => p.Name!.Equals(wp.Name)))
+                    {
+                        return ReportXPath31Error("XTSE3130", $"xsl:iterate has no parameter ${wp.Name!.QualifiedName}");
+                    }
+                    if (!given.TryAdd(wp.Name!, wp))
+                    {
+                        return ReportXPath31Error("XTSE0670", $"Duplicate xsl:with-param ${wp.Name!.QualifiedName}");
+                    }
+                }
+            }
+            var lets = new List<QilIterator>();
+            QilNode control = X31(nameof(XsltLibrary.X31IterationNew), T.Item, _f.False());
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                QilNode value;
+                if (given.TryGetValue(parameters[i].Name!, out VarPar? wp))
+                {
+                    CompileWithParam(wp);
+                    value = Box(wp.Value!);
+                    if (parameters[i].V2?.As is string asType)
+                    {
+                        value = Coerce31(value, asType, "XTTE0590");
+                    }
+                    QilIterator let = _f.Let(value);
+                    lets.Add(let);
+                    value = let;
+                }
+                else
+                {
+                    value = values[i];
+                }
+                control = X31(nameof(XsltLibrary.X31IterationAdd), T.Item, control, value);
+            }
+            for (int i = lets.Count - 1; i >= 0; i--)
+            {
+                control = _f.Loop(lets[i], control);
+            }
+            return control;
+        }
+
+        // xsl:break: its value, then a control item that ends the iteration.
+        private QilNode CompileBreak31(XslNode node)
+        {
+            if (_iterate31.Count == 0)
+            {
+                return ReportXPath31Error("XTSE3120", "xsl:break is only allowed in the body of xsl:iterate");
+            }
+            return _f.Sequence(Box(SelectOrContent31(node, node.Select)), X31(nameof(XsltLibrary.X31IterationNew), T.Item, _f.True()));
+        }
+
+        // ------------------------------------------------------------ xsl:try, xsl:catch
+
+        // The variables of xsl:catch, in the err namespace (XSLT 3.0 §8.3.1), in the order X31Try passes them.
+        private static readonly string[] s_errVariables31 = { "code", "description", "value", "module", "line-number", "column-number", "additional" };
+
+        /// <summary>
+        /// xsl:try (XSLT 3.0 §8.3): the sequence constructor and each xsl:catch are lifted into functions of the
+        /// variables they use, and the run-time library calls them through the dispatcher inside a C# try/catch;
+        /// the try's value is complete (materialized) before it is returned, so no partial result escapes.
+        /// </summary>
+        private QilNode CompileTry31(XslNode node)
+        {
+            var body = new List<XslNode>();
+            var catches = new List<XslNode>();
+            foreach (XslNode n in node.Content)
+            {
+                if (n.NodeType == XslNodeType.Catch)
+                {
+                    catches.Add(n);
+                }
+                else if (catches.Count == 0)
+                {
+                    body.Add(n);
+                }
+            }
+            QilNode tryItem = Lift31(_ =>
+            {
+                // The try's variables aren't in scope in the catches.
+                _scope.EnterScope();
+                try
+                {
+                    return node.Select != null ? CompileXPath31(node.Select) : CompileInstructions(body);
+                }
+                finally
+                {
+                    _scope.ExitScope();
+                }
+            }, 0);
+            QilList catchItems = _f.BaseFactory.Sequence();
+            var errors = new List<List<string>>();
+            foreach (XslNode c in catches)
+            {
+                errors.Add(c.V2?.Errors ?? new List<string> { "*" });
+                catchItems.Add(Lift31(parameters =>
+                {
+                    EnterScope(c);
+                    try
+                    {
+                        for (int i = 0; i < s_errVariables31.Length; i++)
+                        {
+                            _scope.AddVariable(_f.QName(s_errVariables31[i], XdmException.ErrorNamespace, "err"), parameters[i]);
+                        }
+                        return SelectOrContent31(c, c.Select);
+                    }
+                    finally
+                    {
+                        ExitScope();
+                    }
+                }, s_errVariables31.Length));
+            }
+            // Bound first: arguments passed as item()* must be cached.
+            QilIterator tryLet = _f.Let(tryItem), catchLet = _f.Let(catchItems);
+            return _f.Loop(tryLet, _f.Loop(catchLet, X31(nameof(XsltLibrary.X31Try), T.ItemS, tryLet, catchLet, _f.Double(ConstantPool.Add(errors)), _f.String(node.SourceLine?.Uri ?? ""))));
+        }
+
+        /// <summary>
+        /// A function item for code compiled here: <paramref name="compile"/> gets the function's own parameters
+        /// (item()*) and returns the body, whose references to local variables, parameters and focus iterators
+        /// become captured values (globals stay references).
+        /// </summary>
+        private QilNode Lift31(System.Func<IReadOnlyList<QilParameter>, QilNode> compile, int arity)
+        {
+            var own = new List<QilParameter>();
+            for (int i = 0; i < arity; i++)
+            {
+                own.Add(_f.Parameter(T.ItemS));
+            }
+            int varScope = _varHelper.StartVariables();
+            QilNode body = _varHelper.FinishVariables(Box(compile(own)), varScope);
+
+            // Global variables are captured too, so that their errors aren't caught by xsl:try (XSLT 3.0 §8.3).
+            var exclude = new HashSet<QilNode>(own);
+            foreach (QilList globals in new[] { _extPars, _nsVars })
+            {
+                foreach (QilNode g in globals)
+                {
+                    exclude.Add(g);
+                }
+            }
+            var finder = new FreeReferences31(exclude);
+            finder.Find(body);
+
+            QilList formal = _f.FormalParameterList();
+            var map = new Dictionary<QilNode, QilNode>();
+            var positions = new Dictionary<QilNode, QilNode>();
+            var lets = new List<QilIterator>();
+            foreach (QilNode free in finder.Free)
+            {
+                QilParameter p = _f.Parameter(T.ItemS);
+                formal.Add(p);
+                QilIterator let = _f.Let(Unbox31(p, free.XmlType!));
+                lets.Add(let);
+                map[free] = let;
+            }
+            foreach (QilNode iterator in finder.Positions)
+            {
+                // The position of a captured focus iterator is captured too (a Let's position is 1).
+                QilParameter p = _f.Parameter(T.ItemS);
+                formal.Add(p);
+                QilIterator let = _f.Let(_f.XsltConvert(X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, p), T.IntX));
+                lets.Add(let);
+                positions[iterator] = let;
+            }
+            foreach (QilParameter p in own)
+            {
+                formal.Add(p);
+            }
+            body = new ReplaceReferences31(_f.BaseFactory, map, positions).Replace(body);
+            for (int i = lets.Count - 1; i >= 0; i--)
+            {
+                body = _f.Loop(lets[i], body);
+            }
+            QilFunction function = _f.Function(formal, _f.True(), T.ItemS);
+            function.Definition = _f.TypeAssert(body, T.ItemS);
+            function.DebugName = arity == 0 ? "<xsl:try>" : "<xsl:catch>";
+            FunctionItemRegistry registry = ((IXPath31Environment)this).FunctionItems!;
+            _ = registry.Dispatcher; // the run-time library calls it through the dispatcher
+            int id = registry.Lift(function, finder.Free.Count + finder.Positions.Count, arity);
+            var any = new SequenceTypeTest[arity];
+            System.Array.Fill(any, SequenceTypeTest.AnySequence);
+            QilNode item = X31(nameof(XsltLibrary.X31FunctionNew), T.Item, _f.Double(id),
+                _f.Double(ConstantPool.Add(new FunctionSignature(null, any, SequenceTypeTest.AnySequence))));
+            foreach (QilNode free in finder.Free)
+            {
+                item = X31(nameof(XsltLibrary.X31FunctionCapture), T.Item, item, Box(free));
+            }
+            foreach (QilNode iterator in finder.Positions)
+            {
+                item = X31(nameof(XsltLibrary.X31FunctionCapture), T.Item, item, Box(_f.XsltConvert(_f.PositionOf((QilIterator)iterator), T.DoubleX)));
+            }
+            return item;
+        }
+
+        // A captured value (item()*) back as the type of the reference it replaces.
+        private QilNode Unbox31(QilNode boxed, XmlQueryType type)
+        {
+            if (type == T.ItemS)
+            {
+                return boxed;
+            }
+            if (type.IsAtomicValue && type.IsStrict && type.TypeCode is XmlTypeCode.Double or XmlTypeCode.Int)
+            {
+                // Native positions and sizes: boxed as xs:integer.
+                QilNode number = X31(nameof(XsltLibrary.X31CapturedNumber), T.DoubleX, boxed);
+                return type.TypeCode == XmlTypeCode.Double ? number : _f.XsltConvert(number, type);
+            }
+            return type.IsAtomicValue && type.IsStrict ? _f.XsltConvert(boxed, type) : _f.TypeAssert(boxed, type);
+        }
+
+        // The references of a QIL expression to iterators and parameters it doesn't bind.
+        private sealed class FreeReferences31(HashSet<QilNode> exclude) : QilScopedVisitor
+        {
+            private readonly HashSet<QilNode> _bound = new();
+            private readonly HashSet<QilNode> _seen = new();
+            private readonly HashSet<QilNode> _seenPositions = new();
+            public readonly List<QilNode> Free = new();
+            public readonly List<QilNode> Positions = new(); // free iterators whose position is used
+
+            public void Find(QilNode root) => VisitAssumeReference(root);
+
+            protected override QilNode VisitPositionOf(QilUnary n)
+            {
+                if (!_bound.Contains(n.Child) && !exclude.Contains(n.Child) && _seenPositions.Add(n.Child))
+                {
+                    Positions.Add(n.Child);
+                }
+                return n;
+            }
+
+            protected override void BeginScope(QilNode node) => _bound.Add(node);
+
+            protected override void EndScope(QilNode node) => _bound.Remove(node);
+
+            protected override QilNode VisitReference(QilNode node)
+            {
+                if (node is QilIterator && !_bound.Contains(node) && !exclude.Contains(node) && _seen.Add(node))
+                {
+                    Free.Add(node);
+                }
+                return node;
+            }
+        }
+
+        private sealed class ReplaceReferences31(QilFactory f, Dictionary<QilNode, QilNode> map, Dictionary<QilNode, QilNode> positions) : QilReplaceVisitor(f)
+        {
+            public QilNode Replace(QilNode node) => VisitAssumeReference(node);
+
+            protected override QilNode VisitPositionOf(QilUnary n) => positions.TryGetValue(n.Child, out QilNode? p) ? p : base.VisitPositionOf(n);
+
+            protected override QilNode VisitReference(QilNode node) => map.TryGetValue(node, out QilNode? r) ? r : node;
+        }
+
+        // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty, xsl:on-non-empty
+
+        private static bool HasOnEmpty31(IList<XslNode> instructions)
+        {
+            foreach (XslNode n in instructions)
+            {
+                if (n.NodeType is XslNodeType.OnEmpty or XslNodeType.OnNonEmpty)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A sequence constructor with xsl:on-empty or xsl:on-non-empty (XSLT 3.0 §8.4.2): the other instructions are
+        /// evaluated first; if their result is empty (or only vacuous items), the xsl:on-empty instructions give the
+        /// result; otherwise it is that result with the xsl:on-non-empty ones, those before the other instructions
+        /// first and the rest after.
+        /// </summary>
+        private QilNode CompileWithOnEmpty31(IList<XslNode> instructions)
+        {
+            var others = new List<XslNode>();
+            var attributes = new List<XslNode>();
+            var before = new List<XslNode>();
+            var after = new List<XslNode>();
+            var onEmpty = new List<XslNode>();
+            for (int k = 0; k < instructions.Count; k++)
+            {
+                XslNode n = instructions[k];
+                switch (n.NodeType)
+                {
+                    case XslNodeType.OnEmpty:
+                        if (k != instructions.Count - 1)
+                        {
+                            return ReportXPath31Error("XTSE0010", "xsl:on-empty must be the last instruction of its sequence constructor");
+                        }
+                        onEmpty.Add(n);
+                        break;
+                    case XslNodeType.OnNonEmpty:
+                        (others.Count == 0 ? before : after).Add(n);
+                        break;
+                    case XslNodeType.LiteralAttribute or XslNodeType.UseAttributeSet:
+                        // A literal result element's attributes aren't part of its sequence constructor.
+                        attributes.Add(n);
+                        break;
+                    default:
+                        others.Add(n);
+                        break;
+                }
+            }
+            QilIterator result = _f.Let(Box(CompileInstructions(others)));
+            QilNode CompileAll(List<XslNode> nodes)
+            {
+                QilList list = InstructionList();
+                foreach (XslNode n in nodes)
+                {
+                    EnterScope(n);
+                    list.Add(SelectOrContent31(n, n.Select));
+                    ExitScope();
+                }
+                return list;
+            }
+            QilNode whenEmpty = CompileAll(onEmpty);
+            QilNode whenNonEmpty = _f.Sequence(CompileAll(before), result, CompileAll(after));
+            QilNode chosen = _f.Loop(result, _f.Conditional(X31(nameof(XsltLibrary.X31Vacuous), T.BooleanX, result), whenEmpty, whenNonEmpty));
+            return attributes.Count == 0 ? chosen : _f.Sequence(CompileInstructions(attributes), chosen);
+        }
+
+        // xsl:where-populated: the content without the items deemed empty (XSLT 3.0 §8.4.1).
+        private QilNode CompileWherePopulated31(XslNode node) =>
+            X31(nameof(XsltLibrary.X31Populated), T.ItemS, Box(CompileInstructions(node.Content)));
+
         // ------------------------------------------------------------ modes
 
         /// <summary>
@@ -991,7 +1612,8 @@ namespace Xsl3.Xslt
                 case "deep-skip":
                     return _f.Sequence();
                 case "fail":
-                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0555"), _f.String($"No template rule matches the node in mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.QualifiedName)}"));
+                    return _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0555"),
+                        _f.String($"No template rule matches the node in mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.QualifiedName)}")), ModeType31(mode));
                 case "deep-copy":
                     return _f.XsltCopyOf(current);
             }
@@ -1001,9 +1623,72 @@ namespace Xsl3.Xslt
                 return _f.Conditional(_f.IsType(current, T.DocumentOrElement), attributesThenChildren, _f.Sequence());
             }
             // shallow-copy
-            return _f.Conditional(_f.IsType(current, T.Element), _f.XsltCopy(current, attributesThenChildren),
-                _f.Conditional(_f.IsType(current, T.Document), _f.XsltCopy(current, BuiltinApply31(current, mode, attributes: false)),
+            return _f.Conditional(_f.IsType(current, T.Element), _f.XsltCopy(current, ContentNodes(attributesThenChildren)),
+                _f.Conditional(_f.IsType(current, T.Document), _f.XsltCopy(current, ContentNodes(BuiltinApply31(current, mode, attributes: false))),
                     _f.XsltCopy(current, _f.Sequence())));
+        }
+
+        // Functions applying the template rules of a mode to items that aren't nodes, by mode.
+        private readonly Dictionary<(StylesheetLevel, QilName, Template?), List<QilFunction>> _itemApplyFunctions31 = new();
+
+        /// <summary>
+        /// xsl:apply-templates to an item that isn't a node (XSLT 3.0 §6.8): a function per mode (and set of
+        /// parameters) that tries the template rules whose patterns are predicate patterns, then the built-in rules.
+        /// </summary>
+        private QilNode InvokeItemApplyFunction31(StylesheetLevel sheet, QilName mode, IList<XslNode> actualArgs, XslFlags flags, Template? nextMatchBelow)
+        {
+            QilList invokeArgs = _f.ActualParameterList();
+            if (!_itemApplyFunctions31.TryGetValue((sheet, mode, nextMatchBelow), out List<QilFunction>? functions))
+            {
+                functions = _itemApplyFunctions31[(sheet, mode, nextMatchBelow)] = new List<QilFunction>();
+            }
+            foreach (QilFunction func in functions)
+            {
+                if (FillupInvokeArgs(func.Arguments, actualArgs, invokeArgs))
+                {
+                    return _f.Invoke(func, invokeArgs);
+                }
+            }
+            invokeArgs.Clear();
+            QilList formalArgs = _f.FormalParameterList();
+            for (int i = 0; i < actualArgs.Count; i++)
+            {
+                VarPar withParam = (VarPar)actualArgs[i];
+                invokeArgs.Add(withParam.Value!);
+                QilParameter formalArg = _f.Parameter(i == 0 ? T.Item : withParam.Value!.XmlType!);
+                formalArg.Name = CloneName(withParam.Name!);
+                formalArgs.Add(formalArg);
+                withParam.Value = formalArg;
+            }
+            XmlQueryType type = ModeType31(mode);
+            QilFunction function = _f.Function(formalArgs, _f.Boolean((flags & XslFlags.SideEffects) != 0), type);
+            function.DebugName = $"<xsl:apply-templates{(mode.LocalName.Length == 0 ? "" : $" mode=\"{mode.QualifiedName}\"")}> (items)";
+            functions.Add(function);
+            _functions.Add(function);
+
+            QilIterator current = (QilIterator)formalArgs[0];
+            QilNode? savedTunnel = _currentTunnel;
+            foreach (QilNode formal in formalArgs)
+            {
+                if (formal is QilParameter fp && fp.Name!.Equals(_nameTunnel))
+                {
+                    _currentTunnel = fp;
+                }
+            }
+            string onNoMatch = _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? decl) ? decl.OnNoMatch : "text-only-copy";
+            QilNode text = _f.TextCtor(X31(nameof(XsltLibrary.X31ItemText), T.StringX, current));
+            QilNode builtin = onNoMatch switch
+            {
+                "shallow-skip" or "deep-skip" => _f.Sequence(),
+                "fail" => _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0555"),
+                    _f.String($"No template rule matches the item in mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.QualifiedName)}")), type),
+                "shallow-copy" or "deep-copy" when type == T.ItemS => current,
+                _ => text,
+            };
+            _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
+            function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin);
+            _currentTunnel = savedTunnel;
+            return _f.Invoke(function, invokeArgs);
         }
 
         // apply-templates to the attributes (or the children) of the current node, in the same mode.
@@ -1032,6 +1717,15 @@ namespace Xsl3.Xslt
                 Encoding = output.Encoding ?? "UTF-8",
                 MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
             };
+            // HTML5: html-version="5", or version="5.0" with the html method (Serialization 3.1 §7.1).
+            bool html = output.Settings.OutputMethod == XmlOutputMethod.Html;
+            string? htmlVersion = output.HtmlVersion ?? (html ? output.Version : null);
+            if ((html || output.Xhtml) && htmlVersion != null && htmlVersion.StartsWith('5'))
+            {
+                extras.Html5 = true;
+                extras.HtmlMethod = html;
+                extras.DefaultDoctype = output.Settings.DocTypeSystem == null;
+            }
             if (output.NormalizationForm != null && OutputExtras.TryParseNormalizationForm(output.NormalizationForm, out System.Text.NormalizationForm? form))
             {
                 extras.Normalization = form;
@@ -1079,6 +1773,12 @@ namespace Xsl3.Xslt
         // The node a pattern is matched against, for current() in the pattern (XSLT 3.0 §5.5.3).
         private QilIterator? _patternNode31;
 
+        // What the iterator of a predicate pattern ranges over (it is replaced by the item matched).
+        private QilNode? _fixupItem31;
+
+        // Compiling the pattern of a template rule (whose predicate patterns may match any item).
+        private bool _templatePattern31;
+
         /// <summary>
         /// A pattern as the 1.0 pattern builder delivers it: a Filter over the fixup node per alternative (a
         /// Sequence of them if there are several), each annotated with its default priority.
@@ -1088,8 +1788,13 @@ namespace Xsl3.Xslt
             QilIterator? saved = _patternNode31;
             try
             {
-                List<PatternAlternative> alternatives = XPath31Compiler.CompilePattern(Parser.ParseXPath(pattern), StaticContext31(), _f, this,
-                    () => _patternNode31 = _f.For(_ptrnBuilder.FixupNode));
+                XPath31.Expr ast = Parser.ParseXPath(pattern);
+                if (XPath31Compiler.IsPredicatePattern(ast) && WithoutComments31(pattern).TrimStart().StartsWith('('))
+                {
+                    return PatternError("XTSE0340", "A predicate pattern can't be parenthesized");
+                }
+                List<PatternAlternative> alternatives = XPath31Compiler.CompilePattern(ast, StaticContext31(), _f, this,
+                    items => _patternNode31 = _f.For(items && _templatePattern31 ? _fixupItem31 ??= _f.Unknown(T.ItemS) : _ptrnBuilder.FixupNode));
                 QilList list = _f.BaseFactory.Sequence();
                 foreach (PatternAlternative a in alternatives)
                 {
@@ -1111,6 +1816,18 @@ namespace Xsl3.Xslt
             {
                 _patternNode31 = saved;
             }
+        }
+
+        private static string WithoutComments31(string xpath)
+        {
+            string previous;
+            do
+            {
+                previous = xpath;
+                xpath = System.Text.RegularExpressions.Regex.Replace(xpath, @"\(:(?:(?!\(:|:\)).)*:\)", " ", System.Text.RegularExpressions.RegexOptions.Singleline);
+            }
+            while (xpath != previous);
+            return xpath;
         }
 
         private QilNode PatternError(string code, string message)

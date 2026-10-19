@@ -10,7 +10,12 @@ This file is the working plan; tick items off as they land and keep the decision
 
 2026-10-19: maps, arrays, function items (inline functions, named references, partial application, dynamic
 calls), the higher-order functions and the JSON functions are in. QT3 with `higherOrderFunctions` claimed:
-99.1%. Next: the XSLT 3.0 instructions.
+99.1%. Then the first XSLT 3.0 instructions: static variables and parameters, shadow attributes,
+`xsl:where-populated`, `xsl:on-empty`/`xsl:on-non-empty`, `xsl:try`/`xsl:catch`, `xsl:iterate`,
+`xsl:fork` (unstreamed), template rules for items that aren't nodes, `fn:copy-of`, `fn:snapshot`,
+`xsl:source-document` (unstreamed), `xsl:copy select`, `default-mode`, `xsl:context-item`, HTML5
+serialization. xslt30-test 3.0 profile: 89.6%.
+Next: `xsl:merge`, accumulators, `xsl:map`/`xsl:array`, `xsl:evaluate`, `default-mode`, packages.
 
 ## Where P2 leaves us
 
@@ -42,6 +47,16 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
    loops whose calls go through the dispatcher.
 6. **XSLT 3.0 is the current version.** Once the 3.0 instructions land, `version="3.0"` stops being
    forwards-compatible.
+7. **Instructions that need control flow QIL lacks are lifted.** `xsl:try` and `xsl:iterate` compile their
+   sequence constructors into QIL functions of the variables, parameters and focus iterators they use (found
+   by a free-reference walk; global variables are captured too, so their errors aren't caught). The run-time
+   library calls them through the dispatcher: `X31Try` inside a C# try/catch, with the value materialized
+   first so no partial result escapes; `X31Iterate` in a loop, the body's value ending in a control item for
+   `xsl:next-iteration` (the new parameter values) or `xsl:break`. The positions of captured focus iterators
+   are captured separately, since a captured iterator is a `Let`.
+8. **Template rules match any item.** A template rule whose pattern is a predicate pattern (`.`, `.[…]`) takes
+   an `item()` context; `xsl:apply-templates` over items that aren't nodes goes to a second matcher per mode
+   that tries only those rules, then the built-in rules for items (text-only-copy: the value as text).
 
 ## Steps
 
@@ -54,9 +69,12 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
       `fn:function-name`, `fn:function-arity`. (Missing: `fn:random-number-generator`.)
 - [ ] JSON: `fn:parse-json`, `fn:json-doc`, `fn:json-to-xml`, `fn:xml-to-json` (done; the `fallback` option
       isn't called), the `json` and `adaptive` serialization methods.
-- [ ] XSLT 3.0 instructions: text value templates (done), `xsl:iterate`, `xsl:try`/`xsl:catch`, `xsl:mode`
-      (`on-no-match` done; `on-multiple-match`, `default-mode`), `xsl:merge`, accumulators, `xsl:evaluate`, `xsl:assert`,
-      `xsl:where-populated`, `xsl:on-empty`/`xsl:on-non-empty`, `xsl:map`/`xsl:array`, static parameters and
-      shadow attributes, packages.
+- [ ] XSLT 3.0 instructions: text value templates, `xsl:iterate`, `xsl:try`/`xsl:catch`, `xsl:where-populated`,
+      `xsl:on-empty`/`xsl:on-non-empty`, `xsl:fork`, static parameters and shadow attributes, `xsl:import`
+      anywhere, predicate patterns and template rules for items (done); `xsl:mode` (`on-no-match` done;
+      `on-multiple-match`, `default-mode`), `xsl:merge`, accumulators, `xsl:evaluate`, `xsl:assert`,
+      `xsl:map`/`xsl:array`, packages. Known gaps: `err:line-number`/`err:column-number`, static variables
+      from modules imported after a reference, dynamic errors in patterns as non-matches.
+- [x] XSLT 3.0 functions: `fn:copy-of`, `fn:snapshot`.
 - [x] Profile: claim XSLT 3.0 basic, XPath 3.1 and higher-order functions in the xslt30-test harness.
 - [ ] Exit: ≥ 95% of that profile; QT3 ≥ 95% with higher-order functions claimed.
