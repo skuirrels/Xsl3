@@ -106,6 +106,7 @@ namespace Xsl3.Xslt
         public string? Href, Format, Method;
         public string? Ordinal;
         public string? StartAt; // xsl:number/@start-at (XSLT 3.0)
+        public string? NewEachTime; // xsl:function/@new-each-time, normalized: yes, no or maybe
         public string? Select;
         public bool Tunnel, Required;
         public bool HasContent;

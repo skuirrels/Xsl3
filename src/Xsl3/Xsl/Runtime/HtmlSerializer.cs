@@ -508,6 +508,11 @@ namespace Xsl3.Runtime
         // §7.1: a processing instruction ends with ">".
         public override void WriteProcessingInstruction(string name, string? text)
         {
+            if (text != null && text.Contains('>'))
+            {
+                // The html method ends a processing instruction at the first ">" (Serialization 3.1 §7.1).
+                throw new Xsl3.Xdm.XdmException("SERE0015", $"The processing instruction {name} contains \">\", which the html method can't write");
+            }
             Content(text: false);
             Raw("<?" + name + (string.IsNullOrEmpty(text) ? "" : " " + text) + ">");
         }

@@ -235,6 +235,19 @@ namespace Xsl3.Xslt
                     p.Visible[(o.Kind, o.Ns, o.Local, o.Arity)] = new PackageComponent(o.Actual, o.Decl.Visibility ?? "private", o.Decl, p.Id);
                     fromUsed[(o.Kind, o.Ns, o.Local, o.Arity)] = use.Id;
                 }
+                // Template rules in xsl:override go in a mode of the used package, which must be public (XTSE3060).
+                foreach (Template rule in compiler.AllTemplates.OfType<Template>().Where(t => t.Match != null && t.PackageId == p.Id && t.OverrideOf == use.Id))
+                {
+                    foreach (QilName mode in rule.V2?.Modes ?? (IEnumerable<QilName>)new[] { rule.Mode })
+                    {
+                        string modeNs = Demangle(mode.NamespaceUri).Ns;
+                        if (mode.LocalName.Length == 0 || ReferenceEquals(mode, XsltLoader.CurrentMode) ||
+                            !q.Visible.TryGetValue(('M', modeNs, mode.LocalName, -1), out PackageComponent? modeComponent) || modeComponent.Visibility != "public")
+                        {
+                            Error(rule.SourceLine, $"XTSE3060: the mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.LocalName)} isn't public in the used package, so xsl:override can't add template rules to it");
+                        }
+                    }
+                }
                 foreach (var ((kind, ns, local, arity), component) in q.Visible)
                 {
                     if (component.Visibility == "hidden" || overrides.Any(o => o.Kind == kind && o.Ns == ns && o.Local == local && o.Arity == arity))
@@ -329,16 +342,32 @@ namespace Xsl3.Xslt
                 var b = original.Content.OfType<VarPar>().Where(v => v.NodeType == XslNodeType.Param).ToList();
                 if (kind == 'F')
                 {
-                    return a.Count == b.Count && a.Zip(b).All(x => Norm(x.First.V2?.As) == Norm(x.Second.V2?.As));
+                    // The same parameter types, and the same determinism (new-each-time).
+                    return a.Count == b.Count && a.Zip(b).All(x => Norm(x.First.V2?.As) == Norm(x.Second.V2?.As)) &&
+                        (o.V2?.NewEachTime ?? "maybe") == (original.V2?.NewEachTime ?? "maybe");
                 }
                 // Templates: the overridden template's non-tunnel parameters, by name and type; others not required.
+                VarPar? Same(VarPar q) => a.FirstOrDefault(x => x.Name!.LocalName == q.Name!.LocalName && Demangle(x.Name.NamespaceUri).Ns == Demangle(q.Name.NamespaceUri).Ns);
                 foreach (VarPar q in b.Where(q => !(q.V2?.Tunnel ?? false)))
                 {
-                    VarPar? match = a.FirstOrDefault(x => x.Name!.LocalName == q.Name!.LocalName && Demangle(x.Name.NamespaceUri).Ns == Demangle(q.Name.NamespaceUri).Ns);
+                    VarPar? match = Same(q);
                     if (match == null || Norm(match.V2?.As) != Norm(q.V2?.As) || (match.V2?.Tunnel ?? false) != (q.V2?.Tunnel ?? false))
                     {
                         return false;
                     }
+                }
+                // Tunnel parameters both declare: the same type.
+                if (b.Where(q => q.V2?.Tunnel ?? false).Any(q => Same(q) is VarPar match && Norm(match.V2?.As) != Norm(q.V2?.As)))
+                {
+                    return false;
+                }
+                // The same context item declaration (xsl:context-item use and as).
+                static (string, string) Context(XslNode t) => t.Content.FirstOrDefault(n => n.NodeType == XslNodeType.ContextItem) is XslNode c
+                    ? ((string?)c.Arg ?? "optional", Norm(c.V2?.As ?? "item()"))
+                    : ("optional", "item()");
+                if (Context(o) != Context(original))
+                {
+                    return false;
                 }
                 return a.All(x => b.Any(q => q.Name!.LocalName == x.Name!.LocalName) || !(x.V2?.Required ?? false));
             }

@@ -221,13 +221,15 @@ namespace Xsl3.XPath31
             var parameters = new List<(QName, SequenceTypeTest)>();
             Functions.FunctionDefinition? def = name.NamespaceUri is QName.Ns.Fn or QName.Ns.Math or QName.Ns.Map or QName.Ns.Array
                 ? Functions.FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity) : null;
+            // A stylesheet function's declared types (so local:f#2 instance of function(xs:long) works).
+            var host = def == null ? _env?.FunctionSignature(name, arity) : null;
             for (int i = 0; i < arity; i++)
             {
-                parameters.Add((new QName("", s_params[i].LocalName), def?.ParameterType(i) ?? SequenceTypeTest.AnySequence));
+                parameters.Add((new QName("", s_params[i].LocalName), def?.ParameterType(i) ?? host?.Parameters[i] ?? SequenceTypeTest.AnySequence));
             }
             var call = new XPath31.FunctionCall(r.Name, Enumerable.Range(0, arity).Select(i => (Expr)new VarRef(s_params[i])).ToList()) { Span = r.Span };
             bool focusDependent = arity == 0 && name.NamespaceUri == QName.Ns.Fn && (s_contextFunctions.Contains(name.LocalName) || name.LocalName is "position" or "last");
-            return LiftFunction(System.Array.Empty<(QName, QilNode)>(), parameters, def?.ReturnType, name, () => Build(call),
+            return LiftFunction(System.Array.Empty<(QName, QilNode)>(), parameters, def?.ReturnType ?? host?.Result, name, () => Build(call),
                 focus: focusDependent && !_focusAbsent ? Items(FocusItem()) : null);
         }
 

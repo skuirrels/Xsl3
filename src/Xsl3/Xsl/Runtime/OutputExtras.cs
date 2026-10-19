@@ -56,7 +56,8 @@ namespace Xsl3.Runtime
 
         public bool IsEmpty => !Xhtml && !Html5 && RawMethod == null && EscapeUriAttributes && IncludeContentType && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
-        public XmlWriter Wrap(XmlWriter writer) => IsEmpty ? writer : new SerializationWriter(writer, this);
+        /// <param name="settings">The writer's settings as they were given (its own Settings lose the cdata-section-elements).</param>
+        public XmlWriter Wrap(XmlWriter writer, XmlWriterSettings? settings = null) => IsEmpty ? writer : new SerializationWriter(writer, this, settings);
 
         /// <summary>A normalization-form value as a .NET form; null for "none" (SESU0011 for unsupported forms).</summary>
         public static bool TryParseNormalizationForm(string value, out NormalizationForm? form)
@@ -111,14 +112,18 @@ namespace Xsl3.Runtime
         private bool _seenElement;
         private bool OwnHtml => _inner is HtmlSerializer; // which does HTML5's doctype and void elements itself
         private readonly Stack<bool> _void = new();
+        private readonly Stack<bool> _cdata = new(); // in a cdata-section-elements element
         private bool _inAttribute;
         private bool _pendingHead;
 
-        public SerializationWriter(XmlWriter inner, OutputExtras extras)
+        public SerializationWriter(XmlWriter inner, OutputExtras extras, XmlWriterSettings? settings = null)
         {
             _inner = inner;
             _extras = extras;
+            _settings = settings ?? inner.Settings;
         }
+
+        private readonly XmlWriterSettings? _settings;
 
         // Before content of an XHTML head: the meta element that declares the content type.
         private void Content()
@@ -153,6 +158,38 @@ namespace Xsl3.Runtime
             if (_inAttribute && _uriAttribute)
             {
                 text = EscapeUri(text);
+            }
+            if (!_inAttribute && _cdata.Count > 0 && _cdata.Peek() && FirstUnencodable(text) >= 0)
+            {
+                // A character the encoding lacks ends the CDATA section and is written as a character reference
+                // (Serialization 3.1 §5.1.4), then a new CDATA section starts.
+                int from = 0;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    int width = char.IsSurrogatePair(text, i) ? 2 : 1;
+                    if (!CanEncode(text.AsSpan(i, width)))
+                    {
+                        if (i > from)
+                        {
+                            _inner.WriteCData(text[from..i]);
+                        }
+                        if (width == 2)
+                        {
+                            _inner.WriteSurrogateCharEntity(text[i + 1], text[i]);
+                        }
+                        else
+                        {
+                            _inner.WriteCharEntity(text[i]);
+                        }
+                        from = i + width;
+                    }
+                    i += width - 1;
+                }
+                if (from < text.Length)
+                {
+                    _inner.WriteCData(text[from..]);
+                }
+                return;
             }
             if (_extras.Xhtml && text.AsSpan().IndexOfAnyInRange('', '') >= 0)
             {
@@ -244,6 +281,7 @@ namespace Xsl3.Runtime
                 _inner.WriteStartElement(prefix, localName, ns);
             }
             // With HTML5, elements in no namespace are serialized like XHTML's.
+            _cdata.Push(_settings?.CDataSectionElements is { Count: > 0 } cdata && cdata.Exists(q => q.Name == localName && q.Namespace == (ns ?? "")));
             bool xhtml = _extras.Xhtml && (ns == XhtmlNs || _extras.Html5 && string.IsNullOrEmpty(ns));
             _currentXhtml = xhtml;
             _void.Push(!_extras.Xhtml || xhtml && (_extras.Html5 ? s_voidElements5 : s_voidElements).Contains(localName));
@@ -256,6 +294,10 @@ namespace Xsl3.Runtime
         public override void WriteEndElement()
         {
             Content();
+            if (_cdata.Count > 0)
+            {
+                _cdata.Pop();
+            }
             bool minimize = _void.Count == 0 || _void.Pop();
             if (minimize)
             {
@@ -270,6 +312,10 @@ namespace Xsl3.Runtime
         public override void WriteFullEndElement()
         {
             Content();
+            if (_cdata.Count > 0)
+            {
+                _cdata.Pop();
+            }
             if (_void.Count > 0)
             {
                 _void.Pop();
@@ -292,6 +338,52 @@ namespace Xsl3.Runtime
         }
 
         private bool _uriAttribute;
+
+        // The output encoding with an exception fallback, for testing characters (null for the Unicode encodings).
+        private Encoding? _strictEncoding;
+        private bool _strictEncodingKnown;
+
+        private int FirstUnencodable(string text)
+        {
+            if (!_strictEncodingKnown)
+            {
+                _strictEncodingKnown = true;
+                Encoding? encoding = _settings?.Encoding;
+                if (encoding != null && encoding.CodePage is not (65001 or 1200 or 1201 or 12000 or 12001))
+                {
+                    _strictEncoding = Encoding.GetEncoding(encoding.CodePage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+                }
+            }
+            if (_strictEncoding == null)
+            {
+                return -1;
+            }
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] >= 0x80 && !CanEncode(text.AsSpan(i, char.IsSurrogatePair(text, i) ? 2 : 1)))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        private bool CanEncode(System.ReadOnlySpan<char> c)
+        {
+            if (_strictEncoding == null || c.Length == 1 && c[0] < 0x80)
+            {
+                return true;
+            }
+            try
+            {
+                _strictEncoding.GetByteCount(c);
+                return true;
+            }
+            catch (EncoderFallbackException)
+            {
+                return false;
+            }
+        }
         private bool _currentXhtml;
 
         internal static readonly HashSet<string> HtmlUriAttributes = new(System.StringComparer.OrdinalIgnoreCase)

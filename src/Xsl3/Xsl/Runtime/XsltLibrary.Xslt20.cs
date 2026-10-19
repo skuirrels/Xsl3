@@ -164,6 +164,12 @@ namespace Xsl3.Runtime
             return result;
         }
 
+        public bool X31IsArray(XPathItem item) => item is XdmArray;
+
+        /// <summary>The members of an array, flattened (?*); empty for other items.</summary>
+        public IList<XPathItem> X31ArrayMembers(XPathItem item) =>
+            item is XdmArray array ? array.Members.SelectMany(m => m).ToList() : Sequences.Empty;
+
         private static List<XPathItem> Flatten(IList<XPathItem> items)
         {
             var flat = new List<XPathItem>(items.Count);

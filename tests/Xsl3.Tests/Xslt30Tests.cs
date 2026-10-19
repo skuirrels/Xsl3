@@ -112,6 +112,25 @@ public class Xslt30Tests
             "<out n='{count($v)}'><xsl:sequence select=\"'a'\"/><xsl:text/><xsl:sequence select=\"'b'\"/></out></xsl:template>"));
 
     [Fact]
+    public void SnapshotOfAnAttributeKeepsItsParent() =>
+        Assert.Equal("<out>k true b</out>", Run(
+            "<xsl:template match='/'><out><xsl:variable name='s' select='snapshot(/a/b/@k)'/>" +
+            "<xsl:value-of select='name($s), $s instance of attribute(), name($s/..)'/></out></xsl:template>",
+            "<a><b k='1'/></a>"));
+
+    [Fact]
+    public void ApplyTemplatesToAnArrayProcessesItsMembers() =>
+        Assert.Equal("<out><e n=\"a\" /><e n=\"b\" /></out>", Run(
+            "<xsl:template match='/'><xsl:variable name='d' as='element()*'><a/><b/></xsl:variable><out><xsl:apply-templates select='array{$d}'/></out></xsl:template>" +
+            "<xsl:template match='*'><e n='{name()}'/></xsl:template>"));
+
+    [Fact]
+    public void ReferencesToStylesheetFunctionsHaveTheirDeclaredSignature() =>
+        Assert.Equal("<out>true false</out>", Run(
+            "<xsl:function name='f:f' xmlns:f='urn:f' as='xs:string'><xsl:param name='x' as='xs:integer'/><xsl:sequence select='string($x)'/></xsl:function>" +
+            "<xsl:template match='/'><out xmlns:f='urn:f' xsl:exclude-result-prefixes='f'><xsl:value-of select='f:f#1 instance of function(xs:integer) as xs:string, f:f#1 instance of function(xs:string) as xs:string'/></out></xsl:template>"));
+
+    [Fact]
     public void ArraysInContentAreFlattened() =>
         Assert.Equal("<out><e /><e /></out>", Run(
             "<xsl:template match='/'><xsl:variable name='e'><e/></xsl:variable><out><xsl:sequence select='[$e/e, $e/e]'/></out></xsl:template>"));
@@ -371,5 +390,17 @@ public class Xslt30Tests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void CDataSectionsSplitAroundCharactersTheEncodingLacks()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns='http://www.w3.org/1999/xhtml'><xsl:output method='xhtml' cdata-section-elements='example' indent='no' encoding='US-ASCII'/>" +
+                            "<xsl:template match='/'><html><example>foo &#xaa; bar</example></html></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var bytes = new MemoryStream();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+        Assert.Contains("<example><![CDATA[foo ]]>&#xAA;<![CDATA[ bar]]></example>", System.Text.Encoding.ASCII.GetString(bytes.ToArray()));
     }
 }

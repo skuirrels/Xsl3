@@ -26,10 +26,11 @@ namespace Xsl3.Runtime
         /// accumulator-before and accumulator-after (XSLT 3.0 §18.2.4): the accumulator's value before or after the
         /// context node, computed for the node's whole tree the first time it is asked for.
         /// </summary>
-        public IList<XPathItem> X31AccumulatorValue(IList<XPathItem> items, double tableId, string name, double nameContext, IList<XPathItem> context, bool after)
+        public IList<XPathItem> X31AccumulatorValue(IList<XPathItem> items, double tableId, string name, double nameContext, IList<XPathItem> context, bool after, double package)
         {
             var (ns, local) = NameContext(nameContext).Resolve(name, "", "XTDE3340");
-            string key = new QName(ns, local).EQName;
+            // The accumulators of the package the call is in (their names carry its id).
+            string key = new QName(Xsl3.Xslt.PackageComponents.MangleNamespace((int)package, ns), local).EQName;
             var table = (Dictionary<string, AccumulatorInfo>)ConstantPool.Get((int)tableId);
             if (!table.TryGetValue(key, out AccumulatorInfo? info))
             {

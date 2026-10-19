@@ -116,6 +116,27 @@ namespace Xsl3.Xslt
 
         FunctionItemRegistry? IXPath31Environment.FunctionItems => _functionItems31 ??= new FunctionItemRegistry(_f, _functions.Add);
 
+        (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? IXPath31Environment.FunctionSignature(QName name, int arity)
+        {
+            if (!((IsV2 ? ResolveComponent31('F', _f.QName(name.LocalName, name.NamespaceUri), arity) : null) is QilName functionName &&
+                _compiler.Functions.TryGetValue((functionName, arity), out var entry)))
+            {
+                return null;
+            }
+            try
+            {
+                XPathStaticContext sc = StaticContext31();
+                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+                SequenceTypeTest Type(string? asType) => asType == null ? SequenceTypeTest.AnySequence : resolver.Resolve(Parser.ParseSequenceType(asType));
+                var parameters = entry.Function.Content.Where(n => n.NodeType == XslNodeType.Param).Select(p => Type(p.V2?.As)).ToList();
+                return parameters.Count == arity ? (parameters, Type(entry.Function.V2?.As)) : null;
+            }
+            catch (XPathStaticException)
+            {
+                return null; // reported where the function is compiled
+            }
+        }
+
         QilNode? IXPath31Environment.ResolveFunction(QName name, IReadOnlyList<XPath31.Expr> args, System.Func<XPath31.Expr, QilNode> compile)
         {
             // Stylesheet functions (xsl:function) first: they may not override F&O functions, but have their own namespaces.
@@ -201,7 +222,7 @@ namespace Xsl3.Xslt
                 case ("accumulator-before" or "accumulator-after", 1):
                     return X31(nameof(XsltLibrary.X31AccumulatorValue), T.ItemS, AccumulatorItems31(), _f.Double(_accumulatorTable31),
                         String31(compile(args[0])), _f.Double(NameContext31()), Box(compile(new XPath31.ContextItemExpr())),
-                        _f.Boolean(name.LocalName == "accumulator-after"));
+                        _f.Boolean(name.LocalName == "accumulator-after"), _f.Double(_package31));
                 case ("copy-of", 0):
                 case ("copy-of", 1):
                     return Box(CopyItems31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
@@ -2238,6 +2259,15 @@ namespace Xsl3.Xslt
                 _ => text,
             };
             QilIterator? modeFrame = WithCurrentMode31(mode, actualArgs);
+            if (onNoMatch is "text-only-copy" or "shallow-copy" or "shallow-skip")
+            {
+                // The built-in rule for arrays applies templates to their members (XSLT 3.0 §6.7.1).
+                LoopFocus saved = _curLoop;
+                _curLoop.SetFocus(_f.For(X31(nameof(XsltLibrary.X31ArrayMembers), T.ItemS, current)));
+                QilNode members = _curLoop.ConstructLoop(InvokeApplyFunction(_compiler.Root!, mode, null));
+                _curLoop = saved;
+                builtin = _f.Conditional(X31(nameof(XsltLibrary.X31IsArray), T.BooleanX, current), members, builtin);
+            }
             _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
             function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin, decl?.OnMultipleMatch == "fail");
             if (modeFrame != null)

@@ -353,6 +353,10 @@ namespace Xsl3.Xslt
             ContextInfo ctxInfo = _input.GetAttributes(_accumulatorAttributes);
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
             QilName? name = ParseQNameAttribute(0);
+            if (name != null && _packageId > 0)
+            {
+                name = PackageComponents.Mangle(name, _packageId); // accumulators are local to a package
+            }
             string? initial = ParseStringAttribute(1, "initial-value");
             string? asType = ParseStringAttribute(2, "as");
             ParseYesNoAttribute(3, "streamable");
@@ -959,9 +963,20 @@ namespace Xsl3.Xslt
             {
                 ReportError(SR.Xml_UserException, "XTSE0020: override and override-extension-function have different values");
             }
-            if (_input.MoveToXsltAttribute(6, "new-each-time") && _input.Value.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0" or "maybe"))
+            string newEachTime = "maybe";
+            if (_input.MoveToXsltAttribute(6, "new-each-time"))
             {
-                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "new-each-time", _input.Value);
+                newEachTime = _input.Value.Trim() switch
+                {
+                    "yes" or "true" or "1" => "yes",
+                    "no" or "false" or "0" => "no",
+                    "maybe" => "maybe",
+                    _ => "",
+                };
+                if (newEachTime.Length == 0)
+                {
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "new-each-time", _input.Value);
+                }
             }
             CheckError(name != null && name.NamespaceUri.Length == 0, /*[XTSE0740]*/SR.Xslt_InvalidAttrValue, "name", name?.QualifiedName);
 
@@ -970,7 +985,7 @@ namespace Xsl3.Xslt
             var function = new Template(name, /*match:*/null, nullMode, double.NaN, _input.XslVersion);
             function.IsFunction = true;
             PackageDeclaration(function, functionVisibility);
-            function.V2 = new XslNodeV2 { As = asType };
+            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;

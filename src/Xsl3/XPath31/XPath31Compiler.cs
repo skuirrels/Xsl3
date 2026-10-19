@@ -105,6 +105,9 @@ namespace Xsl3.XPath31
         /// <paramref name="compile"/> compiles an argument to boxed QIL.
         /// </summary>
         QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile);
+
+        /// <summary>The declared parameter and result types of a host function, for a named reference to it; null if unknown.</summary>
+        (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? FunctionSignature(QName name, int arity) => null;
     }
 
     internal sealed partial class XPath31Compiler

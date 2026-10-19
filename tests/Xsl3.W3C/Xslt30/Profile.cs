@@ -50,6 +50,8 @@ public sealed class Profile
             // Upstream recovers from conflicting template rules by choosing the last.
             "on-multiple-match" => d.Value == "recover",
             "xsd-version" => d.Value == "1.0",
+            // xsl:use-package chooses the highest version in range (implementation-defined, XSLT 3.0 §3.5.2).
+            "package_version_resolution" => d.Value is "highest_version" or "unspecified",
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),
             "enable_assertions" or "sweep_and_posture" or "combinations_for_numbering" or "additional_normalization_form" => false,
             _ => true,

@@ -36,7 +36,9 @@ Then decimal formats, keys and namespace aliases local to their package (their n
 like components'), abstract attribute sets: 7,389 passed (93.1%). Then `xsl:number start-at` and static error codes: 7,404 (93.3%). Then sequence normalization (an empty
 `xsl:text` is a zero-length text node; value templates are simple content; copies of documents in sequences are
 documents; arrays in content are flattened) and `xsl:next-match` from a named template (the current template
-rule travels in the tunnel frame, like the mode): 7,461 (94.0%).
+rule travels in the tunnel frame, like the mode): 7,461 (94.0%). Then override signature checks, package-local
+accumulators, snapshots of attributes, the built-in rule for arrays and typed references to stylesheet functions:
+7,479 of 7,935 (94.3%; the lowest-version package tests no longer apply, as `xsl:use-package` picks the highest).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us

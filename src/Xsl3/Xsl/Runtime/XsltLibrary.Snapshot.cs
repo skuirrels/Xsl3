@@ -73,7 +73,13 @@ namespace Xsl3.Runtime
             switch (node.NodeType)
             {
                 case XPathNodeType.Attribute:
-                    nav.MoveToAttribute(node.LocalName, node.NamespaceURI);
+                    // By walking the attributes: MoveToAttribute compares names atomized in the copy's name table.
+                    if (nav.MoveToFirstAttribute())
+                    {
+                        while (!(nav.LocalName == node.LocalName && nav.NamespaceURI == node.NamespaceURI) && nav.MoveToNextAttribute())
+                        {
+                        }
+                    }
                     break;
                 case XPathNodeType.Namespace:
                     nav.MoveToNamespace(node.LocalName);

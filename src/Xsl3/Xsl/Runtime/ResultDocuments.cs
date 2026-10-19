@@ -304,7 +304,7 @@ namespace Xsl3.Runtime
             {
                 w = factory(settings);
             }
-            return extras is { IsEmpty: false } ? extras.Wrap(w) : w;
+            return extras is { IsEmpty: false } ? extras.Wrap(w, settings) : w;
         }
 
         public override WriteState WriteState => _inner?.WriteState ?? WriteState.Start;
