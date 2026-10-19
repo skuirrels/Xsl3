@@ -62,6 +62,7 @@ namespace Xsl3.Xslt
         public Dictionary<(QilName Name, int Arity), (Template Function, int Precedence)> Functions = new Dictionary<(QilName, int), (Template, int)>();
         public Dictionary<QilName, CharacterMap> CharacterMaps = new Dictionary<QilName, CharacterMap>();
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
+        public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
 
         /// <summary>Xsl3: false if a function with this name and arity already has the same import precedence.</summary>
         public bool AddFunction(QilName name, int arity, Template function, int precedence)
@@ -431,6 +432,14 @@ namespace Xsl3.Xslt
                 return string.CompareOrdinal(x.ErrorText, y.ErrorText);
             }
         }
+    }
+
+    /// <summary>Xsl3: an xsl:mode declaration (XSLT 3.0 §3.5.4.1).</summary>
+    internal sealed class ModeDecl
+    {
+        public string OnNoMatch = "text-only-copy";
+        public string OnMultipleMatch = "use-last";
+        public int ImportPrecedence;
     }
 
     internal sealed class Output

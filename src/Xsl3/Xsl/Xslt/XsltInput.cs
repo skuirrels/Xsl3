@@ -760,7 +760,8 @@ namespace Xsl3.Xslt
             else
             {
                 _scopeManager.BackwardCompatibility = version < 2;
-                _scopeManager.ForwardCompatibility = 2 < version;
+                // Xsl3: the 2.0+ path is a 3.0 processor (docs/plan/p3-xslt30.md, decision 6).
+                _scopeManager.ForwardCompatibility = 3 < version;
             }
         }
 
@@ -804,6 +805,7 @@ namespace Xsl3.Xslt
             int attNamespace = 0;
             int attCollation = 0;
             int attUseWhen = 0;
+            int attExpandText = 0;
 
             bool isXslOutput = IsXsltNamespace() && IsKeyword(_atoms.Output);
             bool SS = IsXsltNamespace() && (IsKeyword(_atoms.Stylesheet) || IsKeyword(_atoms.Transform));
@@ -867,6 +869,8 @@ namespace Xsl3.Xslt
                         else
                         if (Ref.Equal(localName, _atoms.Version) && (V2)) { /* Xsl3: a standard attribute of every XSLT element in 2.0 */ }
                         else
+                        if (localName == "expand-text" && V2) { attExpandText = attNum; }
+                        else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);
                         }
@@ -896,6 +900,7 @@ namespace Xsl3.Xslt
             InsertExNamespaces(attExclude, _ctxInfo!, /*extensions:*/ false);
             SetXPathDefaultNamespace(attNamespace, _ctxInfo!);
             SetDefaultCollation(attCollation, _ctxInfo!);
+            SetExpandText(attExpandText, _ctxInfo!);
             // use-when was applied when the element was read (ExcludedByUseWhen); on the stylesheet element, whose
             // version is only known now, it excludes the module's declarations.
             if (attUseWhen != 0 && SS && V2)
@@ -934,6 +939,7 @@ namespace Xsl3.Xslt
             int attNamespace = 0;
             int attCollation = 0;
             int attUseWhen = 0;
+            int attExpandText = 0;
 
             for (int i = 1; MoveToLiteralAttribute(i); i++)
             {
@@ -951,6 +957,8 @@ namespace Xsl3.Xslt
                     if (Ref.Equal(localName, _atoms.DefaultCollation)) { attCollation = i; }
                     else
                     if (Ref.Equal(localName, _atoms.UseWhen)) { attUseWhen = i; }
+                    else
+                    if (localName == "expand-text") { attExpandText = i; }
                 }
             }
 
@@ -987,6 +995,7 @@ namespace Xsl3.Xslt
                 {
                     SetXPathDefaultNamespace(attNamespace, _ctxInfo!);
                     SetDefaultCollation(attCollation, _ctxInfo!);
+                    SetExpandText(attExpandText, _ctxInfo!);
                     // use-when was applied when the element was read (ExcludedByUseWhen).
                     if (attUseWhen != 0 && asStylesheet)
                     {
@@ -1086,6 +1095,27 @@ namespace Xsl3.Xslt
         public const string XPathDefaultNamespacePrefix = "#xpath-default-namespace";
         public const string DefaultCollationPrefix = "#default-collation";
         public const string XmlBasePrefix = "#xml-base";
+        public const string ExpandTextPrefix = "#expand-text";
+
+        // Xsl3: [xsl:]expand-text (XSLT 3.0 §5.6.2): text in the sequence constructors in scope are text value templates.
+        private void SetExpandText(int attExpandText, ContextInfo ctxInfo)
+        {
+            if (attExpandText != 0 && MoveToLiteralAttribute(attExpandText))
+            {
+                string value = Value.Trim() switch
+                {
+                    "yes" or "true" or "1" => "yes",
+                    "no" or "false" or "0" => "no",
+                    _ => "",
+                };
+                if (value.Length == 0)
+                {
+                    ReportError(SR.Xslt_BistateAttribute, "expand-text", "yes", "no");
+                    return;
+                }
+                ctxInfo.nsList = new NsDecl(ctxInfo.nsList, ExpandTextPrefix, value);
+            }
+        }
 
         private void SetXPathDefaultNamespace(int attNamespace, ContextInfo ctxInfo)
         {

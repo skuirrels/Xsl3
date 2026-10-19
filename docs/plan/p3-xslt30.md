@@ -30,11 +30,10 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
 3. **Inline functions are lambda-lifted.** Each inline function expression becomes a QIL function whose
    parameters are its captured variables followed by its declared parameters. Evaluating the expression
    builds an `XdmFunction` that holds the function's id and the captured values.
-4. **Dynamic calls dispatch in generated code.** Compiled code can't hand delegates to the runtime library, so
-   each arity that is called dynamically gets a generated dispatcher: a QIL function that compares the item's
-   id with every lifted function of that arity and invokes it with the captured values and the arguments;
-   other function items (named references to library functions, partial applications, map and array
-   functions) go to the runtime library.
+4. **Dynamic calls dispatch in generated code.** Each compiled unit has one generated dispatcher: a QIL
+   function that takes a pending call (the function item and its arguments, already converted to the declared
+   types), compares the item's id with every lifted function and invokes it with the captured values and the
+   arguments. Maps, arrays and built-in functions found at run time go to the run-time library.
 5. **Higher-order library functions compile to QIL**, or run in the library: the generated dispatcher is also
    exposed to the run-time library as a delegate (`XmlQueryStaticData.Dispatcher`), so folds are C# loops
    rather than recursion. The other higher-order functions when they take function items (`fn:for-each`,
@@ -55,9 +54,9 @@ calls), the higher-order functions and the JSON functions are in. QT3 with `high
       `fn:function-name`, `fn:function-arity`. (Missing: `fn:random-number-generator`.)
 - [ ] JSON: `fn:parse-json`, `fn:json-doc`, `fn:json-to-xml`, `fn:xml-to-json` (done; the `fallback` option
       isn't called), the `json` and `adaptive` serialization methods.
-- [ ] XSLT 3.0 instructions: text value templates, `xsl:iterate`, `xsl:try`/`xsl:catch`, `xsl:mode`
-      (`on-no-match`, `on-multiple-match`), `xsl:merge`, accumulators, `xsl:evaluate`, `xsl:assert`,
+- [ ] XSLT 3.0 instructions: text value templates (done), `xsl:iterate`, `xsl:try`/`xsl:catch`, `xsl:mode`
+      (`on-no-match` done; `on-multiple-match`, `default-mode`), `xsl:merge`, accumulators, `xsl:evaluate`, `xsl:assert`,
       `xsl:where-populated`, `xsl:on-empty`/`xsl:on-non-empty`, `xsl:map`/`xsl:array`, static parameters and
       shadow attributes, packages.
-- [ ] Profile: claim XSLT 3.0 basic, XPath 3.1 and higher-order functions in the xslt30-test harness.
+- [x] Profile: claim XSLT 3.0 basic, XPath 3.1 and higher-order functions in the xslt30-test harness.
 - [ ] Exit: ≥ 95% of that profile; QT3 ≥ 95% with higher-order functions claimed.

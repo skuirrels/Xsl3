@@ -1200,6 +1200,13 @@ namespace Xsl3.Xslt
 
         private QilNode CompileText(Text node)
         {
+            if (IsV2 && _scope.LookupNamespace(XsltInput.ExpandTextPrefix) == "yes" && node.Select!.AsSpan().ContainsAny('{', '}'))
+            {
+                // Xsl3: a text value template (XSLT 3.0 §5.6.2): parsed like an attribute value template.
+                // One text node with the parts' values concatenated.
+                QilNode value = CompileStringAvt(node.Select)!;
+                return node.Hints == SerializationHints.None ? _f.TextCtor(value) : _f.RawTextCtor(value);
+            }
             if (node.Hints == SerializationHints.None)
                 return _f.TextCtor(_f.String(node.Select!));
 
@@ -2903,13 +2910,18 @@ namespace Xsl3.Xslt
                 }
 
                 // 3.1.2 switch on type of current node
-                QilTernary builtinTemplates = _f.BaseFactory.Conditional(_f.IsType(current, _elementOrDocumentType),
+                QilNode builtinTemplates = _f.BaseFactory.Conditional(_f.IsType(current, _elementOrDocumentType),
                     loopOnContent,
                     _f.Conditional(_f.IsType(current, _textOrAttributeType),
                         _f.TextCtor(_f.XPathNodeValue(current)),
                         _f.Sequence()
                     )
                 );
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? modeDecl) && modeDecl.OnNoMatch != "text-only-copy")
+                {
+                    // Xsl3: the built-in template rules of xsl:mode on-no-match (XSLT 3.0 §6.7).
+                    builtinTemplates = BuiltinRules31(modeDecl.OnNoMatch, current, mode, loopOnContent);
+                }
 
                 // 3.2 Stylesheet templates
                 _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);

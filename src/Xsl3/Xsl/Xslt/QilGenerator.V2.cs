@@ -977,6 +977,49 @@ namespace Xsl3.Xslt
             return _resultFormats31.Value;
         }
 
+        // ------------------------------------------------------------ modes
+
+        /// <summary>
+        /// The built-in template rules of a mode (XSLT 3.0 §6.7): shallow-copy and shallow-skip apply templates to
+        /// the attributes and children of documents and elements; deep-copy copies the node; deep-skip does nothing;
+        /// fail is XTDE0555.
+        /// </summary>
+        private QilNode BuiltinRules31(string onNoMatch, QilIterator current, QilName mode, QilNode applyToChildren)
+        {
+            switch (onNoMatch)
+            {
+                case "deep-skip":
+                    return _f.Sequence();
+                case "fail":
+                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0555"), _f.String($"No template rule matches the node in mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.QualifiedName)}"));
+                case "deep-copy":
+                    return _f.XsltCopyOf(current);
+            }
+            QilNode attributesThenChildren = _f.Sequence(BuiltinApply31(current, mode, attributes: true), applyToChildren);
+            if (onNoMatch == "shallow-skip")
+            {
+                return _f.Conditional(_f.IsType(current, T.DocumentOrElement), attributesThenChildren, _f.Sequence());
+            }
+            // shallow-copy
+            return _f.Conditional(_f.IsType(current, T.Element), _f.XsltCopy(current, attributesThenChildren),
+                _f.Conditional(_f.IsType(current, T.Document), _f.XsltCopy(current, BuiltinApply31(current, mode, attributes: false)),
+                    _f.XsltCopy(current, _f.Sequence())));
+        }
+
+        // apply-templates to the attributes (or the children) of the current node, in the same mode.
+        private QilNode BuiltinApply31(QilIterator current, QilName mode, bool attributes)
+        {
+            QilIterator child = _f.For(_f.Content(current));
+            QilNode filter = _f.Filter(child, _f.IsType(child, attributes ? T.Attribute : T.Content));
+            filter.XmlType = attributes ? T.AttributeS : T.ContentS;
+            LoopFocus saved = _curLoop;
+            _curLoop.SetFocus(_f.For(filter));
+            QilNode body = InvokeApplyFunction(_compiler.Root!, mode, null);
+            QilNode loop = _curLoop.ConstructLoop(body);
+            _curLoop = saved;
+            return loop;
+        }
+
         // ------------------------------------------------------------ serialization
 
         /// <summary>The serialization parameters of an output definition that the result writer must apply.</summary>

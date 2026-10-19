@@ -333,6 +333,47 @@ namespace Xsl3.Xslt
             }
         }
 
+        // XSLT 3.0 §3.5.4.1
+        private readonly XsltAttribute[] _modeAttributes = {
+            new XsltAttribute("name",                      V2Opt),
+            new XsltAttribute("on-no-match",               V2Opt),
+            new XsltAttribute("on-multiple-match",         V2Opt),
+            new XsltAttribute("warning-on-no-match",       V2Opt),
+            new XsltAttribute("warning-on-multiple-match", V2Opt),
+            new XsltAttribute("typed",                     V2Opt),
+            new XsltAttribute("visibility",                V2Opt),
+            new XsltAttribute("streamable",                V2Opt),
+            new XsltAttribute("use-accumulators",          V2Opt),
+        };
+        private void LoadMode()
+        {
+            _input.GetAttributes(_modeAttributes);
+            QilName mode = _input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() != "#unnamed" ? ParseQNameAttribute(0) ?? nullMode : nullMode;
+            var decl = new ModeDecl { ImportPrecedence = _curStylesheet!.ImportPrecedence };
+            if (_input.MoveToXsltAttribute(1, "on-no-match"))
+            {
+                decl.OnNoMatch = _input.Value.Trim();
+                if (decl.OnNoMatch is not ("text-only-copy" or "shallow-copy" or "deep-copy" or "shallow-skip" or "deep-skip" or "fail"))
+                {
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "on-no-match", decl.OnNoMatch);
+                    decl.OnNoMatch = "text-only-copy";
+                }
+            }
+            if (_input.MoveToXsltAttribute(2, "on-multiple-match"))
+            {
+                decl.OnMultipleMatch = _input.Value.Trim();
+            }
+            ParseYesNoAttribute(3, "warning-on-no-match");
+            ParseYesNoAttribute(4, "warning-on-multiple-match");
+            ParseYesNoAttribute(7, "streamable");
+            // Declarations of higher import precedence win (modules are read in decreasing precedence).
+            if (!_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? existing) || existing.ImportPrecedence == decl.ImportPrecedence)
+            {
+                _compiler.ModeDecls[mode] = decl;
+            }
+            CheckNoContent();
+        }
+
         // http://www.w3.org/TR/xslt20/#element-character-map
         private readonly XsltAttribute[] _characterMapAttributes = {
             new XsltAttribute("name",               V2Req),

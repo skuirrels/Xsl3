@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 namespace Xsl3.W3C;
 
 /// <summary>
-/// Runs every xslt30-test case that applies to what Xsl3 claims (<see cref="Xslt30.Profile.Xslt20"/> in P2) and
+/// Runs every xslt30-test case that applies to what Xsl3 claims (<see cref="Xslt30.Profile.Xslt30"/> in P3) and
 /// compares the failures with baselines/xslt30-run.txt. The report goes to w3c-reports/xslt30-run.md next
 /// to the test binaries; docs/conformance.md summarises it.
 /// </summary>
@@ -46,7 +46,10 @@ public class Xslt30RunTests
         // The unicode-90 sets loop over every Unicode character in documents of tens of megabytes: hours of run time
         // for character classes that QT3 covers. They run only when named in XSL3_XSLT30_SETS.
         bool Routine(Xslt30.TestCase t) => sets != null || !t.Set.Name.StartsWith("unicode-90", StringComparison.Ordinal);
-        foreach (Xslt30.TestCase test in catalog.TestCases.Where(Xslt30.Profile.Xslt20.Applies).Where(Routine).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
+        // XSL3_XSLT30_PROFILE=2.0 runs the P2 profile (then the baseline is not checked).
+        bool p2 = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") == "2.0";
+        Xslt30.Profile profile = p2 ? Xslt30.Profile.Xslt20 : Xslt30.Profile.Xslt30;
+        foreach (Xslt30.TestCase test in catalog.TestCases.Where(profile.Applies).Where(Routine).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
         {
             if (trace != null)
             {
@@ -66,10 +69,10 @@ public class Xslt30RunTests
         }
 
         int pass = perSet.Values.Sum(v => v[0]), fail = perSet.Values.Sum(v => v[1]), notRun = perSet.Values.Sum(v => v[2]);
-        string summary = $"xslt30-test (XSLT 2.0 profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
+        string summary = $"xslt30-test (XSLT {(p2 ? "2.0" : "3.0")} profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
         _output.WriteLine(summary);
         WriteReport(summary, perSet, failures);
-        if (sets != null)
+        if (sets != null || p2)
         {
             return;
         }

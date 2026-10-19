@@ -176,6 +176,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_functionAttributes);
             AtomizeAttributes(_characterMapAttributes);
             AtomizeAttributes(_outputCharacterAttributes);
+            AtomizeAttributes(_modeAttributes);
 
         }
 
@@ -443,6 +444,10 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.IsKeyword(_atoms.CharacterMap))
                                 {
                                     LoadCharacterMap(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName == "mode")
+                                {
+                                    LoadMode();
                                 }
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {

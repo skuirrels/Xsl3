@@ -25,6 +25,16 @@ public sealed class Profile
         Features = new HashSet<string>(StringComparer.Ordinal) { "namespace_axis", "dtd", "disabling_output_escaping", "serialization" },
     };
 
+    /// <summary>P3: a basic XSLT 3.0 processor with XPath 3.1 and higher-order functions.</summary>
+    public static Profile Xslt30 { get; } = new()
+    {
+        Specs = new HashSet<string>(StringComparer.Ordinal) { "XSLT10+", "XSLT20+", "XSLT30+" },
+        Features = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "namespace_axis", "dtd", "disabling_output_escaping", "serialization", "higher_order_functions", "XPath_3.1",
+        },
+    };
+
     public bool Applies(TestCase test) => test.EffectiveDependencies.All(Meets);
 
     private bool Meets(Dependency d)

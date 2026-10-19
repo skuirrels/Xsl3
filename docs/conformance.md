@@ -52,6 +52,15 @@ the later rows count about 1,460 fewer tests.
 | 2026-10-19 | 4,171 | 251 | 178 | 94.3% | Static checks, base URIs, `xsl:result-document` serialization |
 | 2026-10-19 | 4,208 | 214 | 178 | 95.2% | Key collations, `use-when` on modules, 2.0 `xsl:strip-space` names; P2 exit criterion met |
 
+From P3 the harness runs the XSLT 3.0 profile: tests for "XSLT 3.0 or later" too, with higher-order functions
+and XPath 3.1 claimed (`XSL3_XSLT30_PROFILE=2.0` still runs the 2.0 one). Stylesheets with `version="3.0"` are
+no longer compiled in forwards-compatible mode.
+
+| Date | Passed | Failed | Not run | Pass rate | Notes |
+|---|---:|---:|---:|---:|---|
+| 2026-10-19 | 4,881 | 1,077 | 2,067 | 81.9% | XSLT 3.0 profile, first run |
+| 2026-10-19 | 5,023 | 935 | 2,067 | 84.3% | Text value templates, `xsl:mode` |
+
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|
 | W3C `xslt30-test` | | | | |
