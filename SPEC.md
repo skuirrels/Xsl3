@@ -825,7 +825,7 @@ Parse, transform and serialize are timed separately using a pre-parsed input and
 
 | Scenario | Target |
 |----------|--------|
-| 1.0 stylesheets, legacy mode, steady state | ≥ 1.0× stock throughput (gate). Target 1.2–1.5× from the serializer, the tree and dispatch. |
+| 1.0 stylesheets, legacy mode, steady state | ≥ 1.0× stock throughput (gate until P4). P4 exit: ≥ 1.2× stock on the benchmark corpus and never slower, target 1.5×, from span-based serialization and string handling, pooled buffers, the compact tree and dispatch. |
 | 1.0 stylesheets, compile time | ≤ stock. With Sink B, effectively zero. |
 | 2.0/3.0 stylesheets, steady state | ≥ 2× SaxonCS-HE median, never slower on any benchmark |
 | 2.0/3.0 stylesheets, cold start (compile + first transform) | ≥ 2× SaxonCS-HE. With Sink B, ≥ 10×. |
@@ -896,7 +896,7 @@ Effort is in **person-months for one senior .NET engineer** who knows the XSLT s
 | **P1: XDM and XPath 2.0 core** | Atomic types and storage (§8), extended type system, XPath 3.1 parser (the 2.0 subset first), lowering, core F&O (strings, numbers, dates, durations, QNames, sequences, aggregates, regex, collations) | QT3 XPath 2.0 F&O subset ≥ 90% | 5–7 |
 | **P2: XSLT 2.0** | Loader changes, the 2.0 instructions (`for-each-group`, `analyze-string`, `sequence`, `function`, `result-document`, `next-match`, `perform-sort`, `namespace`, `document`), 2.0 patterns, the `xml`, `html`, `xhtml` and `text` serialization methods, backwards-compatible mode | `xslt30-test` XSLT 2.0-applicable tests ≥ 95% | 3–4 |
 | **P3: XSLT 3.0 basic + XPath 3.1 + HOF** | Maps, arrays, function items and closures (Sink A required), `try`/`catch`, `iterate`, accumulators (unstreamed), `merge`, `xsl:mode`, TVTs, static processing, packages, JSON, the rest of F&O 3.1 | `xslt30-test` basic + XPath 3.1 + HOF ≥ 95%. QT3 XPath 3.1 ≥ 95%. | 7–10 |
-| **P4: performance** | Compact tree and name pool, dispatch tables, automatic indexing, unboxed codegen across the board, serializer rewrite, Sink B (`Xsl3.Build`) and NativeAOT, optional tiered interpreter | Every §19.6 target except streaming | 4–6 |
+| **P4: performance** | Beat stock `XslCompiledTransform` with modern .NET: `Span<T>`/`ReadOnlySpan<char>` and `SearchValues` in the serializer, parsing and string functions, pooled buffers (`ArrayPool`) instead of per-node allocation, struct enumerators and unboxed codegen instead of `item*` boxing, a compact tree and name pool, dispatch tables, automatic indexing, Sink B (`Xsl3.Build`) and NativeAOT, optional tiered interpreter | 1.0 stylesheets measurably faster than stock (≥ 1.2× steady state on the benchmark corpus, never slower), and every other §19.6 target except streaming | 4–6 |
 | **P5: dynamic evaluation + serialization completion** | `xsl:evaluate`, `json` and `adaptive` methods, character maps, the remaining serialization parameters | The matching test sets ≥ 98% | 1–2 |
 | **P6: schema-awareness** | §18 with XSD 1.0. Decide on XSD 1.1. | Schema-aware test sets ≥ 95% (XSD 1.0) | 3–5 |
 | **P7: streaming** | §17 | Streaming test sets ≥ 90%. Constant-memory test passes. | 6–12 |

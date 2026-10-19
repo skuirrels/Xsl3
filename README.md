@@ -140,7 +140,7 @@ From [SPEC.md §22](SPEC.md):
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 93.3% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: compact tree, dispatch tables, build-time AOT | Not started |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | Not started |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |
