@@ -17,7 +17,23 @@ namespace Xsl3.Runtime
             var result = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
-                result.Add(item is XPathNavigator n ? Snapshot(n) : item);
+                if (item is XPathNavigator n)
+                {
+                    // The snapshot keeps the accumulator values of the node and its descendants.
+                    XPathNavigator copy = Snapshot(n);
+                    XPathNavigator top = copy.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace ? null! : copy;
+                    if (top != null)
+                    {
+                        XPathNavigator root = copy.Clone();
+                        root.MoveToRoot();
+                        (_accumulatorCopies ??= new())[_runtime.GenerateId(root)] = (copy.Clone(), n.Clone());
+                    }
+                    result.Add(copy);
+                }
+                else
+                {
+                    result.Add(item);
+                }
             }
             return result;
         }
@@ -42,7 +58,7 @@ namespace Xsl3.Runtime
             while (top.MoveToParent());
             chain.Reverse();
             bool rooted = chain[0].NodeType == XPathNodeType.Root;
-            var doc = new InternalXPathDocument(new NameTable()) { NoDocumentUri = !rooted };
+            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = !rooted };
             XmlRawWriter w = doc.LoadFromWriter(rooted ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment, target.BaseURI);
             int start = rooted ? 1 : 0;
             for (int i = start; i < chain.Count - 1; i++)
@@ -64,9 +80,9 @@ namespace Xsl3.Runtime
             }
             w.Close();
 
-            // Each copied ancestor has the next one as its only child.
+            // Each copied ancestor has the next one as its only child (a fragment's root is its top element).
             XPathNavigator nav = doc.CreateNavigator();
-            for (int i = start; i < chain.Count; i++)
+            for (int i = 1; i < chain.Count; i++)
             {
                 nav.MoveToFirstChild();
             }
@@ -88,9 +104,34 @@ namespace Xsl3.Runtime
             return nav;
         }
 
+        // A deep copy of a node, in a new tree (a parentless node, or a document for a document node).
+        private static XPathNavigator CopyTree(XPathNavigator node)
+        {
+            if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace)
+            {
+                return CopyParentless(node);
+            }
+            bool document = node.NodeType == XPathNodeType.Root;
+            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = !document };
+            XmlRawWriter w = doc.LoadFromWriter(document ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment, node.BaseURI);
+            if (node.NodeType == XPathNodeType.Element)
+            {
+                // The copy keeps the element's in-scope namespaces, inherited ones too.
+                WriteStartShallow(w, node, XPathNamespaceScope.ExcludeXml);
+                CopyChildren(w, node);
+                w.WriteFullEndElement(node.Prefix, node.LocalName, node.NamespaceURI);
+            }
+            else
+            {
+                CopyDeep(w, node);
+            }
+            w.Close();
+            return doc.CreateNavigator(); // a fragment's root is its top node
+        }
+
         private static XPathNavigator CopyParentless(XPathNavigator node)
         {
-            var doc = new InternalXPathDocument(new NameTable()) { NoDocumentUri = true };
+            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = true };
             XmlRawWriter w = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.Fragment, node.BaseURI);
             if (node.NodeType == XPathNodeType.Attribute)
             {
@@ -115,11 +156,11 @@ namespace Xsl3.Runtime
             return nav;
         }
 
-        private static void WriteStartShallow(XmlRawWriter w, XPathNavigator element)
+        private static void WriteStartShallow(XmlRawWriter w, XPathNavigator element, XPathNamespaceScope scope = XPathNamespaceScope.Local)
         {
             w.WriteStartElement(element.Prefix, element.LocalName, element.NamespaceURI);
             XPathNavigator n = element.Clone();
-            if (n.MoveToFirstNamespace(XPathNamespaceScope.Local))
+            if (n.MoveToFirstNamespace(scope))
             {
                 do
                 {
@@ -128,7 +169,7 @@ namespace Xsl3.Runtime
                         w.WriteNamespaceDeclaration(n.LocalName, n.Value);
                     }
                 }
-                while (n.MoveToNextNamespace(XPathNamespaceScope.Local));
+                while (n.MoveToNextNamespace(scope));
                 n.MoveToParent();
             }
             if (n.MoveToFirstAttribute())

@@ -39,6 +39,8 @@ documents; arrays in content are flattened) and `xsl:next-match` from a named te
 rule travels in the tunnel frame, like the mode): 7,461 (94.0%). Then override signature checks, package-local
 accumulators, snapshots of attributes, the built-in rule for arrays and typed references to stylesheet functions:
 7,479 of 7,935 (94.3%; the lowest-version package tests no longer apply, as `xsl:use-package` picks the highest).
+Then copies that keep accumulator values (a copy remembers its original; a node of the copy answers with the
+original's values), composite keys, `xsl:global-context-item`, XTMM9000 and merged decimal formats: 7,512 (94.7%).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us

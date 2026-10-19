@@ -32,7 +32,7 @@ Targets .NET 8 and .NET 10.
 |---|---|
 | XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
 | XPath 3.1 | 99.3% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,479 of the 7,935 applicable W3C xslt30-test cases pass (94.3%) |
+| XSLT 2.0 / 3.0 | 7,512 of the 7,935 applicable W3C xslt30-test cases pass (94.7%) |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
 templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,

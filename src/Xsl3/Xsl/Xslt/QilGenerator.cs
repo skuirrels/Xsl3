@@ -333,6 +333,11 @@ namespace Xsl3.Xslt
             QilNode result = applyTmpls.NodeType == XslNodeType.CallTemplate
                 ? CompileCallTemplate((XslNodeEx)applyTmpls)
                 : GenerateApply(_compiler.Root!, applyTmpls);
+            if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
+            {
+                // Xsl3: xsl:global-context-item use="required" as="…": the global context item must be of the type.
+                result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), requiredType, "XTTE0590")), result);
+            }
             _singlFocus.SetFocus(null);
 
             if (IsV2 && (_compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))

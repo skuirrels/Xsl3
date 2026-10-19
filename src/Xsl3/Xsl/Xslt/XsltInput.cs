@@ -835,6 +835,9 @@ namespace Xsl3.Xslt
         /// <summary>Xsl3: the visibility attribute of the element whose attributes were read last.</summary>
         public string? Visibility { get; private set; }
 
+        /// <summary>Xsl3: the copy-accumulators attribute (xsl:copy-of) of the element whose attributes were read last.</summary>
+        public string? CopyAccumulators { get; private set; }
+
         public struct XsltAttribute
         {
             public string name;
@@ -881,6 +884,7 @@ namespace Xsl3.Xslt
                 _xsltAttributeNumber[i] = 0;
             }
             Visibility = null;
+            CopyAccumulators = null;
 
             _compiler.EnterForwardsCompatible();
             if (SS || V2 && !isXslOutput)
@@ -939,8 +943,8 @@ namespace Xsl3.Xslt
                         else
                         if (localName == "default-mode" && V2) { /* Xsl3: tracked in ReadAttribute */ }
                         else
-                        // Xsl3: a declaration's visibility (Packages.cs); accumulator copying isn't supported.
-                        if (localName is "visibility" or "copy-accumulators" && V2) { if (localName == "visibility") Visibility = Value.Trim(); }
+                        // Xsl3: a declaration's visibility (Packages.cs); xsl:copy-of's copy-accumulators.
+                        if (localName is "visibility" or "copy-accumulators" && V2) { if (localName == "visibility") Visibility = Value.Trim(); else CopyAccumulators = Value.Trim(); }
                         else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);

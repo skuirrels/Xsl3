@@ -225,7 +225,8 @@ namespace Xsl3.Xslt
                         _f.Boolean(name.LocalName == "accumulator-after"), _f.Double(_package31));
                 case ("copy-of", 0):
                 case ("copy-of", 1):
-                    return Box(CopyItems31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
+                    // The copies keep the originals' accumulator values (XSLT 3.0 §20.3.1).
+                    return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
                 case ("snapshot", 0):
                 case ("snapshot", 1):
                     return X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]));
@@ -339,6 +340,7 @@ namespace Xsl3.Xslt
             MinusSign = d.Characters[7],
             Infinity = d.InfinitySymbol,
             NaN = d.NanSymbol,
+            ExponentSeparator = d.ExponentSeparator.ToString(),
         };
 
         // ------------------------------------------------------------ compiling expressions
@@ -1030,6 +1032,12 @@ namespace Xsl3.Xslt
         {
             QilNode select = CompileXPath31(node.Select);
             _outputScope.InvalidateAllPrefixes();
+            if (node.V2?.CopyAccumulators == true)
+            {
+                // copy-accumulators="yes" (XSLT 3.0 §18.2.6): the copies are made now and keep the originals'
+                // accumulator values; in a sequence they are the items themselves (copied again only into content).
+                return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(select));
+            }
             return CopyItems31(select);
         }
 
@@ -1131,21 +1139,27 @@ namespace Xsl3.Xslt
         {
             // The message is the content (select is inserted as a copy-of by the loader), serialized.
             string? baseUri = _lastScope!.SourceLine!.Uri;
-            QilNode content = _f.RtfCtor(ContentNodes(CompileInstructions(node.Content)), _f.String(baseUri));
-            content = _f.InvokeOuterXml(content);
+            QilNode tree = _f.XsltConvert(_f.RtfCtor(ContentNodes(CompileInstructions(node.Content)), _f.String(baseUri)), T.NodeNotRtf);
+            QilIterator d = _f.Let(tree);
+            QilNode content = _f.InvokeOuterXml(d);
             QilIterator i;
             if (node.V2?.NameAvt is string terminateAvt)
             {
                 // terminate="{…}": decided when the message is output.
                 QilIterator t = _f.Let(X31(nameof(XsltLibrary.X31YesNo), T.BooleanX, CompileStringAvt(terminateAvt)!, _f.String("terminate")));
-                return _f.Loop(t, _f.Loop(i = _f.Let(content), _f.Conditional(t, _f.Sequence(_f.Warning(i), _f.Error(i)), _f.Warning(i))));
+                return _f.Loop(d, _f.Loop(t, _f.Loop(i = _f.Let(content), _f.Conditional(t, _f.Sequence(_f.Warning(i), Terminate31(node, i, d)), _f.Warning(i)))));
             }
             if (!(bool)node.Arg!)
             {
-                return _f.Warning(content);
+                return _f.Loop(d, _f.Warning(content));
             }
-            return _f.Loop(i = _f.Let(content), _f.Sequence(_f.Warning(i), _f.Error(i)));
+            return _f.Loop(d, _f.Loop(i = _f.Let(content), _f.Sequence(_f.Warning(i), Terminate31(node, i, d))));
         }
+
+        // A terminating message's error: err:XTMM9000 (or error-code), the message as its description and the
+        // message's document as its value.
+        private QilNode Terminate31(XslNode node, QilNode message, QilNode document) =>
+            _f.TypeAssert(X31(nameof(XsltLibrary.X31RaiseWithValue), T.ItemS, _f.String(node.V2?.ErrorCode ?? "XTMM9000"), message, Box(document)), T.ItemS);
 
         private QilNode CompileCopy31(XslNode copy)
         {
@@ -2460,6 +2474,21 @@ namespace Xsl3.Xslt
         // The collation of each key, by name: key values are compared with it.
         private readonly Dictionary<QilName, string> _keyCollations31 = new();
 
+        // The keys declared composite="yes": a node's key is its whole sequence of use values (XSLT 3.0 §20.2.1).
+        private readonly HashSet<QilName> _compositeKeys31 = new();
+
+        private bool IsCompositeKey31(QilNode name)
+        {
+            if (_compositeKeys31.Count == 0 || name.NodeType != QilNodeType.LiteralString)
+            {
+                return false;
+            }
+            string lexical = (string)(QilLiteral)name;
+            int colon = lexical.IndexOf(':');
+            string? ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]);
+            return ns != null && _compositeKeys31.Contains(PackageComponents.Mangle(_f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns), _package31));
+        }
+
         private string KeyCollation31(QilNode name)
         {
             if (name.NodeType == QilNodeType.LiteralString)
@@ -2489,6 +2518,14 @@ namespace Xsl3.Xslt
                     string collation = key.V2?.Collation ?? _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri;
                     ExitScope();
                     _keyCollations31[key.Name!] = collation;
+                    if (key.V2?.Composite == true)
+                    {
+                        _compositeKeys31.Add(key.Name!);
+                    }
+                    if ((key.V2?.Composite ?? false) != (_compiler.Keys[idx][0].V2?.Composite ?? false))
+                    {
+                        _compiler.ReportError(key.SourceLine!, SR.Xml_UserException, $"XTSE1222: the definitions of the key {key.Name!.QualifiedName} disagree on composite");
+                    }
                     if (collation.Length > 0)
                     {
                         try
@@ -2573,7 +2610,8 @@ namespace Xsl3.Xslt
         private QilNode CompileKeyUse31(Key key)
         {
             QilNode values = key.Use != null ? CompileXPath31(key.Use) : CompileInstructions(key.Content);
-            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(_keyCollations31.TryGetValue(key.Name!, out string? c) ? c : Collation.CodepointUri));
+            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(_keyCollations31.TryGetValue(key.Name!, out string? c) ? c : Collation.CodepointUri),
+                _f.Boolean(_compositeKeys31.Contains(key.Name!)));
         }
 
         private QilNode CompileKey31(QilNode name, QilNode values, QilNode top, bool subtree)
@@ -2581,7 +2619,7 @@ namespace Xsl3.Xslt
             // key() may use its context node and name once per key definition: they are shared through Lets.
             QilIterator context = _f.Let(Node31(top, "XTDE1270"));
             QilIterator? nameLet = name.NodeType == QilNodeType.LiteralString ? null : _f.Let(name);
-            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(KeyCollation31(name))));
+            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(KeyCollation31(name)), _f.Boolean(IsCompositeKey31(name))));
             QilNode single;
             try
             {

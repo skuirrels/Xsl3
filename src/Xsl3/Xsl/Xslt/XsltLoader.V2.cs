@@ -1025,6 +1025,60 @@ namespace Xsl3.Xslt
             }
         }
 
+        private readonly XsltAttribute[] _globalContextItemAttributes = {
+            new XsltAttribute("as",  V2Opt),
+            new XsltAttribute("use", V2Opt),
+        };
+
+        // The xsl:global-context-item declarations seen: by package (the first one), and the modules that have one.
+        private readonly Dictionary<int, (string Use, string? As)> _globalContextItems = new();
+        private readonly HashSet<(int, string)> _globalContextItemModules = new();
+
+        // XSLT 3.0 §5.3.2
+        private void LoadGlobalContextItem()
+        {
+            _input.GetAttributes(_globalContextItemAttributes);
+            string? asType = ParseStringAttribute(0, "as");
+            string use = ParseStringAttribute(1, "use")?.Trim() ?? "optional";
+            if (use is not ("required" or "optional" or "absent"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "use", use);
+            }
+            else if (use == "absent" && asType != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE3089: xsl:global-context-item with use=\"absent\" can't have an as attribute");
+            }
+            else if (!_globalContextItemModules.Add((_packageId, _input.BaseUri ?? "")))
+            {
+                ReportError(SR.Xml_UserException, "XTSE3087: a stylesheet module has more than one xsl:global-context-item");
+            }
+            else
+            {
+                string? normalized = asType == null ? null : string.Concat(asType.Where(c => !char.IsWhiteSpace(c)));
+                if (_globalContextItems.TryGetValue(_packageId, out var existing))
+                {
+                    if (existing.Use != use || existing.As != normalized)
+                    {
+                        ReportError(SR.Xml_UserException, "XTSE3087: the modules of a package have inconsistent xsl:global-context-item declarations");
+                    }
+                }
+                else
+                {
+                    _globalContextItems[_packageId] = (use, normalized);
+                    if (_packageId == 0)
+                    {
+                        _compiler.GlobalContextItem = (use, asType);
+                    }
+                    else if (use == "required")
+                    {
+                        // A library package's declaration is ignored unless it requires a context item it can't get.
+                        ReportError(SR.Xml_UserException, "XTTE0590: a used package's xsl:global-context-item requires a global context item");
+                    }
+                }
+            }
+            CheckNoContent();
+        }
+
         // XSLT 3.0 §3.5.4.1
         private readonly XsltAttribute[] _modeAttributes = {
             new XsltAttribute("name",                      V2Opt),

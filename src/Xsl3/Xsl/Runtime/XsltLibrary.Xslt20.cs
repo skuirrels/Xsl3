@@ -37,9 +37,16 @@ namespace Xsl3.Runtime
         /// the atomised values, encoded so that equal strings are values that are equal by eq (XSLT 3.0 §20.2.2).
         /// Values that equal nothing (NaN) are dropped.
         /// </summary>
-        public IList<XPathItem> X31KeyValues(IList<XPathItem> values, string collation)
+        public IList<XPathItem> X31KeyValues(IList<XPathItem> values, string collation, bool composite)
         {
             var result = new List<XPathItem>(values.Count);
+            if (composite)
+            {
+                // One key: the values' key strings, in order (XSLT 3.0 §20.2.1).
+                var parts = X31KeyValues(values, collation, composite: false);
+                result.Add(AtomicValue.OfString("k" + string.Join("\u0001", parts.Select(p => p.Value))));
+                return result;
+            }
             Collation? coll = collation == Collation.CodepointUri ? null : KeyCollation(collation);
             foreach (XPathItem item in Sequences.Atomize(values))
             {

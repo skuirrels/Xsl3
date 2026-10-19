@@ -106,11 +106,13 @@ namespace Xsl3.Xslt
         public string? Href, Format, Method;
         public string? Ordinal;
         public string? StartAt; // xsl:number/@start-at (XSLT 3.0)
+        public string? ErrorCode; // xsl:message: the error a terminating message raises
         public string? NewEachTime; // xsl:function/@new-each-time, normalized: yes, no or maybe
         public string? Select;
         public bool Tunnel, Required;
         public bool HasContent;
         public TriState CopyNamespaces = TriState.Unknown, InheritNamespaces = TriState.Unknown;
+        public bool CopyAccumulators; // xsl:copy-of copy-accumulators="yes"
         public List<QilName>? Modes;
         public List<(string Name, string Value)>? Serialization; // xsl:result-document's serialization attributes (AVTs)
         public string? UseCharacterMaps;

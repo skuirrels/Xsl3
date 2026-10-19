@@ -104,6 +104,10 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31Raise(string code, string message) => throw new XdmException(code, message);
 
+        /// <summary>An error with a value ($err:value): a terminating xsl:message's document.</summary>
+        public IList<XPathItem> X31RaiseWithValue(string code, string message, IList<XPathItem> value) =>
+            throw new XdmException(code, message) { ErrorObject = value };
+
         public XPathItem X31RaiseItem(string code, string message) => throw new XdmException(code, message);
 
         /// <summary>A native QIL string (from host code) as an xs:string item.</summary>

@@ -46,6 +46,13 @@ namespace Xsl3.Runtime
             }
             XPathNavigator root = node.Clone();
             root.MoveToRoot();
+            if (_accumulatorCopies != null && _accumulatorCopies.TryGetValue(_runtime.GenerateId(root), out var copied) && Original(node, copied.Top, copied.Original) is XPathNavigator original)
+            {
+                // A copy made with copy-accumulators="yes": the original node's values.
+                node = original;
+                root = node.Clone();
+                root.MoveToRoot();
+            }
             if (!info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
             {
                 XPathNavigator principal = _runtime.ExternalContext.DefaultDataSource.Clone();
@@ -65,6 +72,68 @@ namespace Xsl3.Runtime
             }
             var (before, afterValue) = values[_runtime.GenerateId(node)];
             return after ? afterValue : before;
+        }
+
+        // The trees made by xsl:copy-of copy-accumulators="yes": each copy's root, its copied node and the original.
+        private Dictionary<string, (XPathNavigator Top, XPathNavigator Original)>? _accumulatorCopies;
+
+        /// <summary>xsl:copy-of with copy-accumulators="yes": copies of the nodes that keep the originals' accumulator values.</summary>
+        public IList<XPathItem> X31CopyWithAccumulators(IList<XPathItem> items)
+        {
+            var result = new List<XPathItem>(items.Count);
+            foreach (XPathItem item in items)
+            {
+                if (item is XPathNavigator { NodeType: XPathNodeType.Element or XPathNodeType.Root } node)
+                {
+                    XPathNavigator copy = CopyTree(node);
+                    XPathNavigator root = copy.Clone();
+                    root.MoveToRoot();
+                    (_accumulatorCopies ??= new())[_runtime.GenerateId(root)] = (copy.Clone(), node.Clone());
+                    result.Add(copy);
+                }
+                else
+                {
+                    result.Add(item is XPathNavigator other ? CopyTree(other) : item);
+                }
+            }
+            return result;
+        }
+
+        // The node of the original tree at the same place as `node` in the copy of it rooted at `top`.
+        private static XPathNavigator? Original(XPathNavigator node, XPathNavigator top, XPathNavigator original)
+        {
+            var path = new List<int>();
+            XPathNavigator n = node.Clone();
+            while (!n.IsSamePosition(top))
+            {
+                int index = 0;
+                XPathNavigator sibling = n.Clone();
+                while (sibling.MoveToPrevious())
+                {
+                    index++;
+                }
+                path.Add(index);
+                if (!n.MoveToParent())
+                {
+                    return null; // not within the copy
+                }
+            }
+            XPathNavigator result = original.Clone();
+            for (int i = path.Count - 1; i >= 0; i--)
+            {
+                if (!result.MoveToFirstChild())
+                {
+                    return null;
+                }
+                for (int k = 0; k < path[i]; k++)
+                {
+                    if (!result.MoveToNext())
+                    {
+                        return null;
+                    }
+                }
+            }
+            return result;
         }
 
         // Visits a node and its descendants in document order: the start rule, the children, the end rule.

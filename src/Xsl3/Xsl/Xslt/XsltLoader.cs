@@ -607,8 +607,7 @@ namespace Xsl3.Xslt
                                 }
                                 else if (V2 && _input.LocalName is "global-context-item")
                                 {
-                                    // Xsl3: declarations about the context item and package interfaces, not enforced yet.
-                                    _input.SkipNode();
+                                    LoadGlobalContextItem();
                                 }
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {
@@ -1153,7 +1152,8 @@ namespace Xsl3.Xslt
             new XsltAttribute("name",      V1Req | V2Req),
             new XsltAttribute("match",     V1Req | V2Req),
             new XsltAttribute("use",       V1Req | V2Opt),
-            new XsltAttribute("collation", V2Opt)
+            new XsltAttribute("collation", V2Opt),
+            new XsltAttribute("composite", V2Opt), // Xsl3: XSLT 3.0 §20.2.1
         };
         private void LoadKey(NsDecl? stylesheetNsList)
         {
@@ -1168,6 +1168,7 @@ namespace Xsl3.Xslt
             string? match = ParseStringAttribute(1, "match");
             string? use = ParseStringAttribute(2, "use");
             string? collation = ParseCollationAttribute(3);
+            bool composite = V2 && ParseYesNoAttribute(4, "composite") == TriState.True;
 
             _input.MoveToElement();
 
@@ -1200,9 +1201,9 @@ namespace Xsl3.Xslt
 
             Key key = (Key)SetInfo(F.Key(keyName, match, use, _input.XslVersion), V2 ? content : null, ctxInfo);
             key.PackageId = _packageId; // Xsl3: its code's names are its package's
-            if (collation != null)
+            if (collation != null || composite)
             {
-                key.V2 = new XslNodeV2 { Collation = collation };
+                key.V2 = new XslNodeV2 { Collation = collation, Composite = composite };
             }
 
             if (_compiler.Keys.Contains(keyName))
@@ -1230,7 +1231,8 @@ namespace Xsl3.Xslt
             new XsltAttribute("zero-digit",         V1Opt | V2Opt),
             new XsltAttribute("digit",              V1Opt | V2Opt),
             new XsltAttribute("pattern-separator",  V1Opt | V2Opt),
-            new XsltAttribute("minus-sign",         V1Opt | V2Opt)
+            new XsltAttribute("minus-sign",         V1Opt | V2Opt),
+            new XsltAttribute("exponent-separator", V2Opt), // Xsl3: XSLT 3.0
         };
         private unsafe void LoadDecimalFormat(NsDecl? stylesheetNsList)
         {
@@ -1286,6 +1288,16 @@ namespace Xsl3.Xslt
                 ReportError(SR.Xml_UserException, $"XTSE1295: zero-digit '{characters[4]}' is not a digit with numeric value zero");
             }
 
+            char exponent = V2 ? ParseCharAttribute(11, "exponent-separator", 'e') : 'e';
+            if (V2)
+            {
+                // Xsl3: declarations of one format merge, each giving some attributes (XSLT 3.0 §4.7): the distinct
+                // characters are checked once all are read (Compiler.Compile).
+                MergeDecimalFormat31(name, infinity, nan, characters, exponent, ctxInfo);
+                CheckNoContent();
+                return;
+            }
+
             // Check all NumSignAttrs signs are distinct
             for (int i = 0; i < NumSignAttrs; i++)
             {
@@ -1329,6 +1341,62 @@ namespace Xsl3.Xslt
                 _compiler.DecimalFormats.Add(format);
             }
             CheckNoContent();
+        }
+
+        // Xsl3: a 2.0 xsl:decimal-format declaration, merged with the others of its format and import precedence.
+        private void MergeDecimalFormat31(XmlQualifiedName name, string infinity, string nan, ReadOnlySpan<char> characters, char exponent, ContextInfo ctxInfo)
+        {
+            if (_compiler.DecimalFormats.Contains(name) && _compiler.DecimalFormats[name].ImportPrecedence > _curStylesheet!.ImportPrecedence)
+            {
+                return; // overridden by a definition of higher import precedence (modules are read in decreasing order)
+            }
+            DecimalFormatDecl format;
+            if (_compiler.DecimalFormats.Contains(name))
+            {
+                format = _compiler.DecimalFormats[name];
+            }
+            else
+            {
+                format = new DecimalFormatDecl(name, DecimalFormatDecl.Default.InfinitySymbol, DecimalFormatDecl.Default.NanSymbol, new string(DecimalFormatDecl.Default.Characters));
+                format.ImportPrecedence = _curStylesheet!.ImportPrecedence;
+                format.Line = ctxInfo.lineInfo;
+                _compiler.DecimalFormats.Add(format);
+            }
+            for (int attNum = 1; attNum <= 11; attNum++)
+            {
+                if (!_input.AttributeExists(attNum, _decimalFormatAttributes[attNum].name))
+                {
+                    continue;
+                }
+                string value = attNum switch
+                {
+                    1 => infinity,
+                    2 => nan,
+                    11 => exponent.ToString(),
+                    _ => characters[attNum - 3].ToString(),
+                };
+                string current = attNum switch
+                {
+                    1 => format.InfinitySymbol,
+                    2 => format.NanSymbol,
+                    11 => format.ExponentSeparator.ToString(),
+                    _ => format.Characters[attNum - 3].ToString(),
+                };
+                if (format.Specified.Contains(attNum) && current != value)
+                {
+                    _input.MoveToXsltAttribute(attNum, _decimalFormatAttributes[attNum].name);
+                    ReportError(/*[XTSE1290]*/SR.Xslt_DecimalFormatRedefined, _decimalFormatAttributes[attNum].name, value);
+                    continue;
+                }
+                format.Specified.Add(attNum);
+                switch (attNum)
+                {
+                    case 1: format.InfinitySymbol = value; break;
+                    case 2: format.NanSymbol = value; break;
+                    case 11: format.ExponentSeparator = exponent; break;
+                    default: format.Characters[attNum - 3] = value[0]; break;
+                }
+            }
         }
 
         private readonly XsltAttribute[] _namespaceAliasAttributes = {
@@ -1967,7 +2035,11 @@ namespace Xsl3.Xslt
             XslNode copyOf = SetInfo(F.CopyOf(select, _input.XslVersion), null, ctxInfo);
             if (V2)
             {
-                copyOf.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt };
+                copyOf.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, CopyAccumulators = _input.CopyAccumulators is "yes" or "true" or "1" };
+                if (_input.CopyAccumulators is not (null or "yes" or "true" or "1" or "no" or "false" or "0"))
+                {
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "copy-accumulators", _input.CopyAccumulators);
+                }
             }
             return copyOf;
         }
@@ -2090,7 +2162,8 @@ namespace Xsl3.Xslt
         // http://www.w3.org/TR/xslt20/#element-message
         private readonly XsltAttribute[] _messageAttributes = {
             new XsltAttribute("select",    V2Opt),
-            new XsltAttribute("terminate", V1Opt | V2Opt)
+            new XsltAttribute("terminate", V1Opt | V2Opt),
+            new XsltAttribute("error-code", V2Opt), // Xsl3: XSLT 3.0
         };
         private XslNode XslMessage()
         {
@@ -2100,6 +2173,18 @@ namespace Xsl3.Xslt
             // Xsl3: in 2.0 terminate is an attribute value template.
             string? terminateAvt = V2 && _input.MoveToXsltAttribute(1, "terminate") && _input.Value.Contains('{') ? _input.Value : null;
             bool terminate = terminateAvt == null && ParseYesNoAttribute(1, /*attName:*/"terminate") == TriState.True;
+            // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
+            // another in the err namespace.
+            string errorCode = "XTMM9000";
+            if (V2 && _input.MoveToXsltAttribute(2, "error-code") && !_input.Value.Contains('{'))
+            {
+                string token = _input.Value.Trim();
+                int colon = token.IndexOf(':');
+                if (colon > 0 && _input.LookupXmlNamespace(token[..colon]) == "http://www.w3.org/2005/xqt-errors")
+                {
+                    errorCode = token[(colon + 1)..];
+                }
+            }
 
             List<XslNode> content = LoadInstructions();
             if (content.Count != 0)
@@ -2112,9 +2197,9 @@ namespace Xsl3.Xslt
             }
 
             XslNode message = SetInfo(F.Message(terminate), content, ctxInfo);
-            if (terminateAvt != null)
+            if (V2)
             {
-                message.V2 = new XslNodeV2 { NameAvt = terminateAvt };
+                message.V2 = new XslNodeV2 { NameAvt = terminateAvt, ErrorCode = errorCode };
             }
             return message;
         }
