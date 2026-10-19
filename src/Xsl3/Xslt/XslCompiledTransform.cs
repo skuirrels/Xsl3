@@ -152,8 +152,15 @@ namespace Xsl3
         [MemberNotNull(nameof(_qil))]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
-            _compilerErrorColl = new Compiler(settings, _enableDebug, null).Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode };
+            _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
         }
+
+        // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
+        // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
+        internal XmlQualifiedName? InitialTemplate { get; set; }
+
+        internal XmlQualifiedName? InitialMode { get; set; }
 
         /// <summary>
         /// Returns the first compiler error except warnings

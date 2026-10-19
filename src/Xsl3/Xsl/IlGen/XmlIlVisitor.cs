@@ -241,6 +241,10 @@ namespace Xsl3.IlGen
             // Generate query code from QilExpression tree
             _helper.MethodBegin(methFunc, ndFunc.SourceLine, useWriter);
 
+            // Xsl3: templates and functions recurse; turn imminent stack exhaustion into a catchable error
+            // instead of a process crash (SPEC §21.2).
+            _helper.Call(XmlILMethods.EnsureSufficientExecutionStack);
+
             foreach (QilIterator iter in ndFunc.Arguments)
             {
                 // DebugInfo: Sequence point just before generating code for the bound expression

@@ -169,6 +169,9 @@ namespace Xsl3.IlGen
     [RequiresDynamicCode("Calls MakeGenericType on value types")]
     internal static class XmlILMethods
     {
+        // Xsl3: stack depth guard at template and function entry
+        public static readonly MethodInfo EnsureSufficientExecutionStack = typeof(System.Runtime.CompilerServices.RuntimeHelpers).GetMethod(nameof(System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack))!;
+
         // Iterators
         public static readonly MethodInfo AncCreate = typeof(AncestorIterator).GetMethod("Create")!;
         public static readonly MethodInfo AncNext = typeof(AncestorIterator).GetMethod("MoveNext")!;

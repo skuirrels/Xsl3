@@ -33,9 +33,16 @@ raised a different code are counted separately.
 
 The failures include the XPath 3.1 maps and arrays, which arrive in P3 with higher-order functions.
 
-## XSLT 2.0 / 3.0
+## XSLT 2.0 / 3.0 (xslt30-test)
 
-Not implemented yet.
+`Xslt30RunTests` runs the xslt30-test cases that apply to the current profile (P2: tests for "XSLT 1.0 or
+later" and "XSLT 2.0 or later", without the schema-aware, streaming and higher-order-function features), at
+the commit `eng/fetch-w3c.sh` pins. Known failures are listed in `tests/Xsl3.W3C/baselines/xslt30-run.txt`.
+Expected errors pass on any error for now: upstream's messages carry no W3C error codes.
+
+| Date | Passed | Failed | Not run | Pass rate | Notes |
+|---|---:|---:|---:|---:|---|
+| 2026-10-19 | 2,437 | 3,429 | 194 | 41.5% | Upstream's 1.0 engine; 2.0 stylesheets run in forwards-compatible mode |
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

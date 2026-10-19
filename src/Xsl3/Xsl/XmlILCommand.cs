@@ -90,7 +90,15 @@ namespace Xsl3
             // Ensure that dataSources is always non-null
             dataSources ??= XmlResolver.ThrowingResolver;
 
-            _delExec(new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results));
+            try
+            {
+                _delExec(new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results));
+            }
+            catch (System.InsufficientExecutionStackException e)
+            {
+                // Xsl3: raised by the guard at template and function entry (SPEC §21.2).
+                throw new XslTransformException(e, "Q{http://xsl3/err}recursion-limit: the transformation recursed too deeply for the available stack");
+            }
         }
     }
 }

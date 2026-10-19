@@ -41,6 +41,10 @@ namespace Xsl3.Xslt
         public CompilerErrorCollection CompilerErrorColl;        // Results of the compilation
         public int CurrentPrecedence;  // Decreases by 1 with each import
         public XslNode? StartApplyTemplates;
+
+        // Xsl3: the entry point (XSLT 3.0 §2.3): a named template, else template rules in a mode.
+        public XmlQualifiedName? InitialTemplate;
+        public XmlQualifiedName? InitialMode;
         public RootLevel? Root;
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public Scripts Scripts;

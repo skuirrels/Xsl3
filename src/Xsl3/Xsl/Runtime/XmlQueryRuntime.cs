@@ -36,6 +36,7 @@ namespace Xsl3.Runtime
         // Global variables and parameters
         private readonly string[]? _globalNames;
         private readonly object[]? _globalValues;
+        private readonly bool[]? _globalInProgress; // Xsl3: globals being computed, to detect circular definitions
 
         // Names, prefix mappings, and name filters
         private readonly XmlNameTable _nameTableQuery;
@@ -85,6 +86,7 @@ namespace Xsl3.Runtime
             // Global variables and parameters
             _globalNames = data.GlobalNames;
             _globalValues = (_globalNames != null) ? new object[_globalNames.Length] : null;
+            _globalInProgress = (_globalNames != null) ? new bool[_globalNames.Length] : null;
 
             // Names
             _nameTableQuery = _ctxt.QueryNameTable;
@@ -296,7 +298,18 @@ namespace Xsl3.Runtime
         /// </summary>
         public bool IsGlobalComputed(int index)
         {
-            return _globalValues![index] != null;
+            if (_globalValues![index] != null)
+            {
+                return true;
+            }
+            // Xsl3: the generated code computes the value after a false answer; asking again before it is
+            // set means the value depends on itself (XTDE0640), which would otherwise recurse without end.
+            if (_globalInProgress![index])
+            {
+                throw new XslTransformException("XTDE0640: circular definition of global variable or parameter " + _globalNames![index]);
+            }
+            _globalInProgress[index] = true;
+            return false;
         }
 
         /// <summary>
@@ -315,8 +328,9 @@ namespace Xsl3.Runtime
         /// </summary>
         public void SetGlobalValue(int index, object value)
         {
-            Debug.Assert(!IsGlobalComputed(index), "Global value should only be set once.");
+            Debug.Assert(_globalValues![index] == null, "Global value should only be set once.");
             _globalValues![index] = value;
+            _globalInProgress![index] = false;
         }
 
 

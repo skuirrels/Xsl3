@@ -100,7 +100,15 @@ namespace Xsl3.Xslt
                 }
             }
             Debug.Assert(compiler.Root != null);
-            compiler.StartApplyTemplates = F.ApplyTemplates(nullMode);
+            // Xsl3: the entry point may be a named template or a mode instead of the default mode.
+            if (compiler.InitialTemplate is XmlQualifiedName initialTemplate)
+            {
+                compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.CallTemplate, F.QName(initialTemplate.Name, initialTemplate.Namespace, ""), null, XslVersion.Current);
+            }
+            else
+            {
+                compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : nullMode);
+            }
             ProcessOutputSettings();
             foreach (AttributeSet attSet in compiler.AttributeSets.Values)
             {

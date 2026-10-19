@@ -293,7 +293,10 @@ namespace Xsl3.Xslt
             // Compile start apply-templates call
             CheckSingletonFocus();
             _singlFocus.SetFocus(SingletonFocusType.InitialContextNode);
-            QilNode result = GenerateApply(_compiler.Root!, applyTmpls);
+            // Xsl3: the entry point is apply-templates in a mode, or a call of the initial named template.
+            QilNode result = applyTmpls.NodeType == XslNodeType.CallTemplate
+                ? CompileCallTemplate((XslNodeEx)applyTmpls)
+                : GenerateApply(_compiler.Root!, applyTmpls);
             _singlFocus.SetFocus(null);
 
             return _f.DocumentCtor(result);
