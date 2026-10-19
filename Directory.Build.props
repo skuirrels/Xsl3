@@ -13,6 +13,6 @@
     <PackageProjectUrl>https://github.com/skuirrels/Xsl3</PackageProjectUrl>
     <RepositoryUrl>https://github.com/skuirrels/Xsl3</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>xslt;xslt3;xslt2;xpath;xpath31;xml;xsl;transform</PackageTags>
+    <PackageTags>xslt;xslt3;xslt30;xslt2;xslt20;xpath;xpath3;xpath31;xsl;xml;transform;xslcompiledtransform;json</PackageTags>
   </PropertyGroup>
 </Project>

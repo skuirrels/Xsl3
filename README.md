@@ -103,6 +103,9 @@ dotnet test Xsl3.slnx
 
 Benchmark baseline against stock: [docs/performance.md](docs/performance.md) (parity on XSLT 1.0, as Phase 0 requires).
 
+The NuGet package page uses [docs/nuget/README.md](docs/nuget/README.md) (absolute links only); update its
+status and numbers along with this file.
+
 How the fork was taken, what was vendored, and how Xsl3 reaches the System.Xml internals it can't vendor:
 [docs/internals.md](docs/internals.md).
 
