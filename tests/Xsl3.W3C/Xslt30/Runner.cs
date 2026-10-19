@@ -169,12 +169,14 @@ public sealed class Runner
 
             // XSLT 3.0 §2.3.2: with no source document and no initial template or mode named, a stylesheet's
             // xsl:initial-template is the entry point.
+            var packages = envs.SelectMany(e => e.Packages).Concat(TestEnvironment.SecondaryPackages(test.TestElement, test.Set.Directory)).ToList();
+            // (It may come from a used package.)
             if (initialTemplate == null && initialMode == null && input == null &&
-                System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(stylesheet), @"name\s*=\s*[""'][\w.-]+:initial-template[""']"))
+                new[] { stylesheet }.Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
+                    System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(file), @"name\s*=\s*[""'][\w.-]+:initial-template[""']")))
             {
                 initialTemplate = new XmlQualifiedName("initial-template", "http://www.w3.org/1999/XSL/Transform");
             }
-            var packages = envs.SelectMany(e => e.Packages).Concat(TestEnvironment.SecondaryPackages(test.TestElement, test.Set.Directory)).ToList();
             var transform = new XslCompiledTransform { InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters, Packages = packages };
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))

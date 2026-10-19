@@ -418,6 +418,10 @@ namespace Xsl3.Xslt
                 _compiler.ParseQName(keyName, out string prefix, out string local, default(ThrowErrorHelper));
                 string nsUri = ResolvePrefixThrow(/*ignoreDefaultNs:*/true, prefix);
                 QilName qname = _f.QName(local, nsUri, prefix);
+                if (IsV2)
+                {
+                    qname = PackageComponents.Mangle(qname, _package31); // Xsl3: the package's own keys
+                }
 
                 if (!_compiler.Keys.Contains(qname))
                 {

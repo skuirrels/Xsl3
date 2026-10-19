@@ -315,4 +315,41 @@ public class Xslt30Tests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void DecimalFormatsAndKeysAreLocalToAPackage()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "xsl3-packages-" + System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string used = Path.Combine(dir, "used.xsl");
+            File.WriteAllText(used,
+                $"<xsl:package name='urn:used' package-version='1.0' version='3.0' xmlns:xsl='{Xsl}' xmlns:u='urn:u'>" +
+                "<xsl:decimal-format grouping-separator='~'/><xsl:key name='k' match='x' use='@id'/>" +
+                "<xsl:function name='u:f' visibility='public'><xsl:param name='doc'/>" +
+                "<xsl:sequence select=\"format-number(1234, '0~000'), count(key('k', 'a', $doc))\"/></xsl:function>" +
+                "</xsl:package>");
+            string principal =
+                $"<xsl:package name='urn:main' version='3.0' xmlns:xsl='{Xsl}' xmlns:u='urn:u' exclude-result-prefixes='u'>" +
+                "<xsl:use-package name='urn:used' package-version='1.0'/>" +
+                "<xsl:decimal-format grouping-separator='^'/><xsl:key name='k' match='y' use='@id'/>" +
+                "<xsl:template name='xsl:initial-template' visibility='public'><xsl:variable name='d'><x id='a'/><y id='a'/><y id='a'/></xsl:variable>" +
+                "<out><xsl:value-of select=\"u:f($d), format-number(1234, '0^000'), count(key('k', 'a', $d))\"/></out></xsl:template>" +
+                "</xsl:package>";
+            var transform = new XslCompiledTransform
+            {
+                InitialTemplate = new XmlQualifiedName("initial-template", Xsl),
+                Packages = new List<(string, string, System.Uri)> { ("urn:used", "1.0", new System.Uri(used)) },
+            };
+            transform.Load(XmlReader.Create(new StringReader(principal)), new XsltSettings(), new XmlUrlResolver());
+            var sw = new StringWriter();
+            transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+            Assert.EndsWith("<out>1~234 1 1^234 2</out>", sw.ToString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

@@ -255,6 +255,7 @@ namespace Xsl3.Xslt
         // declarations override components of (-1 outside xsl:override), and the packages found by location.
         private int _packageId;
         private int _overrideTarget = -1;
+        private bool _inOverride; // Xsl3: loading the declarations of an xsl:override
         private bool _packageTopModule;
         private bool _loadingInclude;
         private readonly HashSet<int> _packageTopModules = new();
@@ -514,6 +515,13 @@ namespace Xsl3.Xslt
                     switch (_input.NodeType)
                     {
                         case XmlNodeType.Element:
+                            if (_inOverride && !(_input.IsXsltNamespace() && _input.LocalName is "template" or "function" or "variable" or "param" or "attribute-set"))
+                            {
+                                // XSLT 3.0 §3.5.3.4: only those components can be overridden.
+                                ReportError(SR.Xml_UserException, $"XTSE0010: xsl:override can't contain {_input.QualifiedName}");
+                                _input.SkipNode();
+                                break;
+                            }
                             if (_input.IsXsltNamespace())
                             {
                                 if (_input.IsKeyword(_atoms.Import))
@@ -1148,6 +1156,10 @@ namespace Xsl3.Xslt
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             QilName keyName = ParseQNameAttribute(0)!;
+            if (V2 && _packageId > 0)
+            {
+                keyName = PackageComponents.Mangle(keyName, _packageId); // Xsl3: keys are local to a package
+            }
             string? match = ParseStringAttribute(1, "match");
             string? use = ParseStringAttribute(2, "use");
             string? collation = ParseCollationAttribute(3);
@@ -1235,6 +1247,11 @@ namespace Xsl3.Xslt
             {
                 // Use name="" for the default decimal-format
                 name = new XmlQualifiedName();
+            }
+            if (V2 && _packageId > 0)
+            {
+                // Xsl3: decimal formats are local to a package (XSLT 3.0 §3.5.1).
+                name = new XmlQualifiedName(name.Name, PackageComponents.MangleNamespace(_packageId, name.Namespace));
             }
 
             string infinity = DecimalFormatDecl.Default.InfinitySymbol;
@@ -1354,7 +1371,7 @@ namespace Xsl3.Xslt
                 // At least one of attributes is missing or invalid
                 return;
             }
-            if (_compiler.SetNsAlias(stylesheetNsUri, resultNsUri, resultPrefix, _curStylesheet!.ImportPrecedence))
+            if (_compiler.SetNsAlias(V2 ? PackageComponents.MangleNamespace(_packageId, stylesheetNsUri) : stylesheetNsUri, resultNsUri, resultPrefix, _curStylesheet!.ImportPrecedence))
             {
                 // Namespace alias redefinition
                 _input.MoveToElement();

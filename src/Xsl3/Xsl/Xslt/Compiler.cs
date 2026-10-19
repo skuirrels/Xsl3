@@ -146,10 +146,11 @@ namespace Xsl3.Xslt
             _moduleOrder.TryAdd(baseUri, _moduleOrder.Count);
         }
 
-        public void ApplyNsAliases(ref string? prefix, ref string nsUri)
+        /// <param name="package">Xsl3: the package whose aliases apply (namespace aliases are local to a package).</param>
+        public void ApplyNsAliases(ref string? prefix, ref string nsUri, int package = 0)
         {
             NsAlias? alias;
-            if (NsAliases.TryGetValue(nsUri, out alias))
+            if (NsAliases.TryGetValue(PackageComponents.MangleNamespace(package, nsUri), out alias))
             {
                 nsUri = alias.ResultNsUri;
                 prefix = alias.ResultPrefix;

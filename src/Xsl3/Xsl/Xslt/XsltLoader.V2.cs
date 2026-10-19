@@ -98,6 +98,7 @@ namespace Xsl3.Xslt
                         _input.GetAttributes();
                         int savedTarget = _overrideTarget;
                         _overrideTarget = used?.Id ?? -1;
+                        _inOverride = true;
                         try
                         {
                             LoadDeclarations(ctxInfo, parentName, importAnywhere: true);
@@ -105,6 +106,7 @@ namespace Xsl3.Xslt
                         finally
                         {
                             _overrideTarget = savedTarget;
+                            _inOverride = false;
                         }
                     }
                     else if (_input.NodeType == XmlNodeType.Element && _input.IsXsltNamespace() && _input.LocalName == "accept")

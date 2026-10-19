@@ -767,11 +767,12 @@ namespace Xsl3.Xslt
             {
                 body = ToNodes31(body);
             }
-            if (IsV2 && tmpl is Template { Name: QilName abstractName } && PackageComponents.IsAbstractWithoutOverride(_compiler, 'T', tmpl, abstractName, -1))
+            if (IsV2 && tmpl.Name is QilName abstractName && (tmpl is Template || tmpl is AttributeSet) &&
+                PackageComponents.IsAbstractWithoutOverride(_compiler, tmpl is Template ? 'T' : 'A', tmpl, abstractName, -1))
             {
-                // Xsl3: an abstract template that no package overrides (XSLT 3.0 §3.5.3.1).
+                // Xsl3: an abstract template or attribute set that no package overrides (XSLT 3.0 §3.5.3.1).
                 body = _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"),
-                    _f.String($"The abstract template {abstractName.LocalName} isn't overridden")), tmpl.Function.XmlType!);
+                    _f.String($"The abstract {(tmpl is Template ? "template" : "attribute set")} {abstractName.LocalName} isn't overridden")), tmpl.Function.XmlType!);
             }
             tmpl.Function.Definition = body;
             _currentTemplateRule = null;
@@ -931,7 +932,7 @@ namespace Xsl3.Xslt
             string prefix = qname!.Prefix;
             string nsUri = qname.NamespaceUri;
 
-            _compiler.ApplyNsAliases(ref prefix!, ref nsUri);
+            _compiler.ApplyNsAliases(ref prefix!, ref nsUri, IsV2 ? _package31 : 0);
             if (changePrefixes)
             {
                 _prefixesInUse.Add(prefix!, nsUri);
@@ -956,7 +957,7 @@ namespace Xsl3.Xslt
                 }
                 if (recNsUri != XmlReservedNs.NsXslt && !_scope.IsExNamespace(recNsUri!))
                 {
-                    _compiler.ApplyNsAliases(ref recPrefix, ref recNsUri!);
+                    _compiler.ApplyNsAliases(ref recPrefix, ref recNsUri!, IsV2 ? _package31 : 0);
                     if (changePrefixes)
                     {
                         if (_prefixesInUse.Contains(recPrefix!))
@@ -1055,7 +1056,7 @@ namespace Xsl3.Xslt
             // The default namespace do not apply directly to attributes
             if (prefix.Length != 0)
             {
-                _compiler.ApplyNsAliases(ref prefix!, ref nsUri);
+                _compiler.ApplyNsAliases(ref prefix!, ref nsUri, IsV2 ? _package31 : 0);
             }
             qname.Prefix = prefix;
             qname.NamespaceUri = nsUri;

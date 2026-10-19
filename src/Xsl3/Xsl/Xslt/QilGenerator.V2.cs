@@ -28,7 +28,7 @@ namespace Xsl3.Xslt
         // The innermost xsl:analyze-string segment, for regex-group().
         private QilNode? _currentMatch;
 
-        private DecimalFormatTable? _decimalFormats31;
+        private readonly Dictionary<int, DecimalFormatTable> _decimalFormats31 = new();
 
         private const string FnNs = "http://www.w3.org/2005/xpath-functions";
 
@@ -268,13 +268,18 @@ namespace Xsl3.Xslt
                     sc.Namespaces.TryAdd(rec.ncName, rec.nsUri);
                 }
             }
-            _decimalFormats31 ??= DecimalFormats31();
-            sc.DefaultDecimalFormat = _decimalFormats31.Unnamed;
+            if (!_decimalFormats31.TryGetValue(_package31, out DecimalFormatTable? formats))
+            {
+                formats = _decimalFormats31[_package31] = DecimalFormats31();
+            }
+            sc.DefaultDecimalFormat = formats.Unnamed;
             foreach (DecimalFormatDecl d in _compiler.DecimalFormats)
             {
-                if (!d.Name.IsEmpty)
+                // The decimal formats of the package being compiled (their names are mangled with its id).
+                var (package, ns) = PackageComponents.Demangle(d.Name.Namespace);
+                if (package == _package31 && d.Name.Name.Length != 0)
                 {
-                    sc.DecimalFormats[new QName(d.Name.Namespace, d.Name.Name)] = ToXPathDecimalFormat(d);
+                    sc.DecimalFormats[new QName(ns, d.Name.Name)] = ToXPathDecimalFormat(d);
                 }
             }
             return sc;
@@ -293,7 +298,7 @@ namespace Xsl3.Xslt
             XPathDecimalFormat unnamed = XPathDecimalFormat.Default;
             foreach (DecimalFormatDecl d in _compiler.DecimalFormats)
             {
-                if (d.Name.IsEmpty)
+                if (d.Name.Name.Length == 0 && PackageComponents.Demangle(d.Name.Namespace) == (_package31, ""))
                 {
                     unnamed = ToXPathDecimalFormat(d);
                 }

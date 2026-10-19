@@ -32,6 +32,8 @@ modes), the apply-templates functions record their mode in the tunnel frame and 
 travels in the tunnel frame like the mode; absent in functions, patterns and variables), the base output URI
 (internal for now), xhtml with HTML5, the serialization parameter errors, and the XML declaration written by
 the writer itself (raw text before the document element stopped its indentation). 7,365 passed (92.8%).
+Then decimal formats, keys and namespace aliases local to their package (their names carry the package id
+like components'), abstract attribute sets: 7,389 passed (93.1%).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us
