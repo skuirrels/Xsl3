@@ -2453,7 +2453,10 @@ namespace Xsl3.Xslt
 
             QilList? nsList = EnterScope(varPar);
             EnterComponent31(varPar);
-            QilNode content = CompileVarParValue(varPar);
+            QilNode content = IsV2 && varPar.NodeType == XslNodeType.Param && varPar.V2 is { Required: true, StaticValue: null }
+                // Xsl3: a required stylesheet parameter that isn't supplied (XTDE0050), when its value is used.
+                ? _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0050"), _f.String($"No value was supplied for the required parameter ${varPar.Name!.QualifiedName}")), T.ItemS)
+                : CompileVarParValue(varPar);
             SetLineInfo(content, it.SourceLine);
             content = AddCurrentPositionLast(content);
             content = SetDebugNs(content, nsList);

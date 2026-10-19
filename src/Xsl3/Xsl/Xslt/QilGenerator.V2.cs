@@ -682,11 +682,12 @@ namespace Xsl3.Xslt
             QilNode groupingSize = num.GroupingSize != null ? CompileStringAvt(num.GroupingSize)! : _f.String("");
             QilNode ordinal = num.V2?.Ordinal != null ? CompileStringAvt(num.V2.Ordinal)! : _f.String("");
             QilNode lang = num.Lang != null ? CompileStringAvt(num.Lang)! : _f.String("");
+            QilNode startAt = num.V2?.StartAt != null ? CompileStringAvt(num.V2.StartAt)! : _f.String("");
             if (num.Value != null)
             {
                 // value="…": the numbers are formatted with the format tokens (XSLT 3.0 §12.3).
                 return _f.TextCtor(X31(nameof(XsltLibrary.X31NumberFormat), T.StringX,
-                    Box(CompileXPath31(value)), format, groupingSeparator, groupingSize, ordinal, lang));
+                    Box(CompileXPath31(value)), format, groupingSeparator, groupingSize, ordinal, lang, startAt));
             }
 
             // Counting nodes: the 1.0 machinery, on a node-typed context (select="…" in 2.0, else the context item).
@@ -705,7 +706,7 @@ namespace Xsl3.Xslt
             QilIterator n;
             QilNode numbers = _f.Loop(n = _f.For(counted), X31(nameof(XsltLibrary.X31IntegerItem), T.Item, _f.XsltConvert(n, T.DoubleX)));
             return _f.Loop(node, _f.TextCtor(X31(nameof(XsltLibrary.X31NumberFormat), T.StringX,
-                numbers, format, groupingSeparator, groupingSize, ordinal, lang)));
+                numbers, format, groupingSeparator, groupingSize, ordinal, lang, startAt)));
         }
 
         /// <summary>

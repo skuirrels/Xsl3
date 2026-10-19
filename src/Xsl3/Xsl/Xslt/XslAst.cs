@@ -105,6 +105,7 @@ namespace Xsl3.Xslt
         public string? NameAvt;
         public string? Href, Format, Method;
         public string? Ordinal;
+        public string? StartAt; // xsl:number/@start-at (XSLT 3.0)
         public string? Select;
         public bool Tunnel, Required;
         public bool HasContent;

@@ -70,6 +70,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
+| 2026-10-19 | 7,404 | 535 | 86 | 93.3% | `xsl:number start-at`, required stylesheet parameters (XTDE0050), XTSE0270, XTSE1660 for `type` and strict/lax validation |
 | 2026-10-19 | 7,389 | 550 | 86 | 93.1% | Packages: decimal formats, keys and namespace aliases are local to a package; abstract attribute sets (XTDE3052); what `xsl:override` may contain |
 | 2026-10-19 | 7,365 | 574 | 86 | 92.8% | `fn:current-output-uri` and the base output URI, xhtml with HTML5, serialization parameter errors, indentation after the XML declaration, `xsl:analyze-string` regexes matching "", `validation="preserve"` |
 | 2026-10-19 | 7,312 | 627 | 86 | 92.1% | Modes: `#current` and `xsl:next-match` follow the mode at run time, rules of several modes, `use-accumulators`; `xsl:copy` of document nodes in sequences, `document()` on sequences, json/adaptive principal results of `xsl:result-document` |

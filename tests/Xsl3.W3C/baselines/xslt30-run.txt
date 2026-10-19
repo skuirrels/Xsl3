@@ -154,16 +154,12 @@ error/error-0044aa
 error/error-0044ab
 error/error-0044ac
 error/error-0045a
-error/error-0050a
 error/error-0160a
-error/error-0270a
 error/error-0420a
 error/error-0430a
 error/error-0905a
 error/error-1071b
 error/error-1500a
-error/error-1660a
-error/error-1660d
 error/error-2210a
 error/error-3040a
 error/error-3051a
@@ -306,13 +302,6 @@ next-match/next-match-034
 next-match/next-match-037
 next-match/next-match-038
 next-match/next-match-039
-number/number-0102
-number/number-0103
-number/number-0104
-number/number-0105
-number/number-0106
-number/number-0107
-number/number-0108
 number/number-0111
 number/number-1004
 number/number-2506
@@ -377,7 +366,6 @@ package/package-914b
 package/package-914c
 package/package-914d
 package/package-914e
-param/param-0112
 param/param-0116
 param/param-0301
 param/param-0402
@@ -485,9 +473,7 @@ stream-available/stream-available-003
 stream-available/stream-available-004
 stream-available/stream-available-005
 stream-available/stream-available-006
-strip-space/strip-space-019a
 strip-space/strip-space-023
-strip-space/strip-space-028
 system-property/system-property-019a
 system-property/system-property-024
 transform/transform-002
@@ -535,7 +521,6 @@ use-when/use-when-0136
 use-when/use-when-0138
 use-when/use-when-0407a
 validation/validation-0102b
-variable/variable-0112
 where-populated/coco-003
 where-populated/coco-016
 where-populated/coco-019

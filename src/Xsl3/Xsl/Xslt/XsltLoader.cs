@@ -2115,7 +2115,8 @@ namespace Xsl3.Xslt
             new XsltAttribute("letter-value",       V1Opt | V2Opt),
             new XsltAttribute("ordinal",            V2Opt),
             new XsltAttribute("grouping-separator", V1Opt | V2Opt),
-            new XsltAttribute("grouping-size",      V1Opt | V2Opt)
+            new XsltAttribute("grouping-size",      V1Opt | V2Opt),
+            new XsltAttribute("start-at",           V2Opt), // Xsl3: XSLT 3.0 §12.1
         };
         private XslNode XslNumber()
         {
@@ -2153,6 +2154,7 @@ namespace Xsl3.Xslt
             if (V1 && !string.IsNullOrEmpty(ordinal)) ReportNYI("xsl:number/@ordinal");
             string? groupingSeparator = ParseStringAttribute(9, "grouping-separator");
             string? groupingSize = ParseStringAttribute(10, "grouping-size");
+            string? startAt = V2 ? ParseStringAttribute(11, "start-at") : null;
 
             // Default values for xsl:number :  level="single"  format="1"
             format ??= "1";
@@ -2167,7 +2169,7 @@ namespace Xsl3.Xslt
             );
             if (V2)
             {
-                number.V2 = new XslNodeV2 { Select = select, Ordinal = ordinal };
+                number.V2 = new XslNodeV2 { Select = select, Ordinal = ordinal, StartAt = startAt };
             }
             return number;
         }
@@ -2569,6 +2571,11 @@ namespace Xsl3.Xslt
                     XslNode att = F.LiteralAttribute(F.QName(_input.LocalName, _input.NamespaceUri, _input.Prefix), _input.Value, _input.XslVersion);
                     // QilGenerator takes care of AVTs, and needs line info
                     AddInstruction(content, SetLineInfo(att, ctxInfo.lineInfo));
+                }
+                else if (V2 && (_input.LocalName == "type" || _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax"))
+                {
+                    // A basic XSLT processor has no schema to validate against (XSLT 3.0 §2.10).
+                    ReportError(SR.Xml_UserException, $"XTSE1660: xsl:{_input.LocalName}=\"{_input.Value}\" needs a schema-aware processor");
                 }
                 else if (V2 && !_input.ForwardCompatibility && !s_literalXsltAttributes.Contains(_input.LocalName))
                 {
@@ -3039,7 +3046,7 @@ namespace Xsl3.Xslt
                     string? prefix, localName, namespaceName;
                     if (V2 && TryParseNameTest20(tokens[i], out localName, out namespaceName))
                     {
-                        _curStylesheet!.AddWhitespaceRule((localName == null ? 1 : 0) + (namespaceName == null ? 1 : 0), new WhitespaceRule(localName, namespaceName, preserveSpace));
+                        AddWhitespaceRule((localName == null ? 1 : 0) + (namespaceName == null ? 1 : 0), new WhitespaceRule(localName, namespaceName, preserveSpace));
                         continue;
                     }
                     if (!_compiler.ParseNameTest(tokens[i], out prefix, out localName, (IErrorHelper)this))
@@ -3058,9 +3065,19 @@ namespace Xsl3.Xslt
                         (localName == null ? 1 : 0) +
                         (namespaceName == null ? 1 : 0)
                     );
-                    _curStylesheet!.AddWhitespaceRule(index, new WhitespaceRule(localName, namespaceName, preserveSpace));
+                    AddWhitespaceRule(index, new WhitespaceRule(localName, namespaceName, preserveSpace));
                 }
             }
+        }
+
+        private void AddWhitespaceRule(int index, WhitespaceRule rule)
+        {
+            // Xsl3: the same name test in xsl:strip-space and xsl:preserve-space at one import precedence (XTSE0270).
+            if (V2 && _curStylesheet!.WhitespaceRules![index].Exists(r => r.LocalName == rule.LocalName && r.NamespaceName == rule.NamespaceName && r.PreserveSpace != rule.PreserveSpace))
+            {
+                ReportError(SR.Xml_UserException, $"XTSE0270: {rule.LocalName ?? "*"} is in both xsl:strip-space and xsl:preserve-space");
+            }
+            _curStylesheet!.AddWhitespaceRule(index, rule);
         }
 
         // Xsl3: the 2.0/3.0 name tests of xsl:strip-space and xsl:preserve-space that 1.0 lacks: *:name, Q{uri}name,
@@ -3219,7 +3236,14 @@ namespace Xsl3.Xslt
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All 'type' attributes are optional.");
             if (_input.MoveToXsltAttribute(attNum, "type"))
             {
-                CheckError(true, /*[???]*/SR.Xslt_SchemaAttribute, "type");
+                if (V2)
+                {
+                    ReportError(SR.Xml_UserException, "XTSE1660: the type attribute needs a schema-aware processor");
+                }
+                else
+                {
+                    CheckError(true, /*[???]*/SR.Xslt_SchemaAttribute, "type");
+                }
             }
         }
 

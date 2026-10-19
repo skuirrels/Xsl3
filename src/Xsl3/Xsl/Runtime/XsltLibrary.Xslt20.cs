@@ -412,7 +412,7 @@ namespace Xsl3.Runtime
         /// separators between them; the nth number uses the nth token (the last one again when there are fewer
         /// tokens) and the separator before it. Each number is formatted as format-integer formats it.
         /// </summary>
-        public string X31NumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang)
+        public string X31NumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang, string startAt)
         {
             if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))
             {
@@ -429,6 +429,20 @@ namespace Xsl3.Runtime
                     throw new XdmException("XTDE0980", $"xsl:number can't format {a.Value}: the value must be a non-negative integer");
                 }
                 numbers.Add(new System.Numerics.BigInteger(System.Math.Floor(d + 0.5))); // rounded as fn:round rounds
+            }
+
+            if (startAt.Length > 0)
+            {
+                // start-at (XSLT 3.0 §12.1): the numbers are re-based, the last integer serving for the rest.
+                if (!System.Text.RegularExpressions.Regex.IsMatch(startAt, @"^\s*-?[0-9]+(\s+-?[0-9]+)*\s*$"))
+                {
+                    throw new XdmException("XTDE0030", $"xsl:number: start-at=\"{startAt}\" is not a list of integers");
+                }
+                string[] starts = startAt.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries);
+                for (int s = 0; s < numbers.Count; s++)
+                {
+                    numbers[s] += System.Numerics.BigInteger.Parse(starts[System.Math.Min(s, starts.Length - 1)], System.Globalization.CultureInfo.InvariantCulture) - 1;
+                }
             }
 
             // Split the format into prefix, tokens and separators.

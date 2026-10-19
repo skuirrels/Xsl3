@@ -24,7 +24,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,389 passed, 550 failed, 86 not run (93.1%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,404 passed, 535 failed, 86 not run (93.3%) |
 | XSLT 1.0 speed against stock | parity (±3%, [docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -44,7 +44,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `xsl:sequence` with content, `xsl:context-item`, predicate patterns and template rules for atomic values,
   maps and arrays, `xsl:import` anywhere, `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
   accumulators (`accumulator-before`/`accumulator-after`), `xsl:merge` (without streaming), `xsl:map` and
-  `xsl:map-entry`, `xsl:mode on-multiple-match`, packages: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`, `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes, decimal formats, keys and namespace aliases local to a package; the 3.0 pattern forms (`x/(a|b)`, `intersect`/`except` per context node, `(…)[n]`, `id()` with two arguments), predicate patterns in `group-starting-with`/`group-ending-with`; `mode="#current"` and `xsl:next-match` in named templates and in rules of several modes, `use-accumulators` on the initial mode, EQNames in QName-valued attributes, `fn:current-output-uri`, `xsl:analyze-string` with regexes that match the empty string.
+  `xsl:map-entry`, `xsl:mode on-multiple-match`, packages: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`, `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes, decimal formats, keys and namespace aliases local to a package; the 3.0 pattern forms (`x/(a|b)`, `intersect`/`except` per context node, `(…)[n]`, `id()` with two arguments), predicate patterns in `group-starting-with`/`group-ending-with`; `mode="#current"` and `xsl:next-match` in named templates and in rules of several modes, `use-accumulators` on the initial mode, EQNames in QName-valued attributes, `fn:current-output-uri`, `xsl:analyze-string` with regexes that match the empty string, `xsl:number start-at`.
 - **Serialization**: XML, HTML (its own serializer: HTML4 and HTML5 void elements, boolean attributes, URI
   escaping, the `meta` element), XHTML, text, JSON and adaptive (also for `xsl:result-document`),
   `item-separator`, HTML5 xhtml (void elements, prefix normalization), the serialization parameter errors; character maps, Unicode normalization; `fn:serialize` with an element or a map of parameters.
@@ -119,7 +119,7 @@ From [SPEC.md §22](SPEC.md):
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 93.1% ([plan](docs/plan/p3-xslt30.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 93.3% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: compact tree, dispatch tables, build-time AOT | Not started |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |

@@ -33,7 +33,7 @@ travels in the tunnel frame like the mode; absent in functions, patterns and var
 (internal for now), xhtml with HTML5, the serialization parameter errors, and the XML declaration written by
 the writer itself (raw text before the document element stopped its indentation). 7,365 passed (92.8%).
 Then decimal formats, keys and namespace aliases local to their package (their names carry the package id
-like components'), abstract attribute sets: 7,389 passed (93.1%).
+like components'), abstract attribute sets: 7,389 passed (93.1%). Then `xsl:number start-at` and static error codes: 7,404 (93.3%).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us
