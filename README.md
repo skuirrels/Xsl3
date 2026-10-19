@@ -1,5 +1,8 @@
 # Xsl3
 
+[![NuGet](https://img.shields.io/nuget/vpre/Xsl3.svg)](https://www.nuget.org/packages/Xsl3)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Xsl3.svg)](https://www.nuget.org/packages/Xsl3)
+
 **An XSLT 2.0 / 3.0 processor for .NET, forked from `System.Xml.Xsl`.**
 
 Xsl3 starts from the engine behind .NET's `XslCompiledTransform` (stylesheets compiled to IL through the QIL
