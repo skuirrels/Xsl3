@@ -121,7 +121,7 @@ namespace Xsl3.Runtime
                         }
                         first = false;
                         Indent(sb, extras, depth + 1);
-                        JsonString(sb, name);
+                        JsonString(sb, name, extras.CharacterMap);
                         sb.Append(extras.Indent ? ": " : ":");
                         Json(sb, Single(value), extras, depth + 1);
                     }
@@ -154,7 +154,7 @@ namespace Xsl3.Runtime
                 case XdmFunction f:
                     throw new XdmException("SERE0021", $"The json output method can't serialize {f.Describe()}");
                 case XPathNavigator node:
-                    JsonString(sb, extras.JsonNodeOutputMethod == "text" ? node.Value : NodeAsXml(node));
+                    JsonString(sb, extras.JsonNodeOutputMethod == "text" ? node.Value : NodeAsXml(node), extras.CharacterMap);
                     break;
                 case AtomicValue a:
                     switch (a.Type.Primitive)
@@ -171,12 +171,12 @@ namespace Xsl3.Runtime
                             sb.Append(number);
                             break;
                         default:
-                            JsonString(sb, a.Value);
+                            JsonString(sb, a.Value, extras.CharacterMap);
                             break;
                     }
                     break;
                 default:
-                    JsonString(sb, item.Value);
+                    JsonString(sb, item.Value, extras.CharacterMap);
                     break;
             }
         }
@@ -197,11 +197,17 @@ namespace Xsl3.Runtime
             }
         }
 
-        private static void JsonString(StringBuilder sb, string s)
+        // A character map's characters are written as their strings, unescaped (Serialization 3.1 §11).
+        private static void JsonString(StringBuilder sb, string s, IReadOnlyDictionary<int, string>? map)
         {
             sb.Append('"');
             foreach (char c in s)
             {
+                if (map != null && map.TryGetValue(c, out string? replacement))
+                {
+                    sb.Append(replacement);
+                    continue;
+                }
                 switch (c)
                 {
                     case '"': sb.Append("\\\""); break;

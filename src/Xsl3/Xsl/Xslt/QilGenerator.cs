@@ -164,6 +164,8 @@ namespace Xsl3.Xslt
                 {
                     // Patterns may call key() and stylesheet functions; key definitions may apply templates.
                     _dynamicCurrentMode31 = compiler.AllTemplates.Any(t => !HasStaticMode31(t) && UsesCurrentMode31(t.Content, t is Template { Match: not null }));
+                    _rules31 = compiler.AllTemplates.OfType<Template>().Where(t => t.Match != null).ToList();
+                    _callerRule31 = compiler.AllTemplates.Any(t => t is Template { Match: null } && UsesNextMatch31(t.Content));
                     CreateKeyFunctions31();
                     PrecompileFunctions31();
                     CompileAndSortMatches(compiler.Root!.Imports![0]);
@@ -757,12 +759,21 @@ namespace Xsl3.Xslt
             // types and tunnel parameters bound from the tunnel argument.
             _currentTemplateRule = tmpl is Template { Match: not null } rule ? rule : null;
             _modeRule31 = _currentTemplateRule;
+            // (A named template with <xsl:context-item use="absent"/> has no current template rule either.)
+            _inNamedTemplate31 = tmpl is Template { Match: null, IsFunction: false } &&
+                !tmpl.Content.Any(n => n.NodeType == XslNodeType.ContextItem && (string?)n.Arg == "absent");
             List<QilIterator>? prologue = IsV2 ? BindTemplateParams31(tmpl) : null;
+            QilIterator? ruleFrame = IsV2 ? WithCurrentRule31(_currentTemplateRule) : null;
             QilNode body = CompileInstructions(tmpl.Content);
             if (IsV2)
             {
                 body = FinishTemplate31(tmpl, body, prologue!);
+                if (ruleFrame != null)
+                {
+                    body = _f.Loop(ruleFrame, body);
+                }
             }
+            _inNamedTemplate31 = false;
             if (IsV2 && tmpl.Function.XmlType == T.NodeNotRtfS)
             {
                 body = ToNodes31(body);

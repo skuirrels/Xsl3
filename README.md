@@ -26,7 +26,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,404 passed, 535 failed, 86 not run (93.3%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,461 passed, 478 failed, 86 not run (94.0%) |
 | XSLT 1.0 speed against stock | parity (±3%, [docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -52,7 +52,8 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 - **Patterns and modes**: predicate patterns and template rules for atomic values, maps and arrays (also in
   `group-starting-with`/`group-ending-with`); the 3.0 pattern forms (`x/(a|b)`, `intersect`/`except` per
   context node, `(…)[n]`, `id()` with two arguments); `mode="#current"` and `xsl:next-match` in named
-  templates and in rules of several modes; EQNames in QName-valued attributes.
+  templates and in rules of several modes, `xsl:next-match` in a named template called from a rule;
+  EQNames in QName-valued attributes.
 - **Packages**: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`,
   `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes, and
   decimal formats, keys and namespace aliases local to their package.
@@ -70,10 +71,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 - **API**: public ways to supply the package library and the base output URI (the test harness uses internal
   ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
 - **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
-  `xsl:next-match` in a named template called from a rule; dynamic errors in patterns are non-matches only
+  dynamic errors in patterns are non-matches only
   for predicate patterns; XTDE1480 (`xsl:result-document` in temporary output state) only where it can be
-  seen statically; static variables declared in modules imported after their use; some sequence-normalization
-  edge cases (empty text nodes in sequences); regex character classes follow .NET's Unicode version rather
+  seen statically; static variables declared in modules imported after their use; regex character classes follow .NET's Unicode version rather
   than the suite's; `doc()` and `document()` refuse DTDs unless the input reader allows them.
 - **Later phases**: performance work (P4), schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
@@ -139,7 +139,7 @@ From [SPEC.md §22](SPEC.md):
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 93.3% ([plan](docs/plan/p3-xslt30.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 94.0% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | Not started |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |

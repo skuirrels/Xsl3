@@ -443,7 +443,9 @@ namespace Xsl3.Xslt
                 case XslNodeType.Attribute:
                     return CompileAttribute31((NodeCtor)node);
                 case XslNodeType.Comment:
-                    return _f.CommentCtor(_f.TextCtor(SimpleContent31(SelectOrContent31(node, node.V2?.Select), _f.String(node.V2?.Select != null ? " " : ""))));
+                    // The separator is a single space, with select or content (XSLT 3.0 §5.7.2): adjacent text nodes are
+                    // merged first, so only atomic values and documents are separated.
+                    return _f.CommentCtor(_f.TextCtor(SimpleContent31(SelectOrContent31(node, node.V2?.Select), _f.String(" "))));
                 case XslNodeType.PI:
                 {
                     QilNode qilName = CompileStringAvt(node.Select!);
@@ -451,7 +453,7 @@ namespace Xsl3.Xslt
                     {
                         Compiler.ValidatePiName((string)(QilLiteral)qilName, (IErrorHelper)this);
                     }
-                    return _f.PICtor(qilName, _f.TextCtor(SimpleContent31(SelectOrContent31(node, node.V2?.Select), _f.String(node.V2?.Select != null ? " " : ""))));
+                    return _f.PICtor(qilName, _f.TextCtor(SimpleContent31(SelectOrContent31(node, node.V2?.Select), _f.String(" "))));
                 }
                 case XslNodeType.Message:
                     return CompileMessage31(node);
@@ -900,15 +902,59 @@ namespace Xsl3.Xslt
         private QilNode WithoutTemplateRule(System.Func<QilNode> compile)
         {
             Template? rule = _currentTemplateRule;
+            bool named = _inNamedTemplate31;
             _currentTemplateRule = null;
+            _inNamedTemplate31 = false;
             QilNode result = compile();
             _currentTemplateRule = rule;
+            _inNamedTemplate31 = named;
             return result;
+        }
+
+        // The template rules, by number, for the current template rule a tunnel frame carries.
+        private List<Template> _rules31 = new();
+
+        // Whether some named template uses xsl:next-match: the current template rule, which a named template keeps
+        // from its caller (XSLT 3.0 §6.8), then travels in the tunnel frame.
+        private bool _callerRule31;
+
+        // Compiling a named template's body (not within an instruction that clears the current template rule).
+        private bool _inNamedTemplate31;
+
+        private static bool UsesNextMatch31(IList<XslNode>? content) =>
+            content != null && content.Any(n => n.NodeType == XslNodeType.NextMatch || UsesNextMatch31(n.Content));
+
+        // In a template rule's body, the tunnel frame recording the rule (null when no named template needs it).
+        private QilIterator? WithCurrentRule31(Template? rule)
+        {
+            if (!_callerRule31 || rule == null || _rules31.IndexOf(rule) is not (>= 0 and var id))
+            {
+                return null;
+            }
+            QilIterator frame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetRule), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS), _f.Double(id)));
+            _currentTunnel = frame;
+            return frame;
+        }
+
+        // xsl:next-match in a named template: the next match after the caller's current template rule.
+        private QilNode NextMatchFromCaller31(List<XslNode> args)
+        {
+            QilIterator rule = _f.Let(X31(nameof(XsltLibrary.X31TunnelRule), T.DoubleX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
+            QilNode result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0560"), _f.String("xsl:next-match is used where there is no current template rule"));
+            for (int i = _rules31.Count - 1; i >= 0; i--)
+            {
+                Template r = _rules31[i];
+                QilNode next = _dynamicCurrentMode31 && !HasStaticMode31(r)
+                    ? ApplyInCurrentMode31(_compiler.Root!, CopyArgs31(args), r)
+                    : InvokeApplyFunction(_compiler.Root!, r.Mode, CopyArgs31(args), nextMatchBelow: r);
+                result = _f.Conditional(_f.Eq(rule, _f.Double(i)), next, result);
+            }
+            return _f.Loop(rule, result);
         }
 
         private QilNode CompileNextMatch31(XslNode node)
         {
-            if (_currentTemplateRule == null)
+            if (_currentTemplateRule == null && !(_callerRule31 && _inNamedTemplate31))
             {
                 return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0560"), _f.String("xsl:next-match is used where there is no current template rule"));
             }
@@ -928,6 +974,10 @@ namespace Xsl3.Xslt
                     }
                     args.Add(withParam);
                 }
+            }
+            if (_currentTemplateRule == null)
+            {
+                return _varHelper.FinishVariables(NextMatchFromCaller31(args), varScope);
             }
             // A rule of several modes (or of all modes) continues in the mode it was applied in.
             QilNode result = _dynamicCurrentMode31 && !HasStaticMode31(_currentTemplateRule)
@@ -1095,7 +1145,7 @@ namespace Xsl3.Xslt
         private QilNode CompileNamespace31(XslNode node)
         {
             QilNode prefix = CompileStringAvt(node.V2!.NameAvt!)!;
-            QilNode uri = SimpleContent31(SelectOrContent31(node, node.Select), _f.String(node.Select != null ? " " : ""));
+            QilNode uri = SimpleContent31(SelectOrContent31(node, node.Select), _f.String(" "));
             _outputScope.InvalidateAllPrefixes();
             return _f.NamespaceDecl(prefix, uri);
         }

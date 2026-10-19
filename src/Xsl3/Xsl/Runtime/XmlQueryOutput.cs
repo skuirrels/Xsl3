@@ -907,6 +907,27 @@ namespace Xsl3.Runtime
         {
             RtfNavigator? navRtf = navigator as RtfNavigator;
 
+            if (navigator.NodeType == XPathNodeType.Root && _depth == 0 && _xstate == XmlState.WithinSequence && _seqwrt is XmlCachedSequenceWriter)
+            {
+                // Xsl3: in a sequence being constructed (XSLT 2.0+), a copy of a document node is a new document node.
+                WriteStartRoot();
+                if (navRtf != null)
+                {
+                    navRtf.CopyToWriter(this);
+                }
+                else if (navigator.MoveToFirstChild())
+                {
+                    do
+                    {
+                        CopyNode(navigator);
+                    }
+                    while (navigator.MoveToNext());
+                    navigator.MoveToParent();
+                }
+                WriteEndRoot();
+                return;
+            }
+
             if (navRtf != null)
             {
                 // Copy Rtf

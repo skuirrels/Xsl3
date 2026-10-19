@@ -87,18 +87,12 @@ namespace Xsl3.Runtime
         /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
         public string X31AvtString(IList<XPathItem> items)
         {
-            if (items.Count == 1)
+            if (items.Count == 1 && items[0] is not XdmArray)
             {
                 return Sequences.Atomize(items[0]).Value;
             }
-            IList<XPathItem> atoms = Sequences.Atomize(items);
-            var sb = new StringBuilder();
-            for (int i = 0; i < atoms.Count; i++)
-            {
-                if (i > 0) sb.Append(' ');
-                sb.Append(atoms[i].Value);
-            }
-            return sb.ToString();
+            // XSLT 3.0 §5.6.1: as simple content (§5.7.2), so adjacent text nodes are merged with no separator.
+            return X31SimpleContent(items, " ");
         }
 
         /// <summary>
@@ -108,6 +102,11 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31ContentItems(IList<XPathItem> items)
         {
+            if (items.Any(i => i is XdmArray))
+            {
+                // Arrays in content are flattened to their members, nodes included (XSLT 3.0 §5.7.1).
+                items = Flatten(items);
+            }
             var result = new List<XPathItem>(items.Count);
             StringBuilder? run = null;
             void Flush()
@@ -163,6 +162,26 @@ namespace Xsl3.Runtime
             }
             Flush();
             return result;
+        }
+
+        private static List<XPathItem> Flatten(IList<XPathItem> items)
+        {
+            var flat = new List<XPathItem>(items.Count);
+            foreach (XPathItem item in items)
+            {
+                if (item is XdmArray array)
+                {
+                    foreach (IList<XPathItem> member in array.Members)
+                    {
+                        flat.AddRange(Flatten(member));
+                    }
+                }
+                else
+                {
+                    flat.Add(item);
+                }
+            }
+            return flat;
         }
 
         /// <summary>
@@ -264,7 +283,11 @@ namespace Xsl3.Runtime
             var result = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
+                // Deemed empty (XSLT 3.0 §8.4.1): a document or element without children, another node whose string
+                // value is "", an atomic value that is "" as a string, an empty map.
                 bool empty = IsVacuous(item) || item is XPathNavigator { NodeType: XPathNodeType.Element, HasChildren: false } ||
+                    item is XPathNavigator { NodeType: not (XPathNodeType.Element or XPathNodeType.Root or XPathNodeType.Namespace) } node && node.Value.Length == 0 ||
+                    item is AtomicValue atomic && atomic.Value.Length == 0 ||
                     item is XdmMap { Count: 0 };
                 if (!empty)
                 {
@@ -607,6 +630,17 @@ namespace Xsl3.Runtime
             }
             return UriReference.IsAbsolute(href) || baseUri == null || !UriReference.IsAbsolute(baseUri) ? href : UriReference.Resolve(href, baseUri);
         }
+
+        // The current template rule travels with the tunnel parameters too, for xsl:next-match in a named template.
+        private const string RuleEntry = "\u0001xsl3-rule";
+
+        /// <summary>The tunnel frame with template rule <paramref name="rule"/> as the current template rule.</summary>
+        public IList<XPathItem> X31TunnelSetRule(IList<XPathItem> frame, double rule) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], RuleEntry, "", Sequences.One(AtomicValue.OfDouble(rule))) };
+
+        /// <summary>The current template rule a tunnel frame carries, or -1 (absent).</summary>
+        public double X31TunnelRule(IList<XPathItem> frame) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(RuleEntry, "") is { } entry ? Numeric.ToDouble((AtomicValue)entry.ParamValue[0]) : -1;
 
         // The current output URI travels with the tunnel parameters, set by xsl:result-document.
         private const string OutputEntry = "\u0001xsl3-output";

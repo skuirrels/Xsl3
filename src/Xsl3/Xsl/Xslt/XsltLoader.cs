@@ -827,7 +827,8 @@ namespace Xsl3.Xslt
                     {
                         ReportOutputRedefinition("doctype-public");
                     }
-                    settings.DocTypePublic = _input.Value;
+                    // Xsl3: "" means absent, so a lower-precedence value can be overridden (XSLT 2.0 erratum E31).
+                    settings.DocTypePublic = V2 && _input.Value.Length == 0 ? null : _input.Value;
                     output.DocTypePublicPrec = currentPrec;
                 }
             }
@@ -840,7 +841,7 @@ namespace Xsl3.Xslt
                     {
                         ReportOutputRedefinition("doctype-system");
                     }
-                    settings.DocTypeSystem = _input.Value;
+                    settings.DocTypeSystem = V2 && _input.Value.Length == 0 ? null : _input.Value;
                     output.DocTypeSystemPrec = currentPrec;
                 }
             }
@@ -1019,13 +1020,17 @@ namespace Xsl3.Xslt
                     output.HtmlVersion = _input.Value.Trim().TrimStart('+');
                 }
             }
-            if (V2)
+            if (V2 && _checkedOutputs.Add(name?.ToString() ?? ""))
             {
+                // The first declaration of an output definition read has the highest import precedence: those it
+                // overrides are not checked.
                 CheckSerializationParameters31();
             }
 
             CheckNoContent();
         }
+
+        private readonly HashSet<string> _checkedOutputs = new();
 
         // Xsl3: combinations of serialization parameters that are errors (Serialization 3.1 §3).
         private void CheckSerializationParameters31()
@@ -1389,11 +1394,16 @@ namespace Xsl3.Xslt
 
         private readonly XsltAttribute[] _attributeSetAttributes = {
             new XsltAttribute("name",               V1Req | V2Req),
-            new XsltAttribute("use-attribute-sets", V1Opt | V2Opt)
+            new XsltAttribute("use-attribute-sets", V1Opt | V2Opt),
+            new XsltAttribute("streamable",         V2Opt), // Xsl3: XSLT 3.0 (no streaming: only validated)
         };
         private void LoadAttributeSet(NsDecl? stylesheetNsList)
         {
             ContextInfo ctxInfo = _input.GetAttributes(_attributeSetAttributes);
+            if (V2)
+            {
+                ParseYesNoAttribute(2, "streamable");
+            }
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             QilName? setName = ParseQNameAttribute(0);
@@ -1749,6 +1759,13 @@ namespace Xsl3.Xslt
                             }
                             break;
                         case XmlNodeType.SignificantWhitespace:
+                            if (V2 && content.Count > 0 && content[^1] is Text { Hints: SerializationHints.None } previous && previous.NodeType == XslNodeType.Text)
+                            {
+                                // Xsl3: text either side of a stylesheet comment or PI is one text node (XSLT 3.0
+                                // §4.2), so a text value template may span it.
+                                content[^1] = SetLineInfo(F.Text(previous.Select + _input.Value), previous.SourceLine);
+                                continue;
+                            }
                             result = SetLineInfo(F.Text(_input.Value), _input.BuildLineInfo());
                             break;
                         case XmlNodeType.Whitespace:
@@ -2409,6 +2426,12 @@ namespace Xsl3.Xslt
                 } while (_input.MoveToNextSibling());
             }
 
+            if (V2 && content.Count == 0)
+            {
+                // Xsl3: a zero-length text node, which separates adjacent atomic values (XSLT 3.0 §5.7.1)
+                // before zero-length text nodes are discarded.
+                content.Add(F.Text("", hints));
+            }
             // Empty xsl:text elements will be ignored
             return SetInfo(F.List(), content, ctxInfo);
         }

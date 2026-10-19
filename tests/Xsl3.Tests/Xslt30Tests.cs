@@ -97,6 +97,26 @@ public class Xslt30Tests
             "<xsl:template match='doc' mode='m2'>m2</xsl:template>"));
 
     [Fact]
+    public void NextMatchInANamedTemplateUsesTheCallersRule() =>
+        Assert.Equal("<out>[high]<low /></out>", Run(
+            "<xsl:template match='/'><out><xsl:apply-templates select='doc'/></out></xsl:template>" +
+            "<xsl:template match='doc' priority='2'>[high]<xsl:call-template name='inner'/></xsl:template>" +
+            "<xsl:template name='inner'><xsl:next-match/></xsl:template>" +
+            "<xsl:template match='doc' priority='1'><low/></xsl:template>"));
+
+    [Fact]
+    public void EmptyTextNodesSeparateAtomicValues() =>
+        // <xsl:text/> is a zero-length text node: the atomic values either side aren't adjacent (XSLT 3.0 §5.7.1).
+        Assert.Equal("<out n=\"3\">ab</out>", Run(
+            "<xsl:template match='/'><xsl:variable name='v' as='item()*'><xsl:sequence select=\"'a'\"/><xsl:text/><xsl:sequence select=\"'b'\"/></xsl:variable>" +
+            "<out n='{count($v)}'><xsl:sequence select=\"'a'\"/><xsl:text/><xsl:sequence select=\"'b'\"/></out></xsl:template>"));
+
+    [Fact]
+    public void ArraysInContentAreFlattened() =>
+        Assert.Equal("<out><e /><e /></out>", Run(
+            "<xsl:template match='/'><xsl:variable name='e'><e/></xsl:variable><out><xsl:sequence select='[$e/e, $e/e]'/></out></xsl:template>"));
+
+    [Fact]
     public void CopyOfADocumentNodeInASequenceMakesADocumentNode() =>
         Assert.Equal("<out n=\"2\" />", Run(
             "<xsl:template match='/'><xsl:variable name='docs' as='document-node()*'>" +
