@@ -157,7 +157,7 @@ public sealed record Dependency(string Type, string Value, bool Satisfied)
 /// <summary>An &lt;environment&gt;: source documents, parameters, collections and other context.</summary>
 public sealed class TestEnvironment
 {
-    public sealed record Source(string? Role, string? File, string? Content, string? Uri, string? Validation, bool DefinesStylesheet);
+    public sealed record Source(string? Role, string? File, string? Content, string? Uri, string? Validation, bool DefinesStylesheet, string? Select = null);
 
     public sealed record Param(string Name, string? Select, string? As, bool Static, XElement Element);
 
@@ -171,7 +171,8 @@ public sealed class TestEnvironment
             s.Element(Catalog.Ns + "content")?.Value,
             (string?)s.Attribute("uri"),
             (string?)s.Attribute("validation"),
-            (string?)s.Attribute("defines-stylesheet") is "true" or "yes")).ToList();
+            (string?)s.Attribute("defines-stylesheet") is "true" or "yes",
+            (string?)s.Attribute("select"))).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();
         Stylesheets = element.Elements(Catalog.Ns + "stylesheet").Concat(element.Elements(Catalog.Ns + "package").Where(p => (string?)p.Attribute("role") == "principal"))
             .Where(s => (string?)s.Attribute("role") is null or "principal" && s.Attribute("file") != null)

@@ -950,7 +950,17 @@ namespace Xsl3.Xslt
 
             QilName? name = ParseQNameAttribute(0);
             string? asType = ParseStringAttribute(1, "as");
-            ParseYesNoAttribute(2, "override"); // validated (XTSE0020); stylesheet functions never override extension functions
+            // Validated (XTSE0020); stylesheet functions never override extension functions.
+            TriState overrides = ParseYesNoAttribute(2, "override");
+            TriState overridesExtension = ParseYesNoAttribute(5, "override-extension-function");
+            if (overrides != TriState.Unknown && overridesExtension != TriState.Unknown && overrides != overridesExtension)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0020: override and override-extension-function have different values");
+            }
+            if (_input.MoveToXsltAttribute(6, "new-each-time") && _input.Value.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0" or "maybe"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "new-each-time", _input.Value);
+            }
             CheckError(name != null && name.NamespaceUri.Length == 0, /*[XTSE0740]*/SR.Xslt_InvalidAttrValue, "name", name?.QualifiedName);
 
             // A function is a template without match, name or mode for the loader's purposes: parameters, then the body.
@@ -1019,6 +1029,15 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(6, "visibility"))
             {
                 decl.Declaration.Visibility = _input.Value.Trim();
+                if (mode.LocalName.Length == 0 && decl.Declaration.Visibility != "private")
+                {
+                    // The unnamed mode is always private (XSLT 3.0 §3.5.4.1).
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", decl.Declaration.Visibility);
+                }
+            }
+            if (_input.MoveToXsltAttribute(5, "typed") && _input.Value.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0" or "strict" or "lax" or "unspecified"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "typed", _input.Value);
             }
             if (_input.MoveToXsltAttribute(1, "on-no-match"))
             {
@@ -1040,7 +1059,17 @@ namespace Xsl3.Xslt
             {
                 if (_input.MoveToXsltAttribute(i, _modeAttributes[i].name))
                 {
-                    decl.Attributes[_modeAttributes[i].name] = _input.Value.Trim();
+                    string value = _input.Value.Trim();
+                    if (_modeAttributes[i].name == "use-accumulators" && value != "#all")
+                    {
+                        // A set of names: compared as expanded names, in any order.
+                        value = string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
+                        {
+                            int colon = token.IndexOf(':');
+                            return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
+                        }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
+                    }
+                    decl.Attributes[_modeAttributes[i].name] = value;
                 }
             }
             // Declarations of higher import precedence win (modules are read in decreasing precedence); those of the

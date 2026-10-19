@@ -163,6 +163,7 @@ namespace Xsl3.Xslt
                 if (IsV2)
                 {
                     // Patterns may call key() and stylesheet functions; key definitions may apply templates.
+                    _dynamicCurrentMode31 = compiler.AllTemplates.Any(t => !HasStaticMode31(t) && UsesCurrentMode31(t.Content, t is Template { Match: not null }));
                     CreateKeyFunctions31();
                     PrecompileFunctions31();
                     CompileAndSortMatches(compiler.Root!.Imports![0]);
@@ -2326,20 +2327,25 @@ namespace Xsl3.Xslt
                 {
                     EnterScope(template);
                     EnterComponent31(template);
-                    _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
-                    QilNode result = CompileMatchPattern(template.Match);
-                    _templatePattern31 = false;
-                    if (result.NodeType == QilNodeType.Sequence)
+                    // Xsl3: a rule of several modes is compiled for each of them.
+                    IList<QilName?> modes = template.V2 is { AllModes: false, Modes: { Count: > 1 } list } ? list.Cast<QilName?>().ToArray() : new QilName?[] { null };
+                    foreach (QilName? mode in modes)
                     {
-                        QilList filters = (QilList)result;
-                        for (int idx = 0; idx < filters.Count; idx++)
+                        _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
+                        QilNode result = CompileMatchPattern(template.Match);
+                        _templatePattern31 = false;
+                        if (result.NodeType == QilNodeType.Sequence)
                         {
-                            sheet.AddTemplateMatch(template, (QilLoop)filters[idx]);
+                            QilList filters = (QilList)result;
+                            for (int idx = 0; idx < filters.Count; idx++)
+                            {
+                                sheet.AddTemplateMatch(template, (QilLoop)filters[idx], mode);
+                            }
                         }
-                    }
-                    else
-                    {
-                        sheet.AddTemplateMatch(template, (QilLoop)result);
+                        else
+                        {
+                            sheet.AddTemplateMatch(template, (QilLoop)result, mode);
+                        }
                     }
                     ExitScope();
                 }
@@ -2715,6 +2721,10 @@ namespace Xsl3.Xslt
             {
                 return _f.Sequence();
             }
+            if (ReferenceEquals(node.Name, XsltLoader.CurrentMode) && _dynamicCurrentMode31 && !(_modeRule31 is Template rule && HasStaticMode31(rule)))
+            {
+                return ApplyInCurrentMode31(sheet, node.Content, nextMatchBelow: null);
+            }
             // Xsl3: mode="#current" is the mode of the template rule being compiled (its first mode, if it has several).
             QilName mode = ReferenceEquals(node.Name, XsltLoader.CurrentMode) ? CurrentMode31()
                 : IsV2 && node.Name!.LocalName.Length != 0 ? ResolveComponent31('M', node.Name, -1) ?? node.Name : node.Name!;
@@ -2889,9 +2899,9 @@ namespace Xsl3.Xslt
             if (nextMatchBelow != null)
             {
                 // Xsl3: xsl:next-match functions, one family per template rule.
-                if (!_nextMatchFunctions.TryGetValue(nextMatchBelow, out functionsForMode))
+                if (!_nextMatchFunctions.TryGetValue((nextMatchBelow, ModeKey31(mode)), out functionsForMode))
                 {
-                    functionsForMode = _nextMatchFunctions[nextMatchBelow] = new List<QilFunction>();
+                    functionsForMode = _nextMatchFunctions[(nextMatchBelow, ModeKey31(mode))] = new List<QilFunction>();
                 }
             }
             else if (!sheet.ApplyFunctions.TryGetValue(mode, out functionsForMode))
@@ -2957,6 +2967,7 @@ namespace Xsl3.Xslt
                         }
                     }
                 }
+                QilIterator? modeFrame = WithCurrentMode31(mode, actualArgs);
 
                 // 3.1 Built-in templates:
                 // 3.1.1 loop over content of current element
@@ -3004,6 +3015,10 @@ namespace Xsl3.Xslt
                 _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
+                if (modeFrame != null)
+                {
+                    applyFunction.Definition = _f.Loop(modeFrame, applyFunction.Definition);
+                }
                 _currentTunnel = savedTunnel;
             }
             return _f.Invoke(applyFunction, invokeArgs);

@@ -942,7 +942,16 @@ namespace Xsl3.Runtime
         {
             // StartDocument is a no-op
             if (navigator.NodeType == XPathNodeType.Root)
+            {
+                // Xsl3: in a sequence being constructed (XSLT 2.0+), xsl:copy of a document node makes a new one.
+                bool newRoot = _depth == 0 && _xstate == XmlState.WithinSequence && _seqwrt is XmlCachedSequenceWriter;
+                (_copiedRoots ??= new Stack<bool>()).Push(newRoot);
+                if (newRoot)
+                {
+                    WriteStartRoot();
+                }
                 return true;
+            }
 
             if (StartCopy(navigator, true))
             {
@@ -965,8 +974,17 @@ namespace Xsl3.Runtime
             if (navigator.NodeType == XPathNodeType.Element)
                 WriteEndElement();
             else
+            {
                 Debug.Assert(navigator.NodeType == XPathNodeType.Root, "EndCopy should only be called for Element and Document nodes.");
+                if (_copiedRoots?.Pop() == true)
+                {
+                    WriteEndRoot();
+                }
+            }
         }
+
+        // Xsl3: for each xsl:copy of a document node being written, whether it made a new document node.
+        private Stack<bool>? _copiedRoots;
 
 
         //-----------------------------------------------

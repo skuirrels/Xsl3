@@ -24,7 +24,11 @@ Then package visibility (decision 9): 7,193 passed (90.6%). Then the html method
 `xsl:result-document`, and the XSLT 3.0 pattern forms: parenthesized unions as steps are distributed
 (`x/(a|b)` is `x/a | x/b`), `intersect`/`except` take the difference per context node as §5.5.3 defines
 unless both sides pin the same context, and other valid patterns are evaluated from each ancestor-or-self
-with child-or-top; an error in a predicate pattern is a non-match. 7,255 passed (91.4%).
+with child-or-top; an error in a predicate pattern is a non-match. 7,255 passed (91.4%). Then modes:
+where a template's mode isn't known when it's compiled (named templates, rules of several modes or of all
+modes), the apply-templates functions record their mode in the tunnel frame and `#current` and
+`xsl:next-match` dispatch on it; `xsl:copy` of a document node in a sequence makes a document node;
+`document()` takes sequences. 7,312 passed (92.1%).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us

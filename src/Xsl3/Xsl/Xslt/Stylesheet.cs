@@ -49,7 +49,9 @@ namespace Xsl3.Xslt
         // Xsl3: template rules with mode="#all" (2.0), merged into every mode by MatcherBuilder.
         public List<TemplateMatch> AllModesMatches = new List<TemplateMatch>();
 
-        public void AddTemplateMatch(Template template, QilLoop filter)
+        /// <param name="mode">For a template rule of several modes (Xsl3), the one this filter is for: each mode
+        /// gets its own filter, since a TemplateMatch takes its filter apart.</param>
+        public void AddTemplateMatch(Template template, QilLoop filter, QilName? mode = null)
         {
             if (template.V2 is XslNodeV2 v2 && (v2.AllModes || v2.Modes != null))
             {
@@ -58,15 +60,12 @@ namespace Xsl3.Xslt
                     AllModesMatches.Add(new TemplateMatch(template, filter));
                     return;
                 }
-                foreach (QilName m in v2.Modes!)
+                QilName m = mode ?? v2.Modes![0];
+                if (!TemplateMatches.TryGetValue(m, out List<TemplateMatch>? list))
                 {
-                    if (!TemplateMatches.TryGetValue(m, out List<TemplateMatch>? list))
-                    {
-                        list = TemplateMatches[m] = new List<TemplateMatch>();
-                    }
-                    // Each mode gets its own filter (a QIL graph is a tree).
-                    list.Add(new TemplateMatch(template, filter)); // MatcherBuilder clones conditions per use
+                    list = TemplateMatches[m] = new List<TemplateMatch>();
                 }
+                list.Add(new TemplateMatch(template, filter));
                 return;
             }
             List<TemplateMatch>? matchesForMode;

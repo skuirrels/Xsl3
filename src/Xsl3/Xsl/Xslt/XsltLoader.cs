@@ -2743,7 +2743,7 @@ namespace Xsl3.Xslt
             }
             // mode is always optional attribute
             _compiler.EnterForwardsCompatible();
-            string qname = _input.Value;
+            string qname = V1 ? _input.Value : _input.Value.Trim();
             QilName mode;
             if (!V1 && qname == "#default")
             {
@@ -2890,6 +2890,19 @@ namespace Xsl3.Xslt
                 localName = _compiler.PhantomNCName;
                 namespaceName = _compiler.CreatePhantomNamespace();
                 return false;
+            }
+            if (!V1)
+            {
+                // Xsl3: QName-valued attributes may have surrounding whitespace, and in 3.0 be EQNames (Q{uri}local).
+                qname = qname.Trim();
+                if (qname.StartsWith("Q{", StringComparison.Ordinal) && qname.IndexOf('}') is int close and > 1 &&
+                    Xsl3.Xdm.Casting.IsNCName(qname[(close + 1)..]))
+                {
+                    prefix = string.Empty;
+                    localName = qname[(close + 1)..];
+                    namespaceName = qname[2..close].Trim();
+                    return true;
+                }
             }
             if (!_compiler.ParseQName(qname, out prefix, out localName, (IErrorHelper)this))
             {

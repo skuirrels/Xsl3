@@ -306,6 +306,10 @@ namespace Xsl3.Runtime
                 {
                     return document;
                 }
+                if (extras?.RawMethod != null && target.WriteItems(document, settings, extras))
+                {
+                    return Sequences.Empty;
+                }
                 target.BeginExplicit(settings, extras);
                 bool previousAtomic = false;
                 for (int i = 0; i < document.Count; i++)
@@ -578,5 +582,30 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31TunnelGet(IList<XPathItem> frame, string ns, string local) =>
             frame.Count == 0 ? Sequences.Empty : ((TunnelFrame)frame[0]).Find(ns, local)?.ParamValue ?? Sequences.Empty;
+
+        // The current mode travels with the tunnel parameters, as an entry of this namespace whose local name is the
+        // mode, for mode="#current" where the template's mode isn't known when it's compiled (XSLT 3.0 §6.6).
+        private const string ModeEntry = "\u0001xsl3-mode";
+
+        /// <summary>The tunnel frame with <paramref name="mode"/> as the current mode.</summary>
+        public IList<XPathItem> X31TunnelSetMode(IList<XPathItem> frame, string mode)
+        {
+            var head = frame.Count == 0 ? null : (TunnelFrame)frame[0];
+            if (head?.Ns == ModeEntry)
+            {
+                return head.Local == mode ? frame : new XPathItem[] { new TunnelFrame(head.Outer, ModeEntry, mode, Sequences.Empty) };
+            }
+            return new XPathItem[] { new TunnelFrame(head, ModeEntry, mode, Sequences.Empty) };
+        }
+
+        /// <summary>The current mode a tunnel frame carries, or null.</summary>
+        public string X31TunnelMode(IList<XPathItem> frame)
+        {
+            for (var f = frame.Count == 0 ? null : (TunnelFrame)frame[0]; f != null; f = f.Outer)
+            {
+                if (f.Ns == ModeEntry) return f.Local;
+            }
+            return "\u0002";
+        }
     }
 }

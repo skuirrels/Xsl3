@@ -139,7 +139,8 @@ public sealed class Runner
                     XPathNavigator doc = LoadSource(source);
                     if (source.Role == ".")
                     {
-                        input = doc;
+                        // select: the initial context node within the document (the global context item).
+                        input = source.Select != null && Evaluate(source.Select, env.Element, doc) is { Count: 1 } selected && selected[0] is XPathNavigator node ? node : doc;
                         inputSource = source;
                     }
                     else if (source.Role.StartsWith('$'))

@@ -56,9 +56,10 @@ namespace Xsl3.Runtime
             using XmlWriter w = PrincipalResult.Create(factory, s, plain);
             for (int i = 0; i < items.Count; i++)
             {
-                if (i > 0 && extras.ItemSeparator != null)
+                // Without a separator, adjacent atomic values are separated by a space.
+                if (i > 0 && (extras.ItemSeparator != null || items[i] is not XPathNavigator && items[i - 1] is not XPathNavigator))
                 {
-                    w.WriteString(extras.ItemSeparator);
+                    w.WriteString(extras.ItemSeparator ?? " ");
                 }
                 switch (items[i])
                 {

@@ -70,6 +70,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
+| 2026-10-19 | 7,312 | 627 | 86 | 92.1% | Modes: `#current` and `xsl:next-match` follow the mode at run time, rules of several modes, `use-accumulators`; `xsl:copy` of document nodes in sequences, `document()` on sequences, json/adaptive principal results of `xsl:result-document` |
 | 2026-10-19 | 7,255 | 684 | 86 | 91.4% | The html method's own serializer, `item-separator`, json/adaptive `xsl:result-document`; 3.0 pattern forms, errors in predicate patterns as non-matches |
 
 | Suite | Feature | Pass | Fail | Not applicable |

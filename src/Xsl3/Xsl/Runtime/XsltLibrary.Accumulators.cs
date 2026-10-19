@@ -12,9 +12,10 @@ namespace Xsl3.Runtime
     /// <summary>
     /// Xsl3: where an accumulator's compiled functions are among the accumulator items: the initial value's at
     /// <paramref name="Offset"/>, then a pattern and a value function per rule (most preferred first), whose
-    /// phases (end: true) are in <paramref name="EndPhases"/>.
+    /// phases (end: true) are in <paramref name="EndPhases"/>. <paramref name="OnPrincipal"/>: whether it is
+    /// applicable to the principal source document (the initial mode's use-accumulators, §18.2.2).
     /// </summary>
-    internal sealed record AccumulatorInfo(int Offset, bool[] EndPhases, SequenceTypeTest? Type);
+    internal sealed record AccumulatorInfo(int Offset, bool[] EndPhases, SequenceTypeTest? Type, bool OnPrincipal = true);
 
     public sealed partial class XsltLibrary
     {
@@ -44,6 +45,15 @@ namespace Xsl3.Runtime
             }
             XPathNavigator root = node.Clone();
             root.MoveToRoot();
+            if (!info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
+            {
+                XPathNavigator principal = _runtime.ExternalContext.DefaultDataSource.Clone();
+                principal.MoveToRoot();
+                if (principal.IsSamePosition(root))
+                {
+                    throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the source document (the initial mode's use-accumulators)");
+                }
+            }
             _accumulatorValues ??= new();
             if (!_accumulatorValues.TryGetValue((key, _runtime.GenerateId(root)), out var values))
             {

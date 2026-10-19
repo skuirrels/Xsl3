@@ -171,6 +171,12 @@ namespace Xsl3.Runtime
         public double X31Integer(IList<XPathItem> items)
         {
             AtomicValue a = Sequences.AtomizeOptional(items, "the argument") ?? throw new XdmException("XPTY0004", "An integer is required, not an empty sequence");
+            if (a.Type.Primitive == Primitive.UntypedAtomic)
+            {
+                // The function conversion rules cast an untyped value to the parameter's type (xs:integer).
+                return double.TryParse(a.Value.Trim(), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out double d)
+                    ? d : throw new XdmException("FORG0001", $"'{a.Value}' can't be cast to xs:integer");
+            }
             return a.Type.IsNumeric ? Numeric.ToDouble(a) : throw new XdmException("XPTY0004", $"An integer is required, not {a.Type.Name}");
         }
     }

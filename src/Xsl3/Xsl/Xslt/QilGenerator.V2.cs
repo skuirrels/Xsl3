@@ -158,7 +158,7 @@ namespace Xsl3.Xslt
                         compile(args[1]), compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
                 case ("document", 1):
                 case ("document", 2):
-                    return CompileFnDocument(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);
+                    return CompileFnDocument31(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);
                 case ("unparsed-entity-uri", 1):
                 case ("unparsed-entity-public-id", 1):
                 {
@@ -215,6 +215,22 @@ namespace Xsl3.Xslt
         private QilNode X31(string method, XmlQueryType type, params QilNode[] args) => XPath31Compiler.Invoke(_f, method, type, args);
 
         // A boxed value's string value, as a native string (the xs:string? argument rules, empty for ()).
+        // document() (XSLT 3.0 §20.1): each item of the sequence, a node's string value resolved against the node's
+        // base URI (or the second argument's), an atomic value's against the static base URI (or the second argument's).
+        private QilNode CompileFnDocument31(QilNode uris, QilNode? baseNode)
+        {
+            if (!_compiler.Settings.EnableDocumentFunction || uris.XmlType!.IsNode || uris.XmlType.IsAtomicValue)
+            {
+                return CompileFnDocument(uris, baseNode);
+            }
+            QilIterator? b = baseNode != null ? _f.Let(baseNode) : null;
+            QilIterator i = _f.For(Box(uris)), n;
+            QilNode result = _f.DocOrderDistinct(_f.Loop(i, _f.Conditional(_f.IsType(i, T.NodeNotRtf),
+                _f.Loop(n = _f.Let(_f.TypeAssert(i, T.NodeNotRtf)), CompileSingleDocument(_f.XPathNodeValue(n), b ?? n)),
+                CompileSingleDocument(String31(i), b))));
+            return b != null ? _f.Loop(b, result) : result;
+        }
+
         private QilNode String31(QilNode items) => X31(nameof(XsltLibrary.X31String), T.StringX, Box(items));
 
         private QilNode Box(QilNode n) => XPath31Compiler.Box(n, _f);
@@ -733,10 +749,130 @@ namespace Xsl3.Xslt
             : rule.V2?.AllModes == true ? XsltLoader.nullMode
             : rule.Mode;
 
+        // The accumulators applicable to the principal source document, when the initial mode's xsl:mode says
+        // (use-accumulators, as expanded names); null: all of them.
+        private HashSet<string>? PrincipalAccumulators31()
+        {
+            QilName? initial = _compiler.InitialMode is { } im ? _f.QName(im.Name, im.Namespace) : _compiler.DefaultInitialMode;
+            foreach (var (mode, decl) in _compiler.ModeDecls)
+            {
+                if ((initial == null ? mode.LocalName.Length == 0 && mode.NamespaceUri.Length == 0 : mode.LocalName == initial.LocalName && mode.NamespaceUri == initial.NamespaceUri) &&
+                    decl.Attributes.TryGetValue("use-accumulators", out string? names))
+                {
+                    return names == "#all" ? null : new HashSet<string>(names.Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+                }
+            }
+            return null;
+        }
+
+        // Whether some template uses mode="#current" where its mode isn't known when it's compiled: then the
+        // apply-templates functions record their mode in the tunnel frame, and #current dispatches on it.
+        private bool _dynamicCurrentMode31;
+
+        // A template rule of one mode (or of the default mode), not called by name: its #current is that mode.
+        private static bool HasStaticMode31(ProtoTemplate t) =>
+            t is Template { Name: null } rule && rule.V2 is not ({ AllModes: true } or { Modes.Count: > 1 });
+
+        // apply-templates mode="#current", or (in a template rule) xsl:next-match, which continues in the current mode.
+        private static bool UsesCurrentMode31(IList<XslNode>? content, bool nextMatch) =>
+            content != null && content.Any(n => n.NodeType == XslNodeType.ApplyTemplates && ReferenceEquals(n.Name, XsltLoader.CurrentMode) ||
+                nextMatch && n.NodeType == XslNodeType.NextMatch || UsesCurrentMode31(n.Content, nextMatch));
+
+        private static string ModeKey31(QilName mode) => mode.NamespaceUri + "|" + mode.LocalName;
+
+        /// <summary>
+        /// In an apply-templates function for <paramref name="mode"/>, the tunnel frame recording the mode, which
+        /// replaces the tunnel argument the rules get (null when no template needs it).
+        /// </summary>
+        private QilIterator? WithCurrentMode31(QilName mode, IList<XslNode> actualArgs)
+        {
+            if (!_dynamicCurrentMode31 || _currentTunnel is not QilParameter tunnel)
+            {
+                return null;
+            }
+            QilIterator frame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetMode), T.ItemS, tunnel, _f.String(ModeKey31(mode))));
+            foreach (XslNode a in actualArgs)
+            {
+                if (a is VarPar p && p.Name!.Equals(_nameTunnel))
+                {
+                    p.Value = frame;
+                }
+            }
+            _currentTunnel = frame;
+            return frame;
+        }
+
+        /// <summary>
+        /// apply-templates mode="#current" in a named template or a rule of several modes: the mode the tunnel
+        /// frame records, among the modes it may be.
+        /// </summary>
+        private QilNode ApplyInCurrentMode31(StylesheetLevel sheet, IList<XslNode> args, Template? nextMatchBelow)
+        {
+            var modes = new List<QilName>();
+            void Add(QilName m)
+            {
+                if (!modes.Exists(x => ModeKey31(x) == ModeKey31(m)))
+                {
+                    modes.Add(m);
+                }
+            }
+            if ((nextMatchBelow ?? _modeRule31) is Template { V2.Modes: { Count: > 1 } own } && (nextMatchBelow != null || _modeRule31!.Name == null))
+            {
+                own.ForEach(Add);
+            }
+            else
+            {
+                Add(XsltLoader.nullMode);
+                foreach (ProtoTemplate t in _compiler.AllTemplates)
+                {
+                    if (t is Template { Match: not null } rule)
+                    {
+                        if (rule.V2?.Modes is { } list)
+                        {
+                            list.ForEach(Add);
+                        }
+                        else if (rule.V2?.AllModes != true)
+                        {
+                            Add(rule.Mode);
+                        }
+                    }
+                }
+                foreach (QilName m in _compiler.ModeDecls.Keys)
+                {
+                    Add(m);
+                }
+            }
+            QilName fallback = nextMatchBelow?.Mode ?? CurrentMode31();
+            QilIterator current = _f.Let(X31(nameof(XsltLibrary.X31TunnelMode), T.StringX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
+            QilNode result = InvokeApplyFunction(sheet, fallback, CopyArgs31(args), nextMatchBelow);
+            foreach (QilName m in modes)
+            {
+                if (ModeKey31(m) != ModeKey31(fallback))
+                {
+                    result = _f.Conditional(_f.Eq(current, _f.String(ModeKey31(m))), InvokeApplyFunction(sheet, m, CopyArgs31(args), nextMatchBelow), result);
+                }
+            }
+            return _f.Loop(current, result);
+        }
+
+        // The with-params of a call for another invocation (InvokeApplyFunction rewrites the ones it gets).
+        private static List<XslNode> CopyArgs31(IList<XslNode> args) => args.Select(a =>
+        {
+            if (a is not VarPar p)
+            {
+                return a;
+            }
+            VarPar copy = AstFactory.WithParam(p.Name!);
+            copy.Value = p.Value;
+            copy.V2 = p.V2;
+            copy.Flags = p.Flags;
+            return (XslNode)copy;
+        }).ToList();
+
         // The template rule whose body is being compiled, for xsl:next-match; null where it is absent.
         private Template? _currentTemplateRule;
 
-        private readonly Dictionary<Template, List<QilFunction>> _nextMatchFunctions = new();
+        private readonly Dictionary<(Template, string Mode), List<QilFunction>> _nextMatchFunctions = new();
 
         // Inside xsl:for-each, xsl:for-each-group and xsl:analyze-string the current template rule is absent.
         private QilNode WithoutTemplateRule(System.Func<QilNode> compile)
@@ -771,7 +907,10 @@ namespace Xsl3.Xslt
                     args.Add(withParam);
                 }
             }
-            QilNode result = InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, args, nextMatchBelow: _currentTemplateRule);
+            // A rule of several modes (or of all modes) continues in the mode it was applied in.
+            QilNode result = _dynamicCurrentMode31 && !HasStaticMode31(_currentTemplateRule)
+                ? ApplyInCurrentMode31(_compiler.Root!, args, _currentTemplateRule)
+                : InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, args, nextMatchBelow: _currentTemplateRule);
             return _varHelper.FinishVariables(result, varScope);
         }
 
@@ -1309,7 +1448,8 @@ namespace Xsl3.Xslt
                         ReportXPath31Error(e.Code, e.Message);
                     }
                 }
-                table[new QName(name.NamespaceUri, name.LocalName).EQName] = new AccumulatorInfo(offset, phases.ToArray(), type);
+                string eqName = new QName(name.NamespaceUri, name.LocalName).EQName;
+                table[eqName] = new AccumulatorInfo(offset, phases.ToArray(), type, PrincipalAccumulators31() is not { } applicable || applicable.Contains(eqName));
                 ExitScope();
             }
             _accumulatorItems31.Binding = Box(items);
@@ -2025,8 +2165,13 @@ namespace Xsl3.Xslt
                 "shallow-copy" or "deep-copy" when type == T.ItemS => current,
                 _ => text,
             };
+            QilIterator? modeFrame = WithCurrentMode31(mode, actualArgs);
             _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
             function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin, decl?.OnMultipleMatch == "fail");
+            if (modeFrame != null)
+            {
+                function.Definition = _f.Loop(modeFrame, function.Definition);
+            }
             _currentTunnel = savedTunnel;
             return _f.Invoke(function, invokeArgs);
         }

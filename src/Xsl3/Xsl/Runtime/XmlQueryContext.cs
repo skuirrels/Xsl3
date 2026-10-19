@@ -103,6 +103,9 @@ namespace Xsl3.Runtime
             get { return _defaultDataSource?.NameTable; }
         }
 
+        /// <summary>Xsl3: whether there is a default document.</summary>
+        internal bool HasDefaultDataSource => _defaultDataSource != null;
+
         /// <summary>
         /// Return the document which is queried by default--i.e. no data source is explicitly selected in the query.
         /// </summary>

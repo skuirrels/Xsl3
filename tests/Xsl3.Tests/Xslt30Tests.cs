@@ -79,6 +79,30 @@ public class Xslt30Tests
             "<xsl:template match='.[. instance of xs:integer]'>[<xsl:value-of select='.'/>]</xsl:template>"));
 
     [Fact]
+    public void CurrentModeInNamedTemplatesAndRulesOfSeveralModes() =>
+        Assert.Equal("<out><x>X:s</x><y>Y:s</y></out>", Run(
+            "<xsl:template match='/'><out><x><xsl:apply-templates select='doc' mode='X'/></x><y><xsl:apply-templates select='doc' mode='Y'/></y></out></xsl:template>" +
+            "<xsl:template match='doc' mode='X Y'><xsl:call-template name='inner'/></xsl:template>" +
+            "<xsl:template name='inner'><xsl:apply-templates select='s' mode='#current'/></xsl:template>" +
+            "<xsl:template match='s' mode='X'>X:s</xsl:template>" +
+            "<xsl:template match='s' mode='Y'>Y:s</xsl:template>",
+            "<doc><s/></doc>"));
+
+    [Fact]
+    public void NextMatchFromAnAllModesRuleStaysInTheMode() =>
+        Assert.Equal("<out><m1>[all]m1</m1><m2>[all]m2</m2></out>", Run(
+            "<xsl:template match='/'><out><m1><xsl:apply-templates select='doc' mode='m1'/></m1><m2><xsl:apply-templates select='doc' mode='m2'/></m2></out></xsl:template>" +
+            "<xsl:template match='doc' mode='#all' priority='3'>[all]<xsl:next-match/></xsl:template>" +
+            "<xsl:template match='doc' mode='m1'>m1</xsl:template>" +
+            "<xsl:template match='doc' mode='m2'>m2</xsl:template>"));
+
+    [Fact]
+    public void CopyOfADocumentNodeInASequenceMakesADocumentNode() =>
+        Assert.Equal("<out n=\"2\" />", Run(
+            "<xsl:template match='/'><xsl:variable name='docs' as='document-node()*'>" +
+            "<xsl:copy><a/></xsl:copy><xsl:copy><b/></xsl:copy></xsl:variable><out n='{count($docs)}'/></xsl:template>"));
+
+    [Fact]
     public void GroupStartingWithPredicatePatternOnAtomicValues() =>
         Assert.Equal("<out><g>1 2</g><g>3 4 5</g><g>6 7</g></out>", Run(
             "<xsl:template match='/'><out><xsl:for-each-group select='1 to 7' group-starting-with='.[. mod 3 = 0]'>" +

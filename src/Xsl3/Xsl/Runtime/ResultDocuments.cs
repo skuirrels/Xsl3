@@ -208,6 +208,39 @@ namespace Xsl3.Runtime
             _state = State.Explicit;
         }
 
+        /// <summary>
+        /// xsl:result-document without href, with the json or adaptive method or an item-separator: the items
+        /// serialized as the principal result. False if the principal result's writer is already made.
+        /// </summary>
+        public bool WriteItems(IList<XPathItem> items, XmlWriterSettings settings, OutputExtras extras)
+        {
+            if (!CanConfigure)
+            {
+                return false;
+            }
+            BeginExplicit(null, null);
+            if (extras.RawMethod is "json" or "adaptive")
+            {
+                var text = new System.IO.StringWriter();
+                ItemSerializer.Write(items, extras, text);
+                XmlWriterSettings s = settings.Clone();
+                s.SetOutputMethod(XmlOutputMethod.Text);
+                s.ConformanceLevel = ConformanceLevel.Fragment;
+                _inner = _factory!(s);
+                _inner.WriteString(text.ToString());
+                _inner.Flush();
+            }
+            else
+            {
+                ItemSerializer.WriteSequence(items, settings, extras, _factory!);
+            }
+            _wroteItems = true;
+            EndExplicit();
+            return true;
+        }
+
+        private bool _wroteItems;
+
         private XmlWriter Content()
         {
             if (_state == State.Explicit)
@@ -345,11 +378,14 @@ namespace Xsl3.Runtime
             if (_state != State.Closed)
             {
                 // An empty principal result still gets its writer (an XML declaration, say), unless a result document
-                // took it.
-                Inner().Flush();
-                if (_factory != null)
+                // took it, or wrote it as items with a writer of its own.
+                if (_inner != null || !_wroteItems)
                 {
-                    _inner!.Close();
+                    Inner().Flush();
+                    if (_factory != null)
+                    {
+                        _inner!.Close();
+                    }
                 }
                 _state = State.Closed;
             }
