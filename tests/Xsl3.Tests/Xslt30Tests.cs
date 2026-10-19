@@ -181,6 +181,45 @@ public class Xslt30Tests
             "<xsl:template match='/'><out><xsl:sequence><xsl:value-of select='1'/><xsl:text>|</xsl:text><xsl:value-of select='2'/></xsl:sequence></out></xsl:template>"));
 
     [Fact]
+    public void AnalyzeStringRegexMayMatchTheEmptyStringIn30() =>
+        // The CSV example of XSLT 3.0 §15.1: an empty field is a zero-length match.
+        Assert.Equal("<out>[a][][b]</out>", Run(
+            "<xsl:template match='/'><out><xsl:analyze-string select=\"'a,,b'\" regex='(?:^|,)([^,]*)'>" +
+            "<xsl:matching-substring>[<xsl:value-of select='regex-group(1)'/>]</xsl:matching-substring></xsl:analyze-string></out></xsl:template>"));
+
+    [Fact]
+    public void CurrentOutputUriIsAbsentInFunctions() =>
+        Assert.Equal("<out f=\"true\" />", Run(
+            "<xsl:function name='f:uri' xmlns:f='urn:f'><xsl:sequence select='empty(current-output-uri())'/></xsl:function>" +
+            "<xsl:template match='/'><out f='{f:uri()}' xmlns:f='urn:f' xsl:exclude-result-prefixes='f'/></xsl:template>"));
+
+    [Fact]
+    public void IndentationWithAnXmlDeclaration()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='xml' indent='yes'/>" +
+                            "<xsl:template match='/'><a><b/></a></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var bytes = new MemoryStream();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+        string xml = System.Text.Encoding.UTF8.GetString(bytes.ToArray());
+        Assert.StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", xml);
+        Assert.Contains("<a>" + System.Environment.NewLine + "  <b />", xml);
+    }
+
+    [Fact]
+    public void XhtmlHtml5VoidElementsAndPrefixNormalization()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='xhtml' html-version='5' indent='no' omit-xml-declaration='yes'/>" +
+                            "<xsl:template match='/'><h:html xmlns:h='http://www.w3.org/1999/xhtml'><h:body><h:br/></h:body></h:html></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+        Assert.Equal("<!DOCTYPE html><html xmlns=\"http://www.w3.org/1999/xhtml\"><body><br /></body></html>", sw.ToString());
+    }
+
+    [Fact]
     public void Html5Serialization()
     {
         string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='html' html-version='5' indent='no'/>" +

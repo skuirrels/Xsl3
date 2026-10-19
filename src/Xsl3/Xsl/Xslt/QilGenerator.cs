@@ -3043,6 +3043,7 @@ namespace Xsl3.Xslt
         {
             Debug.Assert(PackageComponents.Demangle(qname.NamespaceUri).Package != 0 || // Xsl3: a used package's name
                 Compiler.IsPhantomName(qname) ||
+                qname.Prefix.Length == 0 && qname.NamespaceUri.Length != 0 || // Xsl3: an EQName, Q{uri}local
                 qname.NamespaceUri == ResolvePrefix(/*ignoreDefaultNs:*/true, qname.Prefix),
                 "QilGenerator must resolve the prefix to the same namespace as XsltLoader"
             );

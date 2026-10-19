@@ -28,7 +28,10 @@ with child-or-top; an error in a predicate pattern is a non-match. 7,255 passed 
 where a template's mode isn't known when it's compiled (named templates, rules of several modes or of all
 modes), the apply-templates functions record their mode in the tunnel frame and `#current` and
 `xsl:next-match` dispatch on it; `xsl:copy` of a document node in a sequence makes a document node;
-`document()` takes sequences. 7,312 passed (92.1%).
+`document()` takes sequences. 7,312 passed (92.1%). Then `fn:current-output-uri` (the result document's URI
+travels in the tunnel frame like the mode; absent in functions, patterns and variables), the base output URI
+(internal for now), xhtml with HTML5, the serialization parameter errors, and the XML declaration written by
+the writer itself (raw text before the document element stopped its indentation). 7,365 passed (92.8%).
 Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us

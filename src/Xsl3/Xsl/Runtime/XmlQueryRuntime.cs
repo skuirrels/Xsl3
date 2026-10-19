@@ -49,6 +49,17 @@ namespace Xsl3.Runtime
             set => t_resultDocuments = value;
         }
 
+        // Xsl3: the base output URI (XSLT 3.0 §2.3.6): what secondary results' href resolves against and what
+        // current-output-uri() returns for the principal result. Null: absent.
+        [System.ThreadStatic]
+        private static string? t_baseOutputUri;
+
+        internal static string? BaseOutputUri
+        {
+            get => t_baseOutputUri;
+            set => t_baseOutputUri = value;
+        }
+
         // Xsl3: the compiled dispatcher of function items, for the run-time library.
         internal System.Func<XmlQueryRuntime, XPathItem, IList<XPathItem>>? Dispatcher { get; }
 

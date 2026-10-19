@@ -742,7 +742,7 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_analyzeStringAttributes);
             string? select = ParseStringAttribute(0, "select");
-            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "" };
+            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "", EmptyMatches = _input.LastVersion >= 3.0 };
 
             XslNode? matching = null, nonMatching = null;
             QName parentName = _input.ElementName;

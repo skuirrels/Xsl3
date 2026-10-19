@@ -121,6 +121,9 @@ public sealed class Runner
         var messages = new List<string>();
         var secondary = new Dictionary<string, StringWriter>(StringComparer.Ordinal);
         Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new Utf8StringWriter();
+        // The base output URI: where the test says the principal result goes.
+        Xsl3.Runtime.XmlQueryRuntime.BaseOutputUri = test.TestElement.Element(Catalog.Ns + "output")?.Attribute("file") is { Value: not "#absent" } output
+            ? new Uri(Path.Combine(test.Set.Directory, output.Value)).AbsoluteUri : null;
         try
         {
             var resolver = new TestResolver(envs);

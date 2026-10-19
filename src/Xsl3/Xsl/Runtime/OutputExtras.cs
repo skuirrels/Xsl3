@@ -84,6 +84,8 @@ namespace Xsl3.Runtime
     internal sealed class SerializationWriter : XmlWriter
     {
         private const string XhtmlNs = "http://www.w3.org/1999/xhtml";
+        private const string SvgNs = "http://www.w3.org/2000/svg";
+        private const string MathMLNs = "http://www.w3.org/1998/Math/MathML";
 
         // The elements written with the minimized syntax (<br />) by the xhtml method: those declared EMPTY in the
         // XHTML 1.0 DTDs (the default html-version of XSLT 2.0). Others get an end tag.
@@ -136,6 +138,11 @@ namespace Xsl3.Runtime
 
         public override void WriteString(string? text)
         {
+            if (_namespaceDeclaration is var (_, declaration))
+            {
+                declaration.Append(text);
+                return;
+            }
             Content();
             if (string.IsNullOrEmpty(text))
             {
@@ -211,7 +218,7 @@ namespace Xsl3.Runtime
                 _seenElement = true;
                 if (_extras.Html5 && _extras.DefaultDoctype && !OwnHtml && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    _inner.WriteRaw("<!DOCTYPE html>"); // the html writer would write "<!DOCTYPE html >"
+                    _inner.WriteRaw($"<!DOCTYPE {localName}>"); // the html writer would write "<!DOCTYPE html >"
                 }
             }
             if (_extras.Html5 && _extras.HtmlMethod && !OwnHtml && string.IsNullOrEmpty(ns) && NewVoidElements5.Contains(localName))
@@ -229,9 +236,15 @@ namespace Xsl3.Runtime
             }
             else
             {
+                if (_extras.Xhtml && _extras.Html5 && !string.IsNullOrEmpty(prefix) && ns is XhtmlNs or SvgNs or MathMLNs)
+                {
+                    // Prefix normalization (Serialization 3.1 §6, HTML5): XHTML, SVG and MathML elements are unprefixed.
+                    prefix = "";
+                }
                 _inner.WriteStartElement(prefix, localName, ns);
             }
-            bool xhtml = _extras.Xhtml && ns == XhtmlNs;
+            // With HTML5, elements in no namespace are serialized like XHTML's.
+            bool xhtml = _extras.Xhtml && (ns == XhtmlNs || _extras.Html5 && string.IsNullOrEmpty(ns));
             _currentXhtml = xhtml;
             _void.Push(!_extras.Xhtml || xhtml && (_extras.Html5 ? s_voidElements5 : s_voidElements).Contains(localName));
             if (xhtml && localName == "head" && _extras.IncludeContentType)
@@ -266,6 +279,12 @@ namespace Xsl3.Runtime
 
         public override void WriteStartAttribute(string? prefix, string localName, string? ns)
         {
+            if (_extras.Xhtml && _extras.Html5 && prefix == "xmlns" && ns == "http://www.w3.org/2000/xmlns/")
+            {
+                // A prefixed declaration: dropped if prefix normalization unprefixes its namespace's elements.
+                _namespaceDeclaration = (localName, new System.Text.StringBuilder());
+                return;
+            }
             _inAttribute = true;
             // xhtml: URI attributes of XHTML elements are escaped like the html method's (Serialization 3.1 §7.3).
             _uriAttribute = _extras.Xhtml && _extras.EscapeUriAttributes && string.IsNullOrEmpty(ns) && _currentXhtml && HtmlUriAttributes.Contains(localName);
@@ -284,6 +303,7 @@ namespace Xsl3.Runtime
         // %HH of the UTF-8 bytes of the characters outside printable ASCII (spaces stay).
         internal static string EscapeUri(string value)
         {
+            value = value.Normalize(NormalizationForm.FormC); // escape-uri-attributes normalizes to NFC first
             var sb = new System.Text.StringBuilder(value.Length);
             byte[] bytes = new byte[4];
             for (int i = 0; i < value.Length; i++)
@@ -307,9 +327,20 @@ namespace Xsl3.Runtime
 
         public override void WriteEndAttribute()
         {
+            if (_namespaceDeclaration is var (declared, value))
+            {
+                _namespaceDeclaration = null;
+                if (value.ToString() is not (XhtmlNs or SvgNs or MathMLNs))
+                {
+                    _inner.WriteAttributeString("xmlns", declared, "http://www.w3.org/2000/xmlns/", value.ToString());
+                }
+                return;
+            }
             _inAttribute = false;
             _inner.WriteEndAttribute();
         }
+
+        private (string Prefix, System.Text.StringBuilder Value)? _namespaceDeclaration;
 
         public override WriteState WriteState => _inner.WriteState;
 

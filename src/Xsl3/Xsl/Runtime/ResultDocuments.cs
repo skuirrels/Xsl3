@@ -274,12 +274,22 @@ namespace Xsl3.Runtime
             XmlWriter w;
             if (declaration)
             {
-                XmlWriterSettings s = settings.Clone();
-                s.OmitXmlDeclaration = true;
-                w = factory(s);
                 string encoding = extras?.Encoding ?? settings.Encoding.WebName.ToUpperInvariant();
                 string standalone = settings.Standalone switch { XmlStandalone.Yes => " standalone=\"yes\"", XmlStandalone.No => " standalone=\"no\"", _ => "" };
-                w.WriteRaw($"<?xml version=\"1.0\" encoding=\"{encoding}\"{standalone}?>");
+                XmlWriterSettings s = settings.Clone();
+                if (settings.ConformanceLevel != ConformanceLevel.Fragment)
+                {
+                    // The writer's own declaration (raw text before the document element would stop its indentation),
+                    // with the encoding named as the stylesheet names it.
+                    s.Encoding = new NamedEncoding(settings.Encoding, encoding);
+                    w = factory(s);
+                }
+                else
+                {
+                    s.OmitXmlDeclaration = true;
+                    w = factory(s);
+                    w.WriteRaw($"<?xml version=\"1.0\" encoding=\"{encoding}\"{standalone}?>");
+                }
             }
             else if (settings.OutputMethod == XmlOutputMethod.Html)
             {
@@ -398,5 +408,56 @@ namespace Xsl3.Runtime
                 Close();
             }
         }
+    }
+
+    /// <summary>An encoding whose name in the XML declaration is the one the stylesheet gives (.NET's is lower case).</summary>
+    internal sealed class NamedEncoding : Encoding
+    {
+        private readonly string _name;
+        private Encoding _inner;
+
+        public NamedEncoding(Encoding inner, string name) : base(inner.CodePage, inner.EncoderFallback, inner.DecoderFallback)
+        {
+            _inner = inner;
+            _name = name;
+        }
+
+        public override string WebName => _name;
+
+        // The inner encoding with this one's fallbacks (the XML writer sets one that writes character references).
+        private Encoding Inner
+        {
+            get
+            {
+                if (!ReferenceEquals(_inner.EncoderFallback, EncoderFallback) || !ReferenceEquals(_inner.DecoderFallback, DecoderFallback))
+                {
+                    var e = (Encoding)_inner.Clone();
+                    e.EncoderFallback = EncoderFallback;
+                    e.DecoderFallback = DecoderFallback;
+                    _inner = e;
+                }
+                return _inner;
+            }
+        }
+
+        public override byte[] GetPreamble() => _inner.GetPreamble();
+
+        public override System.ReadOnlySpan<byte> Preamble => _inner.Preamble;
+
+        public override int GetByteCount(char[] chars, int index, int count) => Inner.GetByteCount(chars, index, count);
+
+        public override int GetBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex) => Inner.GetBytes(chars, charIndex, charCount, bytes, byteIndex);
+
+        public override int GetCharCount(byte[] bytes, int index, int count) => Inner.GetCharCount(bytes, index, count);
+
+        public override int GetChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex) => Inner.GetChars(bytes, byteIndex, byteCount, chars, charIndex);
+
+        public override int GetMaxByteCount(int charCount) => _inner.GetMaxByteCount(charCount);
+
+        public override int GetMaxCharCount(int byteCount) => _inner.GetMaxCharCount(byteCount);
+
+        public override Encoder GetEncoder() => Inner.GetEncoder();
+
+        public override Decoder GetDecoder() => Inner.GetDecoder();
     }
 }

@@ -316,7 +316,7 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>The input split into matching and non-matching substrings, in order (XSLT 3.0 §15.1).</summary>
-        public IList<XPathItem> X31AnalyzeString(IList<XPathItem> input, string regex, string flags)
+        public IList<XPathItem> X31AnalyzeString(IList<XPathItem> input, string regex, string flags, bool emptyMatches)
         {
             // select is an xs:string? (function conversion rules: untypedAtomic and anyURI become strings).
             AtomicValue? a = Sequences.AtomizeOptional(input, "xsl:analyze-string/@select");
@@ -334,8 +334,9 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException(e.Code == "FORX0001" ? "XTDE1145" : "XTDE1140", e.Message);
             }
-            if (re.Regex.IsMatch(""))
+            if (!emptyMatches && re.Regex.IsMatch(""))
             {
+                // XSLT 2.0 (XSLT 3.0 allows it).
                 throw new XdmException("XTDE1150", $"The regex '{regex}' matches a zero-length string");
             }
             var segments = new List<XPathItem>();

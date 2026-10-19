@@ -169,6 +169,11 @@ namespace Xsl3.Xslt
                 }
                 case ("system-property", 1):
                     return CompileSystemProperty31(args[0], compile);
+                case ("current-output-uri", 0):
+                    // Absent in temporary output state: function bodies, patterns, variables' content (§20.5.2).
+                    return FocusAbsent || _patternNode31 != null || _temporaryOutput31 > 0
+                        ? _f.TypeAssert(_f.Sequence(), T.ItemS)
+                        : X31(nameof(XsltLibrary.X31CurrentOutputUri), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS));
                 case ("current-merge-group", 0):
                 case ("current-merge-group", 1):
                 case ("current-merge-key", 0):
@@ -499,7 +504,12 @@ namespace Xsl3.Xslt
                     {
                         return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1480"), _f.String("xsl:result-document can't be evaluated while a temporary tree is being constructed"));
                     }
-                    QilNode href = v2.Href != null ? CompileStringAvt(v2.Href)! : _f.String("");
+                    QilIterator href = _f.Let(v2.Href != null ? CompileStringAvt(v2.Href)! : _f.String(""));
+                    // The content's current-output-uri() is the result document's URI.
+                    QilIterator outputFrame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS),
+                        X31(nameof(XsltLibrary.X31OutputUri), T.StringX, href, _f.String(StaticBaseUri31() ?? ""))));
+                    QilNode? savedTunnel = _currentTunnel;
+                    _currentTunnel = outputFrame;
                     // The output definition: format="…" names one (at run time if it is computed); else the unnamed one.
                     Output baseOutput = _compiler.Output;
                     QilNode formatName = _f.String("");
@@ -546,13 +556,14 @@ namespace Xsl3.Xslt
                     QilNode doc = raw
                         ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
                         : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
+                    _currentTunnel = savedTunnel;
                     if (raw)
                     {
                         parameters.Add(_f.String("#raw" + SerializationParameters.NameEnd + SerializationParameters.ValueEnd));
                     }
-                    return X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
+                    return _f.Loop(href, _f.Loop(outputFrame, X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
                         _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
-                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()));
+                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()))));
                 }
             }
             return null;
@@ -577,6 +588,11 @@ namespace Xsl3.Xslt
         private QilNode TunnelFrame31(IList<XslNode> args, int from)
         {
             QilNode frame = _currentTunnel != null ? _currentTunnel : _f.TypeAssert(_f.Sequence(), T.ItemS);
+            if (_currentTunnel == null && FocusAbsent)
+            {
+                // Templates called from a function body are in temporary output state: no current output URI.
+                frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(""));
+            }
             for (int i = from; i < args.Count;)
             {
                 if (args[i] is VarPar { V2.Tunnel: true } p && p.NodeType == XslNodeType.WithParam && p.Value != null)
@@ -2737,7 +2753,7 @@ namespace Xsl3.Xslt
             QilNode regex = CompileStringAvt(v2.Regex ?? "")!;
             QilNode flags = CompileStringAvt(v2.Flags ?? "")!;
             int varScope = _varHelper.StartVariables();
-            QilIterator segments = _f.Let(X31(nameof(XsltLibrary.X31AnalyzeString), T.ItemS, Box(input), regex, flags));
+            QilIterator segments = _f.Let(X31(nameof(XsltLibrary.X31AnalyzeString), T.ItemS, Box(input), regex, flags, _f.Boolean(v2.EmptyMatches)));
             if (regex.NodeType == QilNodeType.LiteralString && flags.NodeType == QilNodeType.LiteralString)
             {
                 // A static regex: errors in it are reported now (XTDE1140, XTDE1145), as the regex is fixed.

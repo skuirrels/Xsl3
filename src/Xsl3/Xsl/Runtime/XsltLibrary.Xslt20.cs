@@ -349,7 +349,7 @@ namespace Xsl3.Runtime
                 principal.EndExplicit();
                 return Sequences.Empty;
             }
-            string uri = UriReference.IsAbsolute(href) || baseUri.Length == 0 || !UriReference.IsAbsolute(baseUri) ? href : UriReference.Resolve(href, baseUri);
+            string uri = X31OutputUri(href, baseUri);
             if (!_runtime.ResultDocumentUris.Add(uri))
             {
                 throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");
@@ -579,6 +579,34 @@ namespace Xsl3.Runtime
 
         public bool X31TunnelHas(IList<XPathItem> frame, string ns, string local) =>
             frame.Count != 0 && ((TunnelFrame)frame[0]).Find(ns, local) != null;
+
+        /// <summary>
+        /// A result document's URI: its href resolved against the base output URI (or, without one, the static base
+        /// URI); the base output URI itself for the principal result (href="").
+        /// </summary>
+        public string X31OutputUri(string href, string staticBaseUri)
+        {
+            string? baseUri = XmlQueryRuntime.BaseOutputUri ?? (staticBaseUri.Length == 0 ? null : staticBaseUri);
+            if (href.Length == 0)
+            {
+                return XmlQueryRuntime.BaseOutputUri ?? "";
+            }
+            return UriReference.IsAbsolute(href) || baseUri == null || !UriReference.IsAbsolute(baseUri) ? href : UriReference.Resolve(href, baseUri);
+        }
+
+        // The current output URI travels with the tunnel parameters, set by xsl:result-document.
+        private const string OutputEntry = "\u0001xsl3-output";
+
+        /// <summary>The tunnel frame with <paramref name="uri"/> as the current output URI.</summary>
+        public IList<XPathItem> X31TunnelSetOutput(IList<XPathItem> frame, string uri) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], OutputEntry, "", Sequences.One(AtomicValue.OfString(uri))) };
+
+        /// <summary>current-output-uri() (XSLT 3.0 §20.5.2): the result document's URI, else the base output URI.</summary>
+        public IList<XPathItem> X31CurrentOutputUri(IList<XPathItem> frame)
+        {
+            string? uri = frame.Count != 0 && ((TunnelFrame)frame[0]).Find(OutputEntry, "") is { } entry ? entry.ParamValue[0].Value : XmlQueryRuntime.BaseOutputUri;
+            return string.IsNullOrEmpty(uri) ? Sequences.Empty : Sequences.One(new StringValue(AtomicTypes.AnyUri, uri));
+        }
 
         public IList<XPathItem> X31TunnelGet(IList<XPathItem> frame, string ns, string local) =>
             frame.Count == 0 ? Sequences.Empty : ((TunnelFrame)frame[0]).Find(ns, local)?.ParamValue ?? Sequences.Empty;

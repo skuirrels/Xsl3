@@ -101,6 +101,7 @@ namespace Xsl3.Xslt
         public string? GroupBy, GroupAdjacent, GroupStartingWith, GroupEndingWith;
         public bool Composite;
         public string? Regex, Flags;
+        public bool EmptyMatches; // xsl:analyze-string in XSLT 3.0: the regex may match a zero-length string
         public string? NameAvt;
         public string? Href, Format, Method;
         public string? Ordinal;

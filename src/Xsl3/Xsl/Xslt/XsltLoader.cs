@@ -855,7 +855,11 @@ namespace Xsl3.Xslt
                     }
                     catch (ArgumentException)
                     {
-                        if (!_input.ForwardCompatibility)
+                        if (V2)
+                        {
+                            ReportError(SR.Xml_UserException, $"SESU0007: the encoding '{_input.Value}' is not supported");
+                        }
+                        else if (!_input.ForwardCompatibility)
                         {
                             ReportWarning(/*[XT_004]*/SR.Xslt_InvalidEncoding, _input.Value);
                         }
@@ -1007,8 +1011,36 @@ namespace Xsl3.Xslt
                     output.HtmlVersion = _input.Value.Trim().TrimStart('+');
                 }
             }
+            if (V2)
+            {
+                CheckSerializationParameters31();
+            }
 
             CheckNoContent();
+        }
+
+        // Xsl3: combinations of serialization parameters that are errors (Serialization 3.1 §3).
+        private void CheckSerializationParameters31()
+        {
+            string? Value(int attNum, string name) => _input.MoveToXsltAttribute(attNum, name) ? _input.Value.Trim() : null;
+            string? method = Value(1, "method"), version = Value(16, "version"), standalone = Value(13, "standalone");
+            bool omitDeclaration = Value(12, "omit-xml-declaration") is "yes" or "true" or "1";
+            if (method is null or "xml" or "xhtml" && omitDeclaration && (standalone is not (null or "omit") || version is not (null or "1.0") && Value(5, "doctype-system") != null))
+            {
+                ReportError(SR.Xml_UserException, "SEPM0009: omit-xml-declaration=\"yes\" conflicts with standalone or with a version other than 1.0 and a doctype-system");
+            }
+            if (Value(14, "undeclare-prefixes") is "yes" or "true" or "1" && method is null or "xml" or "xhtml" && version is null or "1.0")
+            {
+                ReportError(SR.Xml_UserException, "SEPM0010: undeclare-prefixes=\"yes\" requires XML 1.1 output");
+            }
+            if (method == "html" && version is not (null or "1.0" or "4.0" or "4.01" or "5" or "5.0"))
+            {
+                ReportError(SR.Xml_UserException, $"SESU0013: HTML version {version} is not supported");
+            }
+            if (Value(4, "doctype-public") is { } publicId && System.Linq.Enumerable.Any(publicId, c => !(c is ' ' or '\r' or '\n' or >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' || "-'()+,./:=?;!*#@$_%".Contains(c))))
+            {
+                ReportError(SR.Xml_UserException, "SEPM0016: the doctype-public value isn't a valid public identifier");
+            }
         }
 
         /*
@@ -3180,10 +3212,14 @@ namespace Xsl3.Xslt
             string attributeName = defVal ? _atoms.DefaultValidation : "validation";
             if (_input.MoveToXsltAttribute(attNum, attributeName))
             {
-                string value = _input.Value;
-                if (value == "strip")
+                string value = V2 ? _input.Value.Trim() : _input.Value;
+                if (value == "strip" || V2 && value == "preserve")
                 {
-                    // no error
+                    // no error: a basic XSLT 3.0 processor has no type annotations to preserve
+                }
+                else if (V2 && value is "strict" or "lax" && !defVal)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE1660: {attributeName}=\"{value}\" needs a schema-aware processor");
                 }
                 else if (
                   value == "preserve" ||

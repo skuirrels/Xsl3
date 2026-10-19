@@ -256,6 +256,7 @@ namespace Xsl3.Runtime
         // §7.3: URI attribute values: characters outside printable ASCII as %HH of their UTF-8 bytes.
         private static string EscapeUri(string value)
         {
+            value = value.Normalize(NormalizationForm.FormC); // escape-uri-attributes normalizes to NFC first
             var sb = new StringBuilder(value.Length);
             byte[] bytes = new byte[4];
             for (int i = 0; i < value.Length; i++)
