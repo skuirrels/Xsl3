@@ -10,9 +10,11 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 at least as fast as stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **Status: Phase 3 (XSLT 3.0) in progress.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0
-> is complete; XPath 3.1 with maps, arrays and higher-order functions is in; the XSLT 3.0 instructions are
-> partly done. Not yet released to NuGet. See [what works](#what-works) and [what's outstanding](#whats-outstanding).
+> **Status: alpha, Phase 3 (XSLT 3.0) in progress.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`;
+> XSLT 2.0 is complete; XPath 3.1 with maps, arrays and higher-order functions is in; most of XSLT 3.0 works.
+> Preview builds are published to NuGet as prereleases of [Xsl3](https://www.nuget.org/packages/Xsl3) (see the
+> [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
+> [what's outstanding](#whats-outstanding).
 
 ## What works
 
@@ -37,27 +39,45 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `xsl:for-each-group`, `xsl:analyze-string`, `xsl:perform-sort`, `xsl:sequence`, `xsl:next-match`,
   `xsl:result-document` with serialization parameters, character maps, the `xhtml` method, tunnel
   parameters, multiple modes, keys with collations, `use-when`.
-- **XSLT 3.0**: text value templates (`expand-text`), `xsl:mode` (`on-no-match`), `[xsl:]default-mode`,
-  static variables and parameters, shadow attributes, `xsl:try`/`xsl:catch`, `xsl:iterate` (with
-  `xsl:next-iteration`, `xsl:break`, `xsl:on-completion`), `xsl:where-populated`, `xsl:on-empty`,
-  `xsl:on-non-empty`, `xsl:fork` and `xsl:source-document` (without streaming), `xsl:copy select`,
-  `xsl:sequence` with content, `xsl:context-item`, predicate patterns and template rules for atomic values,
-  maps and arrays, `xsl:import` anywhere, `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
-  accumulators (`accumulator-before`/`accumulator-after`), `xsl:merge` (without streaming), `xsl:map` and
-  `xsl:map-entry`, `xsl:mode on-multiple-match`, packages: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`, `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes, decimal formats, keys and namespace aliases local to a package; the 3.0 pattern forms (`x/(a|b)`, `intersect`/`except` per context node, `(…)[n]`, `id()` with two arguments), predicate patterns in `group-starting-with`/`group-ending-with`; `mode="#current"` and `xsl:next-match` in named templates and in rules of several modes, `use-accumulators` on the initial mode, EQNames in QName-valued attributes, `fn:current-output-uri`, `xsl:analyze-string` with regexes that match the empty string, `xsl:number start-at`.
+- **XSLT 3.0 instructions and declarations**: text value templates (`expand-text`), `xsl:mode`
+  (`on-no-match`, `on-multiple-match`, `use-accumulators`), `[xsl:]default-mode`, static variables and
+  parameters, shadow attributes, `xsl:try`/`xsl:catch`, `xsl:iterate` (with `xsl:next-iteration`,
+  `xsl:break`, `xsl:on-completion`), `xsl:where-populated`, `xsl:on-empty`, `xsl:on-non-empty`, `xsl:fork`
+  and `xsl:source-document` (without streaming), `xsl:copy select`, `xsl:sequence` with content,
+  `xsl:context-item`, `xsl:import` anywhere, accumulators (`accumulator-before`/`accumulator-after`),
+  `xsl:merge` (without streaming), `xsl:map` and `xsl:map-entry`, `xsl:number start-at`, and
+  `xsl:analyze-string` with regexes that match the empty string.
+- **XSLT 3.0 functions**: `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
+  `fn:current-output-uri`.
+- **Patterns and modes**: predicate patterns and template rules for atomic values, maps and arrays (also in
+  `group-starting-with`/`group-ending-with`); the 3.0 pattern forms (`x/(a|b)`, `intersect`/`except` per
+  context node, `(…)[n]`, `id()` with two arguments); `mode="#current"` and `xsl:next-match` in named
+  templates and in rules of several modes; EQNames in QName-valued attributes.
+- **Packages**: `xsl:package`, `xsl:use-package` with version ranges, visibility (`xsl:expose`,
+  `xsl:accept`, public/private/final/abstract), `xsl:override` and `xsl:original`, declared modes, and
+  decimal formats, keys and namespace aliases local to their package.
 - **Serialization**: XML, HTML (its own serializer: HTML4 and HTML5 void elements, boolean attributes, URI
-  escaping, the `meta` element), XHTML, text, JSON and adaptive (also for `xsl:result-document`),
-  `item-separator`, HTML5 xhtml (void elements, prefix normalization), the serialization parameter errors; character maps, Unicode normalization; `fn:serialize` with an element or a map of parameters.
+  escaping, the `meta` element), XHTML (including HTML5: void elements, prefix normalization), text, JSON and
+  adaptive (also for `xsl:result-document`), `item-separator`, character maps, Unicode normalization,
+  `fn:serialize` with an element or a map of parameters, and the serialization parameter errors (SEPM, SESU).
 
 ## What's outstanding
 
-- **XSLT 3.0 instructions**: `xsl:evaluate`, `xsl:assert`, a public API for the package library and for
-  the base output URI (the harness uses internal ones), initial functions, copying accumulator values with `copy-accumulators`, `use-accumulators`.
-- **Serialization**: the serialization error codes for invalid parameter combinations (SEPM, SESU), `err:line-number`/`err:column-number` in `xsl:catch`.
-- **Known gaps**: dynamic errors in patterns are non-matches only for predicate patterns, static variables declared in modules
-  imported after their use, regex character classes follow .NET's Unicode version rather than the suite's.
+- **XSLT 3.0**: `xsl:evaluate`, `xsl:assert`, initial functions, `copy-accumulators`,
+  `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities
+  (`unparsed-entity-uri`, `unparsed-entity-public-id`), memoized functions (`new-each-time="no"`,
+  `cache`), the `parameter-document` serialization parameter.
+- **API**: public ways to supply the package library and the base output URI (the test harness uses internal
+  ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
+- **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
+  `xsl:next-match` in a named template called from a rule; dynamic errors in patterns are non-matches only
+  for predicate patterns; XTDE1480 (`xsl:result-document` in temporary output state) only where it can be
+  seen statically; static variables declared in modules imported after their use; some sequence-normalization
+  edge cases (empty text nodes in sequences); regex character classes follow .NET's Unicode version rather
+  than the suite's; `doc()` and `document()` refuse DTDs unless the input reader allows them.
 - **Later phases**: performance work (P4), schema-awareness (P6) and streaming (P7) haven't started.
-- **Packaging**: no NuGet release yet; the public API is still `XslCompiledTransform`-shaped.
+- **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
+  before 1.0.
 
 ## Using it
 
