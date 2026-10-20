@@ -332,8 +332,10 @@ namespace Xsl3.Xslt
             _package31 = 0; // Xsl3: the entry point is the principal package's
             _component31 = null;
             _singlFocus.SetFocus(SingletonFocusType.InitialContextNode);
-            // Xsl3: the entry point is apply-templates in a mode, or a call of the initial named template.
-            QilNode result = applyTmpls.NodeType == XslNodeType.CallTemplate
+            // Xsl3: the entry point is apply-templates in a mode, a call of the initial named template, or a call of the
+            // initial function.
+            QilNode result = IsV2 && _compiler.InitialFunction != null ? CompileInitialFunction31()
+                : applyTmpls.NodeType == XslNodeType.CallTemplate
                 ? CompileCallTemplate((XslNodeEx)applyTmpls)
                 : GenerateApply(_compiler.Root!, applyTmpls);
             if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
@@ -343,7 +345,7 @@ namespace Xsl3.Xslt
             }
             _singlFocus.SetFocus(null);
 
-            if (IsV2 && (_compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))
+            if (IsV2 && (_compiler.RawResult || _compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))
             {
                 // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
                 return Box(result);

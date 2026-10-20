@@ -266,8 +266,9 @@ namespace Xsl3.Xslt
                 case ("system-property", 1):
                     return CompileSystemProperty31(args[0], compile);
                 case ("current-output-uri", 0):
-                    // Absent in temporary output state: function bodies, patterns, variables' content (§20.5.2).
-                    return FocusAbsent || _patternNode31 != null || _temporaryOutput31 > 0
+                    // Absent in temporary output state: function bodies, patterns, variables' content, and code with no tunnel
+                    // frame, which is code outside templates (global variables, keys, accumulators; §20.5.2).
+                    return FocusAbsent || _patternNode31 != null || _temporaryOutput31 > 0 || _currentTunnel == null
                         ? _f.TypeAssert(_f.Sequence(), T.ItemS)
                         : X31(nameof(XsltLibrary.X31CurrentOutputUri), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS));
                 case ("current-merge-group", 0 or 1) when _patternNode31 != null:

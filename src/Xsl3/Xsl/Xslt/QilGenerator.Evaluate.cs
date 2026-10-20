@@ -71,5 +71,29 @@ namespace Xsl3.Xslt
                 }
             }
         }
+
+        /// <summary>
+        /// The initial function (XSLT 3.0 §2.3.4): a public or final stylesheet function of the principal package, called
+        /// with the arguments the caller supplies as parameters; XTDE0041 if there is no such function.
+        /// </summary>
+        private QilNode CompileInitialFunction31()
+        {
+            XmlQualifiedName name = _compiler.InitialFunction!;
+            int arity = _compiler.InitialFunctionArity;
+            QilName functionName = _f.QName(name.Name, name.Namespace);
+            if (!_compiler.Functions.TryGetValue((functionName, arity), out var entry) || entry.Function.PackageId != 0 ||
+                entry.Function.Visibility is not ("public" or "final"))
+            {
+                return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0041"),
+                    _f.String($"There is no public stylesheet function Q{{{name.Namespace}}}{name.Name}#{arity} to call as the initial function"));
+            }
+            QilList actual = _f.ActualParameterList();
+            for (int i = 1; i <= arity; i++)
+            {
+                XmlQualifiedName argument = XslCompiledTransform.InitialFunctionArgument(i);
+                actual.Add(X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(argument.Name), _f.String(argument.Namespace)));
+            }
+            return _f.Invoke(entry.Function.Function!, actual);
+        }
     }
 }

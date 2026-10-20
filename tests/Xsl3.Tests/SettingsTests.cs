@@ -143,4 +143,27 @@ public class SettingsTests
         Exception e = Assert.ThrowsAny<Exception>(() => Load("""<xsl:import-schema namespace="urn:x"/><xsl:template match="/"/>"""));
         Assert.Contains("XTSE1650", e.ToString());
     }
+
+    /// <summary>An initial function (XSLT 3.0 §2.3.4) with raw result delivery: the typed values come back as they are.</summary>
+    [Fact]
+    public void InitialFunctionRawResult()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:f='urn:f' xmlns:xs='http://www.w3.org/2001/XMLSchema'>" +
+                            "<xsl:function name='f:square' as='xs:integer' visibility='public'><xsl:param name='n' as='xs:integer'/><xsl:sequence select='$n * $n'/></xsl:function>" +
+                            "<xsl:function name='f:hidden'><xsl:sequence select='1'/></xsl:function></xsl:stylesheet>";
+        var transform = new XslCompiledTransform { InitialFunction = new XmlQualifiedName("square", "urn:f"), InitialFunctionArity = 1, RawResult = true };
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var arguments = new XsltArgumentList();
+        XmlQualifiedName argument = XslCompiledTransform.InitialFunctionArgument(1);
+        arguments.AddParam(argument.Name, argument.Namespace, new System.Xml.XPath.XPathItem[] { Xsl3.Xdm.AtomicValue.OfInteger(12) });
+        var items = transform.TransformToItems(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")).CreateNavigator(), arguments, null);
+        Assert.Equal("144", Assert.Single(items).Value);
+        Assert.IsAssignableFrom<Xsl3.Xdm.IntegerValue>(items[0]);
+
+        // A private function isn't an entry point (XTDE0041).
+        var hidden = new XslCompiledTransform { InitialFunction = new XmlQualifiedName("hidden", "urn:f"), InitialFunctionArity = 0, RawResult = true };
+        hidden.Load(XmlReader.Create(new StringReader(stylesheet)));
+        Exception e = Assert.ThrowsAny<Exception>(() => hidden.TransformToItems(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")).CreateNavigator(), null, null));
+        Assert.Contains("XTDE0041", e.ToString());
+    }
 }

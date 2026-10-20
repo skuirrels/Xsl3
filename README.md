@@ -75,7 +75,7 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**: initial functions,
+- **XSLT 3.0**:
   `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
   temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`).

@@ -44,6 +44,9 @@ namespace Xsl3.Xslt
 
         // Xsl3: the entry point (XSLT 3.0 §2.3): a named template, else template rules in a mode.
         public XmlQualifiedName? InitialTemplate;
+        public XmlQualifiedName? InitialFunction; // Xsl3: the initial function (XSLT 3.0 §2.3.4), with its arity
+        public int InitialFunctionArity;
+        public bool RawResult; // Xsl3: deliver the principal result as the raw sequence (XSLT 3.0 §2.3.6), not a tree
         public XmlQualifiedName? InitialMode;
 
         // Xsl3: static parameters supplied by the API, and the values of the static variables and parameters

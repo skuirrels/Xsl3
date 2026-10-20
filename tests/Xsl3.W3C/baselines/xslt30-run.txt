@@ -22,7 +22,6 @@ apply-templates/conflict-resolution-1102
 apply-templates/conflict-resolution-1603
 as/as-0601
 as/as-1001
-assert/assert-007
 attribute-set/attribute-set-0108
 attribute/attribute-1101
 axes/axes-201
@@ -38,7 +37,6 @@ base-uri/base-uri-051b
 base-uri/base-uri-052
 base-uri/base-uri-053
 bug/bug-1301
-bug/bug-1901
 bug/bug-2401
 bug/bug-2502
 bug/bug-3801
@@ -77,8 +75,6 @@ copy/copy-3002
 copy/copy-4308
 copy/copy-4901
 copy/copy-5101
-current-output-uri/current-output-uri-016
-current-output-uri/current-output-uri-017
 date/date-064
 date/date-094e
 date/date-094f

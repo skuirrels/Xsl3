@@ -153,7 +153,11 @@ namespace Xsl3
         [MemberNotNull(nameof(_qil))]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
-            var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages };
+            var compiler = new Compiler(settings, _enableDebug, null)
+            {
+                InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
+                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult,
+            };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             _qil.CompactTree = UseCompactTree;
         }
@@ -179,6 +183,31 @@ namespace Xsl3
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
         internal XmlQualifiedName? InitialTemplate { get; set; }
+
+        /// <summary>
+        /// The initial function (XSLT 3.0 §2.3.4) and its arity: the transformation calls it, with the arguments
+        /// supplied as parameters named <see cref="InitialFunctionArgument"/>(1…n), and delivers its result.
+        /// </summary>
+        internal XmlQualifiedName? InitialFunction { get; set; }
+
+        internal int InitialFunctionArity { get; set; }
+
+        internal const string InitialFunctionNamespace = "urn:xsl3:initial-function";
+
+        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems"/>.</summary>
+        internal bool RawResult { get; set; }
+
+        /// <summary>Runs a stylesheet loaded with <see cref="RawResult"/> and returns its result sequence.</summary>
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver)
+        {
+            CheckCommand();
+            System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
+            Run(arguments, BaseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments));
+            return items;
+        }
+
+        /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1) of the initial function.</summary>
+        internal static XmlQualifiedName InitialFunctionArgument(int position) => new("arg" + position, InitialFunctionNamespace);
 
         internal XmlQualifiedName? InitialMode { get; set; }
 
