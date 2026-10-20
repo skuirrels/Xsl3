@@ -66,6 +66,11 @@ namespace Xsl3.XPath31.Functions
         public static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string> what)
         {
             ItemTest? itemTest = expected.Item;
+            if (itemTest is AnyItemTest && expected.Cardinality == Cardinality.ZeroOrMore)
+            {
+                // Xsl3 (P4): item()* accepts anything as it is.
+                return value;
+            }
             if (itemTest is AtomicTypeTest or NumericTest)
             {
                 value = Sequences.Atomize(value);

@@ -43,9 +43,14 @@ namespace Xsl3.Xdm
             {
                 return false;
             }
-            foreach (XPathItem item in seq)
+            if (Item is AnyItemTest)
             {
-                if (!Item.Matches(item))
+                return true;
+            }
+            // Xsl3 (P4): by index (no enumerator for node sequences).
+            for (int i = 0; i < seq.Count; i++)
+            {
+                if (!Item.Matches(seq[i]))
                 {
                     return false;
                 }

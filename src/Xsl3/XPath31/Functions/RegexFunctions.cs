@@ -578,8 +578,40 @@ namespace Xsl3.XPath31.Functions
             });
         }
 
+        // Xsl3 (P4): characters with a meaning in XSD/XPath regular expressions.
+        private static readonly System.Buffers.SearchValues<char> s_regexSpecial = System.Buffers.SearchValues.Create(@"\|.-^$?*+{}()[]");
+
+        /// <summary>Xsl3 (P4): whether a pattern matches only its own text (no flags, no regex syntax, not empty).</summary>
+        internal static bool IsLiteralPattern(string pattern, string flags) =>
+            flags.Length == 0 && pattern.Length > 0 && pattern.AsSpan().IndexOfAny(s_regexSpecial) < 0;
+
+        /// <summary>
+        /// Xsl3 (P4): fn:tokenize with a literal pattern. It matches where ordinal search finds it, left to right
+        /// without overlaps, as the regular expression would, and never matches the empty string.
+        /// </summary>
+        internal static IList<XPathItem> TokenizeLiteral(string input, string pattern)
+        {
+            if (input.Length == 0)
+            {
+                return Empty;
+            }
+            var parts = new List<XPathItem>();
+            int start = 0;
+            for (int at = input.IndexOf(pattern, StringComparison.Ordinal); at >= 0; at = input.IndexOf(pattern, start, StringComparison.Ordinal))
+            {
+                parts.Add(AtomicValue.OfString(input[start..at]));
+                start = at + pattern.Length;
+            }
+            parts.Add(AtomicValue.OfString(input[start..]));
+            return parts;
+        }
+
         private static IList<XPathItem> Tokenize(string input, string pattern, string flags)
         {
+            if (IsLiteralPattern(pattern, flags))
+            {
+                return TokenizeLiteral(input, pattern);
+            }
             XPathRegex re = NonEmptyMatching(pattern, flags);
             if (input.Length == 0)
             {

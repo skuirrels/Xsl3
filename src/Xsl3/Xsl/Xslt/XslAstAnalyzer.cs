@@ -895,9 +895,36 @@ namespace Xsl3.Xslt
                 }
                 catch (XslLoadException)
                 {
-                    return XslFlags.AnyType | XslFlags.FullFocus;
+                    return XslFlags.AnyType | FocusOf31(xpathExpr);
                 }
             }
+
+            /// <summary>
+            /// Xsl3 (P4): the focus an expression that isn't XPath 1.0 (an XPath 3.1 one) needs: always the context
+            /// item, and position or last only when it mentions position() or last() (or position#0, last#0), all three
+            /// when it can find them dynamically (function-lookup). Upstream gave every such expression the full focus,
+            /// so every template and apply-templates in a 2.0+ stylesheet counted its items for last().
+            /// </summary>
+            private static XslFlags FocusOf31(string expr)
+            {
+                if (expr.Contains("function-lookup", System.StringComparison.Ordinal))
+                {
+                    return XslFlags.FullFocus;
+                }
+                XslFlags flags = XslFlags.Current;
+                if (s_position31.IsMatch(expr))
+                {
+                    flags |= XslFlags.Position;
+                }
+                if (s_last31.IsMatch(expr))
+                {
+                    flags |= XslFlags.Last;
+                }
+                return flags;
+            }
+
+            private static readonly System.Text.RegularExpressions.Regex s_position31 = new(@"(?<![\w.-])position\s*[(#]", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            private static readonly System.Text.RegularExpressions.Regex s_last31 = new(@"(?<![\w.-])last\s*[(#]", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
             public XslFlags AnalyzeAvt(string? source)
             {
@@ -939,7 +966,7 @@ namespace Xsl3.Xslt
                 }
                 catch (XslLoadException)
                 {
-                    return XslFlags.FullFocus;
+                    return FocusOf31(source);
                 }
             }
 

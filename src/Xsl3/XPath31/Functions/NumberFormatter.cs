@@ -154,11 +154,23 @@ namespace Xsl3.XPath31.Functions
             public bool HasExponent, Percent, PerMille, HasDecimalSeparator;
         }
 
+        // Xsl3 (P4): parsed pictures, by picture and decimal format (pictures are nearly always literals, so a
+        // format-number in a loop would otherwise parse the same one for every number). Format never changes them.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<XPathDecimalFormat, System.Collections.Concurrent.ConcurrentDictionary<string, (SubPicture, SubPicture?)>> s_pictures = new();
+
         public static string Format(AtomicValue? value, string picture, XPathDecimalFormat df)
         {
-            string[] parts = Split(picture, df);
-            SubPicture positive = Parse(parts[0], df, picture);
-            SubPicture? negative = parts.Length > 1 ? Parse(parts[1], df, picture) : null;
+            var pictures = s_pictures.GetValue(df, _ => new System.Collections.Concurrent.ConcurrentDictionary<string, (SubPicture, SubPicture?)>(StringComparer.Ordinal));
+            if (!pictures.TryGetValue(picture, out var parsed))
+            {
+                string[] parts = Split(picture, df);
+                parsed = (Parse(parts[0], df, picture), parts.Length > 1 ? Parse(parts[1], df, picture) : null);
+                if (pictures.Count < 256)
+                {
+                    pictures[picture] = parsed;
+                }
+            }
+            var (positive, negative) = parsed;
 
             if (value == null || value is DoubleValue { Double: double.NaN } || value is FloatValue { Float: float.NaN })
             {
@@ -461,6 +473,9 @@ namespace Xsl3.XPath31.Functions
                         var mantissa = new BigInteger(System.Math.Abs(d.Decimal) * Pow10Decimal(scale));
                         return new Digits(d.Decimal < 0 ? -mantissa : mantissa, -scale);
                     }
+                    case DoubleValue dv when XPathConvert.TryShortDecimal(dv.Double, out long digits, out int k):
+                        // Xsl3 (P4): the shortest round-trip digits, as "R" gives them, for a double of at most 15 digits.
+                        return new Digits(dv.Double < 0 ? -digits : digits, -k);
                     default:
                     {
                         string r = v is FloatValue f ? f.Float.ToString("E8", CultureInfo.InvariantCulture) : ((DoubleValue)v).Double.ToString("R", CultureInfo.InvariantCulture);

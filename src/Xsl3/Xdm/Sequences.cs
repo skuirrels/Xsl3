@@ -41,8 +41,10 @@ namespace Xsl3.Xdm
         public static IList<XPathItem> Atomize(IList<XPathItem> seq)
         {
             bool alreadyAtomic = true, arrays = false;
-            foreach (XPathItem item in seq)
+            // Xsl3 (P4): by index, so that a node sequence isn't enumerated through an allocated enumerator.
+            for (int i = 0; i < seq.Count; i++)
             {
+                XPathItem item = seq[i];
                 if (item is not AtomicValue)
                 {
                     alreadyAtomic = false;

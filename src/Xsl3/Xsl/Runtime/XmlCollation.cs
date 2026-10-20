@@ -409,6 +409,9 @@ namespace Xsl3.Runtime
             get { return _options.DescendingOrder; }
         }
 
+        /// <summary>Xsl3 (P4): the code point collation (ordinal comparison).</summary>
+        internal bool Ordinal => _options.Ordinal;
+
         internal CultureInfo Culture
         {
             get

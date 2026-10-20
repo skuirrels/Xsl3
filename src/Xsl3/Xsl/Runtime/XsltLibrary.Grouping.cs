@@ -197,12 +197,20 @@ namespace Xsl3.Runtime
                 case 0:
                 {
                     var buckets = new Dictionary<object, List<Group>>();
-                    foreach (GroupTuple t in tuples)
+                    for (int ti = 0; ti < tuples.Count; ti++)
                     {
+                        var t = (GroupTuple)tuples[ti];
                         IList<XPathItem> keys = Sequences.Atomize(t.Key);
                         if (composite)
                         {
                             AddToGroup(new List<XPathItem>(keys), t.Item);
+                            continue;
+                        }
+                        if (keys.Count == 1)
+                        {
+                            // Xsl3 (P4): one key, the usual case: no distinct-keys bookkeeping, and the tuple's own
+                            // (copied) key list becomes a new group's key.
+                            AddToGroupByOne((AtomicValue)keys[0], keys, t.Item);
                             continue;
                         }
                         var seen = new List<AtomicValue>();
@@ -216,6 +224,30 @@ namespace Xsl3.Runtime
                             seen.Add(k);
                             AddToGroup(new XPathItem[] { k }, t.Item);
                         }
+                    }
+                    void AddToGroupByOne(AtomicValue k, IList<XPathItem> key, XPathItem item)
+                    {
+                        object hash = SequenceFunctions.HashKey(k, c);
+                        if (!buckets.TryGetValue(hash, out List<Group>? bucket))
+                        {
+                            buckets[hash] = bucket = new List<Group>(1);
+                        }
+                        Group? g = null;
+                        for (int i = 0; i < bucket.Count; i++)
+                        {
+                            IList<XPathItem> other = bucket[i].Key!;
+                            if (other.Count == 1 && SequenceFunctions.EqualLenient((AtomicValue)other[0], k, c))
+                            {
+                                g = bucket[i];
+                                break;
+                            }
+                        }
+                        if (g == null)
+                        {
+                            bucket.Add(g = new Group(key));
+                            groups.Add(g);
+                        }
+                        g.Members.Add(item);
                     }
                     void AddToGroup(IList<XPathItem> key, XPathItem item)
                     {

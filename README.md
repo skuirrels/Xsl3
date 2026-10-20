@@ -71,10 +71,6 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
   temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`), the `parameter-document` serialization parameter.
-- **Open question: the default sort collation in 2.0+.** `xsl:sort` without `collation` or `lang` sorts with the
-  culture-sensitive collation, as XSLT 1.0 does. XSLT 3.0's default collation is the Unicode codepoint collation,
-  which orders mixed-case text differently (`B` before `a`). Switching would be more conformant but could change the
-  output of existing 2.0+ stylesheets, so it waits for a check against the W3C suite.
 - **API**: public ways to supply the package library and the base output URI (the test harness uses internal
   ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
 - **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
@@ -85,8 +81,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 - **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use.
   - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
-  - XSLT 2.0/3.0 is slower than 1.0. The 3.0 rewrites of the 1.0 benchmarks run 1.9–4.3× slower than the 1.0
-    versions on stock, because the 2.0+ code boxes its values. Unboxed codegen is the next step.
+  - XSLT 2.0/3.0 is still slower than 1.0. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3× slower than the
+    1.0 versions on stock, because the 2.0+ code boxes its values; typed codegen has brought that to 1.2–2.6×, and
+    it continues.
   - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change

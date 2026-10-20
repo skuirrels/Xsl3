@@ -56,6 +56,11 @@ namespace Xsl3.Xdm
             {
                 throw Err.XPST0080(target);
             }
+            if (target == AtomicTypes.Double && XPathConvert.TryParseShortDecimal(s, out double quick))
+            {
+                // Xsl3 (P4): the common case ("12.50", "-3"), exact without the general parse (see TryParseShortDecimal).
+                return new DoubleValue(quick);
+            }
             string lexical = Lexical.ApplyWhitespace(s, target.Whitespace);
             AtomicValue? result = target.Primitive switch
             {

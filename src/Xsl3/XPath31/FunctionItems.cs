@@ -309,6 +309,17 @@ namespace Xsl3.XPath31
             {
                 return PartialApplication(d, d.Function, null, d.Arguments);
             }
+            if (d.Arguments.Count == 1)
+            {
+                // Xsl3 (P4): $map(key), the usual one-argument call, looks the key up directly; anything else that
+                // is called with one argument goes through the dispatcher as before.
+                QilIterator fn = _f.Let(Items(Build(d.Function)));
+                QilIterator arg = _f.Let(Items(Build(d.Arguments[0])));
+                return _f.Loop(fn, _f.Loop(arg, _f.Conditional(
+                    Call(nameof(XsltLibrary.X31IsMap), T.BooleanX, fn),
+                    Call(nameof(XsltLibrary.X31MapLookup), T.ItemS, fn, arg),
+                    DynamicCall(fn, new QilNode[] { arg }))));
+            }
             return DynamicCall(Items(Build(d.Function)), d.Arguments.Select(a => Items(Build(a))).ToList());
         }
 

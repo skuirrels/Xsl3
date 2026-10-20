@@ -214,9 +214,49 @@ Problems that measuring turned up, fixed:
 - **A lock on every constant read.** `ConstantPool.Get` took a process-wide lock on every literal, cast target and
   sequence type that compiled 2.0+ code reads. Reads are now lock-free.
 
-Found but not changed: an `xsl:sort` without `collation` or `lang` in a 2.0+ stylesheet uses the culture-sensitive
-collation, as 1.0 does. XSLT 3.0's default collation is the codepoint collation, which orders mixed-case data
-differently. That is a conformance question to settle on its own, with the W3C suite.
+An earlier version of this page said that 2.0+ `xsl:sort` used the culture-sensitive collation. That was wrong:
+2.0+ sort keys are encoded in code point order (`X31SortKey`), and only the comparison of those encoded keys went
+through a culture's collation keys, which order the key characters (`[0-9A-F]`) the same way. That comparison is
+now ordinal (below).
+
+### Typed code generation, first steps
+
+| Pair | Before | After |
+|---|---:|---:|
+| identity | 1.90 | 1.24 |
+| sort | 2.71 | 1.54 |
+| muenchian | 2.88 | 2.22 |
+| string-recursion | 4.15 | 1.69 |
+| key-join | 4.25 | 2.64 |
+
+Rewrite time over stock 1.0 time, medians, 20,000 orders, on a loaded machine. The figures move by about 0.2 from
+run to run.
+
+What changed:
+
+- **String functions on native strings.** `upper-case`, `lower-case`, `normalize-space`, `string-length`,
+  `translate`, `concat`, `contains`, `starts-with`, `ends-with`, `substring-before`, `substring-after`, `string` and
+  `tokenize` with a literal pattern compile to direct calls. This applies when each argument is certainly one string
+  or one node; the comparisons also need the default collation to be codepoint. The calls use the same library
+  helpers, with no item lists around them. A call declared to return strings marks its items, so an iteration over
+  `tokenize()` has a known-string context item. String literals are known to the compiler.
+- **Value templates.** Attribute and text value templates take a native string directly when the expression gives
+  one string or one node.
+- **`tokenize()` with a literal pattern** (no flags, no regex syntax) splits by ordinal search, which is what the
+  regex would match.
+- **`$map(key)`** looks the key up directly when the called value is a map, instead of building a dynamic call.
+- **Argument conversion.** `item()*` parameters skip conversion. Atomization and type checks loop by index, with no
+  enumerator.
+- **`format-number`** caches parsed pictures. It takes a double's digits from the short-decimal search when it has at
+  most 15 digits, which are the same digits `"R"` gives (a test checks this).
+- **Casts to `xs:double`** of short decimals use the 1.0 path's exact fast parse.
+- **Grouping by a single key** avoids per-item allocation.
+- **Sort.** The 2.0+ sort compares its encoded keys ordinally (a new ordinal string sort key), not through ICU keys of
+  hex strings.
+- **Focus.** A 2.0+ stylesheet in which no template mentions `position`, `last` or `function-lookup` passes only the
+  current node to its templates. Until now, every 2.0+ template took the full focus, so every `apply-templates`
+  counted its items for `last()`. The analyzer can't follow 2.0+ expressions, so this is decided from the
+  stylesheet's text, conservatively.
 
 ## Where the rest of the time goes
 

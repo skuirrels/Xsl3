@@ -2859,27 +2859,40 @@ namespace Xsl3
         /// the shortest that identifies dbl, which is what the general algorithm finds. (The nearest integer is the one:
         /// dbl x 10^k is off it by under 0.25 when n / 10^k gives dbl, with n below 10^15.)
         /// </summary>
+        /// <summary>
+        /// Xsl3 (P4): |dbl| as digits x 10^-k for the least k (0 to 15) at which the integer nearest |dbl| x 10^k, below
+        /// 10^15, gives back |dbl|: the shortest decimal that identifies it, when it has at most 15 digits.
+        /// </summary>
+        internal static bool TryShortDecimal(double dbl, out long digits, out int k)
+        {
+            digits = 0;
+            double abs = Math.Abs(dbl);
+            if (abs >= 1e-15 && abs < 1e15)
+            {
+                for (k = 0; k <= 15; k++)
+                {
+                    double scaled = abs * s_powersOf10[k];
+                    if (scaled >= 1e15)
+                    {
+                        break;
+                    }
+                    double n = Math.Round(scaled);
+                    if (n / s_powersOf10[k] == abs)
+                    {
+                        digits = (long)n;
+                        return true;
+                    }
+                }
+            }
+            k = 0;
+            return false;
+        }
+
         internal static bool TryShortDecimalToString(double dbl, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? result)
         {
             result = null;
-            double abs = Math.Abs(dbl);
-            if (!(abs >= 1e-15 && abs < 1e15))
+            if (TryShortDecimal(dbl, out long digits, out int k))
             {
-                return false;
-            }
-            for (int k = 0; k <= 15; k++)
-            {
-                double scaled = abs * s_powersOf10[k];
-                if (scaled >= 1e15)
-                {
-                    return false;
-                }
-                double n = Math.Round(scaled);
-                if (n / s_powersOf10[k] != abs)
-                {
-                    continue;
-                }
-                long digits = (long)n;
                 Span<char> chars = stackalloc char[40];
                 int length = 0;
                 if (dbl < 0)
@@ -3070,7 +3083,7 @@ namespace Xsl3
         /// decimal value, which is what double.TryParse returns. Anything else (whitespace, a plus sign, an exponent,
         /// more digits) takes the general path.
         /// </summary>
-        private static bool TryParseShortDecimal(string s, out double value)
+        internal static bool TryParseShortDecimal(string s, out double value)
         {
             int i = 0, n = s.Length;
             bool negative = false;

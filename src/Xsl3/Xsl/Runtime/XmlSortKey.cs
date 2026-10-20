@@ -291,6 +291,33 @@ namespace Xsl3.Runtime
     }
 
     /// <summary>
+    /// Xsl3 (P4): sort key for strings in code point (ordinal) order, compared as they are.
+    /// </summary>
+    internal sealed class XmlOrdinalStringSortKey : XmlSortKey
+    {
+        private readonly string _value;
+        private readonly bool _descendingOrder;
+
+        public XmlOrdinalStringSortKey(string value, bool descendingOrder)
+        {
+            _value = value;
+            _descendingOrder = descendingOrder;
+        }
+
+        public override int CompareTo(object? obj)
+        {
+            if (obj is not XmlOrdinalStringSortKey that)
+                return CompareToEmpty(obj);
+
+            int result = string.CompareOrdinal(_value, that._value);
+            if (result == 0)
+                return BreakSortingTie(that);
+
+            return _descendingOrder ? -result : result;
+        }
+    }
+
+    /// <summary>
     /// Sort key for Double values.
     /// </summary>
     internal sealed class XmlDoubleSortKey : XmlSortKey

@@ -51,6 +51,42 @@ public class DecimalFormatterTests
         }
     }
 
+    /// <summary>The short-decimal digits are the shortest round-trip ones, as ToString("R") gives them (format-number uses both).</summary>
+    [Fact]
+    public void ShortDecimalDigitsAreTheRoundTripDigits()
+    {
+        var random = new Random(5);
+        void Check(double value)
+        {
+            if (!XPathConvert.TryShortDecimal(value, out long digits, out int k))
+            {
+                return;
+            }
+            string r = Math.Abs(value).ToString("R", CultureInfo.InvariantCulture);
+            int exp = 0;
+            int e = r.IndexOfAny(new[] { 'E', 'e' });
+            if (e >= 0)
+            {
+                exp = int.Parse(r[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+                r = r[..e];
+            }
+            int dot = r.IndexOf('.');
+            if (dot >= 0)
+            {
+                exp -= r.Length - dot - 1;
+                r = r.Remove(dot, 1);
+            }
+            Assert.Equal((long.Parse(r, CultureInfo.InvariantCulture), exp), (digits, -k));
+        }
+        for (int i = 0; i < 300_000; i++)
+        {
+            Check(random.NextInt64(1, 1_000_000_000_000_000) / Math.Pow(10, random.Next(0, 16)));
+            Check(random.Next(1, 100000) / 100.0 * random.Next(1, 10));
+            Check(random.Next(1, 1000) * Math.Pow(10, random.Next(-15, 12)));
+            Check(random.NextDouble() * Math.Pow(10, random.Next(-12, 15)));
+        }
+    }
+
     /// <summary>XPathConvert.DoubleToString as it was, without the short-decimal path.</summary>
     private static string GeneralDoubleToString(double value)
     {

@@ -2871,7 +2871,7 @@ namespace Xsl3.Xslt
                 flags |= XslFlags.Current; // Due to recursive nature of Apply(Templates/Imports) we will need current node any way
                 if (IsV2)
                 {
-                    flags |= XslFlags.FullFocus; // Xsl3: 2.0 templates take the full focus
+                    flags |= _focus31; // Xsl3: 2.0 templates take the full focus (unless none uses position or last)
                 }
             }
             actualArgs = AddRemoveImplicitArgs(actualArgs, flags);

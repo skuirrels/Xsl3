@@ -44,6 +44,12 @@ namespace Xsl3.Runtime
         /// </summary>
         public void AddStringSortKey(XmlCollation collation, string value)
         {
+            if (collation.Ordinal)
+            {
+                // Xsl3 (P4): code point order needs no collation key (and the platform makes none for it).
+                AppendSortKey(new XmlOrdinalStringSortKey(value, collation.DescendingOrder));
+                return;
+            }
             _collationKeys ??= new System.Collections.Generic.Dictionary<(XmlCollation, string), object>();
             if (!_collationKeys.TryGetValue((collation, value), out object? data))
             {

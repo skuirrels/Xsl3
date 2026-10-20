@@ -32,18 +32,88 @@ namespace Xsl3.Xslt
 
         private const string FnNs = "http://www.w3.org/2005/xpath-functions";
 
+        // Xsl3 (P4): the focus 2.0+ templates and modes take (see SetFullFocusV2).
+        private XslFlags _focus31 = XslFlags.FullFocus;
+
+        private static readonly System.Text.RegularExpressions.Regex s_positionOrLast31 =
+            new(@"(position|last)\s*[(#]|function-lookup", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// Xsl3 (P4): whether any string of these templates (and everything in them: select expressions, value
+        /// templates, text, every attribute kept, found by reflection so that none is missed) could call position() or
+        /// last(), or reach them through function-lookup. A false positive only keeps the full focus.
+        /// </summary>
+        private static bool MentionsPositionOrLast(IEnumerable<ProtoTemplate> templates)
+        {
+            var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            bool Scan(object? o)
+            {
+                switch (o)
+                {
+                    case null:
+                        return false;
+                    case string s:
+                        return s_positionOrLast31.IsMatch(s);
+                    case QilNode or System.Type or System.Reflection.MemberInfo:
+                        return false;
+                }
+                System.Type type = o.GetType();
+                if (type.IsPrimitive || type.IsEnum || !seen.Add(o))
+                {
+                    return false;
+                }
+                if (o is System.Collections.IEnumerable items)
+                {
+                    foreach (object? item in items)
+                    {
+                        if (Scan(item))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                if (type.Namespace is not ("Xsl3.Xslt" or "Xsl3.Qil"))
+                {
+                    return false;
+                }
+                for (System.Type? t = type; t != null && t != typeof(object); t = t.BaseType)
+                {
+                    foreach (var field in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                    {
+                        if (field.FieldType != typeof(ISourceLineInfo) && Scan(field.GetValue(o)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            foreach (ProtoTemplate template in templates)
+            {
+                if (Scan(template))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Every template and mode gets the full focus (current, position, last) as implicit arguments.
+        // Xsl3 (P4): unless no template mentions position() or last() at all, when the current node is enough (the
+        // analyzer doesn't follow 2.0+ expressions, so this is decided from the stylesheet's text, conservatively).
         private void SetFullFocusV2(StylesheetLevel level)
         {
+            _focus31 = MentionsPositionOrLast(_compiler.AllTemplates) ? XslFlags.FullFocus : XslFlags.Current;
             foreach (ProtoTemplate t in _compiler.AllTemplates)
             {
-                t.Flags |= XslFlags.FullFocus;
+                t.Flags |= _focus31;
             }
             void Visit(StylesheetLevel sheet)
             {
                 foreach (QilName mode in new List<QilName>(sheet.ModeFlags.Keys))
                 {
-                    sheet.ModeFlags[mode] |= XslFlags.FullFocus;
+                    sheet.ModeFlags[mode] |= _focus31;
                 }
                 if (sheet.Imports != null)
                 {
@@ -394,7 +464,7 @@ namespace Xsl3.Xslt
                 {
                     return _f.String("");
                 }
-                return X31(nameof(XsltLibrary.X31AvtString), T.StringX, XPath31Compiler.CompileEmbedded(ast, StaticContext31(), _f, this));
+                return XPath31Compiler.CompileEmbeddedString(ast, StaticContext31(), _f, this);
             }
             catch (XPathStaticException e)
             {
@@ -2760,9 +2830,9 @@ namespace Xsl3.Xslt
             _curLoop = curLoopSaved;
 
             QilNode key = X31(nameof(XsltLibrary.X31SortKey), T.StringX, Box(select), dataType, collation, lang, _f.Double(System.Threading.Interlocked.Increment(ref _sortSites31)), position);
-            // The keys are [0-9A-F] strings: any culture orders them as code points do. (The code point collation itself
-            // can't make sort keys in the upstream sorter.)
-            const string KeyCollation = XmlReservedNs.NsCollationBase + "/en-US";
+            // The keys are [0-9A-F] strings, compared in code point order (Xsl3 P4: the sorter compares them ordinally;
+            // they used to go through a culture's collation keys, which order these characters the same way).
+            const string KeyCollation = XmlReservedNs.NsCollCodePoint;
             QilNode collationUri;
             if (order == null)
             {

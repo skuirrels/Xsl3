@@ -182,6 +182,17 @@ namespace Xsl3.XPath31
             return compiler.Items(compiler.Build(ast));
         }
 
+        /// <summary>
+        /// Xsl3 (P4): a value template's expression as a native string: directly when it is one string or one node,
+        /// otherwise its items, atomized and joined with single spaces (XSLT 3.0 §5.6.1).
+        /// </summary>
+        public static QilNode CompileEmbeddedString(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env)
+        {
+            var compiler = new XPath31Compiler(sc, f, env);
+            QilNode built = compiler.Build(ast);
+            return compiler.NativeString(built) ?? compiler.Call(nameof(XsltLibrary.X31AvtString), T.StringX, compiler.Items(built));
+        }
+
         /// <summary>Compiles a boxed host value (a variable reference, say) to an item* node.</summary>
         public static QilNode Box(QilNode n, QilPatternFactory f) => new XPath31Compiler(new XPathStaticContext(), f, null).Items(n);
 
@@ -224,7 +235,18 @@ namespace Xsl3.XPath31
         internal static QilNode Invoke(QilPatternFactory f, string method, XmlQueryType type, params QilNode[] args) =>
             f.XsltInvokeEarlyBound(f.QName(method, ""), s_methods[method], type, args);
 
-        private QilNode Constant(AtomicValue value) => Call(nameof(XsltLibrary.X31Constant), T.Item, _f.Double(ConstantPool.Add(value)));
+        private QilNode Constant(AtomicValue value)
+        {
+            QilNode constant = Call(nameof(XsltLibrary.X31Constant), T.Item, _f.Double(ConstantPool.Add(value)));
+            if (value.Type == AtomicTypes.String)
+            {
+                // Xsl3 (P4): known, for calls that take native strings.
+                s_literalStrings.AddOrUpdate(constant, value.Value);
+            }
+            return constant;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, string> s_literalStrings = new();
 
         private static bool IsBoolean(QilNode n) => n.XmlType!.TypeCode == System.Xml.Schema.XmlTypeCode.Boolean && n.XmlType.IsSingleton;
 
@@ -816,7 +838,105 @@ namespace Xsl3.XPath31
                         return FunctionCall(call, lexicalName, args.Skip(4).Prepend(new FunctionCall(lexicalName, args.Take(4).ToList()) { Span = call.Span }).ToList());
                 }
             }
+            if (name.NamespaceUri == QName.Ns.Fn)
+            {
+                // Xsl3 (P4): string functions of single strings or nodes run on native strings, without item lists.
+                List<QilNode> built = args.Select(Build).ToList();
+                return TypedCall(name.LocalName, built) ?? CallLibrary(call, name, built.Select(Items).ToList());
+            }
             return CallLibrary(call, name, args.Select(a => Items(Build(a))).ToList());
+        }
+
+        /// <summary>
+        /// Xsl3 (P4): the native string an argument converts to (XPath 3.1 §3.1.5.2) when its static type makes that
+        /// certain: a native string, or exactly one node (whose typed value, with no schema, is its string value as
+        /// xs:untypedAtomic, cast to xs:string). Null for anything else, which takes the general path.
+        /// </summary>
+        private QilNode? NativeString(QilNode n)
+        {
+            if (n.XmlType!.TypeCode == System.Xml.Schema.XmlTypeCode.String && n.XmlType.IsSingleton)
+            {
+                return n;
+            }
+            if (n.XmlType.IsSubtypeOf(T.NodeNotRtf))
+            {
+                return _f.XPathNodeValue(n);
+            }
+            if (s_literalStrings.TryGetValue(n, out string? literal))
+            {
+                return _f.String(literal);
+            }
+            if (n is QilIterator { NodeType: QilNodeType.For } item && StringItems(item.Binding!))
+            {
+                // An item of a sequence of strings (the context item in a for-each over tokenize(), say).
+                return Call(nameof(XsltLibrary.X31ItemString), T.StringX, n);
+            }
+            return null;
+        }
+
+        // Xsl3 (P4): calls of library functions declared to return strings (xs:string*, xs:string?, ...), so that the
+        // items of what they return are known to be strings. Shared by the compilers of a stylesheet's expressions.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_stringItems = new();
+
+        /// <summary>Whether every item of a sequence is certainly an xs:string (or a string subtype).</summary>
+        private static bool StringItems(QilNode n) => n.NodeType switch
+        {
+            QilNodeType.Loop => StringItems(n[1]),
+            QilNodeType.Sequence => n.Count > 0 && Enumerable.Range(0, n.Count).All(i => StringItems(n[i])),
+            _ => s_stringItems.TryGetValue(n, out _),
+        };
+
+        /// <summary>
+        /// Xsl3 (P4): a call of a string function as a direct call on native values, when every argument converts to a
+        /// native string for certain and the comparisons use the codepoint collation; null otherwise. The functions
+        /// are those of the library (the same helpers), so the results are the same.
+        /// </summary>
+        private QilNode? TypedCall(string local, List<QilNode> a)
+        {
+            var s = new QilNode?[a.Count];
+            for (int i = 0; i < a.Count; i++)
+            {
+                if ((s[i] = NativeString(a[i])) == null)
+                {
+                    return null;
+                }
+            }
+            bool codepoint = _sc.DefaultCollation == Functions.Collation.CodepointUri;
+            switch (local, a.Count)
+            {
+                case ("string", 1):
+                    return s[0];
+                case ("upper-case", 1):
+                    return Call(nameof(XsltLibrary.X31UpperCase), T.StringX, s[0]!);
+                case ("lower-case", 1):
+                    return Call(nameof(XsltLibrary.X31LowerCase), T.StringX, s[0]!);
+                case ("normalize-space", 1):
+                    return Call(nameof(XsltLibrary.X31NormalizeSpace), T.StringX, s[0]!);
+                case ("string-length", 1):
+                    // A native double is an xs:integer to Items (as positions are).
+                    return Call(nameof(XsltLibrary.X31StringLength), T.DoubleX, s[0]!);
+                case ("translate", 3):
+                    return Call(nameof(XsltLibrary.X31Translate), T.StringX, s[0]!, s[1]!, s[2]!);
+                case ("concat", >= 2):
+                    return _f.StrConcat(s!);
+                case ("contains", 2) when codepoint:
+                    return Call(nameof(XsltLibrary.X31Contains), T.BooleanX, s[0]!, s[1]!);
+                case ("starts-with", 2) when codepoint:
+                    return Call(nameof(XsltLibrary.X31StartsWith), T.BooleanX, s[0]!, s[1]!);
+                case ("ends-with", 2) when codepoint:
+                    return Call(nameof(XsltLibrary.X31EndsWith), T.BooleanX, s[0]!, s[1]!);
+                case ("substring-before", 2) when codepoint:
+                    return Call(nameof(XsltLibrary.X31SubstringBefore), T.StringX, s[0]!, s[1]!);
+                case ("substring-after", 2) when codepoint:
+                    return Call(nameof(XsltLibrary.X31SubstringAfter), T.StringX, s[0]!, s[1]!);
+                case ("tokenize", 2) when s[1] is QilLiteral { NodeType: QilNodeType.LiteralString } pattern && Functions.FunctionLibrary.IsLiteralPattern((string)pattern, ""):
+                {
+                    QilNode tokens = Call(nameof(XsltLibrary.X31TokenizeLiteral), T.ItemS, s[0]!, s[1]!);
+                    s_stringItems.AddOrUpdate(tokens, AtomicTypes.String);
+                    return tokens;
+                }
+            }
+            return null;
         }
 
         private QilNode CallLibrary(Expr call, QName name, List<QilNode> args)
@@ -836,7 +956,12 @@ namespace Xsl3.XPath31
                 5 => nameof(XsltLibrary.X31Call5),
                 _ => throw NotYetSupported(call, $"Calling {name}#{args.Count}"),
             };
-            return Call(method, T.ItemS, args.Prepend(StaticId()).Prepend(_f.Double(def.Id)).ToArray());
+            QilNode result = Call(method, T.ItemS, args.Prepend(StaticId()).Prepend(_f.Double(def.Id)).ToArray());
+            if (def.ReturnType.Item is AtomicTypeTest { } atomic && atomic.Type.DerivesFrom(AtomicTypes.String))
+            {
+                s_stringItems.AddOrUpdate(result, atomic);
+            }
+            return result;
         }
     }
 
