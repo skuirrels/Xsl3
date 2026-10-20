@@ -234,7 +234,12 @@ namespace Xsl3.XPath31
 
         // ------------------------------------------------------------ runtime calls and conversions
 
-        private static readonly Dictionary<string, MethodInfo> s_methods = typeof(XsltLibrary)
+        private static readonly Dictionary<string, MethodInfo> s_methods = X31Methods();
+
+        // Xsl3: only the X31* methods are bound; the extension-function members the enumeration also meets aren't.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+            Justification = "Binds only XsltLibrary's X31* methods, none of which is RequiresUnreferencedCode.")]
+        private static Dictionary<string, MethodInfo> X31Methods() => typeof(XsltLibrary)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(m => m.Name.StartsWith("X31", System.StringComparison.Ordinal))
             .ToDictionary(m => m.Name);

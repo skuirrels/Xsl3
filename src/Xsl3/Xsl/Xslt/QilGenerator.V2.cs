@@ -43,6 +43,8 @@ namespace Xsl3.Xslt
         /// templates, text, every attribute kept, found by reflection so that none is missed) could call position() or
         /// last(), or reach them through function-lookup. A false positive only keeps the full focus.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075",
+            Justification = "Reads the fields of this assembly's own stylesheet AST (Xsl3.Xslt, Xsl3.Qil), which the compiler itself uses.")]
         private static bool MentionsPositionOrLast(IEnumerable<ProtoTemplate> templates)
         {
             var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);

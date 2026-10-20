@@ -24,9 +24,9 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,746 passed, 138 failed (99.4%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 96.7% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,642 passed, 335 failed, 86 not run (95.8%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,796 passed, 88 failed (99.6%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 97.3% |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,606 passed, 299 failed, 49 not run (96.2%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -81,13 +81,15 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
   `cache`).
 - **API**: the XSLT 3.0 API of SPEC §7.2 (initial templates, modes and functions, the package library, raw
   results); for now `XslCompiledTransform` plus the settings above. `MaxRecursionDepth` and `MaxOutputBytes`.
-- **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
-  dynamic errors in patterns are non-matches only
-  for predicate patterns; static variables declared in modules imported after their use; regex character classes follow .NET's Unicode version rather
-  than the suite's; `doc()` and `document()` refuse DTDs unless the input reader allows them; the xml method writes
-  empty elements as `<a />`, not `<a/>`; a stylesheet without `xsl:output` whose result is XHTML's `html` element gets
-  the xml method rather than xhtml when nothing else needs Xsl3's own result writer; an expression of `xsl:evaluate`
-  parses documents again rather than sharing the transformation's (node identity across the two differs).
+- **Known gaps**:
+  - `xsl:next-match` from one alternative of a union pattern to another of the same rule.
+  - Dynamic errors in patterns are non-matches only for predicate patterns.
+  - Static variables declared in modules imported after their use.
+  - `doc()` and `document()` refuse DTDs unless the input reader allows them.
+  - An expression of `xsl:evaluate` parses documents again rather than sharing the transformation's, so node
+    identity across the two differs.
+  - Implementation-defined choices (Unicode version of regex classes, `<a />` for empty elements, and the rest) are in
+    [docs/divergences.md](docs/divergences.md).
 - **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use.
   - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
@@ -142,6 +144,22 @@ xslt.Transform("input.xml", "output.html");
 See [docs/performance.md](docs/performance.md) for the measurements.
 
 Targets .NET 8 and .NET 10.
+
+### Parameters of XSLT 2.0 and 3.0 stylesheets
+
+`XsltArgumentList.AddParam` takes more CLR types for a 2.0+ stylesheet, and gives each its XDM type (SPEC §7.1):
+
+| CLR value | XDM value |
+|---|---|
+| `int`, `long`, `BigInteger` and the other integer types | `xs:integer` |
+| `decimal`, `double`, `float` | `xs:decimal`, `xs:double`, `xs:float` |
+| `DateTime`, `DateTimeOffset` | `xs:dateTime` (with a timezone unless the `DateTime` is unspecified) |
+| `DateOnly`, `TimeOnly`, `TimeSpan` | `xs:date`, `xs:time`, `xs:dayTimeDuration` |
+| `Uri`, `byte[]` | `xs:anyURI`, `xs:base64Binary` |
+| a dictionary | a map |
+| any other `IEnumerable` | a sequence |
+
+XSLT 1.0 stylesheets convert exactly as stock does: every number becomes a double, and a `DateTime` becomes a string.
 
 ### Settings: secure by default
 

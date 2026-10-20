@@ -192,7 +192,6 @@ namespace Xsl3
 
         internal int InitialFunctionArity { get; set; }
 
-        internal const string InitialFunctionNamespace = "urn:xsl3:initial-function";
 
         /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems"/>.</summary>
         internal bool RawResult { get; set; }
@@ -207,7 +206,7 @@ namespace Xsl3
         }
 
         /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1) of the initial function.</summary>
-        internal static XmlQualifiedName InitialFunctionArgument(int position) => new("arg" + position, InitialFunctionNamespace);
+        internal static XmlQualifiedName InitialFunctionArgument(int position) => InitialFunctionArguments.Name(position);
 
         internal XmlQualifiedName? InitialMode { get; set; }
 

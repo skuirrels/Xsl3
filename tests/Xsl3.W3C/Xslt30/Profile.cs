@@ -52,6 +52,8 @@ public sealed class Profile
             // Upstream recovers from conflicting template rules by choosing the last.
             "on-multiple-match" => d.Value == "recover",
             "xsd-version" => d.Value == "1.0",
+            // Regex character classes use .NET's Unicode tables, newer than any version the suite tests (6.0, 9.0).
+            "unicode-version" => false,
             // xsl:use-package chooses the highest version in range (implementation-defined, XSLT 3.0 §3.5.2).
             "package_version_resolution" => d.Value is "highest_version" or "unspecified",
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),

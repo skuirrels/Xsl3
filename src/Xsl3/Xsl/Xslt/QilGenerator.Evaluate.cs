@@ -90,7 +90,7 @@ namespace Xsl3.Xslt
             QilList actual = _f.ActualParameterList();
             for (int i = 1; i <= arity; i++)
             {
-                XmlQualifiedName argument = XslCompiledTransform.InitialFunctionArgument(i);
+                System.Xml.XmlQualifiedName argument = InitialFunctionArguments.Name(i);
                 actual.Add(X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(argument.Name), _f.String(argument.Namespace)));
             }
             return _f.Invoke(entry.Function.Function!, actual);

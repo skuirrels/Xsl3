@@ -177,6 +177,7 @@ namespace Xsl3.XPath31.Functions
             RegisterFormatting();
             RegisterMapsAndArrays();
             RegisterJson();
+            RegisterRandom();
             Define("fn:parse-ietf-date($value as xs:string?) as xs:dateTime?", (c, a) => a[0].Count == 0 ? Empty : One(IetfDate.Parse(S(a[0]))));
         }
 

@@ -523,3 +523,33 @@ A sensible sequence:
 4. XSD 1.1 (6.1): options a, b or c.
 5. XML 1.1 input: declare it unsupported?
 6. §25 questions 4–6: framework floor, parallelism in 1.0, licence and contribution terms.
+
+## Review and progress (2026-10-21)
+
+### Corrections to this brief
+
+- **Upstream tests.** The suite has 1661 tests. The gate filter `category!=failing` runs 1654, and all of them pass.
+  The 7 left out are platform-specific or `ActiveIssue` tests; unfiltered, 1657 pass and the 4 that fail are among
+  those 7. The table at the top means 1654 / 1654.
+- **Differential tests** take about a minute per framework on the development machine, not 20 minutes.
+- **`regex-classes`.** The set declares `unicode-version 6.0`, and the runner used to claim every unknown dependency.
+  Xsl3's regular expressions use .NET's Unicode tables, which are newer, so the profile now says so and the 30 tests
+  don't apply. That is the documented-divergence option in 5.1.
+- **8.4** wasn't only parallel noise. In the test host the compact tree measured 85% of `XPathDocument`'s memory,
+  because other tests' name pools are freed a collection late. In a clean process it is 45%.
+
+### Status of the items
+
+| Item | State |
+|---|---|
+| 1.2 Direct writer differences | output-0130 fixed: a 2.0+ stylesheet with an XHTML `html` literal result element and no method takes the principal writer. `<a />` is recorded as implementation-defined (docs/divergences.md). |
+| 2.1 Plan Sink B | Done: docs/plan/p4-sink-b.md, with the NativeAOT warnings measured |
+| 2.2–2.3 Sink B, NativeAOT | B1 started: lazy IL module (precompiled stylesheets no longer need Reflection.Emit at start-up), three of the eight warning sources fixed |
+| 4.3 `AddParam` CLR mappings | Done for 2.0+ stylesheets |
+| 4.4 Settings | `EnableResultDocument` (with `BaseOutputUri`), `EnableEnvironmentVariables`, `EnableAssertions`, `Timeout`, `UseDedicatedThread`, `XsltArgumentList.CancellationToken`. `MaxRecursionDepth` and `MaxOutputBytes` remain. |
+| 4.6 Missing 3.0 pieces | `xsl:assert` and initial functions (with raw result delivery) done |
+| 5.2 QT3 | `fn:random-number-generator` done; `fn:function-lookup` argument checks |
+| 5.5 Divergences | Done: the W3C list in docs/divergences.md |
+| 6 `xsl:import-schema` | Raises XTSE1650 |
+| 8.4 Memory test | Fixed: it runs in a child process |
+| 8.6 DNS flake | Fixed: network failures are compared by type |

@@ -169,6 +169,8 @@ namespace Xsl3.Runtime
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
                     return lf.Definition.Invoke(lf.Context, c.Arguments.ToArray());
+                case NativeFunction nf:
+                    return nf.Invoke(c.Arguments.ToArray());
                 case CompiledFunction cf when cf.Owner != _runtime && cf.Owner.Dispatcher is { } foreign:
                     // A function item of another compiled unit: its own dispatcher, in its own runtime.
                     return foreign(cf.Owner, call);
@@ -308,8 +310,16 @@ namespace Xsl3.Runtime
         /// <summary>fn:function-lookup for a built-in function (user functions are found when the name is a literal).</summary>
         public IList<XPathItem> X31FunctionLookup(IList<XPathItem> name, IList<XPathItem> arity, double sc)
         {
-            var q = ((QNameValue)name[0]).QName;
-            int n = (int)((IntegerValue)arity[0]).Integer;
+            // The arguments' types are xs:QName and xs:integer, exactly one each (XPTY0004).
+            if (name.Count != 1 || name[0] is not QNameValue { QName: var q } || arity.Count != 1 || arity[0] is not IntegerValue arityValue)
+            {
+                throw Err.XPTY0004($"fn:function-lookup takes one xs:QName and one xs:integer, not {Coercion.Describe(name)} and {Coercion.Describe(arity)}");
+            }
+            if (arityValue.Integer < 0 || arityValue.Integer > int.MaxValue)
+            {
+                return Sequences.Empty;
+            }
+            int n = (int)arityValue.Integer;
             FunctionDefinition? def = FunctionLibrary.Find(q.NamespaceUri, q.LocalName, n);
             return def == null ? Sequences.Empty : Sequences.One(new LibraryFunction(def, n, X31ContextFor(sc)));
         }

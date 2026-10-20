@@ -13,6 +13,15 @@ using T = Xsl3.XmlQueryTypeFactory;
 
 namespace Xsl3.Runtime
 {
+    /// <summary>Xsl3: the parameters that supply the initial function's arguments (XSLT 3.0 §2.3.4).</summary>
+    internal static class InitialFunctionArguments
+    {
+        public const string Namespace = "urn:xsl3:initial-function";
+
+        /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1).</summary>
+        public static System.Xml.XmlQualifiedName Name(int position) => new("arg" + position, Namespace);
+    }
+
     /// <summary>Xsl3: names shared by the parts of xsl:evaluate (docs/plan/p5-evaluate.md).</summary>
     internal static class DynamicEvaluation
     {

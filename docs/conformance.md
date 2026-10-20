@@ -34,6 +34,7 @@ raised a different code are counted separately.
 | 2026-10-19 | 21,731 | 153 | 99 | 99.3% | `fn:serialize` with a map (json, adaptive); maps keep insertion order |
 | 2026-10-20 | 21,743 | 141 | 99 | 99.4% | Focus-dependent function references with arguments (`fn:lang#1`, `fn:id#1`) keep the focus |
 | 2026-10-20 | 21,746 | 138 | 99 | 99.4% | `map:merge`, `map:put` and `array:` functions copy the reused one-item lists the generated code passes them |
+| 2026-10-21 | 21,796 | 88 | 99 | 99.6% | `fn:random-number-generator`; `fn:function-lookup` type-checks its arguments |
 
 The remaining failures are mostly fn:serialize details (html doctype, CDATA, character maps),
 fn:random-number-generator and fn:function-lookup corner cases.
@@ -73,6 +74,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
 | 2026-10-20 | 7,549 | 386 | 86 | 95.1% | `fn:copy-of`/`fn:snapshot` copies keep each element's own namespace declaration; `xsl:namespace` raises XTDE0920, XTDE0925, XTDE0905 and XTDE0930, and the result tree XTDE0440 and XTDE0430, without relying on the serializer |
+| 2026-10-21 | 7,606 | 299 | 49 | 96.2% | The `regex-classes` set no longer applies: it declares Unicode 6.0, and Xsl3's regex classes use .NET's newer tables (docs/divergences.md) |
 | 2026-10-21 | 7,695 | 330 | 49 | 95.9% | Remaining scope (docs/plan/remaining-scope.md): initial functions with raw result delivery (37 tests run that didn't), `xsl:assert` (run with assertions on and off as each test asks), the xhtml default method on the direct result path, `current-output-uri()` absent outside templates; bug-1901 not run (it compares a tree the xhtml serialization can't match) |
 | 2026-10-20 | 7,642 | 335 | 86 | 95.8% | P5 long tail: XTDE1480 for `xsl:result-document` in templates called in temporary output state (the tunnel frame marks it), XML declarations for nodes in adaptive output (Serialization 3.1 §10.1.6) |
 | 2026-10-20 | 7,637 | 340 | 86 | 95.7% | P5 M2–M4: character maps (before normalization; not in CDATA, escaped URI attributes or namespace declarations; adaptive output), `parameter-document`, output declarations merged by import precedence, the xhtml `meta` element replacing the stylesheet's, cdata-section-elements written by Xsl3 (namespace declarations no longer CDATA), HTML5 prefix normalization, carriage returns as `&#xD;`, SERE0012, json-node-output-method html/xhtml, `disable-output-escaping` through sequences |

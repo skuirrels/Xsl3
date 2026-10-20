@@ -736,6 +736,12 @@ namespace Xsl3.Runtime
 
                 case XmlTypeCode.Item:
                     {
+                        // Xsl3: 2.0+ stylesheets map more CLR types to XDM values (SPEC §7.1); 1.0 keeps stock's rules.
+                        if (IsXslt2 && ClrValues.TryConvert(value, out IList<XPathItem> converted))
+                        {
+                            value = converted;
+                            break;
+                        }
                         Type sourceType = value.GetType();
                         IXPathNavigable? navigable;
 

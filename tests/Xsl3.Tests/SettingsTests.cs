@@ -166,4 +166,27 @@ public class SettingsTests
         Exception e = Assert.ThrowsAny<Exception>(() => hidden.TransformToItems(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")).CreateNavigator(), null, null));
         Assert.Contains("XTDE0041", e.ToString());
     }
+
+    /// <summary>CLR parameter values become XDM values of their own types in a 2.0+ stylesheet (SPEC §7.1).</summary>
+    [Fact]
+    public void ClrParametersMapToXdm()
+    {
+        XslCompiledTransform transform = Load("""
+            <xsl:param name="i"/><xsl:param name="d"/><xsl:param name="t"/><xsl:param name="o"/><xsl:param name="s"/><xsl:param name="m"/><xsl:param name="l"/><xsl:param name="u"/><xsl:param name="b"/>
+            <xsl:template match="/" xmlns:xs="http://www.w3.org/2001/XMLSchema" exclude-result-prefixes="xs"><out><xsl:value-of select="
+              $i instance of xs:integer, $d instance of xs:decimal, $t instance of xs:dateTime, timezone-from-dateTime($o),
+              $s instance of xs:dayTimeDuration, $m?a + $m?b, count($l), $u instance of xs:anyURI, $b instance of xs:base64Binary"/></out></xsl:template>
+            """);
+        var arguments = new XsltArgumentList();
+        arguments.AddParam("i", "", 42);
+        arguments.AddParam("d", "", 1.5m);
+        arguments.AddParam("t", "", new DateTime(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc));
+        arguments.AddParam("o", "", new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.FromHours(2)));
+        arguments.AddParam("s", "", TimeSpan.FromMinutes(90));
+        arguments.AddParam("m", "", new System.Collections.Generic.Dictionary<string, int> { ["a"] = 1, ["b"] = 2 });
+        arguments.AddParam("l", "", new[] { 1, 2, 3 });
+        arguments.AddParam("u", "", new Uri("http://example.com/"));
+        arguments.AddParam("b", "", new byte[] { 1, 2 });
+        Assert.Equal("<out>true true true PT2H true 3 3 true true</out>", Run(transform, arguments));
+    }
 }
