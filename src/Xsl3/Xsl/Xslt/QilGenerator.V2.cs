@@ -220,6 +220,10 @@ namespace Xsl3.Xslt
                 }
                 return _f.Invoke(entry.Function.Function!, actual);
             }
+            if (name.NamespaceUri == DynamicEvaluation.Namespace)
+            {
+                return CompileEvaluate31(name, args, compile);
+            }
             if (name.NamespaceUri != FnNs)
             {
                 return null;
@@ -615,6 +619,8 @@ namespace Xsl3.Xslt
                     QilIterator outputFrame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS),
                         X31(nameof(XsltLibrary.X31OutputUri), T.StringX, href, _f.String(StaticBaseUri31() ?? ""))));
                     QilNode? savedTunnel = _currentTunnel;
+                    // The caller's frame tells whether this is temporary output state (XTDE1480).
+                    QilNode callerFrame = _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS);
                     _currentTunnel = outputFrame;
                     // The output definition: format="…" names one (at run time if it is computed); else the unnamed one.
                     Output baseOutput = _compiler.Output;
@@ -658,7 +664,11 @@ namespace Xsl3.Xslt
                     }
                     // The json and adaptive methods and item-separator take the raw result, not a document.
                     bool raw = baseFormat.Extras?.RawMethod != null ||
-                        v2.Serialization!.Exists(p => p.Name == "item-separator" || p.Name == "method" && p.Value.Trim() is "json" or "adaptive");
+                        // (A computed method may be json or adaptive: the items are then serialized by the method it names.)
+                        v2.Serialization!.Exists(p => p.Name == "item-separator" || p.Name == "method" && (p.Value.Trim() is "json" or "adaptive" || p.Value.Contains('{')) ||
+                            p.Name == "build-tree" && p.Value.Trim() is "no" or "false" or "0") ||
+                        // A format computed at run time may name a json or adaptive output definition.
+                        formatName is not QilLiteral && _compiler.NamedOutputs.Values.Any(o => ResultFormat31(o).Extras?.RawMethod is "json" or "adaptive");
                     QilNode doc = raw
                         ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
                         : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
@@ -669,7 +679,7 @@ namespace Xsl3.Xslt
                     }
                     return _f.Loop(href, _f.Loop(outputFrame, X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
                         _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
-                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()))));
+                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()), callerFrame)));
                 }
             }
             return null;
@@ -694,10 +704,11 @@ namespace Xsl3.Xslt
         private QilNode TunnelFrame31(IList<XslNode> args, int from)
         {
             QilNode frame = _currentTunnel != null ? _currentTunnel : _f.TypeAssert(_f.Sequence(), T.ItemS);
-            if (_currentTunnel == null && FocusAbsent)
+            if (_temporaryOutput31 > 0 || _currentTunnel == null && FocusAbsent)
             {
-                // Templates called from a function body are in temporary output state: no current output URI.
-                frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(""));
+                // Templates called from a function body or the content of a variable or parameter are in temporary
+                // output state: no current output URI, and xsl:result-document is an error (XTDE1480).
+                frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(XsltLibrary.TemporaryOutput));
             }
             for (int i = from; i < args.Count;)
             {
@@ -1353,6 +1364,10 @@ namespace Xsl3.Xslt
         private Output? ResolveOutputName(string lexical)
         {
             lexical = lexical.Trim();
+            if (lexical.StartsWith("Q{", System.StringComparison.Ordinal) && lexical.IndexOf('}') is int close and > 0)
+            {
+                return _compiler.NamedOutputs.TryGetValue(_f.QName(lexical[(close + 1)..], lexical[2..close]), out Output? named) ? named : null;
+            }
             int colon = lexical.IndexOf(':');
             string? ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]);
             if (ns == null)
@@ -1428,8 +1443,11 @@ namespace Xsl3.Xslt
             return _f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns);
         }
 
-        private ResultFormat ResultFormat31(Output output) =>
-            new(output.Settings, OutputExtras31(output), output.Settings.OutputMethod == XmlOutputMethod.Text);
+        private ResultFormat ResultFormat31(Output output)
+        {
+            var (settings, extras) = WithParameterDocument31(output);
+            return new(settings, extras, settings.OutputMethod == XmlOutputMethod.Text);
+        }
 
         private int? _resultFormats31;
 
@@ -2412,6 +2430,7 @@ namespace Xsl3.Xslt
                 extras.JsonNodeOutputMethod = output.JsonNodeOutputMethod;
                 extras.AllowDuplicateNames = output.AllowDuplicateNames;
                 extras.Indent = output.Settings.Indent;
+                extras.AdaptiveXmlDeclaration = raw.Name == "adaptive" && !output.Settings.OmitXmlDeclaration;
             }
             else if (output.ItemSeparator != null)
             {
@@ -2431,6 +2450,7 @@ namespace Xsl3.Xslt
             if (output.NormalizationForm != null && OutputExtras.TryParseNormalizationForm(output.NormalizationForm, out System.Text.NormalizationForm? form))
             {
                 extras.Normalization = form;
+                extras.FullyNormalized = output.NormalizationForm.Trim() == "fully-normalized";
             }
             if (output.UseCharacterMaps != null)
             {
@@ -2775,7 +2795,7 @@ namespace Xsl3.Xslt
                     _stylesheetFunctions31.Add((name.NamespaceUri, name.LocalName, arity));
                 }
             }
-            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31));
+            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31) { EvaluateEnabled = _compiler.Settings.EnableEvaluate });
         }
 
         // ------------------------------------------------------------ grouping, regex, sorting

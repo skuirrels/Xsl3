@@ -436,6 +436,18 @@ namespace Xsl3.Tree
                 Child(XPathNodeType.ProcessingInstruction, Name(string.Empty, target, string.Empty), Value(value));
             }
 
+            // The parts of the text being gathered that were written raw (disable-output-escaping).
+            private List<(int Start, int Length)>? _textRaw;
+
+            internal void Text(string value, XPathNodeType type, bool raw)
+            {
+                if (raw && value.Length > 0)
+                {
+                    (_textRaw ??= new()).Add(((_text?.Length ?? 0) + (_textMore?.Length ?? 0), value.Length));
+                }
+                Text(value, type);
+            }
+
             internal void Text(string value, XPathNodeType type)
             {
                 if (_text == null)
@@ -461,7 +473,12 @@ namespace Xsl3.Tree
                 string value = _textMore is { Length: > 0 } more ? _text + more.ToString() : _text;
                 _textMore?.Clear();
                 _text = null;
-                Child(_textType, None, Value(value));
+                int node = Child(_textType, None, Value(value));
+                if (_textRaw != null)
+                {
+                    (_doc._rawText ??= new())[node] = _textRaw;
+                    _textRaw = null;
+                }
             }
         }
     }

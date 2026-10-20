@@ -256,22 +256,26 @@ namespace System.Xml
 
             RawText("<!DOCTYPE ");
             RawText(name);
+            // Xsl3: a system identifier that contains a quotation mark is written in apostrophes.
+            char quote = sysid != null && sysid.Contains('"') ? '\'' : '"';
             if (pubid != null)
             {
                 RawText(" PUBLIC \"");
                 RawText(pubid);
-                RawText("\" \"");
+                RawText("\" ");
+                _bufChars[_bufPos++] = (char)quote;
                 if (sysid != null)
                 {
                     RawText(sysid);
                 }
-                _bufChars[_bufPos++] = (char)'"';
+                _bufChars[_bufPos++] = (char)quote;
             }
             else if (sysid != null)
             {
-                RawText(" SYSTEM \"");
+                RawText(" SYSTEM ");
+                _bufChars[_bufPos++] = (char)quote;
                 RawText(sysid);
-                _bufChars[_bufPos++] = (char)'"';
+                _bufChars[_bufPos++] = (char)quote;
             }
             else
             {

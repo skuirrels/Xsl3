@@ -29,6 +29,9 @@ public sealed class Runner
     private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
     {
         public Dictionary<string, StringWriter> SecondaryResults { get; init; } = new();
+
+        /// <summary>The URI of a secondary result: the base URI of its tree when it is parsed back.</summary>
+        public string? BaseUri { get; init; }
     }
 
     public Outcome Run(TestCase test)
@@ -181,7 +184,7 @@ public sealed class Runner
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
-                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false), resolver);
+                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false) { EnableEvaluate = true }, resolver);
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
@@ -370,13 +373,13 @@ public sealed class Runner
                 }
                 case "assert":
                 {
-                    XPathNavigator doc = ResultDocument(serialized);
+                    XPathNavigator doc = ResultDocument(serialized, run.BaseUri);
                     bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, new XPathItem[] { doc }));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
                 case "assert-string-value":
                 {
-                    string actual = ResultDocument(serialized).Value, expected = assertion.Value;
+                    string actual = ResultDocument(serialized, run.BaseUri).Value, expected = assertion.Value;
                     if ((string?)assertion.Attribute("normalize-space") is not ("false" or "0")) // the default is true
                     {
                         actual = Lexical.Collapse(actual);
@@ -416,7 +419,7 @@ public sealed class Runner
                 case "assert-true":
                 case "assert-false":
                 {
-                    XPathNavigator doc = ResultDocument(serialized);
+                    XPathNavigator doc = ResultDocument(serialized, run.BaseUri);
                     string text = assertion.Value;
                     string expression = kind switch
                     {
@@ -438,7 +441,7 @@ public sealed class Runner
                     {
                         if (written == uri || written.EndsWith("/" + uri, StringComparison.Ordinal))
                         {
-                            var docRun = new RunResult(text.ToString(), null, Array.Empty<string>());
+                            var docRun = new RunResult(text.ToString(), null, Array.Empty<string>()) { BaseUri = written };
                             foreach (XElement a in assertion.Elements())
                             {
                                 Outcome o = Check(test, a, docRun);
@@ -462,11 +465,11 @@ public sealed class Runner
     }
 
     /// <summary>The result tree: the serialization parsed back as a document (a fragment: text and several elements are fine).</summary>
-    private static XPathNavigator ResultDocument(string serialized)
+    private static XPathNavigator ResultDocument(string serialized, string? baseUri = null)
     {
         string text = StripDeclaration(serialized);
         var settings = new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment, DtdProcessing = DtdProcessing.Ignore };
-        using XmlReader reader = XmlReader.Create(new StringReader(text), settings);
+        using XmlReader reader = XmlReader.Create(new StringReader(text), settings, baseUri ?? "");
         return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
     }
 

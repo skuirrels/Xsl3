@@ -1,7 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 // A developer tool for working on Xsl3 itself (not the packaged CLI of SPEC §21.3):
-//   Xsl3.Dev run  <stylesheet> [<input>] [-it <template>] [-im <mode>] [-p <package file>]... [-param name=value]...
+//   Xsl3.Dev run  <stylesheet> [<input>] [-it <template or Q{ns}template>] [-im <mode>] [-p <package file>]... [-param name=value]...
 //                                                                       transform to stdout (a number value is a double)
 //   Xsl3.Dev qil  <stylesheet>                                            the QIL the compiler produces
 //   Xsl3.Dev qilopt <stylesheet>                                          the QIL after the optimizer, as code generation sees it
@@ -65,7 +65,9 @@ if (command is "qil" or "qilopt")
 
 var transform = new XslCompiledTransform
 {
-    InitialTemplate = initialTemplate == null ? null : new XmlQualifiedName(initialTemplate),
+    InitialTemplate = initialTemplate == null ? null
+        : initialTemplate.StartsWith("Q{", StringComparison.Ordinal) ? new XmlQualifiedName(initialTemplate[(initialTemplate.IndexOf('}') + 1)..], initialTemplate[2..initialTemplate.IndexOf('}')])
+        : new XmlQualifiedName(initialTemplate),
     InitialMode = initialMode == null ? null : new XmlQualifiedName(initialMode),
     Packages = packages,
 };

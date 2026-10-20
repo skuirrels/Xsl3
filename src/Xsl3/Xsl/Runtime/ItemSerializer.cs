@@ -37,7 +37,7 @@ namespace Xsl3.Runtime
                     {
                         sb.Append(separator);
                     }
-                    Adaptive(sb, items[i], top: true);
+                    Adaptive(sb, items[i], top: true, extras);
                 }
             }
             output.Write(extras.Normalization is NormalizationForm form ? sb.ToString().Normalize(form) : sb.ToString());
@@ -92,6 +92,57 @@ namespace Xsl3.Runtime
                 }
             }
             w.Flush();
+        }
+
+        /// <summary>
+        /// The characters an encoding lacks as escapes (Serialization 3.1 §10, §11): \uXXXX in JSON, character
+        /// references in the adaptive method's output.
+        /// </summary>
+        public static string EscapeUnencodable(string text, Encoding encoding, bool json)
+        {
+            if (encoding.CodePage is 65001 or 1200 or 1201 or 12000 or 12001)
+            {
+                return text;
+            }
+            Encoding strict = Encoding.GetEncoding(encoding.CodePage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+            StringBuilder? sb = null;
+            for (int i = 0; i < text.Length; i++)
+            {
+                int width = char.IsSurrogatePair(text, i) ? 2 : 1;
+                bool encodable = text[i] < 0x80;
+                if (!encodable)
+                {
+                    try
+                    {
+                        strict.GetByteCount(text.AsSpan(i, width));
+                        encodable = true;
+                    }
+                    catch (EncoderFallbackException)
+                    {
+                    }
+                }
+                if (encodable)
+                {
+                    sb?.Append(text, i, width);
+                }
+                else
+                {
+                    sb ??= new StringBuilder(text, 0, i, text.Length + 16);
+                    if (json)
+                    {
+                        for (int k = 0; k < width; k++)
+                        {
+                            sb.Append("\\u").Append(((int)text[i + k]).ToString("X4", CultureInfo.InvariantCulture));
+                        }
+                    }
+                    else
+                    {
+                        sb.Append("&#x").Append(char.ConvertToUtf32(text, i).ToString("X", CultureInfo.InvariantCulture)).Append(';');
+                    }
+                }
+                i += width - 1;
+            }
+            return sb?.ToString() ?? text;
         }
 
         // ------------------------------------------------------------ json
@@ -154,7 +205,12 @@ namespace Xsl3.Runtime
                 case XdmFunction f:
                     throw new XdmException("SERE0021", $"The json output method can't serialize {f.Describe()}");
                 case XPathNavigator node:
-                    JsonString(sb, extras.JsonNodeOutputMethod == "text" ? node.Value : NodeAsXml(node), extras.CharacterMap);
+                    JsonString(sb, extras.JsonNodeOutputMethod switch
+                    {
+                        "text" => node.Value,
+                        "html" or "xhtml" => NodeAsHtml(node, extras.JsonNodeOutputMethod == "xhtml"),
+                        _ => NodeAsXml(node),
+                    }, extras.CharacterMap);
                     break;
                 case AtomicValue a:
                     switch (a.Type.Primitive)
@@ -235,8 +291,10 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ adaptive
 
-        private static void Adaptive(StringBuilder sb, XPathItem item, bool top)
+        // The character map applies to strings and to nodes, which are serialized with the xml method (§11).
+        private static void Adaptive(StringBuilder sb, XPathItem item, bool top, OutputExtras extras)
         {
+            IReadOnlyDictionary<int, string>? characterMap = extras.CharacterMap;
             switch (item)
             {
                 case XdmMap map:
@@ -250,9 +308,9 @@ namespace Xsl3.Runtime
                             sb.Append(',');
                         }
                         first = false;
-                        Adaptive(sb, key, top: false);
+                        Adaptive(sb, key, top: false, extras);
                         sb.Append(':');
-                        AdaptiveSequence(sb, value);
+                        AdaptiveSequence(sb, value, extras);
                     }
                     sb.Append('}');
                     break;
@@ -265,7 +323,7 @@ namespace Xsl3.Runtime
                         {
                             sb.Append(',');
                         }
-                        AdaptiveSequence(sb, array.Members[i]);
+                        AdaptiveSequence(sb, array.Members[i], extras);
                     }
                     sb.Append(']');
                     break;
@@ -282,7 +340,12 @@ namespace Xsl3.Runtime
                             sb.Append(node.LocalName.Length == 0 ? "xmlns" : "xmlns:" + node.LocalName).Append("=\"").Append(EscapeAttribute(node.Value)).Append('"');
                             break;
                         default:
-                            sb.Append(NodeAsXml(node));
+                            if (extras.AdaptiveXmlDeclaration)
+                            {
+                                // The node is serialized by the xml method, with its XML declaration (Serialization 3.1 §10.1.6).
+                                sb.Append("<?xml version=\"1.0\" encoding=\"").Append(extras.Encoding).Append("\"?>");
+                            }
+                            sb.Append(NodeAsXml(node, characterMap));
                             break;
                     }
                     break;
@@ -290,7 +353,7 @@ namespace Xsl3.Runtime
                     switch (a.Type.Primitive)
                     {
                         case Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri:
-                            sb.Append('"').Append(a.Value.Replace("\"", "\"\"")).Append('"');
+                            AdaptiveString(sb, a.Value, characterMap);
                             break;
                         case Primitive.Boolean:
                             sb.Append(a.Value == "true" ? "true()" : "false()");
@@ -312,11 +375,34 @@ namespace Xsl3.Runtime
             }
         }
 
-        private static void AdaptiveSequence(StringBuilder sb, IList<XPathItem> value)
+        private static void AdaptiveString(StringBuilder sb, string value, IReadOnlyDictionary<int, string>? characterMap)
+        {
+            sb.Append('"');
+            for (int i = 0; i < value.Length; i++)
+            {
+                int width = char.IsSurrogatePair(value, i) ? 2 : 1;
+                if (characterMap != null && characterMap.TryGetValue(width == 2 ? char.ConvertToUtf32(value[i], value[i + 1]) : value[i], out string? replacement))
+                {
+                    sb.Append(replacement);
+                }
+                else
+                {
+                    sb.Append(value, i, width);
+                    if (value[i] == '"')
+                    {
+                        sb.Append('"');
+                    }
+                }
+                i += width - 1;
+            }
+            sb.Append('"');
+        }
+
+        private static void AdaptiveSequence(StringBuilder sb, IList<XPathItem> value, OutputExtras extras)
         {
             if (value.Count == 1)
             {
-                Adaptive(sb, value[0], top: false);
+                Adaptive(sb, value[0], top: false, extras);
                 return;
             }
             sb.Append('(');
@@ -326,7 +412,7 @@ namespace Xsl3.Runtime
                 {
                     sb.Append(',');
                 }
-                Adaptive(sb, value[i], top: false);
+                Adaptive(sb, value[i], top: false, extras);
             }
             sb.Append(')');
         }
@@ -334,11 +420,34 @@ namespace Xsl3.Runtime
         private static string EscapeAttribute(string s) =>
             s.Replace("&", "&amp;").Replace("<", "&lt;").Replace("\"", "&quot;").Replace("\n", "&#xA;").Replace("\r", "&#xD;").Replace("\t", "&#x9;");
 
-        // A node serialized with the xml method, without an XML declaration.
-        private static string NodeAsXml(XPathNavigator node)
+        // A node serialized with the html or xhtml method (json-node-output-method), without an XML declaration.
+        private static string NodeAsHtml(XPathNavigator node, bool xhtml)
         {
             var sw = new StringWriter(CultureInfo.InvariantCulture);
-            using (XmlWriter w = XmlWriter.Create(sw, new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment }))
+            var settings = new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment, Indent = false };
+            settings.SetOutputMethod(xhtml ? XmlOutputMethod.Xml : XmlOutputMethod.Html);
+            var extras = new OutputExtras { Xhtml = xhtml, Encoding = "UTF-8", MediaType = "text/html" };
+            using (XmlWriter w = PrincipalResult.Create(s => XmlWriter.Create(sw, s), settings, extras))
+            {
+                XPathNavigator start = node.Clone();
+                if (start.NodeType != XPathNodeType.Root || start.MoveToFirstChild())
+                {
+                    do
+                    {
+                        w.WriteNode(start, defattr: true);
+                    }
+                    while (node.NodeType == XPathNodeType.Root && start.MoveToNext());
+                }
+            }
+            return sw.ToString();
+        }
+
+        // A node serialized with the xml method, without an XML declaration.
+        private static string NodeAsXml(XPathNavigator node, IReadOnlyDictionary<int, string>? characterMap = null)
+        {
+            var sw = new StringWriter(CultureInfo.InvariantCulture);
+            XmlWriter xml = XmlWriter.Create(sw, new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment });
+            using (XmlWriter w = characterMap is { Count: > 0 } ? new XPath31.Functions.CharacterMapWriter(xml, characterMap) : xml)
             {
                 if (node.NodeType == XPathNodeType.Root)
                 {

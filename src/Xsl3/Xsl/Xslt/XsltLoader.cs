@@ -181,6 +181,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_tryAttributes);
             AtomizeAttributes(_iterateAttributes);
             AtomizeAttributes(_sourceDocumentAttributes);
+            AtomizeAttributes(_evaluateAttributes);
             AtomizeAttributes(_contextItemAttributes);
             AtomizeAttributes(_mapEntryAttributes);
             AtomizeAttributes(_packageRuleAttributes);
@@ -810,8 +811,8 @@ namespace Xsl3.Xslt
             TriState byteOrderMask = ParseYesNoAttribute(2, "byte-order-mark");
             if (byteOrderMask != TriState.Unknown)
             {
-                if (V2) output.ByteOrderMark = byteOrderMask;
-                else ReportNYI("xsl:output/@byte-order-mark");
+                if (!V2) ReportNYI("xsl:output/@byte-order-mark");
+                else if (TakesParameter31(output, "byte-order-mark", currentPrec)) output.ByteOrderMark = byteOrderMask;
             }
 
             if (_input.MoveToXsltAttribute(3, "cdata-section-elements"))
@@ -890,7 +891,7 @@ namespace Xsl3.Xslt
             // Xsl3: URI escaping of HTML attributes isn't done by the html writer either way.
             bool escapeUriAttributes = ParseYesNoAttribute(7, "escape-uri-attributes") != TriState.False;
             if (!escapeUriAttributes && !V2) ReportNYI("xsl:output/@escape-uri-attributes == flase()");
-            if (V2 && _input.AttributeExists(7, "escape-uri-attributes"))
+            if (V2 && _input.AttributeExists(7, "escape-uri-attributes") && TakesParameter31(output, "escape-uri-attributes", currentPrec))
             {
                 output.EscapeUriAttributes = escapeUriAttributes;
             }
@@ -898,8 +899,8 @@ namespace Xsl3.Xslt
             TriState includeContentType = ParseYesNoAttribute(8, "include-content-type");
             if (includeContentType != TriState.Unknown)
             {
-                if (V2) output.IncludeContentType = includeContentType == TriState.True;
-                else if (includeContentType == TriState.False) ReportNYI("xsl:output/@include-content-type == flase()");
+                if (!V2) { if (includeContentType == TriState.False) ReportNYI("xsl:output/@include-content-type == flase()"); }
+                else if (TakesParameter31(output, "include-content-type", currentPrec)) output.IncludeContentType = includeContentType == TriState.True;
             }
 
             triState = ParseYesNoAttribute(9, "indent");
@@ -938,7 +939,10 @@ namespace Xsl3.Xslt
                 }
                 else if (Runtime.OutputExtras.TryParseNormalizationForm(_input.Value, out _))
                 {
-                    output.NormalizationForm = _input.Value;
+                    if (TakesParameter31(output, "normalization-form", currentPrec))
+                    {
+                        output.NormalizationForm = _input.Value;
+                    }
                 }
                 else
                 {
@@ -984,7 +988,16 @@ namespace Xsl3.Xslt
             List<QilName> useCharacterMaps = ParseUseCharacterMaps(15);
             if (useCharacterMaps.Count != 0)
             {
-                if (V2) (output.UseCharacterMaps ??= new List<QilName>()).AddRange(useCharacterMaps);
+                if (V2)
+                {
+                    // Xsl3: the maps of every declaration are used; where they map the same character, those of the
+                    // higher import precedence win (they come later in the list).
+                    output.UseCharacterMaps ??= new List<QilName>();
+                    output.UseCharacterMapsPrec ??= new List<int>();
+                    int at = output.UseCharacterMapsPrec.FindLastIndex(p => p <= currentPrec) + 1;
+                    output.UseCharacterMaps.InsertRange(at, useCharacterMaps);
+                    output.UseCharacterMapsPrec.InsertRange(at, System.Linq.Enumerable.Repeat(currentPrec, useCharacterMaps.Count));
+                }
                 else ReportNYI("xsl:output/@use-character-maps");
             }
 
@@ -1003,18 +1016,18 @@ namespace Xsl3.Xslt
                 }
             }
 
-            if (V2 && _input.MoveToXsltAttribute(19, "item-separator"))
+            if (V2 && _input.MoveToXsltAttribute(19, "item-separator") && TakesParameter31(output, "item-separator", currentPrec))
             {
                 output.ItemSeparator = _input.Value;
             }
-            if (V2 && _input.MoveToXsltAttribute(20, "json-node-output-method"))
+            if (V2 && _input.MoveToXsltAttribute(20, "json-node-output-method") && TakesParameter31(output, "json-node-output-method", currentPrec))
             {
                 output.JsonNodeOutputMethod = _input.Value.Trim();
             }
             if (V2)
             {
                 TriState duplicates = ParseYesNoAttribute(21, "allow-duplicate-names");
-                if (duplicates != TriState.Unknown)
+                if (duplicates != TriState.Unknown && TakesParameter31(output, "allow-duplicate-names", currentPrec))
                 {
                     output.AllowDuplicateNames = duplicates == TriState.True;
                 }
@@ -1026,9 +1039,51 @@ namespace Xsl3.Xslt
                 {
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "html-version", _input.Value);
                 }
-                else
+                else if (TakesParameter31(output, "html-version", currentPrec))
                 {
                     output.HtmlVersion = _input.Value.Trim().TrimStart('+');
+                }
+            }
+            if (V2 && _input.MoveToXsltAttribute(22, "parameter-document"))
+            {
+                // Xsl3: Serialization 3.1 §3.1. The declaration's own attributes override its parameter document.
+                Uri documentUri = ResolveUri(_input.Value.Trim(), _input.BaseUri!);
+                var own = new HashSet<string>(StringComparer.Ordinal);
+                for (int i = 1; i < _outputAttributes.Length; i++)
+                {
+                    if (_input.MoveToXsltAttribute(i, _outputAttributes[i].name))
+                    {
+                        own.Add(_outputAttributes[i].name);
+                    }
+                }
+                try
+                {
+                    using XmlReader documentReader = CreateReader(documentUri, _xmlResolver);
+                    Runtime.ParameterDocument.Parameters parameters = Runtime.ParameterDocument.Read(documentReader);
+                    if (TakesParameter31(output, "parameter-document", currentPrec))
+                    {
+                        output.ParameterDocument = parameters with { Values = parameters.Values.FindAll(p => !own.Contains(p.Name)) };
+                        // The method and item-separator decide how the result is built (a tree or the raw sequence).
+                        foreach (var (parameter, value) in output.ParameterDocument.Values)
+                        {
+                            if (parameter == "method" && value.StartsWith("Q{}", StringComparison.Ordinal) && output.MethodPrec <= currentPrec &&
+                                ParseOutputMethod(value[3..], out XmlOutputMethod documentMethod) is XmlQualifiedName method)
+                            {
+                                settings.SetOutputMethod(documentMethod);
+                                output.Method = method;
+                                output.MethodPrec = currentPrec;
+                                output.Xhtml = method.Name == "xhtml";
+                            }
+                            else if (parameter == "item-separator" && TakesParameter31(output, "item-separator", currentPrec))
+                            {
+                                output.ItemSeparator = value;
+                            }
+                        }
+                    }
+                }
+                catch (Xdm.XdmException e)
+                {
+                    ReportError(SR.Xml_UserException, e.Message);
                 }
             }
             if (V2 && _checkedOutputs.Add(name?.ToString() ?? ""))
@@ -1042,6 +1097,18 @@ namespace Xsl3.Xslt
         }
 
         private readonly HashSet<string> _checkedOutputs = new();
+
+        // Xsl3: whether a 2.0+ serialization parameter of the declaration being read is the one to use: no
+        // declaration of a higher import precedence has set it.
+        private static bool TakesParameter31(Output output, string parameter, int precedence)
+        {
+            if (output.ParameterPrec.TryGetValue(parameter, out int existing) && existing > precedence)
+            {
+                return false;
+            }
+            output.ParameterPrec[parameter] = precedence;
+            return true;
+        }
 
         // Xsl3: combinations of serialization parameters that are errors (Serialization 3.1 §3).
         private void CheckSerializationParameters31()
@@ -1099,6 +1166,13 @@ namespace Xsl3.Xslt
                     UnicodeEncoding u => new UnicodeEncoding(u.CodePage == 1201, bom),
                     var e => e,
                 };
+            }
+
+            // Xsl3: the xml and xhtml methods write a carriage return in text as &#xD; (Serialization 3.1 §5.1.6), and
+            // keep it as it is in comments and processing instructions, where it can't be escaped.
+            if (v2 && settings.OutputMethod is XmlOutputMethod.Xml or XmlOutputMethod.AutoDetect)
+            {
+                settings.NewLineHandling = NewLineHandling.Entitize;
             }
 
             // version is ignored, indent="no" by default
@@ -1817,6 +1891,7 @@ namespace Xsl3.Xslt
                                     V2 && name == "try" ? XslTry() :
                                     V2 && name == "iterate" ? XslIterate() :
                                     V2 && name == "source-document" ? XslSourceDocument() :
+                                    V2 && name == "evaluate" ? XslEvaluate() :
                                     V2 && name == "context-item" ? XslContextItem() :
                                     V2 && name == "map" ? XslMap() :
                                     V2 && name == "merge" ? XslMerge() :
@@ -2766,7 +2841,7 @@ namespace Xsl3.Xslt
             {
                 try
                 {
-                    value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues);
+                    value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                 }
                 catch (Xsl3.XPath31.XPathStaticException e)
                 {

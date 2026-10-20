@@ -19,13 +19,20 @@ namespace Xsl3.Runtime
     /// </summary>
     internal sealed class CompiledFunction : XdmFunction
     {
-        public CompiledFunction(int id, FunctionSignature signature)
+        public CompiledFunction(int id, FunctionSignature signature, XmlQueryRuntime owner)
         {
             Id = id;
             Signature = signature;
+            Owner = owner;
         }
 
         public int Id { get; }
+
+        /// <summary>
+        /// The runtime of the compiled unit the function belongs to: its id means something only to that unit's
+        /// dispatcher (an expression of xsl:evaluate is a unit of its own; docs/plan/p5-evaluate.md, decision 5).
+        /// </summary>
+        public XmlQueryRuntime Owner { get; }
 
         public FunctionSignature Signature { get; }
 
@@ -93,7 +100,7 @@ namespace Xsl3.Runtime
         // ---------------------------------------------------------------- creating function items
 
         public XPathItem X31FunctionNew(double id, double signature) =>
-            new CompiledFunction((int)id, (FunctionSignature)ConstantPool.Get((int)signature));
+            new CompiledFunction((int)id, (FunctionSignature)ConstantPool.Get((int)signature), _runtime);
 
         public XPathItem X31FunctionCapture(XPathItem function, IList<XPathItem> value)
         {
@@ -143,7 +150,7 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>The id of the lifted function a call goes to, or -1 if the run-time library makes it.</summary>
-        public double X31CallTarget(XPathItem call) => ((PendingCall)call).Function is CompiledFunction f ? f.Id : -1;
+        public double X31CallTarget(XPathItem call) => ((PendingCall)call).Function is CompiledFunction f && f.Owner == _runtime ? f.Id : -1;
 
         public IList<XPathItem> X31CallCaptured(XPathItem call, double index) => ((CompiledFunction)((PendingCall)call).Function).Captured[(int)index];
 
@@ -162,6 +169,9 @@ namespace Xsl3.Runtime
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
                     return lf.Definition.Invoke(lf.Context, c.Arguments.ToArray());
+                case CompiledFunction cf when cf.Owner != _runtime && cf.Owner.Dispatcher is { } foreign:
+                    // A function item of another compiled unit: its own dispatcher, in its own runtime.
+                    return foreign(cf.Owner, call);
                 default:
                     throw new XdmException("XPTY0004", $"{c.Function.Describe()} can't be called here (it belongs to another compiled query)");
             }
@@ -179,10 +189,10 @@ namespace Xsl3.Runtime
             {
                 X31CallArgument(call, argument);
             }
-            if (function is CompiledFunction)
+            if (function is CompiledFunction cf)
             {
-                var dispatch = _runtime.Dispatcher ?? throw new System.InvalidOperationException("No dispatcher was compiled");
-                return dispatch(_runtime, call);
+                var dispatch = cf.Owner.Dispatcher ?? throw new System.InvalidOperationException("No dispatcher was compiled");
+                return dispatch(cf.Owner, call);
             }
             return X31CallRuntime(call);
         }

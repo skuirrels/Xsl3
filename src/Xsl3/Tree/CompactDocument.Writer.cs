@@ -120,9 +120,9 @@ namespace Xsl3.Tree
 
             public override void WriteChars(char[] buffer, int index, int count) => Text(new string(buffer, index, count), XPathNodeType.Text);
 
-            public override void WriteRaw(string data) => Text(data, XPathNodeType.Text);
+            public override void WriteRaw(string data) => Text(data, XPathNodeType.Text, raw: true);
 
-            public override void WriteRaw(char[] buffer, int index, int count) => Text(new string(buffer, index, count), XPathNodeType.Text);
+            public override void WriteRaw(char[] buffer, int index, int count) => Text(new string(buffer, index, count), XPathNodeType.Text, raw: true);
 
             public override void WriteEntityRef(string name) => throw new NotImplementedException();
 
@@ -131,7 +131,7 @@ namespace Xsl3.Tree
             public override void WriteSurrogateCharEntity(char lowChar, char highChar) => Text(new string([highChar, lowChar]), XPathNodeType.Text);
 
             /// <summary>Text goes to the attribute being written, if there is one, and otherwise to the tree.</summary>
-            private void Text(string? text, XPathNodeType type)
+            private void Text(string? text, XPathNodeType type, bool raw = false)
             {
                 text ??= string.Empty;
                 if (_attrLocal != null)
@@ -151,7 +151,7 @@ namespace Xsl3.Tree
                     // XPathDocumentBuilder's text builder ignores empty blocks.
                     return;
                 }
-                _builder.Text(text, type);
+                _builder.Text(text, type, raw);
             }
 
             public override void Close()

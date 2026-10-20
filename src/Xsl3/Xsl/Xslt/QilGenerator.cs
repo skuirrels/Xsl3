@@ -247,7 +247,7 @@ namespace Xsl3.Xslt
                 if (IsV2)
                 {
                     ValidateCharacterMaps31();
-                    qil.OutputExtras = OutputExtras31(compiler.Output);
+                    (qil.DefaultWriterSettings, qil.OutputExtras) = WithParameterDocument31(compiler.Output);
                     qil.ResultDocuments = _resultDocuments31;
                     qil.Xslt2 = true;
                     qil.Dispatcher = _functionItems31?.DispatcherIfUsed;

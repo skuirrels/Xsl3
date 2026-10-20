@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Xml;
 using System.Xml.XPath;
@@ -26,6 +27,10 @@ namespace Xsl3.Tree
         // The name last asked for and its expanded-name id (callers ask for the same name over and over).
         private string? _askedLocal, _askedUri;
         private int _askedId;
+
+        /// <summary>The parts of this text node written with disable-output-escaping, or null.</summary>
+        internal List<(int Start, int Length)>? RawText =>
+            _attr == None && _ns == None && _doc._rawText != null && _doc._rawText.TryGetValue(_node, out var raw) ? raw : null;
 
         public CompactNavigator(CompactDocument doc)
         {

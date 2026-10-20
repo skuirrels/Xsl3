@@ -501,6 +501,125 @@ namespace Xsl3.Xslt
             return SetInfo(F.ForEach($"doc({AvtAsXPath31(href)})", ctxInfo, _input.XslVersion), content, ctxInfo);
         }
 
+        // XSLT 3.0 §10.4
+        private readonly XsltAttribute[] _evaluateAttributes = {
+            new XsltAttribute("xpath",             V2Req),
+            new XsltAttribute("as",                V2Opt),
+            new XsltAttribute("base-uri",          V2Opt),
+            new XsltAttribute("with-params",       V2Opt),
+            new XsltAttribute("context-item",      V2Opt),
+            new XsltAttribute("namespace-context", V2Opt),
+            new XsltAttribute("schema-aware",      V2Opt),
+        };
+
+        // The xsl:evaluate instructions loaded so far, for the names of the variables they bind.
+        private int _evaluateCount;
+
+        /// <summary>
+        /// xsl:evaluate (docs/plan/p5-evaluate.md, decision 1): an xsl:sequence whose content binds each xsl:with-param
+        /// to a variable with an internal name, then calls Q{urn:xsl3:evaluate}evaluate with the target expression, the
+        /// context item, the namespace context, the base URI and the parameters; with an as attribute, the result goes
+        /// through a variable of that type. When dynamic evaluation is disabled (XsltSettings.EnableEvaluate), the
+        /// xsl:fallback children, or XTDE3175.
+        /// </summary>
+        private XslNode XslEvaluate()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_evaluateAttributes);
+            string xpath = ParseStringAttribute(0, "xpath") ?? "''";
+            string? asType = ParseStringAttribute(1, "as");
+            string? baseUri = ParseStringAttribute(2, "base-uri");
+            string? withParams = ParseStringAttribute(3, "with-params");
+            string? contextItem = ParseStringAttribute(4, "context-item");
+            string? namespaceContext = ParseStringAttribute(5, "namespace-context");
+            string? schemaAware = ParseStringAttribute(6, "schema-aware");
+            if (schemaAware != null && !schemaAware.Contains('{') && schemaAware.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0"))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "schema-aware", schemaAware);
+            }
+
+            var parameters = new List<XslNode>();
+            var fallbacks = new List<XslNode>();
+            if (_input.MoveToFirstChild())
+            {
+                do
+                {
+                    switch (_input.NodeType)
+                    {
+                        case XmlNodeType.Element:
+                            if (_input.IsXsltKeyword(_atoms.WithParam))
+                            {
+                                XslNode withParam = XslVarPar();
+                                CheckWithParam(parameters, withParam);
+                                parameters.Add(withParam);
+                            }
+                            else if (_input.IsXsltKeyword(_atoms.Fallback))
+                            {
+                                ContextInfo fallbackInfo = _input.GetAttributes();
+                                fallbacks.Add(SetInfo(F.List(), LoadInstructions(), fallbackInfo));
+                            }
+                            else
+                            {
+                                ReportError(/*[XTSE0010]*/SR.Xslt_UnexpectedElement, _input.QualifiedName, "xsl:evaluate");
+                                _input.SkipNode();
+                            }
+                            break;
+                        case XmlNodeType.Whitespace:
+                        case XmlNodeType.SignificantWhitespace:
+                            break;
+                        default:
+                            ReportError(/*[XTSE0010]*/SR.Xslt_TextNodesNotAllowed, "xsl:evaluate");
+                            break;
+                    }
+                } while (_input.MoveToNextSibling());
+            }
+            ctxInfo.SaveExtendedLineInfo(_input);
+
+            if (!_compiler.Settings.EnableEvaluate)
+            {
+                // Statically disabled (XSLT 3.0 §10.4.4).
+                if (fallbacks.Count == 0)
+                {
+                    fallbacks.Add(SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
+                        $"error(QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTDE3175'), 'xsl:evaluate is disabled (XsltSettings.EnableEvaluate)')", _input.XslVersion), ctxInfo.lineInfo));
+                }
+                return SetInfo(F.List(), fallbacks, ctxInfo);
+            }
+
+            static string Literal(string s) => "'" + s.Replace("'", "''") + "'";
+            int id = _evaluateCount++;
+            var content = new List<XslNode>();
+            var entries = new List<string>();
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                XslNode p = parameters[i];
+                QilName variable = F.QName($"e{id}-{i}", Runtime.DynamicEvaluation.Namespace, "");
+                VarPar v = F.VarPar(XslNodeType.Variable, variable, p.Select, p.XslVersion);
+                v.V2 = new XslNodeV2 { As = p.V2?.As };
+                v.Namespaces = p.Namespaces;
+                v.SourceLine = p.SourceLine;
+                v.SetContent(p.Content.Count == 0 ? null : new List<XslNode>(p.Content));
+                content.Add(v);
+                entries.Add($"QName({Literal(p.Name!.NamespaceUri)}, {Literal(p.Name.LocalName)}): $Q{{{Runtime.DynamicEvaluation.Namespace}}}{variable.LocalName}");
+            }
+            string call = $"Q{{{Runtime.DynamicEvaluation.Namespace}}}evaluate(({xpath}), ({contextItem ?? "()"}), ({namespaceContext ?? "()"}), {(namespaceContext != null ? "true()" : "false()")}, " +
+                $"{(baseUri != null ? AvtAsXPath31(baseUri) : "()")}, ({withParams ?? "map{}"}), map{{{string.Join(", ", entries)}}})";
+            if (asType == null)
+            {
+                content.Add(SetLineInfo(F.XslNode(XslNodeType.Sequence, null, call, _input.XslVersion), ctxInfo.lineInfo));
+            }
+            else
+            {
+                // The result is converted to the required type by the function conversion rules, as a variable's is.
+                QilName result = F.QName($"e{id}", Runtime.DynamicEvaluation.Namespace, "");
+                VarPar v = F.VarPar(XslNodeType.Variable, result, call, _input.XslVersion);
+                v.V2 = new XslNodeV2 { As = asType };
+                SetLineInfo(v, ctxInfo.lineInfo);
+                content.Add(v);
+                content.Add(SetLineInfo(F.XslNode(XslNodeType.Sequence, null, $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{result.LocalName}", _input.XslVersion), ctxInfo.lineInfo));
+            }
+            return SetInfo(F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion), content, ctxInfo);
+        }
+
         // An attribute value template as an XPath expression of its string value.
         internal static string AvtAsXPath31(string avt)
         {

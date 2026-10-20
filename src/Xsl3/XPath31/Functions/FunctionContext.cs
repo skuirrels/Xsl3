@@ -54,6 +54,9 @@ namespace Xsl3.XPath31.Functions
             DecimalFormats = DecimalFormats,
         };
 
+        /// <summary>A current dateTime fixed by the caller (an expression evaluated in a host's execution scope).</summary>
+        public XsDateTime? FixedCurrentDateTime { init => _now = value; }
+
         /// <summary>fn:current-dateTime(): fixed for the whole evaluation, in the implicit timezone.</summary>
         public XsDateTime CurrentDateTime => _now ??= Now();
 

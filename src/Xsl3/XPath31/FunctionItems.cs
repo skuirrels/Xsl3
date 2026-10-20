@@ -50,6 +50,9 @@ namespace Xsl3.XPath31
             int id = System.Threading.Interlocked.Increment(ref s_nextId);
             _lifted.Add((id, function, captured, arity));
             _addFunction(function);
+            // A function item may be called from outside the unit (from the run-time library, or from another unit:
+            // a target expression of xsl:evaluate), which needs the dispatcher even if the unit makes no dynamic call.
+            _ = Dispatcher;
             return id;
         }
 

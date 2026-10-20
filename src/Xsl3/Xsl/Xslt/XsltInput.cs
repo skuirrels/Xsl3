@@ -567,7 +567,7 @@ namespace Xsl3.Xslt
                 string name = _atoms.NameTable.Add(rec.localName[1..]);
                 try
                 {
-                    rec.value = UseWhen.EvaluateAvt(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues);
+                    rec.value = UseWhen.EvaluateAvt(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                 }
                 catch (Xsl3.XPath31.XPathStaticException e)
                 {
@@ -602,7 +602,7 @@ namespace Xsl3.Xslt
                 {
                     try
                     {
-                        return !UseWhen.Evaluate(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues);
+                        return !UseWhen.Evaluate(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                     }
                     catch (Xsl3.XPath31.XPathStaticException e)
                     {

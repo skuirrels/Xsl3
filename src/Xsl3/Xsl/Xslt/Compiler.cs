@@ -497,6 +497,9 @@ namespace Xsl3.Xslt
         public bool? IncludeContentType;
         public string? NormalizationForm;
         public List<QilName>? UseCharacterMaps;
+        public List<int>? UseCharacterMapsPrec; // Xsl3: the import precedence of each of UseCharacterMaps
+        public Dictionary<string, int> ParameterPrec = new(); // Xsl3: the import precedence each 2.0+ parameter was set at
+        public Runtime.ParameterDocument.Parameters? ParameterDocument; // Xsl3: parameter-document, less the declaration's own attributes
         public string? HtmlVersion; // Xsl3: xsl:output/@html-version
         public bool EscapeUriAttributes = true; // Xsl3
         public string? ItemSeparator, JsonNodeOutputMethod; // Xsl3

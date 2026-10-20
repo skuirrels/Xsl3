@@ -16,6 +16,9 @@ namespace Xsl3.Runtime
     {
         public const string XsltNs = "http://www.w3.org/1999/XSL/Transform";
 
+        /// <summary>Whether xsl:evaluate is enabled (XsltSettings.EnableEvaluate); otherwise it is statically disabled.</summary>
+        public bool EvaluateEnabled { get; init; }
+
         public static readonly HashSet<string> Instructions = new(System.StringComparer.Ordinal)
         {
             "analyze-string", "apply-imports", "apply-templates", "attribute", "call-template", "choose", "comment", "copy",
@@ -86,7 +89,8 @@ namespace Xsl3.Runtime
                 "product-name" => "Xsl3",
                 "product-version" => typeof(XsltNameContext).Assembly.GetName().Version?.ToString() ?? "0",
                 "supports-serialization" or "supports-backwards-compatibility" or "supports-namespace-axis" or "supports-higher-order-functions" => "yes",
-                "is-schema-aware" or "supports-streaming" or "supports-dynamic-evaluation" => "no",
+                "supports-dynamic-evaluation" => EvaluateEnabled ? "yes" : "no",
+                "is-schema-aware" or "supports-streaming" => "no",
                 "xpath-version" => "3.1",
                 "xsd-version" => "1.0",
                 _ => "",
@@ -115,7 +119,7 @@ namespace Xsl3.Runtime
         public bool ElementAvailable(string name)
         {
             var (ns, local) = Resolve(name, "", "XTDE1440");
-            return ns == XsltNs && Instructions.Contains(local);
+            return ns == XsltNs && (Instructions.Contains(local) || local == "evaluate" && EvaluateEnabled);
         }
 
         public bool TypeAvailable(string name)

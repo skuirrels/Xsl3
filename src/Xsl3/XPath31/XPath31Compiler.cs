@@ -1057,6 +1057,7 @@ namespace Xsl3.XPath31
         public const string ContextItemParam = "context-item";
         public const string ImplicitTimezoneParam = "implicit-timezone";
         public const string ReaderSettingsParam = "reader-settings";
+        public const string CurrentDateTimeParam = "current-dateTime";
 
         private readonly XmlILCommand _command;
 
@@ -1065,9 +1066,15 @@ namespace Xsl3.XPath31
             _command = command;
         }
 
-        public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null)
+        public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null,
+            XsDateTime? currentDateTime = null)
         {
             var args = new XsltArgumentList();
+            if (currentDateTime is XsDateTime now)
+            {
+                // The host's execution scope (xsl:evaluate): fn:current-dateTime is the host's.
+                args.AddParam(CurrentDateTimeParam, ControlNamespace, now);
+            }
             // fn:doc parses internal DTD subsets (for entities, attribute defaults and IDs); an external subset
             // is fetched through the caller's resolver, if any.
             args.AddParam(ReaderSettingsParam, ControlNamespace, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver, MaxCharactersFromEntities = 10_000_000 });

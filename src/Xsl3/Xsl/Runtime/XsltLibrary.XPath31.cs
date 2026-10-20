@@ -44,6 +44,7 @@ namespace Xsl3.Runtime
             (a, b) => _runtime.ComparePosition(a, b))
         {
             Runtime = _runtime,
+            FixedCurrentDateTime = _runtime.ExternalContext.GetParameter(XPath31Executable.CurrentDateTimeParam, XPath31Executable.ControlNamespace) as XsDateTime?,
         };
 
         /// <summary>The context for code compiled with the static context <paramref name="sc"/> (a <see cref="StaticInfo"/> id).</summary>
