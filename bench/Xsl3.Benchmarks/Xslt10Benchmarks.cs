@@ -191,13 +191,13 @@ public class Xsl3Profile30
     private XslCompiledTransform _xsl3 = null!;
     private XPathDocument _input = null!;
 
-    [Params("temporary-trees")]
+    [Params("temporary-trees", "pairs/identity", "pairs/sort", "pairs/muenchian", "pairs/string-recursion", "pairs/key-join", "pairs/html-report")]
     public string Stylesheet { get; set; } = "";
 
     [GlobalSetup]
     public void Setup()
     {
-        _input = new XPathDocument(new StringReader(Corpus.Orders(10_000)));
+        _input = new XPathDocument(new StringReader(Corpus.Orders(Stylesheet.StartsWith("pairs/", StringComparison.Ordinal) ? 20_000 : 10_000)));
         _xsl3 = new XslCompiledTransform();
         _xsl3.Load(Path.Combine(AppContext.BaseDirectory, "corpus", "xslt30", Stylesheet + ".xsl"));
     }

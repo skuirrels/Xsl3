@@ -2750,7 +2750,7 @@ namespace Xsl3.IlGen
             {
                 if ((((local1).NodeType == QilNodeType.Let) || ((((QilNode)(local1)[0]).XmlType!).IsSingleton)) && (!OptimizerPatterns.Read(local1).MatchesPattern(OptimizerPatternName.MaybeSideEffects)))
                 {
-                    if (_nodeCounter.Count(local2, local1) <= 1)
+                    if (_nodeCounter.Count(local2, local1, inLoopCountsMany: _qil.Xslt2) <= 1)
                     {
                         // PATTERN: [EliminateIteratorUsedAtMostOnce] (Loop $iter:* ^ (NodeType? $iter {Let}) | (Single? (TypeOf (First $iter))) ^ (NoSideEffects? $iter) $ret:* ^ (RefCountZeroOrOne? $ret $iter)) => (Subs $ret $iter (First $iter))
                         if (AllowReplace(XmlILOptimization.EliminateIteratorUsedAtMostOnce, local0))
@@ -4993,14 +4993,21 @@ namespace Xsl3.IlGen
         {
             private QilNode? target;
             private int cnt;
+            private bool _inLoopCountsMany;
+            private int _loops;
 
             /// <summary>
             /// Returns number of occurrences of "target" node within the subtree of "expr".
+            /// Xsl3 (P4): with inLoopCountsMany, an occurrence in the body of a loop, filter or sort counts as two, since
+            /// it is evaluated once for each item: substituting the variable there would compute its value again and
+            /// again (a map built from a document, rebuilt for every line that looks something up in it).
             /// </summary>
-            public int Count(QilNode expr, QilNode target)
+            public int Count(QilNode expr, QilNode target, bool inLoopCountsMany = false)
             {
                 this.cnt = 0;
                 this.target = target;
+                _inLoopCountsMany = inLoopCountsMany;
+                _loops = 0;
                 Visit(expr);
                 return this.cnt;
             }
@@ -5013,13 +5020,23 @@ namespace Xsl3.IlGen
                 if (n == this.target)
                     this.cnt++;
 
+                if (_inLoopCountsMany && n.NodeType is QilNodeType.Loop or QilNodeType.Filter or QilNodeType.Sort)
+                {
+                    // The iterator's binding is evaluated once; the body once per item.
+                    Visit(n[0]);
+                    _loops++;
+                    Visit(n[1]);
+                    _loops--;
+                    return n;
+                }
+
                 return VisitChildren(n);
             }
 
             protected override QilNode VisitReference(QilNode n)
             {
                 if (n == this.target)
-                    this.cnt++;
+                    this.cnt += _loops > 0 ? 2 : 1;
 
                 return n;
             }

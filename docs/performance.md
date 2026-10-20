@@ -160,6 +160,64 @@ Geometric mean 1.49× stock with the compact tree, and 1.17× with `XPathDocumen
 built, the transform runs about as fast on either tree. The end-to-end gain comes from the faster build and from less
 garbage-collector work on the smaller retained tree.
 
+## XSLT 2.0/3.0: rewritten pairs (SPEC §19.6)
+
+SPEC §19.6 asks that each 1.0 benchmark, rewritten in idiomatic 3.0, run on Xsl3 at least as fast as the 1.0
+version runs on stock. The rewrites are in `bench/corpus/xslt30/pairs`:
+
+| Benchmark | 3.0 rewrite |
+|---|---|
+| identity | `xsl:mode on-no-match="shallow-copy"` |
+| sort | text value templates |
+| muenchian | `xsl:for-each-group` |
+| string-recursion | `tokenize()` and `upper-case()` |
+| key-join | a map instead of `xsl:key` |
+| html-report | `position()` instead of `xsl:number` |
+
+Each rewrite produces the same output as its 1.0 version, apart from 2.0+ serializer conventions:
+
+- no BOM, and `encoding="UTF-8"`;
+- a lowercase `<meta>` element;
+- one last digit of a float. XPath 1.0's number-to-string algorithm prints 9565.910000000001 for the double that 2.0+
+  prints, as the shortest form, 9565.910000000002.
+
+20,000 orders, medians of interleaved runs (`pairs` mode); this machine was also running other work:
+
+| Pair | Stock, 1.0 | Xsl3, 1.0 | Xsl3, 3.0 rewrite | Rewrite / stock |
+|---|---:|---:|---:|---:|
+| identity | 39.5 ms | 39.6 ms | 75.0 ms | 1.90 |
+| sort | 60.3 ms | 31.6 ms | 163.4 ms | 2.71 |
+| muenchian | 23.6 ms | 19.0 ms | 67.8 ms | 2.88 |
+| string-recursion | 16.6 ms | 12.6 ms | 68.7 ms | 4.15 |
+| key-join | 47.6 ms | 30.2 ms | 202.5 ms | 4.25 |
+| html-report | 5,629 ms | 24.1 ms | 120.1 ms | 0.02 |
+
+**The target is not met.** The 2.0+ path runs the same work 1.9–4.3× slower than stock runs the 1.0 version, and
+2–7× slower than Xsl3's own 1.0 path. html-report is the exception, and only because stock's `xsl:number` is
+quadratic.
+
+The profiles say why: garbage collection takes 50–70% of the time in string-recursion and key-join. The 2.0+ code
+boxes every value into an `IList<XPathItem>` of `AtomicValue` objects, calls run-time helpers for typing and
+conversion, and builds sequences where the 1.0 path pushes values straight to the output. Unboxed code generation
+(SPEC §19.1, the next Phase 4 item) is the fix.
+
+Problems that measuring turned up, fixed:
+
+- **Variables recomputed in a loop.** The QIL optimizer substituted a variable referenced once (textually) even when
+  the reference was inside a loop, so its value was computed for every iteration. The key-join rewrite rebuilt its
+  product map for every line: 650× slower than stock at 200 orders, and not finishing at 2,000. In 2.0+ stylesheets,
+  a reference in a loop body now counts as many. 1.0 stylesheets are unchanged, so their output stays identical to
+  stock's, node identity included.
+- **A correctness bug.** `map:entry`, `map:put`, `array:append`, `array:put` and `array:insert-before` kept the
+  navigator they were given. When that was the caller's iterator, every value ended up on the last node, as in
+  `map:merge(p ! map:entry(@k, .))`. They now clone it.
+- **A lock on every constant read.** `ConstantPool.Get` took a process-wide lock on every literal, cast target and
+  sequence type that compiled 2.0+ code reads. Reads are now lock-free.
+
+Found but not changed: an `xsl:sort` without `collation` or `lang` in a 2.0+ stylesheet uses the culture-sensitive
+collation, as 1.0 does. XSLT 3.0's default collation is the codepoint collation, which orders mixed-case data
+differently. That is a conformance question to settle on its own, with the W3C suite.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:
@@ -174,6 +232,9 @@ compact tree (above) helps when the transform builds the tree itself.
 
 ## Measuring
 
+`dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- pairs [orders] [name...]` runs the rewritten
+pairs: stock and Xsl3 on each 1.0 benchmark and Xsl3 on its 3.0 rewrite, interleaved, checking the outputs agree
+(`XSL3_PAIRS_DUMP=dir` writes them when they don't). `--filter '*Xsl3Profile30*'` profiles the 3.0 stylesheets.
 `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- quick30 [orders] [stylesheet]` times an XSLT
 3.0 stylesheet from `bench/corpus/xslt30` on Xsl3 alone; `XSL3_COMPACT_TREE=0` gives it XPathDocument trees for
 comparison.

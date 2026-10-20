@@ -16,6 +16,11 @@ public static class Corpus
 {
     public static string Stylesheet(string name) => Path.Combine(AppContext.BaseDirectory, "corpus", "xslt10", name + ".xsl");
 
+    /// <summary>The XSLT 3.0 rewrite of a 1.0 benchmark (SPEC §19.6, rewritten pairs): same output, idiomatic 3.0.</summary>
+    public static string Rewrite(string name) => Path.Combine(AppContext.BaseDirectory, "corpus", "xslt30", "pairs", name + ".xsl");
+
+    public static readonly string[] Pairs = { "identity", "sort", "muenchian", "string-recursion", "key-join", "html-report" };
+
     /// <summary>An order book: <paramref name="orders"/> orders over a product catalogue, about 450 bytes per order.</summary>
     public static string Orders(int orders)
     {

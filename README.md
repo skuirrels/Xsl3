@@ -71,6 +71,10 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
   temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`), the `parameter-document` serialization parameter.
+- **Open question: the default sort collation in 2.0+.** `xsl:sort` without `collation` or `lang` sorts with the
+  culture-sensitive collation, as XSLT 1.0 does. XSLT 3.0's default collation is the Unicode codepoint collation,
+  which orders mixed-case text differently (`B` before `a`). Switching would be more conformant but could change the
+  output of existing 2.0+ stylesheets, so it waits for a check against the W3C suite.
 - **API**: public ways to supply the package library and the base output URI (the test harness uses internal
   ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
 - **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
@@ -81,8 +85,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 - **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use.
   - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
-  - Still to do: unboxed codegen for 2.0/3.0, Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison for
-    2.0/3.0.
+  - XSLT 2.0/3.0 is slower than 1.0. The 3.0 rewrites of the 1.0 benchmarks run 1.9–4.3× slower than the 1.0
+    versions on stock, because the 2.0+ code boxes its values. Unboxed codegen is the next step.
+  - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
   before 1.0.
@@ -170,7 +175,7 @@ From [SPEC.md §22](SPEC.md):
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; unboxed 2.0/3.0 codegen, Sink B, NativeAOT and the SaxonCS comparison to do |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks measured at 1.9–4.3× slower than stock (target ≤ 1×), so unboxed 2.0/3.0 codegen is next; Sink B, NativeAOT and the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |

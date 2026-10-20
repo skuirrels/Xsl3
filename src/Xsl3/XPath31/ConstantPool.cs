@@ -15,25 +15,30 @@ namespace Xsl3.XPath31
     /// </remarks>
     internal static class ConstantPool
     {
-        private static readonly List<object> s_entries = new();
+        // Xsl3 (P4): reads are lock-free (compiled code reads constants on every evaluation): an entry is written
+        // before its id is returned, and a full array is replaced by a larger copy, never changed in place.
+        private static object[] s_entries = new object[256];
+        private static int s_count;
         private static readonly object s_lock = new();
 
         public static int Add(object value)
         {
             lock (s_lock)
             {
-                s_entries.Add(value);
-                return s_entries.Count - 1;
+                object[] entries = s_entries;
+                if (s_count == entries.Length)
+                {
+                    var larger = new object[entries.Length * 2];
+                    System.Array.Copy(entries, larger, entries.Length);
+                    entries = larger;
+                }
+                entries[s_count] = value;
+                System.Threading.Volatile.Write(ref s_entries, entries);
+                return s_count++;
             }
         }
 
-        public static object Get(int id)
-        {
-            lock (s_lock)
-            {
-                return s_entries[id];
-            }
-        }
+        public static object Get(int id) => System.Threading.Volatile.Read(ref s_entries)[id];
     }
 
     /// <summary>

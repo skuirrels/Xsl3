@@ -17,6 +17,27 @@ namespace Xsl3.XPath31.Functions
 
         private static AtomicValue Key(IList<XPathItem> arg) => (AtomicValue)arg[0];
 
+        /// <summary>
+        /// A value a map or array keeps: its nodes cloned, since a navigator in an argument can be the caller's
+        /// iterator, which moves on (map:merge(p ! map:entry(@k, .)) would otherwise see every value on the last p).
+        /// </summary>
+        private static IList<XPathItem> Keep(IList<XPathItem> value)
+        {
+            for (int i = 0; i < value.Count; i++)
+            {
+                if (value[i] is XPathNavigator)
+                {
+                    var copy = new XPathItem[value.Count];
+                    for (int j = 0; j < copy.Length; j++)
+                    {
+                        copy[j] = value[j] is XPathNavigator n ? n.Clone() : value[j];
+                    }
+                    return copy;
+                }
+            }
+            return value;
+        }
+
         private static BigInteger I(IList<XPathItem> arg) => ((IntegerValue)arg[0]).Integer;
 
         private static void RegisterMapsAndArrays()
@@ -28,8 +49,8 @@ namespace Xsl3.XPath31.Functions
             Define("map:contains($map as map(*), $key as xs:anyAtomicType) as xs:boolean", (c, a) => Bool(Map(a[0]).ContainsKey(Key(a[1]))));
             Define("map:get($map as map(*), $key as xs:anyAtomicType) as item()*", (c, a) => Map(a[0]).Get(Key(a[1])) ?? Empty);
             Define("map:find($input as item()*, $key as xs:anyAtomicType) as array(*)", (c, a) => One(XdmArray.Of(Find(a[0], Key(a[1])))));
-            Define("map:put($map as map(*), $key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(Map(a[0]).Put(Key(a[1]), a[2])));
-            Define("map:entry($key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(XdmMap.Empty.Put(Key(a[0]), a[1])));
+            Define("map:put($map as map(*), $key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(Map(a[0]).Put(Key(a[1]), Keep(a[2]))));
+            Define("map:entry($key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(XdmMap.Empty.Put(Key(a[0]), Keep(a[1]))));
             Define("map:remove($map as map(*), $keys as xs:anyAtomicType*) as map(*)", (c, a) =>
             {
                 XdmMap map = Map(a[0]);
@@ -42,8 +63,8 @@ namespace Xsl3.XPath31.Functions
 
             Define("array:size($array as array(*)) as xs:integer", (c, a) => Int(Array(a[0]).Count));
             Define("array:get($array as array(*), $position as xs:integer) as item()*", (c, a) => Array(a[0]).Get(I(a[1])));
-            Define("array:put($array as array(*), $position as xs:integer, $member as item()*) as array(*)", (c, a) => One(Array(a[0]).Put(I(a[1]), a[2])));
-            Define("array:append($array as array(*), $appendage as item()*) as array(*)", (c, a) => One(Array(a[0]).Append(a[1])));
+            Define("array:put($array as array(*), $position as xs:integer, $member as item()*) as array(*)", (c, a) => One(Array(a[0]).Put(I(a[1]), Keep(a[2]))));
+            Define("array:append($array as array(*), $appendage as item()*) as array(*)", (c, a) => One(Array(a[0]).Append(Keep(a[1]))));
             Define("array:subarray($array as array(*), $start as xs:integer) as array(*)", (c, a) =>
                 One(Subarray(Array(a[0]), I(a[1]), Array(a[0]).Count - I(a[1]) + 1)));
             Define("array:subarray($array as array(*), $start as xs:integer, $length as xs:integer) as array(*)", (c, a) =>
@@ -72,7 +93,7 @@ namespace Xsl3.XPath31.Functions
                 {
                     throw new XdmException("FOAY0001", $"Array position {p} is out of bounds (the array has {array.Count} members)");
                 }
-                return One(array.Insert((int)p - 1, a[2]));
+                return One(array.Insert((int)p - 1, Keep(a[2])));
             });
             Define("array:head($array as array(*)) as item()*", (c, a) =>
                 Array(a[0]).Count > 0 ? Array(a[0])[0] : throw new XdmException("FOAY0001", "array:head of an empty array"));

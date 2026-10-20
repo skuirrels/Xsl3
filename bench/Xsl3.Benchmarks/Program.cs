@@ -6,6 +6,18 @@ using BenchmarkDotNet.Running;
 // dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- --filter '*Transform*' --job short
 // dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- quick [orders] [stylesheet...]
 //   A quick comparison for development (median of interleaved runs); BenchmarkDotNet's numbers are the record.
+if (args.Length == 3 && args[0] == "corpus")
+{
+    // dotnet run ... -- corpus <orders> <file>: writes the generated input document.
+    System.IO.File.WriteAllText(args[2], Xsl3.Benchmarks.Corpus.Orders(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture)));
+    return;
+}
+if (args.Length > 0 && args[0] == "pairs")
+{
+    // dotnet run ... -- pairs [orders] [name...]: each 1.0 benchmark on stock against its XSLT 3.0 rewrite on Xsl3.
+    Xsl3.Benchmarks.Quick.RunPairs(args[1..]);
+    return;
+}
 if (args.Length > 0 && args[0] == "quick30")
 {
     // dotnet run ... -- quick30 [orders] [stylesheet]: an XSLT 3.0 stylesheet from bench/corpus/xslt30, Xsl3 alone.

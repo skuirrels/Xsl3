@@ -30,6 +30,27 @@ public class Xslt30Tests
         return sw.ToString();
     }
 
+    /// <summary>Map and array values keep the nodes they were given, not the caller's moving iterator.</summary>
+    [Fact]
+    public void MapEntriesKeepTheirNodes() =>
+        Assert.Equal("<o>A B C|A B C|B</o>", Run("""
+            <xsl:template match="/r" xmlns:map="http://www.w3.org/2005/xpath-functions/map" xmlns:array="http://www.w3.org/2005/xpath-functions/array" exclude-result-prefixes="#all">
+              <xsl:variable name="m" select="map:merge(p ! map:entry(string(@k), .))"/>
+              <xsl:variable name="a" select="fold-left(p, [], function($a, $x) { array:append($a, $x) })"/>
+              <o><xsl:value-of select="$m('a'), $m('b'), $m('c')"/>|<xsl:value-of select="$a?*"/>|<xsl:value-of select="map:put(map{}, 'k', p[2])?k"/></o>
+            </xsl:template>
+            """, "<r><p k='a'>A</p><p k='b'>B</p><p k='c'>C</p></r>"));
+
+    /// <summary>A variable used once inside a loop is computed once, not for every iteration (the result is the same).</summary>
+    [Fact]
+    public void VariableUsedInALoopIsComputedOnce() =>
+        Assert.Equal("<o>a=1 b=2 c=1</o>", Run("""
+            <xsl:template match="/r" xmlns:map="http://www.w3.org/2005/xpath-functions/map" exclude-result-prefixes="#all">
+              <xsl:variable name="counts" select="map:merge(for $k in distinct-values(p/@k) return map:entry($k, count(p[@k = $k])))"/>
+              <o><xsl:value-of select="for $k in ('a', 'b', 'c') return $k || '=' || $counts($k)"/></o>
+            </xsl:template>
+            """, "<r><p k='a'/><p k='b'/><p k='b'/><p k='c'/></r>"));
+
     [Fact]
     public void TryCatchesDynamicErrorsWithTheirCode() =>
         Assert.Equal("<out><a v=\"-10\" /><caught pos=\"2\" code=\"err:FOAR0001\" /><a v=\"10\" /></out>", Run(

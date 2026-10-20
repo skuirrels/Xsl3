@@ -74,6 +74,71 @@ public static class Quick
         }
     }
 
+    /// <summary>
+    /// The rewritten pairs: each 1.0 benchmark on stock, the same on Xsl3, and its 3.0 rewrite on Xsl3, interleaved;
+    /// the rewrite's output is compared with stock's.
+    /// </summary>
+    public static void RunPairs(string[] args)
+    {
+        int orders = args.Length > 0 && int.TryParse(args[0], out int n) ? n : 20_000;
+        string[] names = args.Length > 1 ? args[1..] : Corpus.Pairs;
+        var input = new XPathDocument(new StringReader(Corpus.Orders(orders)));
+        int budget = int.TryParse(Environment.GetEnvironmentVariable("XSL3_QUICK_MS"), out int b) ? b : 3000;
+        Console.WriteLine($"{"pair",-18} {"stock 1.0",10} {"xsl3 1.0",10} {"xsl3 3.0",10} {"3.0/stock",10} {"output",8}");
+        foreach (string name in names)
+        {
+            var stock = new Stock.XslCompiledTransform();
+            stock.Load(Corpus.Stylesheet(name));
+            var xsl3 = new XslCompiledTransform();
+            xsl3.Load(Corpus.Stylesheet(name));
+            var rewrite = new XslCompiledTransform();
+            rewrite.Load(Corpus.Rewrite(name));
+            var expected = new MemoryStream();
+            var actual = new MemoryStream();
+            stock.Transform(input, null, expected);
+            rewrite.Transform(input, null, actual);
+            // The 2.0+ serializer writes no BOM and "UTF-8"; compare what follows the XML declaration.
+            bool same = AfterDeclaration(expected.ToArray()) == AfterDeclaration(actual.ToArray());
+            if (!same && Environment.GetEnvironmentVariable("XSL3_PAIRS_DUMP") is string dir)
+            {
+                File.WriteAllBytes(Path.Combine(dir, name + ".stock.out"), expected.ToArray());
+                File.WriteAllBytes(Path.Combine(dir, name + ".rewrite.out"), actual.ToArray());
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                stock.Transform(input, null, Stream.Null);
+                xsl3.Transform(input, null, Stream.Null);
+                rewrite.Transform(input, null, Stream.Null);
+            }
+            var watch = Stopwatch.StartNew();
+            stock.Transform(input, null, Stream.Null);
+            int runs = Math.Clamp((int)(budget / Math.Max(1, watch.ElapsedMilliseconds)), 3, 201);
+            var s = new List<double>();
+            var x = new List<double>();
+            var r = new List<double>();
+            for (int i = 0; i < runs; i++)
+            {
+                watch.Restart();
+                stock.Transform(input, null, Stream.Null);
+                s.Add(watch.Elapsed.TotalMilliseconds);
+                watch.Restart();
+                xsl3.Transform(input, null, Stream.Null);
+                x.Add(watch.Elapsed.TotalMilliseconds);
+                watch.Restart();
+                rewrite.Transform(input, null, Stream.Null);
+                r.Add(watch.Elapsed.TotalMilliseconds);
+            }
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"{name,-18} {Median(s),10:F2} {Median(x),10:F2} {Median(r),10:F2} {Median(r) / Median(s),10:F2} {(same ? "same" : "DIFFERS"),8}"));
+        }
+    }
+
+    private static string AfterDeclaration(byte[] bytes)
+    {
+        string text = System.Text.Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
+        return text.StartsWith("<?xml", StringComparison.Ordinal) ? text[(text.IndexOf("?>", StringComparison.Ordinal) + 2)..] : text;
+    }
+
     /// <summary>An XSLT 3.0 stylesheet, Xsl3 alone: median and minimum time, and allocation, per transform.</summary>
     public static void Run30(string[] args)
     {
