@@ -118,7 +118,7 @@ xslt.Load("style.xsl");
 xslt.Transform("input.xml", "output.html");
 ```
 
-- **Speed:** transforms from a file, URI, stream or `XmlReader` run about 1.5× faster than stock, against about 1.4×
+- **Speed:** transforms from a file, URI, stream or `XmlReader` run about 1.5× faster than stock, against about 1.2×
   without it.
 - **Memory:** the tree takes about 60% of `XPathDocument`'s memory.
 - **What it covers:** the input and the documents `document()` loads. An `XPathDocument` you pass in yourself is used
