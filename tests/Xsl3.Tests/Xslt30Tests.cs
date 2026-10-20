@@ -70,6 +70,21 @@ public class Xslt30Tests
             </xsl:template>
             """, "<r><p k='a' n='1'/><p k='a' n='2'/><p k='a' n='3'/><p k='b' n='4'/><p k='a' n='5'/><p k='z' n='6'/></r>"));
 
+    /// <summary>
+    /// A map read many times (P4: it then gets a hash table): numeric keys equal across types, strings, missing keys,
+    /// and the map updated after the reads.
+    /// </summary>
+    [Fact]
+    public void MapReadManyTimes() =>
+        Assert.Equal("<o>840 true false 40 x|y 0 23</o>", Run("""
+            <xsl:template match="/" xmlns:map="http://www.w3.org/2005/xpath-functions/map" xmlns:xs="http://www.w3.org/2001/XMLSchema" exclude-result-prefixes="#all">
+              <xsl:variable name="m" select="map:merge(((1 to 20) ! map:entry(., . * 2), map:entry('x', 'x'), map:entry(xs:untypedAtomic('y'), 'y')))"/>
+              <xsl:variable name="m2" select="map:put($m, 21, 0)"/>
+              <o><xsl:value-of select="sum((1 to 40) ! ($m(.), $m(xs:double(.)), $m(xs:decimal(.)) div 2) ! .) - sum((1 to 20) ! .),
+                map:contains($m, 20.0), map:contains($m, 21), $m(20), concat($m('x'), '|', $m('y')), $m2(21), map:size($m2)"/></o>
+            </xsl:template>
+            """, "<r/>"));
+
     /// <summary>Value templates and string functions over zero, one or several nodes (the native-string paths).</summary>
     [Fact]
     public void ValueTemplatesOfNodes() =>

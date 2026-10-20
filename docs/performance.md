@@ -354,6 +354,23 @@ The built-in shallow-copy and shallow-skip rules now apply templates to `@* | no
 which holds the attributes first and then the children. That is how 1.0's `@*|node()` is compiled. As one sequence,
 `position()` now runs across the attributes and children, as the spec defines the rule.
 
+### Map lookups
+
+| Pair | Direct writer | Map lookups |
+|---|---:|---:|
+| identity | 0.78 | 0.80 |
+| sort | 1.11 | 1.04 |
+| muenchian | 1.12 | 1.07 |
+| string-recursion | 0.88 | 0.70 |
+| key-join | 1.08 | 1.00 |
+
+Same measure, the median of three runs. Only key-join's code changed; the other pairs moved within the noise.
+
+An XDM map is immutable, so updates share structure: it is an `ImmutableDictionary`, which is a balanced tree.
+Looking up a key walks the tree. A map that is read again and again, such as key-join's product table read once per
+order line, now gets a plain hash table of its entries after 16 reads, if it has at least 8 entries. Maps that are
+built, read a few times and updated don't pay for it. Since the map can't change, the table never goes stale.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

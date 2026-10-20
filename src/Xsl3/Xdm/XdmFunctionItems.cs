@@ -146,9 +146,25 @@ namespace Xsl3.Xdm
 
         private IEnumerable<Entry> Ordered => _entries.Count <= 1 ? _entries.Values : _entries.Values.OrderBy(e => e.Order);
 
-        public bool ContainsKey(AtomicValue key) => _entries.ContainsKey(new MapKey(key));
+        public bool ContainsKey(AtomicValue key) => Lookup(new MapKey(key), out _);
 
-        public IList<XPathItem>? Get(AtomicValue key) => _entries.TryGetValue(new MapKey(key), out var e) ? e.Value : null;
+        public IList<XPathItem>? Get(AtomicValue key) => Lookup(new MapKey(key), out var e) ? e.Value : null;
+
+        // Xsl3 (P4): a map that is read again and again (a lookup table in a loop) gets a hash table of its entries,
+        // which the map's immutability makes safe to keep; the persistent dictionary is a tree, slower to search.
+        // Built after a few reads, so maps made, read once and updated don't pay for it. Races only build it twice.
+        private Dictionary<MapKey, Entry>? _lookup;
+        private int _reads;
+
+        private bool Lookup(MapKey key, out Entry entry)
+        {
+            Dictionary<MapKey, Entry>? lookup = _lookup;
+            if (lookup == null && _entries.Count >= 8 && ++_reads == 16)
+            {
+                _lookup = lookup = new Dictionary<MapKey, Entry>(_entries);
+            }
+            return lookup != null ? lookup.TryGetValue(key, out entry) : _entries.TryGetValue(key, out entry);
+        }
 
         // A replaced entry keeps its place.
         public XdmMap Put(AtomicValue key, IList<XPathItem> value)
