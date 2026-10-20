@@ -115,4 +115,50 @@ public class SerializationTests
             <xsl:output omit-xml-declaration="yes" doctype-system='x"y'/>
             <xsl:template match="/"><a><xsl:value-of select="codepoints-to-string(13)"/></a></xsl:template>
             """).Replace(" />", "/>"));
+
+    /// <summary>xsl:result-document in a template called from a variable's content is in temporary output state (XTDE1480).</summary>
+    [Fact]
+    public void ResultDocumentInTemporaryOutputState()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><xsl:variable name="v"><xsl:call-template name="r"/></xsl:variable><out><xsl:sequence select="$v"/></out></xsl:template>
+            <xsl:template name="r"><xsl:result-document href="x.xml"><x/></xsl:result-document></xsl:template>
+            """));
+        Assert.Contains("XTDE1480: xsl:result-document can't be evaluated while a temporary tree", e.ToString());
+    }
+
+    /// <summary>The content of xsl:attribute isn't temporary output state in XSLT 3.0: the result document is written.</summary>
+    [Fact]
+    public void ResultDocumentFromAttributeContent()
+    {
+        var written = new System.Collections.Generic.Dictionary<string, StringWriter>();
+        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => written[uri] = new StringWriter();
+        try
+        {
+            Assert.Equal("<out v=\"r\" />", Run("""
+                <xsl:output omit-xml-declaration="yes"/>
+                <xsl:template match="/"><out><xsl:attribute name="v"><xsl:call-template name="r"/></xsl:attribute></out></xsl:template>
+                <xsl:template name="r"><xsl:result-document href="x.xml"><x/></xsl:result-document>r</xsl:template>
+                """));
+            Assert.Single(written);
+        }
+        finally
+        {
+            Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = null;
+        }
+    }
+
+    /// <summary>The adaptive method writes a node with an XML declaration unless omit-xml-declaration="yes" (Serialization 3.1 §10.1.6).</summary>
+    [Fact]
+    public void AdaptiveNodeDeclaration()
+    {
+        Assert.Equal("<?xml version=\"1.0\" encoding=\"UTF-8\"?><e/>", Run("""
+            <xsl:output method="adaptive"/>
+            <xsl:template match="/"><e/></xsl:template>
+            """));
+        Assert.Equal("<e/>", Run("""
+            <xsl:output method="adaptive" omit-xml-declaration="yes"/>
+            <xsl:template match="/"><e/></xsl:template>
+            """));
+    }
 }

@@ -317,8 +317,13 @@ namespace Xsl3.Runtime
         /// children are returned to become part of it.
         /// </summary>
         public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string baseUri, double formatId, string formatName,
-            double formatsId, string parameters, double namesId)
+            double formatsId, string parameters, double namesId, IList<XPathItem> callerFrame)
         {
+            if (callerFrame.Count != 0 && ((TunnelFrame)callerFrame[0]).Find(OutputEntry, "") is { } callerOutput && callerOutput.ParamValue[0].Value == TemporaryOutput)
+            {
+                // In a template called from a function body or the content of a variable or parameter (XSLT 3.0 §25.2).
+                throw new XdmException("XTDE1480", "xsl:result-document can't be evaluated while a temporary tree or a function result is being constructed");
+            }
             bool raw = parameters.Contains("#raw" + SerializationParameters.NameEnd, System.StringComparison.Ordinal);
             var doc = raw ? null! : (XPathNavigator)document[0];
             XsltNameContext names = (XsltNameContext)ConstantPool.Get((int)namesId);
@@ -670,11 +675,14 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31TunnelSetOutput(IList<XPathItem> frame, string uri) =>
             new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], OutputEntry, "", Sequences.One(AtomicValue.OfString(uri))) };
 
+        /// <summary>The current output URI of templates called in temporary output state (XSLT 3.0 §25.2).</summary>
+        internal const string TemporaryOutput = "\u0001xsl3-temporary";
+
         /// <summary>current-output-uri() (XSLT 3.0 §20.5.2): the result document's URI, else the base output URI.</summary>
         public IList<XPathItem> X31CurrentOutputUri(IList<XPathItem> frame)
         {
             string? uri = frame.Count != 0 && ((TunnelFrame)frame[0]).Find(OutputEntry, "") is { } entry ? entry.ParamValue[0].Value : XmlQueryRuntime.BaseOutputUri;
-            return string.IsNullOrEmpty(uri) ? Sequences.Empty : Sequences.One(new StringValue(AtomicTypes.AnyUri, uri));
+            return string.IsNullOrEmpty(uri) || uri == TemporaryOutput ? Sequences.Empty : Sequences.One(new StringValue(AtomicTypes.AnyUri, uri));
         }
 
         public IList<XPathItem> X31TunnelGet(IList<XPathItem> frame, string ns, string local) =>

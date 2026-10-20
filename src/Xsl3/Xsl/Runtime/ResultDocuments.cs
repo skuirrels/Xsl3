@@ -158,6 +158,10 @@ namespace Xsl3.Runtime
                         break;
                 }
             }
+            if (extras?.RawMethod == "adaptive")
+            {
+                extras.AdaptiveXmlDeclaration = !settings.OmitXmlDeclaration;
+            }
             if (byteOrderMark is bool bom)
             {
                 settings.Encoding = settings.Encoding switch

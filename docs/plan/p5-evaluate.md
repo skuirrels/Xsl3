@@ -109,6 +109,11 @@ The exit criterion is measured over five xslt30-test sets, by the harness as it 
 13. **Output declarations merge by import precedence**, parameter by parameter, for the 2.0+ parameters as for
     upstream's; `use-character-maps` of every declaration apply, higher precedence last.
 
+14. **Temporary output state travels in the tunnel frame**, like the current output URI: a call made from a function
+    body or from the content of a variable or parameter marks the frame, and `xsl:result-document` in the called
+    template raises XTDE1480 (XSLT 3.0 §25.2); `current-output-uri()` is absent there. No cost at run time beyond
+    those calls.
+
 ## Milestones
 
 ### M1: `xsl:evaluate` (decisions 1–8)
@@ -138,12 +143,14 @@ The exit criterion is measured over five xslt30-test sets, by the harness as it 
 - [x] json and adaptive output of maps through `xsl:result-document` (computed format or method, `build-tree="no"`);
       characters the encoding lacks escaped in json/adaptive; SERE0012; `byte-order-mark` after `encoding`; EQName
       formats; `json-node-output-method` html and xhtml.
-- [ ] `output` and `result-document` ≥ 98%: `output` 98.2%, `result-document` 97.9% (three XTDE1480 tests).
+- [x] `output` and `result-document` ≥ 98%: `output` 98.6%, `result-document` 100%.
 
 ### M4: `disable-output-escaping` and the long tail
 
 - [x] `disable-output-escaping` on text nodes that reach the result through a sequence (decision 12).
-- [ ] The rest of the five sets' failures: seven left (docs/conformance.md lists them).
+- [x] XTDE1480 for `xsl:result-document` in templates called in temporary output state (decision 14); XML
+      declarations for nodes in adaptive output.
+- [ ] The rest of the five sets' failures: three left, on P4's direct result path (docs/conformance.md lists them).
 - [x] Exit: the five sets ≥ 98% together (98.5%), none below 95%; docs/conformance.md, README roadmap row.
 
 ## Status
@@ -161,3 +168,9 @@ dynamic calls now has a dispatcher). The five sets: 407 passed of 457 run (89.1%
 output-0285, -0311), the xhtml default method on the direct result path (output-0130, P4's fast path), an XML
 declaration in adaptive output (output-0721), XTDE1480 for `xsl:result-document` reached at run time in temporary
 output state (result-document-1139, -1140, -1142).
+
+2026-10-20: long tail. XTDE1480 at run time (decision 14) and XML declarations for nodes in adaptive output
+(Serialization 3.1 §10.1.6: the adaptive method passes omit-xml-declaration, "no" by default in XSLT, to the xml
+method). The five sets: 454 of 457 (99.3%); `output` 218 / 221, `result-document` 140 / 140. xslt30-test 3.0
+profile: 7,642 passed, 335 failed, 86 not run (95.8%); 2.0 profile 96.7%. Left: output-0285, -0311 and -0130, all on
+P4's direct result path.

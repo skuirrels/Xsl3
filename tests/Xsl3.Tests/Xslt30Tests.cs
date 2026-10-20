@@ -406,7 +406,8 @@ public class Xslt30Tests
 
     [Fact]
     public void AdaptiveOutput() =>
-        Assert.Equal("\"a\"\n1\ntrue()\n<e/>", RunText(
+        // A node is written by the xml method, with an XML declaration unless omit-xml-declaration="yes" (Serialization 3.1 §10.1.6).
+        Assert.Equal("\"a\"\n1\ntrue()\n<?xml version=\"1.0\" encoding=\"UTF-8\"?><e/>", RunText(
             "<xsl:output method='adaptive'/><xsl:template match='/'><xsl:sequence select=\"'a', 1, true()\"/><e/></xsl:template>"));
 
     [Fact]

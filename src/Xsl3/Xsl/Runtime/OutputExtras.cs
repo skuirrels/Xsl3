@@ -44,6 +44,12 @@ namespace Xsl3.Runtime
 
         public bool AllowDuplicateNames { get; set; }
 
+        /// <summary>
+        /// The adaptive method: nodes are written with an XML declaration, since omit-xml-declaration (which the
+        /// method passes to the xml method, Serialization 3.1 §10.1.6) is "no". Not for fn:serialize, whose default is "yes".
+        /// </summary>
+        public bool AdaptiveXmlDeclaration { get; set; }
+
         public bool Indent { get; set; }
 
         /// <summary>HTML5 serialization (html-version 5): its void elements, and &lt;!DOCTYPE html&gt; by default.</summary>

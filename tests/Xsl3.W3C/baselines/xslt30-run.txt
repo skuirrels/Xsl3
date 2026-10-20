@@ -77,7 +77,6 @@ copy/copy-3002
 copy/copy-4308
 copy/copy-4901
 copy/copy-5101
-current-output-uri/current-output-uri-008
 current-output-uri/current-output-uri-016
 current-output-uri/current-output-uri-017
 date/date-064
@@ -217,7 +216,6 @@ on-non-empty/on-non-empty-007
 output/output-0130
 output/output-0285
 output/output-0311
-output/output-0721
 override/override-f-029
 override/override-t-003d
 override/override-v-008
@@ -271,9 +269,6 @@ regex-classes/regex-classes-111
 regex/regex-090
 regex/regex-091
 resolve-uri/resolve-uri-021
-result-document/result-document-1139
-result-document/result-document-1140
-result-document/result-document-1142
 select/select-6101
 select/select-6201
 sequence/sequence-0112

@@ -73,6 +73,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
 | 2026-10-20 | 7,549 | 386 | 86 | 95.1% | `fn:copy-of`/`fn:snapshot` copies keep each element's own namespace declaration; `xsl:namespace` raises XTDE0920, XTDE0925, XTDE0905 and XTDE0930, and the result tree XTDE0440 and XTDE0430, without relying on the serializer |
+| 2026-10-20 | 7,642 | 335 | 86 | 95.8% | P5 long tail: XTDE1480 for `xsl:result-document` in templates called in temporary output state (the tunnel frame marks it), XML declarations for nodes in adaptive output (Serialization 3.1 §10.1.6) |
 | 2026-10-20 | 7,637 | 340 | 86 | 95.7% | P5 M2–M4: character maps (before normalization; not in CDATA, escaped URI attributes or namespace declarations; adaptive output), `parameter-document`, output declarations merged by import precedence, the xhtml `meta` element replacing the stylesheet's, cdata-section-elements written by Xsl3 (namespace declarations no longer CDATA), HTML5 prefix normalization, carriage returns as `&#xD;`, SERE0012, json-node-output-method html/xhtml, `disable-output-escaping` through sequences |
 | 2026-10-20 | 7,593 | 384 | 86 | 95.2% | P5 (docs/plan/p5-evaluate.md) M1: `xsl:evaluate`, with `dynamic_evaluation` claimed (the 42 `evaluate` tests that apply, and `try-027`, `system-property-014a`, now run; `error-3175a` and `system-property-014b`, which need the feature absent, no longer apply); every unit with function items has a dispatcher |
 | 2026-10-20 | 7,545 | 390 | 86 | 95.1% | P3 exit. `unparsed-entity-uri` and `unparsed-entity-public-id` (1 and 2 arguments, from the document's DTD), focus kept by `unparsed-entity-uri#1` and friends, attribute checks (XTSE0090 for `visibility`, `package-version`, `name` and `declared-modes` where they don't belong), `required="no"` on function parameters, rule-less accumulators, `xsl:fallback` order in `xsl:analyze-string`, `current-merge-group()`/`current-merge-key()` in patterns |
@@ -93,16 +94,15 @@ claimed. Measured on 2026-10-20 (Release, .NET 10):
 | Set | Passed | Failed | Pass rate | Before P5 |
 |---|---:|---:|---:|---:|
 | `evaluate` | 42 | 0 | 100.0% | not run |
-| `output` | 217 | 4 | 98.2% | 89.6% |
+| `output` | 218 | 3 | 98.6% | 89.6% |
 | `character-map` | 29 | 0 | 100.0% | 82.8% |
-| `result-document` | 137 | 3 | 97.9% | 90.7% |
+| `result-document` | 140 | 0 | 100.0% | 90.7% |
 | `disable-output-escaping` | 25 | 0 | 100.0% | 64.0% |
-| **Together** | **450** | **7** | **98.5%** | 88.0% |
+| **Together** | **454** | **3** | **99.3%** | 88.0% |
 
-The seven failures: `<a />` rather than `<a/>` (output-0285, -0311), the xhtml default method on the direct result
-path (output-0130), an XML declaration in adaptive output (output-0721), and XTDE1480 for `xsl:result-document`
-reached at run time in temporary output state (result-document-1139, -1140, -1142). The 2.0 profile went from 96.3%
-to 96.7% (4,439 passed, 151 failed).
+The three failures: `<a />` rather than `<a/>` (output-0285, -0311) and the xhtml default method on the direct
+result path (output-0130), both from P4's fast path to .NET's writer. The 2.0 profile went from 96.3% to 96.7%
+(4,439 passed, 151 failed).
 
 | Suite | Feature | Pass | Fail | Not applicable |
 |---|---|---|---|---|

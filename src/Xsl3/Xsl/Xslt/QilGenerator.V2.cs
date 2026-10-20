@@ -619,6 +619,8 @@ namespace Xsl3.Xslt
                     QilIterator outputFrame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS),
                         X31(nameof(XsltLibrary.X31OutputUri), T.StringX, href, _f.String(StaticBaseUri31() ?? ""))));
                     QilNode? savedTunnel = _currentTunnel;
+                    // The caller's frame tells whether this is temporary output state (XTDE1480).
+                    QilNode callerFrame = _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS);
                     _currentTunnel = outputFrame;
                     // The output definition: format="…" names one (at run time if it is computed); else the unnamed one.
                     Output baseOutput = _compiler.Output;
@@ -677,7 +679,7 @@ namespace Xsl3.Xslt
                     }
                     return _f.Loop(href, _f.Loop(outputFrame, X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, doc, _f.String(StaticBaseUri31() ?? ""),
                         _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
-                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()))));
+                        parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()), callerFrame)));
                 }
             }
             return null;
@@ -702,10 +704,11 @@ namespace Xsl3.Xslt
         private QilNode TunnelFrame31(IList<XslNode> args, int from)
         {
             QilNode frame = _currentTunnel != null ? _currentTunnel : _f.TypeAssert(_f.Sequence(), T.ItemS);
-            if (_currentTunnel == null && FocusAbsent)
+            if (_temporaryOutput31 > 0 || _currentTunnel == null && FocusAbsent)
             {
-                // Templates called from a function body are in temporary output state: no current output URI.
-                frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(""));
+                // Templates called from a function body or the content of a variable or parameter are in temporary
+                // output state: no current output URI, and xsl:result-document is an error (XTDE1480).
+                frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(XsltLibrary.TemporaryOutput));
             }
             for (int i = from; i < args.Count;)
             {
@@ -2427,6 +2430,7 @@ namespace Xsl3.Xslt
                 extras.JsonNodeOutputMethod = output.JsonNodeOutputMethod;
                 extras.AllowDuplicateNames = output.AllowDuplicateNames;
                 extras.Indent = output.Settings.Indent;
+                extras.AdaptiveXmlDeclaration = raw.Name == "adaptive" && !output.Settings.OmitXmlDeclaration;
             }
             else if (output.ItemSeparator != null)
             {

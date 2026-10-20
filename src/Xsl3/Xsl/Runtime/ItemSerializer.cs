@@ -37,7 +37,7 @@ namespace Xsl3.Runtime
                     {
                         sb.Append(separator);
                     }
-                    Adaptive(sb, items[i], top: true, extras.CharacterMap);
+                    Adaptive(sb, items[i], top: true, extras);
                 }
             }
             output.Write(extras.Normalization is NormalizationForm form ? sb.ToString().Normalize(form) : sb.ToString());
@@ -292,8 +292,9 @@ namespace Xsl3.Runtime
         // ------------------------------------------------------------ adaptive
 
         // The character map applies to strings and to nodes, which are serialized with the xml method (§11).
-        private static void Adaptive(StringBuilder sb, XPathItem item, bool top, IReadOnlyDictionary<int, string>? characterMap)
+        private static void Adaptive(StringBuilder sb, XPathItem item, bool top, OutputExtras extras)
         {
+            IReadOnlyDictionary<int, string>? characterMap = extras.CharacterMap;
             switch (item)
             {
                 case XdmMap map:
@@ -307,9 +308,9 @@ namespace Xsl3.Runtime
                             sb.Append(',');
                         }
                         first = false;
-                        Adaptive(sb, key, top: false, characterMap);
+                        Adaptive(sb, key, top: false, extras);
                         sb.Append(':');
-                        AdaptiveSequence(sb, value, characterMap);
+                        AdaptiveSequence(sb, value, extras);
                     }
                     sb.Append('}');
                     break;
@@ -322,7 +323,7 @@ namespace Xsl3.Runtime
                         {
                             sb.Append(',');
                         }
-                        AdaptiveSequence(sb, array.Members[i], characterMap);
+                        AdaptiveSequence(sb, array.Members[i], extras);
                     }
                     sb.Append(']');
                     break;
@@ -339,6 +340,11 @@ namespace Xsl3.Runtime
                             sb.Append(node.LocalName.Length == 0 ? "xmlns" : "xmlns:" + node.LocalName).Append("=\"").Append(EscapeAttribute(node.Value)).Append('"');
                             break;
                         default:
+                            if (extras.AdaptiveXmlDeclaration)
+                            {
+                                // The node is serialized by the xml method, with its XML declaration (Serialization 3.1 §10.1.6).
+                                sb.Append("<?xml version=\"1.0\" encoding=\"").Append(extras.Encoding).Append("\"?>");
+                            }
                             sb.Append(NodeAsXml(node, characterMap));
                             break;
                     }
@@ -392,11 +398,11 @@ namespace Xsl3.Runtime
             sb.Append('"');
         }
 
-        private static void AdaptiveSequence(StringBuilder sb, IList<XPathItem> value, IReadOnlyDictionary<int, string>? characterMap)
+        private static void AdaptiveSequence(StringBuilder sb, IList<XPathItem> value, OutputExtras extras)
         {
             if (value.Count == 1)
             {
-                Adaptive(sb, value[0], top: false, characterMap);
+                Adaptive(sb, value[0], top: false, extras);
                 return;
             }
             sb.Append('(');
@@ -406,7 +412,7 @@ namespace Xsl3.Runtime
                 {
                     sb.Append(',');
                 }
-                Adaptive(sb, value[i], top: false, characterMap);
+                Adaptive(sb, value[i], top: false, extras);
             }
             sb.Append(')');
         }
