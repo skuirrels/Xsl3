@@ -304,9 +304,39 @@ public class CompactTreeTests
             Same(e, a);
         }
     }
+}
 
+/// <summary>
+/// Memory use. The live heap is only a fair measure in a process that has done nothing else: in the test host, what
+/// other tests left behind (name pools freed a collection late, large-object-heap state) moved the numbers by more
+/// than the margin. So the measurement runs in a child process (<see cref="Program"/>), after a warm-up that loads
+/// both builders' types, static tables and names, and keeps the least of three measurements.
+/// </summary>
+public class CompactTreeMemoryTests
+{
     [Fact]
     public void TakesLessMemoryThanXPathDocument()
+    {
+        string host = System.Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } path ? path : "dotnet";
+        var start = new System.Diagnostics.ProcessStartInfo(host)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add(typeof(Program).Assembly.Location);
+        start.ArgumentList.Add(Program.MemoryProbe);
+        using var process = System.Diagnostics.Process.Start(start)!;
+        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, output);
+        string[] numbers = output.Trim().Split(' ');
+        long xpathDocument = long.Parse(numbers[0]), compact = long.Parse(numbers[1]);
+        Assert.True(compact <= xpathDocument * 3 / 4, $"compact tree {compact} bytes, XPathDocument {xpathDocument}");
+    }
+
+    /// <summary>Prints "xpathDocumentBytes compactBytes" for the orders document.</summary>
+    internal static void Probe()
     {
         var sb = new StringBuilder("<orders>");
         for (int i = 0; i < 5000; i++)
@@ -314,15 +344,24 @@ public class CompactTreeTests
             sb.Append($"<order id=\"{i}\"><customer>Customer {i % 250:D5}</customer><total>{i % 997}.{i % 100:D2}</total><line sku=\"P{i % 500}\" qty=\"{i % 9 + 1}\"/></order>");
         }
         string xml = sb.Append("</orders>").ToString();
+        Measure(() => new XPathDocument(new StringReader(xml)));
+        Measure(() => CompactDocument.Load(new StringReader(xml)));
+        long xpathDocument = long.MaxValue, compact = long.MaxValue;
+        for (int run = 0; run < 3; run++)
+        {
+            xpathDocument = System.Math.Min(xpathDocument, Measure(() => new XPathDocument(new StringReader(xml))));
+            compact = System.Math.Min(compact, Measure(() => CompactDocument.Load(new StringReader(xml))));
+        }
+        System.Console.WriteLine($"{xpathDocument} {compact}");
+    }
+
+    // The bytes a tree keeps alive.
+    private static long Measure(System.Func<object> build)
+    {
         long before = System.GC.GetTotalMemory(true);
-        var x = new XPathDocument(new StringReader(xml));
-        long xpathDocument = System.GC.GetTotalMemory(true) - before;
-        System.GC.KeepAlive(x);
-        x = null;
-        before = System.GC.GetTotalMemory(true);
-        var c = CompactDocument.Load(new StringReader(xml));
-        long compact = System.GC.GetTotalMemory(true) - before;
-        System.GC.KeepAlive(c);
-        Assert.True(compact <= xpathDocument * 3 / 4, $"compact tree {compact} bytes, XPathDocument {xpathDocument}");
+        object tree = build();
+        long after = System.GC.GetTotalMemory(true);
+        System.GC.KeepAlive(tree);
+        return after - before;
     }
 }

@@ -5,6 +5,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <NoWarn>$(NoWarn);CA1305;CA1307;CA1310;CA1311;CS0436</NoWarn>
+    <!-- Program.cs: the assembly runs memory measurements in a process of their own (CompactTreeMemoryTests). -->
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
