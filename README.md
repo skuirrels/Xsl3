@@ -107,6 +107,28 @@ xslt.Transform("input.xml", "output.html");
 `XsltArgumentList`, `XsltSettings`, `XsltException` and the extension-object and parameter APIs work as
 they do in `System.Xml.Xsl`. Intentional differences are listed in [docs/divergences.md](docs/divergences.md).
 
+### New: `UseCompactTree` for extra speed on XSLT 1.0
+
+Set `UseCompactTree` before `Load`. An XSLT 1.0 stylesheet then parses its input into Xsl3's compact tree instead
+of `XPathDocument`:
+
+```csharp
+var xslt = new XslCompiledTransform { UseCompactTree = true }; // new in 0.4.0-alpha
+xslt.Load("style.xsl");
+xslt.Transform("input.xml", "output.html");
+```
+
+- **Speed:** transforms from a file, URI, stream or `XmlReader` run about 1.5× faster than stock, against about 1.4×
+  without it.
+- **Memory:** the tree takes about 60% of `XPathDocument`'s memory.
+- **What it covers:** the input and the documents `document()` loads. An `XPathDocument` you pass in yourself is used
+  as it is.
+- **Output:** the same as stock, except that `generate-id()` returns different (still unique) strings. That's why
+  it's off by default for 1.0.
+- **XSLT 2.0 and 3.0 stylesheets** always use the compact tree.
+
+See [docs/performance.md](docs/performance.md) for the measurements.
+
 Targets .NET 8 and .NET 10.
 
 ## Building and testing

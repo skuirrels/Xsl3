@@ -20,6 +20,15 @@ xslt.Load("style.xsl");
 xslt.Transform("input.xml", "output.html");
 ```
 
+For extra speed on XSLT 1.0, new in 0.4.0-alpha, set `UseCompactTree` before `Load`:
+
+```csharp
+var xslt = new XslCompiledTransform { UseCompactTree = true };
+```
+
+The input is then parsed into Xsl3's compact tree, which takes about 60% of `XPathDocument`'s memory. Transforms run
+about 1.5× faster than stock. Output is the same, except for the strings `generate-id()` returns.
+
 `XsltArgumentList`, `XsltSettings`, extension objects and parameters work as they do in `System.Xml.Xsl`.
 The `TextWriter` and `Stream` overloads of `Transform` serialize the way the stylesheet's `xsl:output` says,
 including XHTML, HTML5, JSON and the adaptive method.
