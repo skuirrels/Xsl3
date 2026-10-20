@@ -337,6 +337,9 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path (its principal result is a <see cref="PrincipalResult"/>).</summary>
         public bool Xslt2 { get; set; }
 
+        /// <summary>Xsl3 (P4): build the documents the transform parses as compact trees (always for 2.0+).</summary>
+        public bool CompactTree { get; set; }
+
         /// <summary>
         /// Return the default writer settings.
         /// </summary>

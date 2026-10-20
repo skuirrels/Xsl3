@@ -66,6 +66,9 @@ namespace Xsl3.Runtime
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
 
+        /// <summary>Xsl3 (P4): documents the transform parses become compact trees (always for 2.0+).</summary>
+        internal bool UseCompactTree { get; }
+
         // Xsl3: the principal result of the running XSLT 2.0+ transformation, for xsl:result-document without href.
         [System.ThreadStatic]
         private static PrincipalResult? t_principal;
@@ -134,6 +137,7 @@ namespace Xsl3.Runtime
             Debug.Assert(data != null);
             Dispatcher = data.Dispatcher;
             IsXslt2 = data.Xslt2;
+            UseCompactTree = data.CompactTree;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;

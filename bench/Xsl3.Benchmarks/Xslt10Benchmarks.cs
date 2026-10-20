@@ -82,20 +82,75 @@ public class Xslt10Compile
     }
 }
 
-/// <summary>Document loading, which both engines share today: Xsl3 reads input through XPathDocument too.</summary>
+/// <summary>Building the input tree: XPathDocument, which stock (and Xsl3's 1.0 mode by default) uses, against the compact tree.</summary>
 [MemoryDiagnoser]
 public class InputParse
 {
     private string _xml = "";
 
-    [Params(20_000)]
+    [Params(2_000, 20_000)]
     public int Orders { get; set; }
 
     [GlobalSetup]
     public void Setup() => _xml = Corpus.Orders(Orders);
 
+    [Benchmark(Baseline = true)]
+    public object XPathDocument() => new XPathDocument(XmlReader.Create(new StringReader(_xml)));
+
     [Benchmark]
-    public XPathDocument XPathDocument() => new XPathDocument(XmlReader.Create(new StringReader(_xml)));
+    public object CompactDocument() => Tree.CompactDocument.Load(XmlReader.Create(new StringReader(_xml)));
+}
+
+/// <summary>
+/// Transforms from text, each engine building its own input tree: stock with XPathDocument; Xsl3's 1.0 mode with
+/// XPathDocument (its default) and with the compact tree (UseCompactTree).
+/// </summary>
+[MemoryDiagnoser]
+public class Xslt10EndToEnd
+{
+    private Stock.XslCompiledTransform _stock = null!;
+    private XslCompiledTransform _xsl3 = null!;
+    private XslCompiledTransform _xsl3Compact = null!;
+    private string _xml = "";
+
+    [Params("identity", "sort", "muenchian", "string-recursion", "key-join")]
+    public string Stylesheet { get; set; } = "";
+
+    [Params(20_000)]
+    public int Orders { get; set; }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _xml = Corpus.Orders(Orders);
+        _stock = new Stock.XslCompiledTransform();
+        _stock.Load(Corpus.Stylesheet(Stylesheet));
+        _xsl3 = new XslCompiledTransform();
+        _xsl3.Load(Corpus.Stylesheet(Stylesheet));
+        _xsl3Compact = new XslCompiledTransform { UseCompactTree = true };
+        _xsl3Compact.Load(Corpus.Stylesheet(Stylesheet));
+
+        var expected = new MemoryStream();
+        _stock.Transform(XmlReader.Create(new StringReader(_xml)), null, expected);
+        foreach (XslCompiledTransform xsl3 in new[] { _xsl3, _xsl3Compact })
+        {
+            var actual = new MemoryStream();
+            xsl3.Transform(XmlReader.Create(new StringReader(_xml)), null, actual);
+            if (!expected.ToArray().AsSpan().SequenceEqual(actual.ToArray()))
+            {
+                throw new InvalidOperationException($"{Stylesheet}: Xsl3 output differs from stock.");
+            }
+        }
+    }
+
+    [Benchmark(Baseline = true)]
+    public void Stock() => _stock.Transform(XmlReader.Create(new StringReader(_xml)), null, Stream.Null);
+
+    [Benchmark]
+    public void Xsl3() => _xsl3.Transform(XmlReader.Create(new StringReader(_xml)), null, Stream.Null);
+
+    [Benchmark]
+    public void Xsl3Compact() => _xsl3Compact.Transform(XmlReader.Create(new StringReader(_xml)), null, Stream.Null);
 }
 
 /// <summary>
@@ -106,7 +161,7 @@ public class InputParse
 public class Xsl3Profile
 {
     private XslCompiledTransform _xsl3 = null!;
-    private XPathDocument _input = null!;
+    private IXPathNavigable _input = null!;
 
     [Params("identity", "sort", "muenchian", "string-recursion", "key-join")]
     public string Stylesheet { get; set; } = "";
@@ -114,7 +169,10 @@ public class Xsl3Profile
     [GlobalSetup]
     public void Setup()
     {
-        _input = new XPathDocument(new StringReader(Corpus.Orders(20_000)));
+        // XSL3_PROFILE_TREE=compact profiles with a CompactDocument input.
+        _input = System.Environment.GetEnvironmentVariable("XSL3_PROFILE_TREE") == "compact"
+            ? Tree.CompactDocument.Load(new StringReader(Corpus.Orders(20_000)))
+            : new XPathDocument(new StringReader(Corpus.Orders(20_000)));
         _xsl3 = new XslCompiledTransform();
         _xsl3.Load(Corpus.Stylesheet(Stylesheet));
     }

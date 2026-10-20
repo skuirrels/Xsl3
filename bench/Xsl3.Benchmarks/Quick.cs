@@ -23,7 +23,15 @@ public static class Quick
     {
         int orders = args.Length > 0 && int.TryParse(args[0], out int n) ? n : 20_000;
         string[] sheets = args.Length > 1 ? args[1..] : s_all;
-        var input = new XPathDocument(new StringReader(Corpus.Orders(orders)));
+        string xml = Corpus.Orders(orders);
+        var input = new XPathDocument(new StringReader(xml));
+        // XSL3_QUICK_TREE=compact gives Xsl3 a CompactDocument (stock keeps XPathDocument).
+        IXPathNavigable xsl3Input = input;
+        if (Environment.GetEnvironmentVariable("XSL3_QUICK_TREE") == "compact")
+        {
+            xsl3Input = Tree.CompactDocument.Load(new StringReader(xml));
+            ReportTrees(xml);
+        }
         Console.WriteLine($"{"stylesheet",-18} {"stock ms",10} {"xsl3 ms",10} {"xsl3/stock",11} {"min ratio",10}");
         foreach (string sheet in sheets)
         {
@@ -34,7 +42,7 @@ public static class Quick
             var expected = new MemoryStream();
             var actual = new MemoryStream();
             stock.Transform(input, null, expected);
-            xsl3.Transform(input, null, actual);
+            xsl3.Transform(xsl3Input, null, actual);
             if (!expected.ToArray().AsSpan().SequenceEqual(actual.ToArray()))
             {
                 Console.WriteLine($"{sheet,-18} OUTPUT DIFFERS");
@@ -45,7 +53,7 @@ public static class Quick
             for (int i = 0; i < 5; i++)
             {
                 stock.Transform(input, null, Stream.Null);
-                xsl3.Transform(input, null, Stream.Null);
+                xsl3.Transform(xsl3Input, null, Stream.Null);
             }
             var watch = Stopwatch.StartNew();
             stock.Transform(input, null, Stream.Null);
@@ -58,13 +66,38 @@ public static class Quick
                 stock.Transform(input, null, Stream.Null);
                 s.Add(watch.Elapsed.TotalMilliseconds);
                 watch.Restart();
-                xsl3.Transform(input, null, Stream.Null);
+                xsl3.Transform(xsl3Input, null, Stream.Null);
                 x.Add(watch.Elapsed.TotalMilliseconds);
             }
             double ms = Median(s), mx = Median(x);
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{sheet,-18} {ms,10:F2} {mx,10:F2} {mx / ms,11:F2} {x.Min() / s.Min(),10:F2}"));
         }
     }
+
+    /// <summary>Parse time and retained memory of the two trees for the same text.</summary>
+    private static void ReportTrees(string xml)
+    {
+        for (int round = 0; round < 3; round++)
+        {
+            s_keep = null;
+            long before = GC.GetTotalMemory(true);
+            var watch = Stopwatch.StartNew();
+            s_keep = new XPathDocument(new StringReader(xml));
+            double ta = watch.Elapsed.TotalMilliseconds;
+            long ma = GC.GetTotalMemory(true) - before;
+            s_keep = null;
+            before = GC.GetTotalMemory(true);
+            watch.Restart();
+            s_keep = Tree.CompactDocument.Load(new StringReader(xml));
+            double tb = watch.Elapsed.TotalMilliseconds;
+            long mb = GC.GetTotalMemory(true) - before;
+            s_keep = null;
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"XPathDocument: {ta:F1} ms, {ma / 1024} KB; CompactDocument: {tb:F1} ms, {mb / 1024} KB ({100.0 * mb / ma:F0}%)"));
+        }
+    }
+
+    private static object? s_keep;
 
     private static double Median(List<double> values)
     {

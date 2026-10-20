@@ -154,7 +154,16 @@ namespace Xsl3
         {
             var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            _qil.CompactTree = UseCompactTree;
         }
+
+        /// <summary>
+        /// Xsl3: whether an XSLT 1.0 stylesheet builds the documents it parses itself (an input given as a URI or
+        /// reader, and those document() loads) as compact trees rather than XPathDocument's, as stock does. Set before
+        /// Load. The compact tree takes about 60% of the memory and parses faster; it reads the same, except that
+        /// generate-id() gives different (equally unique) ids. XSLT 2.0+ stylesheets always use it.
+        /// </summary>
+        public bool UseCompactTree { get; set; }
 
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.

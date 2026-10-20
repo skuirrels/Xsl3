@@ -1,0 +1,275 @@
+// Licensed under the MIT license. See LICENSE.TXT in the repository root.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Xml;
+using System.Xml.XPath;
+
+namespace Xsl3.Tree
+{
+    /// <summary>
+    /// An immutable XML tree in columnar layout (SPEC §14.1): each node is an index, in document order, into parallel
+    /// arrays; attributes and namespace declarations have arrays of their own; names and values are pooled. A subtree
+    /// is a contiguous range of indexes, so document order is an integer comparison, a node's next sibling is the
+    /// index just past its subtree, and descendants are scanned in one pass. It reads like an <see cref="XPathDocument"/>
+    /// (the same text merging, whitespace rules, namespace nodes, base URIs and DTD IDs) through the navigator
+    /// <see cref="CreateNavigator"/> returns.
+    /// </summary>
+    public sealed partial class CompactDocument : IXPathNavigable
+    {
+        internal const int None = -1;
+
+        // Nodes; 0 is the document node. _kind holds the XPathNodeType, and EmptyTag for an element written <e/>.
+        internal byte[] _kind = null!;
+        internal int[] _parent = null!;         // None for the document node
+        internal int[] _end = null!;            // index just past the node's subtree
+        internal int[] _name = null!;           // name id (elements, PIs), or None
+        internal int[] _data = null!;           // elements: first attribute or None; text, comments and PIs: value id
+        internal int _count;
+
+        internal const byte KindMask = 0x0F, EmptyTag = 0x80;
+
+        // Attributes; an element's are contiguous.
+        internal int[] _attrOwner = null!;
+        internal int[] _attrName = null!;
+        internal int[] _attrValue = null!;      // value id
+        internal int _attrCount;
+
+        // Namespace declarations, in document order; an element's are contiguous.
+        internal int[] _nsOwner = null!;
+        internal string[] _nsPrefix = null!;
+        internal string[] _nsUri = null!;
+        internal int _nsCount;
+
+        // Names, atomized in _nameTable; values, each distinct short one once.
+        internal string[] _local = null!;
+        internal string[] _uri = null!;
+        internal string[] _prefix = null!;
+        internal string[] _values = null!;
+
+        // The expanded name (namespace and local name, whatever the prefix) of each name id, and the ids by name, so
+        // that a name test compares integers.
+        internal int[] _expanded = null!;
+        private Dictionary<string, List<(string Uri, int Expanded)>> _expandedIds = null!;
+        internal const int Absent = -2;
+
+        internal XmlNameTable _nameTable = null!;
+        internal string _baseUri = "";
+        internal Dictionary<int, string>? _baseUris;   // elements and PIs whose base URI differs from their parent's
+        internal Dictionary<string, int>? _ids;        // DTD ID value -> element
+        internal string _xmlPrefix = null!, _xmlUri = null!;
+
+        private CompactDocument()
+        {
+        }
+
+        /// <summary>Builds a tree from a reader, as <c>new XPathDocument(reader, space)</c> would.</summary>
+        public static CompactDocument Load(XmlReader reader, XmlSpace space = XmlSpace.Default)
+        {
+            ArgumentNullException.ThrowIfNull(reader);
+            var builder = new Builder(reader.NameTable, reader.BaseURI);
+            builder.Read(reader, space);
+            return builder.Finish();
+        }
+
+        /// <summary>Builds a tree from a document at a URI, with DTDs prohibited, as <c>new XPathDocument(uri)</c> would.</summary>
+        public static CompactDocument Load(string uri, XmlSpace space = XmlSpace.Default)
+        {
+            using XmlReader reader = XmlReader.Create(uri, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+            return Load(reader, space);
+        }
+
+        /// <summary>Builds a tree from text, as <c>new XPathDocument(textReader)</c> would.</summary>
+        public static CompactDocument Load(TextReader text, XmlSpace space = XmlSpace.Default)
+        {
+            using XmlReader reader = XmlReader.Create(text, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+            return Load(reader, space);
+        }
+
+        public XPathNavigator CreateNavigator() => new CompactNavigator(this, 0);
+
+        /// <summary>The number of nodes, attributes and namespace declarations the tree holds.</summary>
+        public int NodeCount => _count + _attrCount + _nsCount;
+
+        internal int Kind(int node) => _kind[node] & KindMask;
+
+        internal bool IsText(int node) => (_kind[node] & KindMask) is (int)XPathNodeType.Text or (int)XPathNodeType.SignificantWhitespace or (int)XPathNodeType.Whitespace;
+
+        /// <summary>The next sibling: the node just past this one's subtree, if that is still inside the parent's.</summary>
+        internal int Next(int node)
+        {
+            int parent = _parent[node];
+            if (parent == None)
+            {
+                return None;
+            }
+            int next = _end[node];
+            return next < _end[parent] ? next : None;
+        }
+
+        internal string LeafValue(int node) => _values[_data[node]];
+
+        /// <summary>The string value of a document or element node: its text descendants, concatenated.</summary>
+        internal string StringValue(int node)
+        {
+            int end = _end[node];
+            int first = node + 1;
+            // The common case: a single text child.
+            if (first < end && IsText(first) && _end[first] == end)
+            {
+                return LeafValue(first);
+            }
+            string s = string.Empty;
+            StringBuilder? sb = null;
+            for (int i = first; i < end; i++)
+            {
+                if (IsText(i))
+                {
+                    if (s.Length == 0)
+                    {
+                        s = LeafValue(i);
+                    }
+                    else
+                    {
+                        (sb ??= new StringBuilder(s)).Append(LeafValue(i));
+                    }
+                }
+            }
+            return sb?.ToString() ?? s;
+        }
+
+        /// <summary>The base URI of an element, PI or the document node; other nodes have their parent's.</summary>
+        internal string BaseUri(int node)
+        {
+            if (_baseUris != null)
+            {
+                for (int n = node; n != None; n = _parent[n])
+                {
+                    if (_baseUris.TryGetValue(n, out string? uri))
+                    {
+                        return uri;
+                    }
+                }
+            }
+            return _baseUri;
+        }
+
+        /// <summary>
+        /// The in-scope namespaces of an element, as XPathDocument orders them: the declarations of the nearest
+        /// ancestor-or-self that has any, last to first, then that element's parent's in-scope namespaces less those it
+        /// redeclares, ending with xml. Owner is the declaring element (None for xml), so a namespace is local to the
+        /// element when it is the owner; Decl is the declaration's index (None for xml), its place in document order.
+        /// </summary>
+        internal (string Prefix, string Uri, int Owner, int Decl)[] InScopeNamespaces(int element)
+        {
+            if (_scopes != null)
+            {
+                for (int n = element; n != None; n = _parent[n])
+                {
+                    if (_scopes.TryGetValue(n, out var scope))
+                    {
+                        return scope;
+                    }
+                }
+            }
+            return _xmlOnly;
+        }
+
+        // The in-scope namespaces of each element that declares any (built with the tree, parents first).
+        internal Dictionary<int, (string, string, int, int)[]>? _scopes;
+        internal (string, string, int, int)[] _xmlOnly = null!;
+
+        /// <summary>
+        /// Builds each declaring element's in-scope namespaces as XPathDocumentBuilder links its namespace nodes: each
+        /// declaration in turn goes to the front of the chain, and when it overrides a prefix the nodes before the
+        /// overridden one are copied (after the new node, keeping their owners) to bypass it. Decl numbers the nodes in
+        /// the order they are made, the xml namespace first, which is their document order.
+        /// </summary>
+        internal void BuildScopes()
+        {
+            _xmlOnly = new[] { (_xmlPrefix, _xmlUri, None, 0) };
+            if (_nsCount == 0)
+            {
+                return;
+            }
+            _scopes = new Dictionary<int, (string, string, int, int)[]>();
+            int location = 1;
+            int i = 0;
+            while (i < _nsCount)
+            {
+                int element = _nsOwner[i];
+                var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(InScopeNamespaces(_parent[element]));
+                for (; i < _nsCount && _nsOwner[i] == element; i++)
+                {
+                    var added = (_nsPrefix[i], _nsUri[i], element, location++);
+                    int overridden = chain.FindIndex(ns => (object)ns.Prefix == (object)_nsPrefix[i]);
+                    if (overridden < 0)
+                    {
+                        chain.Insert(0, added);
+                    }
+                    else
+                    {
+                        var rebuilt = new List<(string, string, int, int)>(chain.Count + 1) { added };
+                        for (int k = 0; k < overridden; k++)
+                        {
+                            rebuilt.Add((chain[k].Prefix, chain[k].Uri, chain[k].Owner, location++));
+                        }
+                        rebuilt.AddRange(chain.GetRange(overridden + 1, chain.Count - overridden - 1));
+                        chain = rebuilt;
+                    }
+                }
+                _scopes[element] = chain.ToArray();
+            }
+        }
+
+        internal void BuildExpandedNames()
+        {
+            _expanded = new int[_local.Length];
+            _expandedIds = new Dictionary<string, List<(string, int)>>(StringComparer.Ordinal);
+            int next = 0;
+            for (int i = 0; i < _local.Length; i++)
+            {
+                if (!_expandedIds.TryGetValue(_local[i], out var list))
+                {
+                    _expandedIds[_local[i]] = list = new List<(string, int)>(1);
+                }
+                int found = Absent;
+                foreach (var (uri, id) in list)
+                {
+                    if (uri == _uri[i])
+                    {
+                        found = id;
+                        break;
+                    }
+                }
+                if (found == Absent)
+                {
+                    found = next++;
+                    list.Add((_uri[i], found));
+                }
+                _expanded[i] = found;
+            }
+        }
+
+        /// <summary>The expanded-name id of a local name and namespace, or Absent when no node in the tree has it.</summary>
+        internal int ExpandedId(string localName, string namespaceUri)
+        {
+            if (_expandedIds.TryGetValue(localName, out var list))
+            {
+                foreach (var (uri, id) in list)
+                {
+                    if (uri == namespaceUri)
+                    {
+                        return id;
+                    }
+                }
+            }
+            return Absent;
+        }
+
+        /// <summary>The element whose DTD ID is the value, or None.</summary>
+        internal int LookupId(string id) => _ids != null && _ids.TryGetValue(id, out int element) ? element : None;
+    }
+}

@@ -78,8 +78,10 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   for predicate patterns; XTDE1480 (`xsl:result-document` in temporary output state) only where it can be
   seen statically; static variables declared in modules imported after their use; regex character classes follow .NET's Unicode version rather
   than the suite's; `doc()` and `document()` refuse DTDs unless the input reader allows them.
-- **Performance (P4)**: the 1.0 throughput goal is met. Still to do: the compact tree and name pool, unboxed
-  codegen for 2.0/3.0, Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison for 2.0/3.0.
+- **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use. 2.0+ stylesheets use it for
+  the documents they parse; 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49×
+  stock. Still to do: compact temporary trees, unboxed codegen for 2.0/3.0, Sink B (`Xsl3.Build`) and NativeAOT, and
+  the SaxonCS-HE comparison for 2.0/3.0.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
   before 1.0.
@@ -145,7 +147,7 @@ From [SPEC.md §22](SPEC.md):
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact tree, unboxed 2.0/3.0 codegen, Sink B, NativeAOT and the SaxonCS comparison to do |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact tree for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end); compact temporary trees, unboxed 2.0/3.0 codegen, Sink B, NativeAOT and the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |

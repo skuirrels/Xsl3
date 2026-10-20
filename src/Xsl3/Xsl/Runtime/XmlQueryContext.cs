@@ -173,6 +173,26 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.
         /// </summary>
+        /// <summary>
+        /// Xsl3 (P4): the tree for a document the transform parses itself (its input from a URI or reader, doc(),
+        /// document()): the compact tree for 2.0+ stylesheets, XPathDocument's (as stock builds) for 1.0 unless the
+        /// compact tree is asked for. XSL3_COMPACT_TREE=1 or 0 overrides the choice (for testing).
+        /// </summary>
+        private XPathNavigator BuildTree(XmlReader reader)
+        {
+            bool compact = s_compactOverride ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
+            return compact
+                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator()
+                : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        }
+
+        private static readonly bool? s_compactOverride = Environment.GetEnvironmentVariable("XSL3_COMPACT_TREE") switch
+        {
+            "1" => true,
+            "0" => false,
+            _ => null,
+        };
+
         private XPathNavigator? ConstructDocument(object dataSource, string? uriRelative, Uri? uriResolved)
         {
             Debug.Assert(dataSource != null, "GetType() below assumes dataSource is not null");
@@ -185,7 +205,7 @@ namespace Xsl3.Runtime
                 try
                 {
                     // Create WhitespaceRuleReader if whitespace should be stripped
-                    return new InternalXPathDocument(WhitespaceRuleReader.CreateReader(reader, _wsRules), XmlSpace.Preserve).CreateNavigator();
+                    return BuildTree(WhitespaceRuleReader.CreateReader(reader, _wsRules));
                 }
                 finally
                 {
@@ -197,7 +217,7 @@ namespace Xsl3.Runtime
             {
                 // Create document from reader
                 // Create WhitespaceRuleReader if whitespace should be stripped
-                return new InternalXPathDocument(WhitespaceRuleReader.CreateReader(reader, _wsRules), XmlSpace.Preserve).CreateNavigator();
+                return BuildTree(WhitespaceRuleReader.CreateReader(reader, _wsRules));
             }
             else if (dataSource is IXPathNavigable xPathNavigable)
             {
@@ -208,7 +228,7 @@ namespace Xsl3.Runtime
                     {
                         // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
                         using XmlReader copy = loaded.ReadSubtree();
-                        return new InternalXPathDocument(WhitespaceRuleReader.CreateReader(copy, _wsRules), XmlSpace.Preserve).CreateNavigator();
+                        return BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
                     }
                     throw new XslTransformException(SR.XmlIl_CantStripNav, string.Empty);
                 }

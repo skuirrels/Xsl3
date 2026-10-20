@@ -123,6 +123,9 @@ namespace Xsl3.Qil
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path.</summary>
         public bool Xslt2 { get; set; }
 
+        /// <summary>Xsl3 (P4): build the documents the transform parses as compact trees (always for 2.0+).</summary>
+        public bool CompactTree { get; set; }
+
         /// <summary>
         /// Default serialization options that will be used if the user does not supply a writer at execution time.
         /// </summary>

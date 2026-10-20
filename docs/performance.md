@@ -71,6 +71,71 @@ general algorithm by randomized tests, millions of values in all.
 Tried and dropped: emitting stylesheets into a collectible dynamic assembly so that tiered PGO applies (no
 measurable gain over `DynamicMethod`s).
 
+## The compact tree (SPEC §14.1)
+
+`Xsl3.Tree.CompactDocument` is an immutable tree in columnar layout. Each node is an index in document order into
+parallel arrays: kind, parent, subtree end, name and one data slot (about 17 bytes a node). Attributes and namespace
+declarations have arrays of their own, names are pooled per document, and each distinct short value (32 characters or
+fewer) is stored once.
+
+Because a subtree is a contiguous range, several operations become integer arithmetic:
+
+- document order is an integer comparison;
+- a node's next sibling is the index just past its subtree;
+- a descendant scan is one pass over a range;
+- name tests compare integer expanded-name ids.
+
+Its navigator reads exactly as `XPathDocument`'s does:
+
+- the same text merging and whitespace rules;
+- namespace nodes in the same order (including `xmlns=""` and the copies made when a prefix is overridden);
+- the same base URIs and DTD IDs.
+
+A test walks both trees in step over every node to check this. The one visible difference is the string
+`generate-id()` returns.
+
+Values are kept as pooled strings rather than slices of a shared `char[]` (a departure from the SPEC table). That way,
+reading a value never allocates.
+
+**Where it is used:** for the documents a transform parses itself, that is an input given as a URI or `XmlReader`,
+`doc()` and `document()`.
+
+- 2.0+ stylesheets always use it.
+- A 1.0 stylesheet uses it when `XslCompiledTransform.UseCompactTree` is set before `Load`. Otherwise it keeps
+  `XPathDocument`, so its output stays byte-identical to stock.
+- Temporary trees (variables, `xsl:document`) are still `XPathDocument`'s (§14.4 is the next step).
+- A caller's own `XPathDocument` is used as given.
+
+**Memory:**
+
+- 20,000 orders: 8.3 MB retained, against 14.0 MB for `XPathDocument` (59%; the target is ≤ 75%).
+- A unit test checks the 75% bound.
+
+**Building the tree** ([report](bench/p4-2026-10-20-InputParse.md)):
+
+| Orders | XPathDocument | CompactDocument | Ratio |
+|---|---:|---:|---:|
+| 2,000 | 6.15 ms | 5.71 ms | 0.94 |
+| 20,000 | 75.9 ms | 68.9 ms | 0.94 |
+
+Building allocates more than it keeps: 22 MB, against 14 MB for `XPathDocument`. The arrays grow by doubling, and the
+value-sharing table is discarded once the tree is built.
+
+**Transforms from text, each engine building its own tree** ([report](bench/p4-2026-10-20-Xslt10EndToEnd.md);
+20,000 orders):
+
+| Stylesheet | Stock | Xsl3 (XPathDocument) | Xsl3 (`UseCompactTree`) | Speedup with the compact tree |
+|---|---:|---:|---:|---:|
+| identity | 195.7 ms | 171.6 ms | 136.2 ms | 1.44× |
+| sort | 172.1 ms | 145.0 ms | 109.6 ms | 1.57× |
+| muenchian | 150.4 ms | 128.6 ms | 106.3 ms | 1.41× |
+| string-recursion | 154.6 ms | 135.5 ms | 100.8 ms | 1.53× |
+| key-join | 164.5 ms | 135.3 ms | 109.3 ms | 1.51× |
+
+Geometric mean 1.49× stock with the compact tree, and 1.17× with `XPathDocument`. On a tree that has already been
+built, the transform runs about as fast on either tree. The end-to-end gain comes from the faster build and from less
+garbage-collector work on the smaller retained tree.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:
@@ -81,7 +146,7 @@ The remaining cost is mostly shared with stock and outside Xsl3's code:
 - **The writer pipeline** of `XmlQueryOutput`.
 
 muenchian is the clearest case. Its key lookups visit each customer's orders across the whole document. The
-compact tree with name pools (SPEC §14, §19) is the next step for these.
+compact tree (above) helps when the transform builds the tree itself.
 
 ## Measuring
 

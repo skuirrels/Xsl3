@@ -944,7 +944,7 @@ The design must leave room for these. Nothing here is implemented in this spec.
 ## 25. Open questions
 
 1. **Final name and namespace.** It must avoid the `System.` prefix and trademarks (§1).
-2. **Legacy 1.0 defaults.** Should `XslCompiledTransform.Load` of a 1.0 stylesheet use the compact tree by default after P4? That would be faster but no longer byte-identical in edge cases such as `generate-id()` strings and whitespace-only text node handling. The current proposal is opt-in.
+2. **Legacy 1.0 defaults.** Should `XslCompiledTransform.Load` of a 1.0 stylesheet use the compact tree by default after P4? That would be faster but no longer byte-identical in edge cases such as `generate-id()` strings and whitespace-only text node handling. The current proposal is opt-in. *Implemented that way (October 2026): `XslCompiledTransform.UseCompactTree`, off by default for 1.0 and always on for 2.0+. The trees read alike except for `generate-id()` strings.*
 3. **XSD 1.1.** Choose between options (a), (b) and (c) in §18 during P6.
 4. **Minimum framework.** .NET 8 needs a .NET 10 build host for Sink B. Is a .NET 10-only release simpler?
 5. **Parallelism.** Should `xsl3:threads` ship in 1.0, or wait until there's feedback?

@@ -46,6 +46,23 @@ namespace System.Xml
             builder.CreateIdTables(GetIdAttributes(dtdInfo));
         }
 
+        /// <summary>Xsl3: the ID attributes the reader's DTD declares, as (element local name, element prefix, attribute local name, attribute prefix).</summary>
+        [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+        [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
+        [DynamicDependency(Members, "System.Xml.IDtdAttributeListInfo", Asm)]
+        [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
+        public static List<(string, string, string, string)> GetIdAttributes(XmlReader reader)
+        {
+            while (reader is XmlWrappingReader wrapping)
+            {
+                reader = wrapping.InnerReader;
+            }
+            object? dtdInfo = s_dtdInfo?.GetValue(reader);
+            return dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null
+                ? new List<(string, string, string, string)>()
+                : GetIdAttributes(dtdInfo);
+        }
+
         private static List<(string, string, string, string)> GetIdAttributes(object dtdInfo)
         {
             var result = new List<(string, string, string, string)>();
