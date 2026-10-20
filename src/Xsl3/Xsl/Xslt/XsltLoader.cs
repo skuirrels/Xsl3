@@ -466,6 +466,18 @@ namespace Xsl3.Xslt
             {
                 _packageTopModule = V2 && _packageTopModules.Add(_packageId);
             }
+            // Xsl3: name, package-version and declared-modes belong to xsl:package only (XTSE0090).
+            if (V2 && !isPackage && !_input.ForwardCompatibility)
+            {
+                string element = "xsl:" + _input.LocalName;
+                foreach ((int index, string attribute) in new[] { (4, "name"), (5, "package-version"), (6, "declared-modes") })
+                {
+                    if (_input.MoveToXsltAttribute(index, attribute))
+                    {
+                        ReportError(/*[XTSE0090]*/SR.Xslt_InvalidAttribute, attribute, element);
+                    }
+                }
+            }
             if (V2 && isPackage && _input.MoveToXsltAttribute(5, "package-version") && !IsPackageVersion(_input.Value))
             {
                 ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "package-version", _input.Value);
@@ -2371,6 +2383,11 @@ namespace Xsl3.Xslt
             string? asType = ParseStringAttribute(2, "as");
             TriState required = ParseYesNoAttribute(3, "required");
             if (V1 && required == TriState.True) ReportNYI("xsl:param/@required == true()");
+            // Xsl3: a function's parameters are always required; required="no" is an error (XTSE0020).
+            if (V2 && required == TriState.False && nodeType == XslNodeType.Param && _curTemplate is { IsFunction: true })
+            {
+                ReportError(SR.Xml_UserException, "XTSE0020: a function parameter can't have required=\"no\"");
+            }
 
             if (V1 && asType != null)
             {
@@ -2413,6 +2430,11 @@ namespace Xsl3.Xslt
                         if (content.Count != 0)
                         {
                             ReportError(SR.Xml_UserException, "XTSE0010: a static variable or parameter takes its value from select");
+                        }
+                        if (visibility != null)
+                        {
+                            // Xsl3: static variables aren't package components (XTSE0090).
+                            ReportError(/*[XTSE0090]*/SR.Xslt_InvalidAttribute, "visibility", "xsl:" + localName);
                         }
                         result.V2.StaticValue = EvaluateStatic(result);
                     }

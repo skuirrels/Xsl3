@@ -32,6 +32,7 @@ raised a different code are counted separately.
 | 2026-10-19 | 19,222 | 822 | 99 | 95.9% |
 | 2026-10-19 | 21,685 | 199 | 99 | 99.1% | Maps, arrays, function items, JSON; `higherOrderFunctions` claimed (1,840 more tests apply) |
 | 2026-10-19 | 21,731 | 153 | 99 | 99.3% | `fn:serialize` with a map (json, adaptive); maps keep insertion order |
+| 2026-10-20 | 21,743 | 141 | 99 | 99.4% | Focus-dependent function references with arguments (`fn:lang#1`, `fn:id#1`) keep the focus |
 
 The remaining failures are mostly fn:serialize details (html doctype, CDATA, character maps),
 fn:random-number-generator and fn:function-lookup corner cases.
@@ -70,6 +71,7 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
+| 2026-10-20 | 7,545 | 390 | 86 | 95.1% | P3 exit. `unparsed-entity-uri` and `unparsed-entity-public-id` (1 and 2 arguments, from the document's DTD), focus kept by `unparsed-entity-uri#1` and friends, attribute checks (XTSE0090 for `visibility`, `package-version`, `name` and `declared-modes` where they don't belong), `required="no"` on function parameters, rule-less accumulators, `xsl:fallback` order in `xsl:analyze-string`, `current-merge-group()`/`current-merge-key()` in patterns |
 | 2026-10-19 | 7,512 | 423 | 86 | 94.7% | `copy-accumulators` and accumulator values of `fn:copy-of`/`fn:snapshot` copies, composite keys, `xsl:global-context-item`, XTMM9000, merged `xsl:decimal-format` declarations and `exponent-separator` |
 | 2026-10-19 | 7,479 | 456 | 86 | 94.3% | Override checks (XTSE3060, XTSE3070), package-local accumulators, `fn:snapshot` of attributes, the built-in rule for arrays, declared signatures for references to stylesheet functions, CDATA sections and unencodable characters, SERE0015. The four tests that need the lowest package version are not applicable (Xsl3 picks the highest). |
 | 2026-10-19 | 7,461 | 478 | 86 | 94.0% | Sequence normalization (zero-length text nodes from `xsl:text`, text value templates as simple content, the comment/PI separator, document copies in sequences, arrays flattened in content), `xsl:where-populated` emptiness, `xsl:next-match` from named templates, JSON character maps, empty doctype identifiers |

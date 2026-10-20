@@ -9,10 +9,6 @@ array-sort/array-sort-collation-5
 fn-format-integer/format-integer-032
 fn-function-arity/fn-function-arity-016
 fn-function-arity/fn-function-arity-017
-fn-function-lookup/fn-function-lookup-276
-fn-function-lookup/fn-function-lookup-350
-fn-function-lookup/fn-function-lookup-354
-fn-function-lookup/fn-function-lookup-358
 fn-function-lookup/fn-function-lookup-369
 fn-function-lookup/fn-function-lookup-371
 fn-function-lookup/fn-function-lookup-373
@@ -34,7 +30,6 @@ fn-function-lookup/fn-function-lookup-765
 fn-function-lookup/fn-function-lookup-800
 fn-function-name/fn-function-name-017
 fn-function-name/fn-function-name-018
-fn-function-name/fn-function-name-025
 fn-idref/fn-idref-dtd-12
 fn-idref/fn-idref-dtd-13
 fn-idref/fn-idref-dtd-14
@@ -58,8 +53,6 @@ fn-json-to-xml/json-to-xml-026
 fn-json-to-xml/json-to-xml-039
 fn-json-to-xml/json-to-xml-041
 fn-json-to-xml/json-to-xml-048
-fn-lang/fn-lang-31
-fn-lang/fn-lang-32
 fn-parse-json/fn-parse-json-059
 fn-parse-json/fn-parse-json-060
 fn-parse-json/fn-parse-json-061
@@ -138,12 +131,7 @@ op-same-key/same-key-007
 op-same-key/same-key-021
 op-same-key/same-key-022
 op-to/RangeExpr-409d
-prod-InstanceofExpr/instanceof131
 prod-InstanceofExpr/instanceof134
-prod-NamedFunctionRef/function-literal-276
-prod-NamedFunctionRef/function-literal-350
-prod-NamedFunctionRef/function-literal-354
-prod-NamedFunctionRef/function-literal-358
 prod-NamedFunctionRef/function-literal-369
 prod-NamedFunctionRef/function-literal-371
 prod-NamedFunctionRef/function-literal-373

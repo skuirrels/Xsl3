@@ -288,6 +288,10 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_mergeSourceAttributes);
             string? name = ParseStringAttribute(0, "name")?.Trim();
+            if (name != null && (name.Length == 0 || ValidateNames.ParseNCName(name) != name.Length))
+            {
+                ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "name", name);
+            }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
             string? select = ParseStringAttribute(3, "select");
@@ -392,6 +396,10 @@ namespace Xsl3.Xslt
                     }
                 }
                 while (_input.MoveToNextSibling());
+            }
+            if (rules.Count == 0)
+            {
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:accumulator needs at least one xsl:accumulator-rule");
             }
             if (name == null)
             {
@@ -752,6 +760,7 @@ namespace Xsl3.Xslt
 
             XslNode? matching = null, nonMatching = null;
             QName parentName = _input.ElementName;
+            bool sawFallback = false;
             if (_input.MoveToFirstChild())
             {
                 do
@@ -759,6 +768,11 @@ namespace Xsl3.Xslt
                     switch (_input.NodeType)
                     {
                         case XmlNodeType.Element:
+                            if (sawFallback && !_input.IsXsltKeyword(_atoms.Fallback))
+                            {
+                                // Xsl3: xsl:fallback children come after the others (XTSE0010).
+                                ReportError(SR.Xml_UserException, $"XTSE0010: {_input.QualifiedName} can't follow xsl:fallback in {parentName}");
+                            }
                             if (_input.IsXsltKeyword(_atoms.MatchingSubstring))
                             {
                                 ContextInfo childInfo = _input.GetAttributes();
@@ -776,6 +790,7 @@ namespace Xsl3.Xslt
                             }
                             else if (_input.IsXsltKeyword(_atoms.Fallback))
                             {
+                                sawFallback = true;
                                 XslFallback();
                             }
                             else

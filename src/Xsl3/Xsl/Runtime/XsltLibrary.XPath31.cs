@@ -95,6 +95,11 @@ namespace Xsl3.Runtime
             return value as XPathItem ?? throw new XdmException("XPDY0002", "The context item is absent");
         }
 
+        /// <summary>The top-level context item, or the empty sequence when there is none.</summary>
+        public IList<XPathItem> X31ContextItemOrEmpty() =>
+            _runtime.ExternalContext.GetParameter(XPath31Executable.ContextItemParam, XPath31Executable.ControlNamespace) is XPathItem item
+                ? Sequences.One(item) : Array.Empty<XPathItem>();
+
         /// <summary>position() and last() at the top level: 1, or XPDY0002 when there is no context item.</summary>
         public double X31TopLevelFocus()
         {

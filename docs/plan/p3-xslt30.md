@@ -41,7 +41,11 @@ accumulators, snapshots of attributes, the built-in rule for arrays and typed re
 7,479 of 7,935 (94.3%; the lowest-version package tests no longer apply, as `xsl:use-package` picks the highest).
 Then copies that keep accumulator values (a copy remembers its original; a node of the copy answers with the
 original's values), composite keys, `xsl:global-context-item`, XTMM9000 and merged decimal formats: 7,512 (94.7%).
-Next: initial functions, `xsl:evaluate`, modes and `xsl:copy` details, error-code coverage.
+Then unparsed entities (read from the document's DTD through the document resolver), focus-capturing references to
+focus-dependent functions with arguments, and static checks on attributes, accumulators, `xsl:analyze-string` and
+merge functions in patterns: 7,545 of 7,935 (95.1%), the P3 exit. Still open: initial functions, `xsl:evaluate`,
+`xsl:assert`, `disable-output-escaping` on text nodes returned through sequences, runtime warnings (`assert-warning`),
+modes and `xsl:copy` details, error-code coverage.
 
 ## Where P2 leaves us
 

@@ -323,7 +323,7 @@ namespace Xsl3.Xslt
             }
             if (nsUri.Length == 0)
             {
-                return FunctionTable.ContainsKey(localName) && localName != "unparsed-entity-uri";
+                return FunctionTable.ContainsKey(localName); // Xsl3: unparsed-entity-uri is implemented
             }
             if (nsUri == XmlReservedNs.NsMsxsl)
             {
@@ -629,7 +629,8 @@ namespace Xsl3.Xslt
         private QilNode CompileUnparsedEntityUri(QilNode n)
         {
             XPathQilFactory.CheckString(n);
-            return _f.Error(_lastScope!.SourceLine, SR.Xslt_UnsupportedXsltFunction, "unparsed-entity-uri");
+            // Xsl3: implemented (stock raises "unsupported"): the URI from the context document's DTD, or "".
+            return _f.XsltConvert(XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31UnparsedEntity), T.Item, n, GetCurrentNode(), _f.False()), T.StringX);
         }
 
         private QilNode CompileGenerateId(QilNode n)

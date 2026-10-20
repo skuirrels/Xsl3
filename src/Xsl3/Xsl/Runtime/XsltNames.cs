@@ -30,7 +30,7 @@ namespace Xsl3.Runtime
         {
             ("current", 0), ("current-group", 0), ("current-grouping-key", 0), ("document", 1), ("document", 2), ("element-available", 1),
             ("format-number", 2), ("format-number", 3), ("function-available", 1), ("function-available", 2), ("key", 2), ("key", 3),
-            ("regex-group", 1), ("system-property", 1), ("type-available", 1), ("copy-of", 0), ("copy-of", 1), ("snapshot", 0), ("snapshot", 1), ("accumulator-before", 1), ("accumulator-after", 1), ("current-merge-group", 0), ("current-merge-group", 1), ("current-merge-key", 0), ("unparsed-entity-public-id", 1), ("unparsed-entity-uri", 1),
+            ("regex-group", 1), ("system-property", 1), ("type-available", 1), ("copy-of", 0), ("copy-of", 1), ("snapshot", 0), ("snapshot", 1), ("accumulator-before", 1), ("accumulator-after", 1), ("current-merge-group", 0), ("current-merge-group", 1), ("current-merge-key", 0), ("unparsed-entity-public-id", 1), ("unparsed-entity-uri", 1), ("unparsed-entity-public-id", 2), ("unparsed-entity-uri", 2),
         };
 
         /// <summary>

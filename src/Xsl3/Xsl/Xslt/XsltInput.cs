@@ -944,7 +944,9 @@ namespace Xsl3.Xslt
                         if (localName == "default-mode" && V2) { /* Xsl3: tracked in ReadAttribute */ }
                         else
                         // Xsl3: a declaration's visibility (Packages.cs); xsl:copy-of's copy-accumulators.
-                        if (localName is "visibility" or "copy-accumulators" && V2) { if (localName == "visibility") Visibility = Value.Trim(); else CopyAccumulators = Value.Trim(); }
+                        if (localName == "visibility" && V2 && _records[0].localName is "template" or "function" or "attribute-set" or "mode" or "variable") { Visibility = Value.Trim(); }
+                        else
+                        if (localName == "copy-accumulators" && V2 && _records[0].localName == "copy-of") { CopyAccumulators = Value.Trim(); }
                         else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);

@@ -163,7 +163,7 @@ namespace Xsl3.Xslt
                 case ("current-grouping-key", 0) when _patternNode31 != null:
                     return ReportXPath31Error("XTSE1070", "current-grouping-key() can't be used in a pattern");
                 case ("unparsed-entity-uri" or "unparsed-entity-public-id", 1) when FocusAbsent:
-                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1380"), _f.String($"{name.LocalName}(): there is no context node"));
+                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String(name.LocalName == "unparsed-entity-uri" ? "XTDE1370" : "XTDE1380"), _f.String($"{name.LocalName}(): there is no context node"));
                 case ("current-group", 0):
                     return _currentGroupFactory?.Invoke() ?? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1061"), _f.String("current-group() is absent"));
                 case ("current-grouping-key", 0):
@@ -180,13 +180,14 @@ namespace Xsl3.Xslt
                 case ("document", 1):
                 case ("document", 2):
                     return CompileFnDocument31(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);
-                case ("unparsed-entity-uri", 1):
-                case ("unparsed-entity-public-id", 1):
+                case ("unparsed-entity-uri", 1 or 2):
+                case ("unparsed-entity-public-id", 1 or 2):
                 {
-                    // The context node must be in a tree rooted at a document node (XTDE1380).
-                    QilNode value = name.LocalName == "unparsed-entity-uri" ? CompileUnparsedEntityUri(String31(compile(args[0]))) : _f.String("");
-                    return X31(nameof(XsltLibrary.X31StringItem), T.Item, _f.Conditional(
-                        X31(nameof(XsltLibrary.X31EntityContext), T.BooleanX, compile(new XPath31.ContextItemExpr())), value, _f.String("")));
+                    // Of the context node's document, or of the document containing the second argument (XTDE1370, XTDE1380).
+                    QilNode node = args.Count == 2
+                        ? X31(nameof(XsltLibrary.X31SingleNode), T.NodeNotRtf, compile(args[1]), _f.String("XPTY0004"))
+                        : X31(nameof(XsltLibrary.X31Node), T.NodeNotRtf, compile(new XPath31.ContextItemExpr()));
+                    return X31(nameof(XsltLibrary.X31UnparsedEntity), T.Item, String31(compile(args[0])), node, _f.Boolean(name.LocalName == "unparsed-entity-public-id"));
                 }
                 case ("system-property", 1):
                     return CompileSystemProperty31(args[0], compile);
@@ -195,6 +196,10 @@ namespace Xsl3.Xslt
                     return FocusAbsent || _patternNode31 != null || _temporaryOutput31 > 0
                         ? _f.TypeAssert(_f.Sequence(), T.ItemS)
                         : X31(nameof(XsltLibrary.X31CurrentOutputUri), T.ItemS, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS));
+                case ("current-merge-group", 0 or 1) when _patternNode31 != null:
+                    return ReportXPath31Error("XTSE3470", "current-merge-group() can't be used in a pattern");
+                case ("current-merge-key", 0) when _patternNode31 != null:
+                    return ReportXPath31Error("XTSE3500", "current-merge-key() can't be used in a pattern");
                 case ("current-merge-group", 0):
                 case ("current-merge-group", 1):
                 case ("current-merge-key", 0):

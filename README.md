@@ -24,9 +24,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,512 passed, 423 failed, 86 not run (94.7%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,743 passed, 141 failed (99.4%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 96.3% |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,545 passed, 390 failed, 86 not run (95.1%) |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -68,8 +68,8 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 ## What's outstanding
 
 - **XSLT 3.0**: `xsl:evaluate`, `xsl:assert`, initial functions,
-  `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities
-  (`unparsed-entity-uri`, `unparsed-entity-public-id`), memoized functions (`new-each-time="no"`,
+  `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
+  temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`), the `parameter-document` serialization parameter.
 - **API**: public ways to supply the package library and the base output URI (the test harness uses internal
   ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
@@ -144,7 +144,7 @@ From [SPEC.md §22](SPEC.md):
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 94.7% ([plan](docs/plan/p3-xslt30.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact tree, unboxed 2.0/3.0 codegen, Sink B, NativeAOT and the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |

@@ -228,9 +228,23 @@ namespace Xsl3.XPath31
                 parameters.Add((new QName("", s_params[i].LocalName), def?.ParameterType(i) ?? host?.Parameters[i] ?? SequenceTypeTest.AnySequence));
             }
             var call = new XPath31.FunctionCall(r.Name, Enumerable.Range(0, arity).Select(i => (Expr)new VarRef(s_params[i])).ToList()) { Span = r.Span };
-            bool focusDependent = arity == 0 && name.NamespaceUri == QName.Ns.Fn && (s_contextFunctions.Contains(name.LocalName) || name.LocalName is "position" or "last");
+            bool focusDependent = name.NamespaceUri == QName.Ns.Fn && (arity == 0 && (s_contextFunctions.Contains(name.LocalName) || name.LocalName is "position" or "last")
+                || (name.LocalName, arity) is ("lang" or "id" or "idref" or "element-with-id" or "unparsed-entity-uri" or "unparsed-entity-public-id", 1) or ("key", 2));
             return LiftFunction(System.Array.Empty<(QName, QilNode)>(), parameters, def?.ReturnType ?? host?.Result, name, () => Build(call),
-                focus: focusDependent && !_focusAbsent ? Items(FocusItem()) : null);
+                focus: focusDependent && !_focusAbsent ? Items(CapturedFocus()) : null);
+        }
+
+        /// <summary>
+        /// The context item for a focus-dependent function item to keep, or the empty sequence when there is none: the
+        /// reference itself is fine without a focus, and calling it raises XPDY0002 (X31SingleItemOf).
+        /// </summary>
+        private QilNode CapturedFocus()
+        {
+            if (_focus != null)
+            {
+                return _focus.Item;
+            }
+            return _env != null ? _env.ContextItem() ?? _f.Sequence() : Call(nameof(XsltLibrary.X31ContextItemOrEmpty), T.ItemS);
         }
 
         // f(a, ?, c) and $f(a, ?, c) (XPath 3.1 §3.1.5.4): a function of the placeholders; the other arguments are
