@@ -2853,7 +2853,14 @@ namespace Xsl3.Xslt
             QilNode? order = sort.Order != null ? CompileStringAvt(sort.Order) : null;
             _curLoop = curLoopSaved;
 
-            QilNode key = X31(nameof(XsltLibrary.X31SortKey), T.StringX, Box(select), dataType, collation, lang, _f.Double(System.Threading.Interlocked.Increment(ref _sortSites31)), position);
+            // Xsl3 (P4): a key that is number(...) is always one xs:double, so it needs no check that the keys are
+            // comparable and sorts as a native double, as 1.0's numbers do (NaN least, -0 equal to 0, as the encoding
+            // below orders them).
+            bool numberKey = sort.Select != null && XPath31Compiler.IsNumberCall(sort.Select) && sort.V2?.Collation == null && sort.Lang == null
+                && (sort.DataType == null || dataType is QilLiteral { NodeType: QilNodeType.LiteralString } dt && (string)dt == "number");
+            QilNode key = numberKey
+                ? X31(nameof(XsltLibrary.X31NumberSortKey), T.DoubleX, Box(select))
+                : X31(nameof(XsltLibrary.X31SortKey), T.StringX, Box(select), dataType, collation, lang, _f.Double(System.Threading.Interlocked.Increment(ref _sortSites31)), position);
             // The keys are [0-9A-F] strings, compared in code point order (Xsl3 P4: the sorter compares them ordinally;
             // they used to go through a culture's collation keys, which order these characters the same way).
             const string KeyCollation = XmlReservedNs.NsCollCodePoint;
@@ -2950,8 +2957,13 @@ namespace Xsl3.Xslt
             QilIterator g = _f.For(groups);
             _curLoop.SetFocus(g);
             _focusOverrides[g] = it => X31(nameof(XsltLibrary.X31GroupFirst), T.Item, it);
-            // Sort keys see the group being sorted as current-group().
-            _currentGroupFactory = () => X31(nameof(XsltLibrary.X31GroupMembers), T.ItemS, g);
+            // Sort keys see the group being sorted as current-group(). Groups of a population of child steps are nodes
+            // in document order at one depth (Xsl3 P4), which steps from current-group() can use.
+            bool childPath = XPath31Compiler.IsChildPath(node.Select!);
+            QilNode Members(QilIterator of) => childPath
+                ? XPath31Compiler.SameDepth(X31(nameof(XsltLibrary.X31GroupMemberNodes), T.NodeNotRtfS, of))
+                : X31(nameof(XsltLibrary.X31GroupMembers), T.ItemS, of);
+            _currentGroupFactory = () => Members(g);
             _currentGroupingKeyFactory = () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, g);
             _curLoop.Sort(CompileSorts31(content, ref curLoopSaved));
             var current = (QilIterator)_curLoop.GetCurrent()!;
@@ -2959,7 +2971,7 @@ namespace Xsl3.Xslt
             {
                 _focusOverrides[current] = it => X31(nameof(XsltLibrary.X31GroupFirst), T.Item, it);
             }
-            _currentGroupFactory = () => X31(nameof(XsltLibrary.X31GroupMembers), T.ItemS, current);
+            _currentGroupFactory = () => Members(current);
             _currentGroupingKeyFactory = () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, current);
 
             QilNode result = CompileInstructions(content);

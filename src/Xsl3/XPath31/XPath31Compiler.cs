@@ -603,9 +603,27 @@ namespace Xsl3.XPath31
 
         // E1/E2: E1 must be nodes (XPTY0019); E2 is evaluated for each, with it as the focus. Node results are
         // in document order without duplicates; atomic results keep their order.
+        // Xsl3 (P4): node sequences known to be in document order, distinct and all at one depth (from the host: a
+        // group of a population of child steps). A child or attribute step from them needs no merge into document
+        // order: their results, one after another, already are in it.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_sameDepth = new();
+
+        internal static QilNode SameDepth(QilNode nodes)
+        {
+            s_sameDepth.AddOrUpdate(nodes, s_sameDepth);
+            return nodes;
+        }
+
         private QilNode Path(PathExpr p)
         {
             QilNode left = Build(p.Left);
+            if (!p.Descendants && p.Right is AxisStep { Axis: Axis.Child or Axis.Attribute } step && s_sameDepth.TryGetValue(left, out _)
+                && left.XmlType!.IsSubtypeOf(T.NodeNotRtfS))
+            {
+                var (sit, sbody, sinput) = WithFocus(left, UsesLast(p.Right), () => Build(p.Right));
+                QilNode loop = WrapLet(sinput, _f.Loop(sit, sbody));
+                return step.Axis == Axis.Child ? SameDepth(loop) : loop;
+            }
             if (p.Descendants)
             {
                 left = Join(left, () => StepFor(Axis.DescendantOrSelf, new KindNodeTest(new AnyKindTest()), System.Array.Empty<Expr>()), needsLast: false);
@@ -865,7 +883,12 @@ namespace Xsl3.XPath31
                         // A native double is an xs:integer to Items (as positions are).
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
                     case ("sum", 1) when built[0].XmlType!.IsSubtypeOf(T.NodeNotRtfS):
-                        return Call(nameof(XsltLibrary.X31SumNodes), T.Item, built[0]);
+                    {
+                        // The nodes' values as a stream of native doubles (no node list to clone), summed in order.
+                        QilIterator n = _f.For(built[0]);
+                        QilNode doubles = _f.Loop(n, Call(nameof(XsltLibrary.X31UntypedDouble), T.DoubleX, _f.XPathNodeValue(n)));
+                        return Call(nameof(XsltLibrary.X31SumDoubles), T.Item, doubles);
+                    }
                     case ("number", 1) when OptionalString(built[0]) is QilNode numberString:
                         // A string, or zero or one node (whose value is xs:untypedAtomic): cast as a string; () is "", NaN.
                         return Call(nameof(XsltLibrary.X31NumberOfString), T.Item, numberString);

@@ -60,6 +60,43 @@ namespace Xsl3.XPath31
         }
 
         /// <summary>Whether some alternative of a pattern is a predicate pattern (so may match items that aren't nodes).</summary>
+        /// <summary>
+        /// Xsl3 (P4): whether an expression is a relative path of child steps (<c>order</c>, <c>a/b[@x]</c>): from one
+        /// context node, its nodes are in document order, distinct and all at one depth, and so is any subsequence
+        /// of them in their order (such as a group of xsl:for-each-group).
+        /// </summary>
+        public static bool IsChildPath(string expression)
+        {
+            try
+            {
+                return IsChildSteps(Parser.ParseXPath(expression));
+            }
+            catch (XPathStaticException)
+            {
+                return false;
+            }
+
+            static bool IsChildSteps(Expr e) => e switch
+            {
+                AxisStep { Axis: Axis.Child } => true,
+                PathExpr { Descendants: false, Right: AxisStep { Axis: Axis.Child } } p => IsChildSteps(p.Left),
+                _ => false,
+            };
+        }
+
+        /// <summary>Xsl3 (P4): whether an expression is a call of fn:number (whose value is always one xs:double).</summary>
+        public static bool IsNumberCall(string expression)
+        {
+            try
+            {
+                return Parser.ParseXPath(expression) is FunctionCall { Name: { Prefix: null or "fn", LocalName: "number" }, Arguments.Count: <= 1 };
+            }
+            catch (XPathStaticException)
+            {
+                return false;
+            }
+        }
+
         public static bool MatchesItems(string pattern)
         {
             try

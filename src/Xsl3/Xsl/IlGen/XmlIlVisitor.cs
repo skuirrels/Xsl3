@@ -3671,6 +3671,14 @@ namespace Xsl3.IlGen
                         // Formal type is IList<XPathItem>
                         NestedVisitEnsureStack(ndActualArg, typeof(XPathItem), true);
                     }
+                    else if (ndActualArg.XmlType.TypeCode == XmlTypeCode.None && clrTypeFormalArg.IsGenericType
+                        && clrTypeFormalArg.GetGenericTypeDefinition() == typeof(IList<>)
+                        && XmlILMethods.StorageMethods.ContainsKey(clrTypeFormalArg.GetGenericArguments()[0]))
+                    {
+                        // Xsl3: the empty sequence for a formal type IList<T> other than IList<XPathItem> (a library
+                        // method taking native values, IList<double>): an empty list of T.
+                        NestedVisitEnsureStack(ndActualArg, clrTypeFormalArg.GetGenericArguments()[0], true);
+                    }
                     else if ((ndActualArg.XmlType.IsSingleton && clrTypeFormalArg == itemType) || ndActualArg.XmlType.TypeCode == XmlTypeCode.None)
                     {
                         // Formal type is T
