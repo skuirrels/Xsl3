@@ -31,14 +31,22 @@ Targets .NET 8 and .NET 10.
 | | |
 |---|---|
 | XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
-| XPath 3.1 | 99.3% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,512 of the 7,935 applicable W3C xslt30-test cases pass (94.7%) |
+| XPath 3.1 | 99.4% of the W3C QT3 tests that apply |
+| XSLT 2.0 / 3.0 | 7,545 of the 7,935 applicable W3C xslt30-test cases pass (95.1%) |
+| Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
 templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,
 `xsl:override`), the JSON functions, and json and adaptive output.
 
 Not yet: `xsl:evaluate`, schema awareness and streaming.
+
+## Performance
+
+Xsl3 is faster than stock `XslCompiledTransform` on XSLT 1.0, with byte-identical output. Set
+`UseCompactTree = true` before `Load` to have a 1.0 stylesheet parse its input into Xsl3's compact tree. That tree
+takes about 60% of `XPathDocument`'s memory. XSLT 2.0+ stylesheets always use it, for their input and for their
+temporary trees. Details: https://github.com/skuirrels/Xsl3/blob/main/docs/performance.md
 
 ## Links
 
