@@ -20,12 +20,12 @@ namespace Xsl3.Xslt
     internal static class UseWhen
     {
         public static bool Evaluate(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
-            IReadOnlyDictionary<QName, int>? staticValues = null) =>
-            Sequences.EffectiveBooleanValue(EvaluateValue(expression, namespaces, defaultElementNamespace, baseUri, staticValues));
+            IReadOnlyDictionary<QName, int>? staticValues = null, bool evaluateEnabled = false) =>
+            Sequences.EffectiveBooleanValue(EvaluateValue(expression, namespaces, defaultElementNamespace, baseUri, staticValues, evaluateEnabled));
 
         /// <summary>A static expression's value (use-when, static variables, shadow attributes).</summary>
         public static IList<XPathItem> EvaluateValue(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
-            IReadOnlyDictionary<QName, int>? staticValues)
+            IReadOnlyDictionary<QName, int>? staticValues, bool evaluateEnabled = false)
         {
             var sc = new XPathStaticContext { BaseUri = baseUri, DefaultElementNamespace = defaultElementNamespace };
             sc.Namespaces.Clear();
@@ -34,14 +34,14 @@ namespace Xsl3.Xslt
                 sc.Namespaces[prefix] = uri;
             }
             sc.Namespaces["xml"] = XmlReservedNs.NsXml;
-            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()));
+            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()) { EvaluateEnabled = evaluateEnabled });
             XPath31Executable executable = XPath31Compiler.CompileHosted(Parser.ParseXPath(expression), sc, f => new Environment(f, names, staticValues));
             return executable.Evaluate();
         }
 
         /// <summary>A static attribute value template (a shadow attribute, XSLT 3.0 §3.13.2).</summary>
         public static string EvaluateAvt(string avt, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
-            IReadOnlyDictionary<QName, int>? staticValues)
+            IReadOnlyDictionary<QName, int>? staticValues, bool evaluateEnabled = false)
         {
             var sb = new System.Text.StringBuilder();
             int i = 0;
@@ -59,7 +59,7 @@ namespace Xsl3.Xslt
                     Expr? e = Parser.ParseEnclosedExpr(avt, i + 1, out int end);
                     if (e != null)
                     {
-                        IList<XPathItem> value = EvaluateValue(avt[(i + 1)..end], namespaces, defaultElementNamespace, baseUri, staticValues);
+                        IList<XPathItem> value = EvaluateValue(avt[(i + 1)..end], namespaces, defaultElementNamespace, baseUri, staticValues, evaluateEnabled);
                         sb.Append(string.Join(" ", Sequences.Atomize(value).Select(v => v.Value)));
                     }
                     i = end + 1;

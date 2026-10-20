@@ -181,7 +181,7 @@ public sealed class Runner
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
-                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false), resolver);
+                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false) { EnableEvaluate = true }, resolver);
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).

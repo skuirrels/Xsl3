@@ -57,7 +57,6 @@ character-map/character-map-028
 choose/choose-0106
 collations/collations-0104
 collations/collations-0116
-collations/collations-0128
 collations/collations-0601
 context-item/context-item-006
 context-item/context-item-008
@@ -154,7 +153,6 @@ higher-order-functions/higher-order-functions-034
 higher-order-functions/higher-order-functions-060
 higher-order-functions/higher-order-functions-066
 higher-order-functions/higher-order-functions-070
-higher-order-functions/higher-order-functions-073
 id/id-001
 id/id-028
 id/id-029

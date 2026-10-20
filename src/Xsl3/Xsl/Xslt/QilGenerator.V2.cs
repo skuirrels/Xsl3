@@ -220,6 +220,10 @@ namespace Xsl3.Xslt
                 }
                 return _f.Invoke(entry.Function.Function!, actual);
             }
+            if (name.NamespaceUri == DynamicEvaluation.Namespace)
+            {
+                return CompileEvaluate31(name, args, compile);
+            }
             if (name.NamespaceUri != FnNs)
             {
                 return null;
@@ -2775,7 +2779,7 @@ namespace Xsl3.Xslt
                     _stylesheetFunctions31.Add((name.NamespaceUri, name.LocalName, arity));
                 }
             }
-            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31));
+            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31) { EvaluateEnabled = _compiler.Settings.EnableEvaluate });
         }
 
         // ------------------------------------------------------------ grouping, regex, sorting

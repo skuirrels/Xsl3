@@ -181,6 +181,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_tryAttributes);
             AtomizeAttributes(_iterateAttributes);
             AtomizeAttributes(_sourceDocumentAttributes);
+            AtomizeAttributes(_evaluateAttributes);
             AtomizeAttributes(_contextItemAttributes);
             AtomizeAttributes(_mapEntryAttributes);
             AtomizeAttributes(_packageRuleAttributes);
@@ -1817,6 +1818,7 @@ namespace Xsl3.Xslt
                                     V2 && name == "try" ? XslTry() :
                                     V2 && name == "iterate" ? XslIterate() :
                                     V2 && name == "source-document" ? XslSourceDocument() :
+                                    V2 && name == "evaluate" ? XslEvaluate() :
                                     V2 && name == "context-item" ? XslContextItem() :
                                     V2 && name == "map" ? XslMap() :
                                     V2 && name == "merge" ? XslMerge() :
@@ -2766,7 +2768,7 @@ namespace Xsl3.Xslt
             {
                 try
                 {
-                    value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues);
+                    value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                 }
                 catch (Xsl3.XPath31.XPathStaticException e)
                 {

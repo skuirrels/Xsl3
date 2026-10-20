@@ -26,7 +26,7 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,746 passed, 138 failed (99.4%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 96.3% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,549 passed, 386 failed, 86 not run (95.1%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,593 passed, 384 failed, 86 not run (95.2%) |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
@@ -49,6 +49,9 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
   composite keys, `xsl:global-context-item`, `xsl:message` with err:XTMM9000 and `error-code`,
   `xsl:decimal-format` declarations that merge (and `exponent-separator`), and
   `xsl:analyze-string` with regexes that match the empty string.
+- **Dynamic evaluation**: `xsl:evaluate` (off unless `XsltSettings.EnableEvaluate` is set, or `XsltSettings.TrustedXslt`
+  is used; then the target expression is compiled once per static context and cached, and may call the stylesheet's
+  public functions).
 - **XSLT 3.0 functions**: `fn:copy-of`, `fn:snapshot`, `fn:available-system-properties`,
   `fn:current-output-uri`.
 - **Patterns and modes**: predicate patterns and template rules for atomic values, maps and arrays (also in
@@ -67,7 +70,7 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**: `xsl:evaluate`, `xsl:assert`, initial functions,
+- **XSLT 3.0**: `xsl:assert`, initial functions,
   `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
   temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`), the `parameter-document` serialization parameter.
@@ -173,7 +176,7 @@ From [SPEC.md §22](SPEC.md):
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks measured at 1.9–4.3× slower than stock (target ≤ 1×), so unboxed 2.0/3.0 codegen is next; Sink B, NativeAOT and the SaxonCS comparison to do |
-| P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
+| P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | In progress ([plan](docs/plan/p5-evaluate.md)): `xsl:evaluate` done (`evaluate` set 42 / 42); json and adaptive output, the JSON functions; the five exit sets at 89.1% (exit ≥ 98%) |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |
 

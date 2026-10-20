@@ -14,6 +14,7 @@ namespace Xsl3
         private bool _includeDebugInformation;
         private int _warningLevel = -1;     // -1 means not set
         private bool _treatWarningsAsErrors;
+        private bool _enableEvaluate;
 
         public XsltSettings() { }
 
@@ -30,13 +31,26 @@ namespace Xsl3
 
         public static XsltSettings TrustedXslt
         {
-            get { return new XsltSettings(true, true); }
+            get { return new XsltSettings(true, true) { EnableEvaluate = true }; }
         }
 
         public bool EnableDocumentFunction
         {
             get { return _enableDocumentFunction; }
             set { _enableDocumentFunction = value; }
+        }
+
+        /// <summary>
+        /// Xsl3: whether <c>xsl:evaluate</c> may compile and run XPath expressions built at run time (XSLT 3.0 §10.4).
+        /// Off by default, since the expressions may come from untrusted data. When off, <c>xsl:evaluate</c> is
+        /// statically disabled: <c>element-available('xsl:evaluate')</c> is false,
+        /// <c>system-property('xsl:supports-dynamic-evaluation')</c> is "no", an <c>xsl:fallback</c> child is
+        /// used, and otherwise evaluating the instruction raises XTDE3175. <see cref="TrustedXslt"/> turns it on.
+        /// </summary>
+        public bool EnableEvaluate
+        {
+            get { return _enableEvaluate; }
+            set { _enableEvaluate = value; }
         }
 
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
