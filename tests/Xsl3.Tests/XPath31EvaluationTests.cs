@@ -120,6 +120,7 @@ public class XPath31EvaluationTests
     [InlineData("//a[1]/preceding::a/@n/string()", "1 2")]
     [InlineData("/doc/element(a)[@n eq '2']", "y")]
     [InlineData("number(/doc/b/a/@n), number(/doc/b/a), number(/doc/c), upper-case(/doc/b/a), concat(/doc/c, /doc/b/a)", "3 NaN NaN Z z")]
+    [InlineData("sum(()), sum(()) instance of xs:integer, sum(/doc/a/@n/x), sum(/doc/a/@n), sum(/doc/a/@n) instance of xs:double", "0 true 0 3 true")]
     [InlineData("upper-case(/doc/a)", "XPTY0004")]
     [InlineData("number(/doc/a)", "XPTY0004")]
     public void EvaluatesPaths(string expression, string expected)

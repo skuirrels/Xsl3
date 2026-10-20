@@ -84,6 +84,9 @@ namespace Xsl3.Runtime
             }
         }
 
+        /// <summary>Xsl3 (P4): the sort key of number(...), one xs:double, as a native double.</summary>
+        public double X31NumberSortKey(IList<XPathItem> number) => number.Count == 1 ? Numeric.ToDouble((AtomicValue)number[0]) : double.NaN;
+
         // The keys of one sort without data-type must be of one kind (XTDE1030).
         private void CheckSortKind(double site, string kind)
         {
@@ -211,6 +214,9 @@ namespace Xsl3.Runtime
             public List<XPathItem> Members { get; } = new();
 
             public IList<XPathItem>? Key { get; }
+
+            /// <summary>The members as a node sequence, once asked for (X31GroupMemberNodes).</summary>
+            public XmlQueryNodeSequence? Nodes { get; set; }
 
             public override string Value => Members.Count > 0 ? Members[0].Value : "";
 
@@ -377,6 +383,22 @@ namespace Xsl3.Runtime
         }
 
         public IList<XPathItem> X31GroupMembers(XPathItem group) => ((Group)group).Members;
+
+        /// <summary>The members of a group of nodes (a population of child steps), as a node sequence.</summary>
+        public IList<XPathNavigator> X31GroupMemberNodes(XPathItem group)
+        {
+            var g = (Group)group;
+            if (g.Nodes == null)
+            {
+                var nodes = new XPathNavigator[g.Members.Count];
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    nodes[i] = (XPathNavigator)g.Members[i];
+                }
+                g.Nodes = new XmlQueryNodeSequence(nodes, nodes.Length);
+            }
+            return g.Nodes;
+        }
 
         public IList<XPathItem> X31GroupKey(XPathItem group) => ((Group)group).Key ?? Sequences.Empty;
 

@@ -371,6 +371,30 @@ Looking up a key walks the tree. A map that is read again and again, such as key
 order line, now gets a plain hash table of its entries after 16 reads, if it has at least 8 entries. Maps that are
 built, read a few times and updated don't pay for it. Since the map can't change, the table never goes stale.
 
+### Groups and number sort keys
+
+| Pair | Map lookups | Groups and sort keys |
+|---|---:|---:|
+| identity | 0.80 | 0.78 |
+| sort | 1.04 | 0.83 |
+| muenchian | 1.07 | 0.83 |
+| string-recursion | 0.70 | 0.74 |
+| key-join | 1.00 | 1.03 |
+
+Same measure, the median of three runs.
+
+- **Steps from `current-group()`.** A group's members are a subsequence of the population, in population order.
+  When the population is a path of child steps (`order`, `a/b[@x]`), its nodes are in document order, distinct
+  and at one depth, and so are the members of every group. `current-group()` then gives them as nodes marked as
+  such. A child or attribute step from them compiles to a plain loop, without the merge into document order
+  (`ContentMergeIterator`) and the sort that steps from arbitrary nodes need.
+- **`sum()` of nodes** reads their values as a stream of native doubles (`IList<double>`). It no longer takes a
+  list of cloned nodes. The values are added in order from the first, as before; no nodes is `xs:integer` 0. The
+  IL generator now passes an empty sequence to an `IList<T>` parameter for any native `T`, not only for `XPathItem`.
+- **Sort keys of `number(...)`** are native doubles, sorted as 1.0 sorts numbers. The value is always one
+  `xs:double`, so no check is needed that the keys are comparable. NaN sorts least and -0 equals 0, as in the
+  general string encoding; a test compares the two.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

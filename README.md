@@ -83,7 +83,7 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
   - XSLT 2.0/3.0 has nearly caught up with 1.0 on stock. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3×
     slower than the 1.0 versions on stock, because the 2.0+ code boxed its values. Typed codegen and a direct result
-    writer have brought that to 0.70–1.07× of stock's time, and it continues until every pair is at or under 1×.
+    writer have brought that to 0.74–1.03× of stock's time, and it continues until every pair is at or under 1×.
   - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change

@@ -85,6 +85,34 @@ public class Xslt30Tests
             </xsl:template>
             """, "<r/>"));
 
+    /// <summary>
+    /// Sort keys of number(...) (P4: native doubles): NaN first (last descending), -0 equal to 0 (stable), and as
+    /// the general encoding orders them with data-type="number".
+    /// </summary>
+    [Fact]
+    public void NumberSortKeys() =>
+        Assert.Equal("<o>x NaN -1 -0 0 2 10|10 2 -0 0 -1 x NaN|10 2 -0 0 -1 x NaN</o>", Run("""
+            <xsl:template match="/r">
+              <o><xsl:for-each select="p"><xsl:sort select="number(.)"/><xsl:value-of select="if (position() > 1) then ' ' else '', ." separator=""/></xsl:for-each>|<xsl:for-each select="p"><xsl:sort select="number(.)" order="descending"/><xsl:value-of select="if (position() > 1) then ' ' else '', ." separator=""/></xsl:for-each>|<xsl:for-each select="p"><xsl:sort select="." data-type="number" order="descending"/><xsl:value-of select="if (position() > 1) then ' ' else '', ." separator=""/></xsl:for-each></o>
+            </xsl:template>
+            """, "<r><p>x</p><p>10</p><p>NaN</p><p>-0</p><p>2</p><p>0</p><p>-1</p></r>"));
+
+    /// <summary>
+    /// Steps from current-group() (P4: for a population of child steps, its members are in document order at one
+    /// depth, and a step from them needs no merge): child and attribute steps, a further step, and a population
+    /// that isn't child steps.
+    /// </summary>
+    [Fact]
+    public void StepsFromCurrentGroup() =>
+        Assert.Equal("<o>a:1 3|b:2|a:x z|b:y|a:3|b:2|a:1 3 4</o>", Run("""
+            <xsl:template match="/r">
+              <o><xsl:for-each-group select="g/p" group-by="@k"><xsl:value-of select="current-grouping-key(), ':', string-join(current-group()/v, ' '), '|'" separator=""/></xsl:for-each-group>
+              <xsl:for-each-group select="g/p" group-by="@k"><xsl:value-of select="current-grouping-key(), ':', string-join(current-group()/@n, ' '), '|'" separator=""/></xsl:for-each-group>
+              <xsl:for-each-group select="g/p" group-by="@k"><xsl:value-of select="current-grouping-key(), ':', sum(current-group()/w/u), '|'" separator=""/></xsl:for-each-group>
+              <xsl:for-each-group select="//p | //q" group-by="@k"><xsl:if test="@k = 'a'"><xsl:value-of select="current-grouping-key(), ':', string-join(current-group()/v, ' ')" separator=""/></xsl:if></xsl:for-each-group></o>
+            </xsl:template>
+            """, "<r><g><p k='a' n='x'><v>1</v><w><u>1</u><u>2</u></w></p><p k='b' n='y'><v>2</v><w><u>2</u></w></p></g><g><p k='a' n='z'><v>3</v></p><q k='a'><v>4</v></q></g></r>"));
+
     /// <summary>Value templates and string functions over zero, one or several nodes (the native-string paths).</summary>
     [Fact]
     public void ValueTemplatesOfNodes() =>

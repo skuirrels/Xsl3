@@ -91,6 +91,26 @@ namespace Xsl3.Runtime
             }
         }
 
+        /// <summary>The xs:double an untyped value (a node's) casts to (FORG0001 if it isn't one).</summary>
+        public double X31UntypedDouble(string value) => UntypedDouble(value);
+
+        /// <summary>
+        /// fn:sum of nodes' values, as doubles: added in order from the first, as X31SumNodes does; none is xs:integer 0.
+        /// </summary>
+        public System.Xml.XPath.XPathItem X31SumDoubles(System.Collections.Generic.IList<double> values)
+        {
+            if (values.Count == 0)
+            {
+                return AtomicValue.OfInteger(0);
+            }
+            double sum = values[0];
+            for (int i = 1; i < values.Count; i++)
+            {
+                sum += values[i];
+            }
+            return AtomicValue.OfDouble(sum);
+        }
+
         /// <summary>
         /// fn:sum of nodes (untyped, so each an xs:untypedAtomic cast to xs:double): the doubles added in order, from
         /// the first; the empty sequence is xs:integer 0.
