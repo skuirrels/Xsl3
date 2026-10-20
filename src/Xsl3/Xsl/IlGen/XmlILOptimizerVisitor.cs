@@ -906,6 +906,22 @@ namespace Xsl3.IlGen
                     }
                 }
             }
+            if (this[XmlILOptimization.EliminateUnion])
+            {
+                // Xsl3 (P4): (Union (Filter $a:(For (Content $n)) (IsType $a T1)) (Filter $b:(For (Content $n)) (IsType $b T2)))
+                // => (Filter $a (IsType $a (Choice T1 T2))). Both are filters of the one document-ordered sequence, so their
+                // union is the sequence filtered by either test: "@*|node()" is a walk of the content, not a merge of two.
+                if (IsContentKindFilter(local1, out QilIterator? iter1, out XmlQueryType? type1) &&
+                    IsContentKindFilter(local2, out QilIterator? iter2, out XmlQueryType? type2) &&
+                    ((QilUnary)iter1.Binding!).Child == ((QilUnary)iter2.Binding!).Child)
+                {
+                    if (AllowReplace(XmlILOptimization.EliminateUnion, local0))
+                    {
+                        return Replace(XmlILOptimization.EliminateUnion, local0,
+                            VisitFilter(f.Filter(iter1, VisitIsType(f.IsType(iter1, XmlQueryTypeFactory.Choice(type1, type2))))));
+                    }
+                }
+            }
             if (this[XmlILOptimization.AnnotateUnion])
             {
                 // PATTERN: [AnnotateUnion] $outer:(Union * *) => (AddPattern $outer {IsDocOrderDistinct}) ^ { }
@@ -929,6 +945,26 @@ namespace Xsl3.IlGen
                 }
             }
             return NoReplace(local0);
+        }
+
+        /// <summary>
+        /// Xsl3 (P4): whether the node is (Filter $i:(For (Content $n)) (IsType $i T)), where $n is a variable or parameter.
+        /// </summary>
+        private static bool IsContentKindFilter(QilNode node, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out QilIterator? iter,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out XmlQueryType? type)
+        {
+            iter = null;
+            type = null;
+            if (node.NodeType != QilNodeType.Filter || node[0] is not QilIterator { NodeType: QilNodeType.For } i ||
+                i.Binding is not QilUnary { NodeType: QilNodeType.Content } content ||
+                content.Child is not (QilIterator or QilParameter) ||
+                node[1] is not QilTargetType { NodeType: QilNodeType.IsType } test || test.Source != i)
+            {
+                return false;
+            }
+            iter = i;
+            type = test.TargetType;
+            return true;
         }
 
         protected override QilNode VisitIntersection(QilBinary local0)

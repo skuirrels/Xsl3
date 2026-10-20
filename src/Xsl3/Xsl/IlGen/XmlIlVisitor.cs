@@ -2803,7 +2803,7 @@ namespace Xsl3.IlGen
 
             // Generate call to WriteStartElement
             nameType = LoadNameAndType(XPathNodeType.Element, ndElem.Left, true, callChk);
-            _helper.CallWriteStartElement(nameType, callChk);
+            _helper.CallWriteStartElement(nameType, callChk, cacheAttributes: ElementCachesAttributes(info) || info.MightHaveNamespaces);
 
             // Recursively construct content
             NestedVisit(ndElem.Right);

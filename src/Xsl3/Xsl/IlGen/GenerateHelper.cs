@@ -339,6 +339,8 @@ namespace Xsl3.IlGen
         // XmlQueryOutput methods
         public static readonly MethodInfo StartElemLitName = typeof(XmlQueryOutput).GetMethod("WriteStartElement", new[] { typeof(string), typeof(string), typeof(string) })!;
         public static readonly MethodInfo StartElemLocName = typeof(XmlQueryOutput).GetMethod("WriteStartElementLocalName", new[] { typeof(string) })!;
+        public static readonly MethodInfo StartElemLitNameUncached = typeof(XmlQueryOutput).GetMethod("WriteStartElementUncached", new[] { typeof(string), typeof(string), typeof(string) })!;
+        public static readonly MethodInfo StartElemLocNameUncached = typeof(XmlQueryOutput).GetMethod("WriteStartElementLocalNameUncached", new[] { typeof(string) })!;
         public static readonly MethodInfo EndElemStackName = typeof(XmlQueryOutput).GetMethod("WriteEndElement")!;
         public static readonly MethodInfo StartAttrLitName = typeof(XmlQueryOutput).GetMethod("WriteStartAttribute", new[] { typeof(string), typeof(string), typeof(string) })!;
         public static readonly MethodInfo StartAttrLocName = typeof(XmlQueryOutput).GetMethod("WriteStartAttributeLocalName", new[] { typeof(string) })!;
@@ -1181,9 +1183,16 @@ namespace Xsl3.IlGen
             Call(XmlILMethods.EndRoot);
         }
 
-        public void CallWriteStartElement(GenerateNameType nameType, bool callChk)
+        public void CallWriteStartElement(GenerateNameType nameType, bool callChk, bool cacheAttributes = true)
         {
             MethodInfo? meth = null;
+
+            // Xsl3 (P4): checks without the attribute cache, for an element whose attributes cannot clash
+            if (callChk && !cacheAttributes && nameType is GenerateNameType.LiteralLocalName or GenerateNameType.LiteralName)
+            {
+                Call(nameType == GenerateNameType.LiteralLocalName ? XmlILMethods.StartElemLocNameUncached : XmlILMethods.StartElemLitNameUncached);
+                return;
+            }
 
             // If runtime checks need to be made,
             if (callChk)

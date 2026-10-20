@@ -97,3 +97,28 @@ public class InputParse
     [Benchmark]
     public XPathDocument XPathDocument() => new XPathDocument(XmlReader.Create(new StringReader(_xml)));
 }
+
+/// <summary>
+/// CPU sampling of Xsl3's transforms (EventPipe; the traces are in the artifacts folder as speedscope files):
+/// dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- --filter '*Xsl3Profile*' --job short
+/// </summary>
+[EventPipeProfiler(BenchmarkDotNet.Diagnosers.EventPipeProfile.CpuSampling)]
+public class Xsl3Profile
+{
+    private XslCompiledTransform _xsl3 = null!;
+    private XPathDocument _input = null!;
+
+    [Params("identity", "sort", "muenchian", "string-recursion", "key-join")]
+    public string Stylesheet { get; set; } = "";
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _input = new XPathDocument(new StringReader(Corpus.Orders(20_000)));
+        _xsl3 = new XslCompiledTransform();
+        _xsl3.Load(Corpus.Stylesheet(Stylesheet));
+    }
+
+    [Benchmark]
+    public void Xsl3() => _xsl3.Transform(_input, null, Stream.Null);
+}

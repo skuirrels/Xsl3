@@ -7,7 +7,7 @@
 
 Xsl3 starts from the engine behind .NET's `XslCompiledTransform` (stylesheets compiled to IL through the QIL
 intermediate representation) and is growing it into a conformant XSLT 3.0 / XPath 3.1 processor that stays
-at least as fast as stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
+faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
 > **Status: alpha, Phase 3 (XSLT 3.0) in progress.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`;
@@ -27,7 +27,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,731 passed, 153 failed (99.3%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 95.2% |
 | W3C xslt30-test, XSLT 3.0 profile (P3 exit target: ≥ 95%) | 7,512 passed, 423 failed, 86 not run (94.7%) |
-| XSLT 1.0 speed against stock | parity (±3%, [docs/performance.md](docs/performance.md)) |
+| XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
 - **XSLT 1.0**: the upstream engine, unchanged in behaviour.
 - **XPath 3.1 and F&O 3.1**: the XDM type system, all atomic types and casts, sequences, `for`/`let`/
@@ -78,7 +78,9 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   for predicate patterns; XTDE1480 (`xsl:result-document` in temporary output state) only where it can be
   seen statically; static variables declared in modules imported after their use; regex character classes follow .NET's Unicode version rather
   than the suite's; `doc()` and `document()` refuse DTDs unless the input reader allows them.
-- **Later phases**: performance work (P4), schema-awareness (P6) and streaming (P7) haven't started.
+- **Performance (P4)**: the 1.0 throughput goal is met. Still to do: the compact tree and name pool, unboxed
+  codegen for 2.0/3.0, Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison for 2.0/3.0.
+- **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
   before 1.0.
 
@@ -125,7 +127,7 @@ dotnet test Xsl3.slnx
 | `tests/Xsl3.Differential` | Runs the 1.0 corpus through stock `System.Xml.Xsl` and through Xsl3 and requires byte-identical results |
 | `bench/Xsl3.Benchmarks` | BenchmarkDotNet suites comparing Xsl3 with stock: `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- --filter '*'` |
 
-Benchmark baseline against stock: [docs/performance.md](docs/performance.md) (parity on XSLT 1.0, as Phase 0 requires).
+Benchmarks against stock: [docs/performance.md](docs/performance.md) (1.38× geometric mean on XSLT 1.0, never slower).
 
 The NuGet package page uses [docs/nuget/README.md](docs/nuget/README.md) (absolute links only); update its
 status and numbers along with this file.
@@ -143,7 +145,7 @@ From [SPEC.md §22](SPEC.md):
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | In progress: QT3 99.3%, xslt30-test 3.0 profile 94.7% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | Not started |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact tree, unboxed 2.0/3.0 codegen, Sink B, NativeAOT and the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization | Partly done: json and adaptive output, the JSON functions |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |

@@ -2852,7 +2852,83 @@ namespace Xsl3
 
             Converts a floating point number to a string according to XPath rules.
         */
-        public static string DoubleToString(double dbl)
+        /// <summary>
+        /// Xsl3 (P4): DoubleToString for a number that is a decimal of at most 15 significant digits with at most 15
+        /// fraction digits (12.5, 1234.56): n / 10^k for the least k at which the integer n nearest dbl x 10^k gives
+        /// back dbl. Decimals of up to 15 digits are distinct as doubles, so that decimal is the only one of its length,
+        /// the shortest that identifies dbl, which is what the general algorithm finds. (The nearest integer is the one:
+        /// dbl x 10^k is off it by under 0.25 when n / 10^k gives dbl, with n below 10^15.)
+        /// </summary>
+        internal static bool TryShortDecimalToString(double dbl, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? result)
+        {
+            result = null;
+            double abs = Math.Abs(dbl);
+            if (!(abs >= 1e-15 && abs < 1e15))
+            {
+                return false;
+            }
+            for (int k = 0; k <= 15; k++)
+            {
+                double scaled = abs * s_powersOf10[k];
+                if (scaled >= 1e15)
+                {
+                    return false;
+                }
+                double n = Math.Round(scaled);
+                if (n / s_powersOf10[k] != abs)
+                {
+                    continue;
+                }
+                long digits = (long)n;
+                Span<char> chars = stackalloc char[40];
+                int length = 0;
+                if (dbl < 0)
+                {
+                    chars[length++] = '-';
+                }
+                Span<char> number = stackalloc char[20];
+                int count = 0;
+                do
+                {
+                    number[count++] = (char)('0' + (int)(digits % 10));
+                    digits /= 10;
+                }
+                while (digits != 0);
+                // number holds the digits least significant first; k of them are the fraction
+                if (count <= k)
+                {
+                    chars[length++] = '0';
+                    chars[length++] = '.';
+                    for (int z = count; z < k; z++)
+                    {
+                        chars[length++] = '0';
+                    }
+                    for (int i = count - 1; i >= 0; i--)
+                    {
+                        chars[length++] = number[i];
+                    }
+                }
+                else
+                {
+                    for (int i = count - 1; i >= 0; i--)
+                    {
+                        if (i == k - 1)
+                        {
+                            chars[length++] = '.';
+                        }
+                        chars[length++] = number[i];
+                    }
+                }
+                result = new string(chars.Slice(0, length));
+                return true;
+            }
+            return false;
+        }
+
+        public static string DoubleToString(double dbl) => DoubleToString(dbl, shortDecimals: true);
+
+        /// <summary>Xsl3: shortDecimals false is the general algorithm alone (for tests of the short path).</summary>
+        internal static string DoubleToString(double dbl, bool shortDecimals)
         {
             Debug.Assert(('0' & 0xF) == 0, "We use (char)(d |'0') to convert digit to char");
             int maxSize, sizeInt, sizeFract, cntDigits, ib;
@@ -2861,6 +2937,11 @@ namespace Xsl3
             if (IsInteger(dbl, out iVal))
             {
                 return iVal.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (shortDecimals && TryShortDecimalToString(dbl, out string? shortDecimal))
+            {
+                return shortDecimal;
             }
 
             // Handle NaN and infinity
@@ -2964,12 +3045,76 @@ namespace Xsl3
 
         public static double StringToDouble(string s)
         {
+            if (TryParseShortDecimal(s, out double value))
+            {
+                return value;
+            }
             if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) && double.IsFinite(result))
             {
                 return result;
             }
 
             return double.NaN;
+        }
+
+        // Xsl3 (P4): 10^0 .. 10^15, each exactly representable as a double.
+        private static readonly double[] s_powersOf10 =
+        {
+            1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
+        };
+
+        /// <summary>
+        /// Xsl3 (P4): the common case of StringToDouble, an optional minus sign, then at most 15 digits with an optional
+        /// decimal point ("12.50", "-3", ".5"). The digits as an integer m and the fraction length k are both exact as
+        /// doubles (m &lt; 2^53, k &lt;= 15), and IEEE division is correctly rounded, so m / 10^k is the double nearest the
+        /// decimal value, which is what double.TryParse returns. Anything else (whitespace, a plus sign, an exponent,
+        /// more digits) takes the general path.
+        /// </summary>
+        private static bool TryParseShortDecimal(string s, out double value)
+        {
+            int i = 0, n = s.Length;
+            bool negative = false;
+            if (n != 0 && s[0] == '-')
+            {
+                negative = true;
+                i = 1;
+            }
+            long mantissa = 0;
+            int digits = 0, fraction = -1;
+            for (; i < n; i++)
+            {
+                uint d = (uint)(s[i] - '0');
+                if (d <= 9)
+                {
+                    if (++digits > 15)
+                    {
+                        value = 0;
+                        return false;
+                    }
+                    mantissa = mantissa * 10 + d;
+                }
+                else if (s[i] == '.' && fraction < 0)
+                {
+                    fraction = digits;
+                }
+                else
+                {
+                    value = 0;
+                    return false;
+                }
+            }
+            if (digits == 0)
+            {
+                value = 0;
+                return false;
+            }
+            double result = mantissa;
+            if (fraction >= 0 && digits > fraction)
+            {
+                result /= s_powersOf10[digits - fraction];
+            }
+            value = negative ? -result : result;
+            return true;
         }
     }
 }

@@ -29,21 +29,21 @@ namespace Xsl3.Runtime
         /// </summary>
         public void Add(string key, XPathNavigator navigator)
         {
-            XmlQueryNodeSequence? seq;
+            // Xsl3 (P4): one probe of the table for both the lookup and the insertion
+            ref XmlQueryNodeSequence? seq = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(_table, key, out bool exists);
 
-            if (!_table.TryGetValue(key, out seq))
+            if (!exists)
             {
                 // Create a new sequence and add it to the index
                 seq = new XmlQueryNodeSequence();
                 seq.AddClone(navigator);
-                _table.Add(key, seq);
             }
             else
             {
                 // The nodes are guaranteed to be added in document order with possible duplicates.
                 // Add node to the existing sequence if it differs from the last one.
-                Debug.Assert(navigator.ComparePosition(seq[seq.Count - 1]) >= 0, "Index nodes must be added in document order");
-                if (!navigator.IsSamePosition(seq[seq.Count - 1]))
+                Debug.Assert(navigator.ComparePosition(seq![seq.Count - 1]) >= 0, "Index nodes must be added in document order");
+                if (!navigator.IsSamePosition(seq![seq.Count - 1]))
                 {
                     seq.AddClone(navigator);
                 }

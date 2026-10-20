@@ -2311,6 +2311,12 @@ namespace Xsl3.Xslt
                 QilNode? countPattern = (num.Count != null) ? CompileNumberPattern(num.Count) : null;
                 QilNode? fromPattern = (num.From != null) ? CompileNumberPattern(num.From) : null;
 
+                if (countPattern == null && fromPattern == null && num.Level == NumberLevel.Single)
+                {
+                    // Xsl3 (P4): the default single-level number counts on from the sibling numbered last.
+                    value = XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31SiblingNumber), T.IntX, GetCurrentNode(), _f.Int32(_siblingNumberSites++));
+                }
+                else
                 switch (num.Level)
                 {
                     case NumberLevel.Single: value = PlaceMarker(countPattern, fromPattern, false); break;

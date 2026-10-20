@@ -53,7 +53,45 @@ namespace Xsl3.Runtime
         private Stack<string>? _stkNames;             // Keep stack of name parts computed during StartElement
         private XPathNodeType _rootType;             // NodeType of the root of the tree
 
-        private readonly Dictionary<string, string> _usedPrefixes = new Dictionary<string, string>(); //The prefies that used in the current scope
+        private UsedPrefixes _usedPrefixes;          // The prefixes used by the current element (Xsl3 P4: a list, not a dictionary)
+
+        /// <summary>
+        /// Xsl3 (P4): the prefixes the element being written uses, to tell a namespace declaration that conflicts with
+        /// one of them. An element uses few, and the set is cleared at every element, so a list beats a dictionary.
+        /// </summary>
+        private struct UsedPrefixes
+        {
+            private string[]? _prefixes;
+            private int _count;
+
+            public void Clear() => _count = 0;
+
+            public void Add(string prefix)
+            {
+                if (Contains(prefix))
+                {
+                    return;
+                }
+                _prefixes ??= new string[4];
+                if (_count == _prefixes.Length)
+                {
+                    System.Array.Resize(ref _prefixes, _count * 2);
+                }
+                _prefixes[_count++] = prefix;
+            }
+
+            public readonly bool Contains(string prefix)
+            {
+                for (int i = 0; i < _count; i++)
+                {
+                    if (ReferenceEquals(_prefixes![i], prefix) || _prefixes[i] == prefix)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
 
         /// <summary>
         /// This constructor is internal so that external users cannot construct it (and therefore we do not have to test it separately).
@@ -159,6 +197,28 @@ namespace Xsl3.Runtime
         /// </summary>
         public override void WriteStartElement(string? prefix, string localName, string? ns)
         {
+            WriteStartElement(prefix, localName, ns, cacheAttributes: true);
+        }
+
+        /// <summary>
+        /// Xsl3 (P4): WriteStartElement for an element the compiler has proved gets no duplicate attributes and no
+        /// namespace declarations from its content, so that its attributes go straight to the writer rather than
+        /// through the duplicate-detecting cache (unless its own namespace needs declaring, when the declaration must
+        /// precede the attributes).
+        /// </summary>
+        public void WriteStartElementUncached(string prefix, string localName, string ns)
+        {
+            WriteStartElement(prefix, localName, ns, cacheAttributes: false);
+        }
+
+        /// <summary>Xsl3 (P4): WriteStartElementUncached with empty prefix and ns.</summary>
+        public void WriteStartElementLocalNameUncached(string localName)
+        {
+            WriteStartElement(string.Empty, localName, string.Empty, cacheAttributes: false);
+        }
+
+        private void WriteStartElement(string? prefix, string localName, string? ns, bool cacheAttributes)
+        {
             Debug.Assert(prefix != null && !string.IsNullOrEmpty(localName) && ns != null, "Invalid argument");
             Debug.Assert(ValidateNames.ValidateName(prefix, localName, ns, XPathNodeType.Element, ValidateNames.Flags.All), "Name validation failed");
 
@@ -172,11 +232,14 @@ namespace Xsl3.Runtime
             WriteNamespaceDeclarationUnchecked(prefix, ns);
 
             // Cache attributes in order to detect duplicates
-            _attrCache ??= new XmlAttributeCache();
+            if (cacheAttributes || _cntNmsp != 0)
+            {
+                _attrCache ??= new XmlAttributeCache();
 
-            _attrCache.Init(Writer!);
-            Writer = _attrCache;
-            _attrCache = null;
+                _attrCache.Init(Writer!);
+                Writer = _attrCache;
+                _attrCache = null;
+            }
 
             // Push element names onto a stack
             PushElementNames(prefix, localName, ns);
@@ -448,7 +511,7 @@ namespace Xsl3.Runtime
             Writer!.WriteStartElement(prefix, localName, ns);
             //reset when enter element
             _usedPrefixes.Clear();
-            _usedPrefixes[prefix] = ns;
+            _usedPrefixes.Add(prefix);
             _xstate = XmlState.EnumAttrs;
             _depth++;
         }
@@ -561,7 +624,7 @@ namespace Xsl3.Runtime
             if (_nsmgr.LookupNamespace(prefix) != ns)
                 AddNamespace(prefix, ns);
 
-            _usedPrefixes[prefix] = ns;
+            _usedPrefixes.Add(prefix);
         }
 
         /// <summary>
@@ -732,7 +795,7 @@ namespace Xsl3.Runtime
                     if (nsExisting != null)
                     {
                         // Then throw an error except if the prefix trying to redefine is already used
-                        if (_usedPrefixes.ContainsKey(prefix))
+                        if (_usedPrefixes.Contains(prefix))
                         {
                             throw new XslTransformException(SR.XmlIl_NmspConflict, new string[] { prefix.Length == 0 ? "" : ":", prefix, ns, nsExisting });
                         }
@@ -746,7 +809,7 @@ namespace Xsl3.Runtime
             if (_depth == 0)
                 EndTree();
 
-            _usedPrefixes[prefix] = ns;
+            _usedPrefixes.Add(prefix);
         }
 
         /// <summary>
@@ -1019,7 +1082,7 @@ namespace Xsl3.Runtime
         {
             _nsmgr!.AddNamespace(prefix, ns);
             _cntNmsp++;
-            _usedPrefixes[prefix] = ns;
+            _usedPrefixes.Add(prefix);
         }
 
         /// <summary>

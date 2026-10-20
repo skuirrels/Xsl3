@@ -17,6 +17,10 @@ namespace Xsl3.Runtime
         private XmlSortKey?[] _keys;
         private int _pos;
 
+        // Xsl3 (P4): the collation keys made in this sort, by collation and string. Sort values repeat (the same
+        // customer on many orders), and making a collation key is the costly part of sorting strings.
+        private System.Collections.Generic.Dictionary<(XmlCollation, string), object>? _collationKeys;
+
 #if DEBUG
         private const int DefaultSortKeyCount = 4;
 #else
@@ -32,6 +36,7 @@ namespace Xsl3.Runtime
 
             _pos = 0;
             _keys[0] = null;
+            _collationKeys = null;
         }
 
         /// <summary>
@@ -39,7 +44,13 @@ namespace Xsl3.Runtime
         /// </summary>
         public void AddStringSortKey(XmlCollation collation, string value)
         {
-            AppendSortKey(collation.CreateSortKey(value));
+            _collationKeys ??= new System.Collections.Generic.Dictionary<(XmlCollation, string), object>();
+            if (!_collationKeys.TryGetValue((collation, value), out object? data))
+            {
+                data = collation.CreateSortKeyData(value);
+                _collationKeys[(collation, value)] = data;
+            }
+            AppendSortKey(collation.CreateSortKey(data));
         }
 
         public void AddDecimalSortKey(XmlCollation collation, decimal value)

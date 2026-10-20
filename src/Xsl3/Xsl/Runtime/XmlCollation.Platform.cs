@@ -14,7 +14,14 @@ namespace Xsl3.Runtime
         /// Upstream compiles XmlCollation.Windows.cs or XmlCollation.Unix.cs depending on the target OS.
         /// Xsl3 ships one portable assembly, so the choice is made at run time instead.
         /// </remarks>
-        internal XmlSortKey CreateSortKey(string s)
+        internal XmlSortKey CreateSortKey(string s) => CreateSortKey(CreateSortKeyData(s));
+
+        /// <summary>Xsl3: a sort key for the data CreateSortKeyData made (which a sort may reuse for equal strings).</summary>
+        internal XmlSortKey CreateSortKey(object data) =>
+            data is SortKey sortKey ? new XmlStringSortKey(sortKey, DescendingOrder) : new XmlStringSortKey((byte[])data, DescendingOrder);
+
+        /// <summary>Xsl3: the collation key of a string: a SortKey, or its bytes with the case weights inverted (upper-first).</summary>
+        internal object CreateSortKeyData(string s)
         {
             SortKey sortKey;
             byte[] bytesKey;
@@ -34,10 +41,10 @@ namespace Xsl3.Runtime
 #if DEBUG
             // In debug-only code, test other code path more frequently
             if (!UpperFirst && DescendingOrder)
-                return new XmlStringSortKey(sortKey, DescendingOrder);
+                return sortKey;
 #else
             if (!UpperFirst)
-                return new XmlStringSortKey(sortKey, DescendingOrder);
+                return sortKey;
 #endif
 
             // Get byte buffer from SortKey and modify it
@@ -66,7 +73,7 @@ namespace Xsl3.Runtime
                 while (bytesKey[idx] != 0xfe);
             }
 
-            return new XmlStringSortKey(bytesKey, DescendingOrder);
+            return bytesKey;
         }
     }
 }

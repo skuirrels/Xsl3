@@ -4,6 +4,7 @@
 //   Xsl3.Dev run  <stylesheet> [<input>] [-it <template>] [-im <mode>] [-p <package file>]... [-param name=value]...
 //                                                                       transform to stdout (a number value is a double)
 //   Xsl3.Dev qil  <stylesheet>                                            the QIL the compiler produces
+//   Xsl3.Dev qilopt <stylesheet>                                          the QIL after the optimizer, as code generation sees it
 // Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path.
 
 using System;
@@ -45,13 +46,17 @@ for (int i = 2; i < args.Length; i++)
 }
 
 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false);
-if (command == "qil")
+if (command is "qil" or "qilopt")
 {
     var compiler = new Compiler(settings, debug: false, scriptAssemblyPath: null);
     var errors = compiler.Compile(new Uri(stylesheet).AbsoluteUri, new XmlUrlResolver(), new XmlUrlResolver(), out QilExpression qil);
     foreach (CompilerError e in errors)
     {
         Console.Error.WriteLine($"{e.FileName}({e.Line},{e.Column}): {e.ErrorText}");
+    }
+    if (command == "qilopt")
+    {
+        qil = new Xsl3.IlGen.XmlILOptimizerVisitor(qil, !qil.IsDebug).Optimize();
     }
     using XmlWriter w = XmlWriter.Create(Console.Out, new XmlWriterSettings { Indent = true });
     new QilXmlWriter(w).ToXml(qil);

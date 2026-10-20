@@ -385,8 +385,39 @@ namespace Xsl3.Runtime
                 return;
 
             Debug.Assert(keys.Length >= _size, "Number of keys must be >= number of items.");
-            Array.Sort(keys, _items, 0, _size);
+            if (keys is XmlSortKey[] sortKeys)
+            {
+                // Xsl3 (P4): sort (key, item) pairs, a struct array with a typed comparer, rather than two object arrays
+                // through IComparable: no casts or covariant array stores. The keys break ties by input position, so
+                // the order is total and the sorted result is the one Array.Sort gives.
+                var entries = new SortEntry[_size];
+                for (int i = 0; i < _size; i++)
+                {
+                    entries[i] = new SortEntry(sortKeys[i], _items[i]);
+                }
+                entries.AsSpan().Sort(default(SortEntryComparer));
+                for (int i = 0; i < _size; i++)
+                {
+                    sortKeys[i] = entries[i].Key;
+                    _items[i] = entries[i].Item;
+                }
+            }
+            else
+            {
+                Array.Sort(keys, _items, 0, _size);
+            }
             OnItemsChanged();
+        }
+
+        private readonly struct SortEntry(XmlSortKey key, T item)
+        {
+            public readonly XmlSortKey Key = key;
+            public readonly T Item = item;
+        }
+
+        private readonly struct SortEntryComparer : IComparer<SortEntry>
+        {
+            public int Compare(SortEntry x, SortEntry y) => x.Key.CompareTo(y.Key);
         }
 
         /// <summary>
@@ -601,6 +632,19 @@ namespace Xsl3.Runtime
 
             if (Count <= 1)
                 return this;
+
+            // Xsl3 (P4): sequences are mostly in document order already (a key's nodes, a step's results): one pass
+            // finds that, rather than sorting.
+            for (iEach = 1; iEach < Count; iEach++)
+            {
+                if (this[iEach - 1].ComparePosition(this[iEach]) != XmlNodeOrder.Before)
+                    break;
+            }
+            if (iEach == Count)
+            {
+                _docOrderDistinct = this;
+                return this;
+            }
 
             // Create a copy of this sequence
             sortArray = new XPathNavigator[Count];

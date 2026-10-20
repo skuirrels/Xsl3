@@ -168,27 +168,70 @@ namespace Xsl3.Runtime
                 return arg;
             }
 
-            StringBuilder sb = new StringBuilder(arg.Length);
-
-            for (int i = 0; i < arg.Length; i++)
+            // Xsl3 (P4): where each ASCII character first occurs in mapString, so that mapping a character is a table
+            // lookup rather than a search of mapString; and nothing is built when no character maps.
+            int[] ascii = TranslateTable(mapString);
+            int first = 0;
+            for (; first < arg.Length; first++)
             {
-                int index = mapString.IndexOf(arg[i]);
+                char ch = arg[first];
+                if ((ch < 128 ? ascii[ch] : mapString.IndexOf(ch)) >= 0)
+                {
+                    break;
+                }
+            }
+            if (first == arg.Length)
+            {
+                return arg;
+            }
+
+            char[] chars = t_translateChars is { } buffer && buffer.Length >= arg.Length ? buffer : (t_translateChars = new char[Math.Max(arg.Length, 64)]);
+            arg.CopyTo(0, chars, 0, first);
+            int length = first;
+            for (int i = first; i < arg.Length; i++)
+            {
+                char ch = arg[i];
+                int index = ch < 128 ? ascii[ch] : mapString.IndexOf(ch);
                 if (index < 0)
                 {
                     // Keep the character
-                    sb.Append(arg[i]);
+                    chars[length++] = ch;
                 }
                 else if (index < transString.Length)
                 {
                     // Replace the character
-                    sb.Append(transString[index]);
+                    chars[length++] = transString[index];
                 }
-                else
+                // else remove the character
+            }
+            return new string(chars, 0, length);
+        }
+
+        [ThreadStatic] private static string? t_translateMap;
+        [ThreadStatic] private static int[]? t_translateTable;
+        [ThreadStatic] private static char[]? t_translateChars;
+
+        /// <summary>Xsl3 (P4): for each ASCII character, the index of its first occurrence in mapString, or -1.</summary>
+        private static int[] TranslateTable(string mapString)
+        {
+            int[]? table = t_translateTable;
+            if (table != null && (object?)t_translateMap == mapString)
+            {
+                return table;
+            }
+            table ??= new int[128];
+            Array.Fill(table, -1);
+            for (int j = mapString.Length - 1; j >= 0; j--)
+            {
+                char c = mapString[j];
+                if (c < 128)
                 {
-                    // Remove the character
+                    table[c] = j;
                 }
             }
-            return sb.ToString();
+            t_translateTable = table;
+            t_translateMap = mapString;
+            return table;
         }
 
         public static bool Lang(string value, XPathNavigator context)

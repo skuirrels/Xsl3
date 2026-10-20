@@ -973,14 +973,20 @@ namespace Xsl3.Runtime
         /// If an index having the specified Id has already been created over the "context" document, then return it
         /// in "index" and return true.  Otherwise, create a new, empty index and return false.
         /// </summary>
+        private XPathNavigator? _indexRoot;
+
         public bool FindIndex(XPathNavigator context, int indexId, out XmlILIndex index)
         {
             XPathNavigator navRoot;
             ArrayList docIndexes;
             Debug.Assert(context != null);
 
-            // Get root of document
-            navRoot = context.Clone();
+            // Get root of document (Xsl3 P4: in a navigator kept for the purpose, rather than a clone per key() call)
+            if (_indexRoot == null || !_indexRoot.MoveTo(context))
+            {
+                _indexRoot = context.Clone();
+            }
+            navRoot = _indexRoot;
             navRoot.MoveToRoot();
 
             // Search pre-existing indexes in order to determine whether the specified index has already been created

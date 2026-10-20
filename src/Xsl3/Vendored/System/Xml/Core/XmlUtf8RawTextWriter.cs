@@ -704,6 +704,56 @@ namespace System.Xml
             }
         }
 
+        // Xsl3 (P4): the ASCII characters that text and attribute values carry as they are (not escaped or encoded).
+        private static readonly System.Buffers.SearchValues<char> s_asciiAttributeValueChars = CreateAsciiAttributeValueChars();
+
+        private static System.Buffers.SearchValues<char> CreateAsciiAttributeValueChars()
+        {
+            var chars = new System.Collections.Generic.List<char>();
+            for (char c = (char)0; c <= (char)0x7F; c++)
+            {
+                if (XmlCharType.IsAttributeValueChar(c))
+                {
+                    chars.Add(c);
+                }
+            }
+            return System.Buffers.SearchValues.Create(chars.ToArray());
+        }
+
+        /// <summary>
+        /// Xsl3 (P4): copies the leading characters of the count at pSrc that are ASCII (and, given chars, among them) to
+        /// pDst as bytes, and returns how many it copied. The count is negative when the buffer is already past its end.
+        /// </summary>
+        private static unsafe int CopyAsciiRun(char* pSrc, byte* pDst, int count, System.Buffers.SearchValues<char>? chars)
+        {
+            if (count < 16)
+            {
+                // Short runs (names, numbers): a plain loop is quicker than setting up the vectorized search.
+                int i = 0;
+                for (; i < count; i++)
+                {
+                    char ch = pSrc[i];
+                    if (ch > 0x7F || (chars != null && !XmlCharType.IsAttributeValueChar(ch)))
+                    {
+                        break;
+                    }
+                    pDst[i] = (byte)ch;
+                }
+                return i;
+            }
+            var source = new ReadOnlySpan<char>(pSrc, count);
+            if (chars != null)
+            {
+                int stop = source.IndexOfAnyExcept(chars);
+                if (stop >= 0)
+                {
+                    source = source.Slice(0, stop);
+                }
+            }
+            System.Text.Ascii.FromUtf16(source, new Span<byte>(pDst, source.Length), out int written);
+            return written;
+        }
+
         // Serialize text that is part of an attribute value.  The '&', '<', '>', and '"' characters
         // are entitized.
         protected unsafe void WriteAttributeTextBlock(char* pSrc, char* pSrcEnd)
@@ -721,11 +771,13 @@ namespace System.Xml
                         pDstEnd = pDstBegin + _bufLen;
                     }
 
-                    while (pDst < pDstEnd && XmlCharType.IsAttributeValueChar((char)(ch = *pSrc)) && ch <= 0x7F)
+                    // Xsl3 (P4): the run of characters written as they are, found and narrowed to bytes vectorized.
+                    int run = CopyAsciiRun(pSrc, pDst, (int)(pDstEnd - pDst), s_asciiAttributeValueChars);
+                    pSrc += run;
+                    pDst += run;
+                    if (pDst < pDstEnd)
                     {
-                        *pDst = (byte)ch;
-                        pDst++;
-                        pSrc++;
+                        ch = *pSrc;
                     }
 
                     Debug.Assert(pSrc <= pSrcEnd);
@@ -844,11 +896,13 @@ namespace System.Xml
                         pDstEnd = pDstBegin + _bufLen;
                     }
 
-                    while (pDst < pDstEnd && XmlCharType.IsAttributeValueChar((char)(ch = *pSrc)) && ch <= 0x7F)
+                    // Xsl3 (P4): the run of characters written as they are, found and narrowed to bytes vectorized.
+                    int run = CopyAsciiRun(pSrc, pDst, (int)(pDstEnd - pDst), s_asciiAttributeValueChars);
+                    pSrc += run;
+                    pDst += run;
+                    if (pDst < pDstEnd)
                     {
-                        *pDst = (byte)ch;
-                        pDst++;
-                        pSrc++;
+                        ch = *pSrc;
                     }
                     Debug.Assert(pSrc <= pSrcEnd);
 
@@ -974,11 +1028,13 @@ namespace System.Xml
                         pDstEnd = pDstBegin + _bufLen;
                     }
 
-                    while (pDst < pDstEnd && ((ch = *pSrc) <= 0x7F))
+                    // Xsl3 (P4): the ASCII run, narrowed to bytes vectorized.
+                    int run = CopyAsciiRun(pSrc, pDst, (int)(pDstEnd - pDst), null);
+                    pSrc += run;
+                    pDst += run;
+                    if (pDst < pDstEnd)
                     {
-                        pSrc++;
-                        *pDst = (byte)ch;
-                        pDst++;
+                        ch = *pSrc;
                     }
                     Debug.Assert(pSrc <= pSrcEnd);
 

@@ -723,6 +723,9 @@ namespace Xsl3.Xslt
             QilNode? fromPattern = num.From != null ? CompileNumberPattern(num.From) : null;
             QilNode counted = num.Level switch
             {
+                // P4: the default single-level number counts on from the sibling numbered last (XsltLibrary.X31SiblingNumber).
+                NumberLevel.Single when countPattern == null && fromPattern == null =>
+                    X31(nameof(XsltLibrary.X31SiblingNumber), T.IntX, node, _f.Int32(_siblingNumberSites++)),
                 NumberLevel.Single => PlaceMarker31(countPattern, fromPattern, false),
                 NumberLevel.Multiple => PlaceMarker31(countPattern, fromPattern, true),
                 _ => PlaceMarkerAny31(countPattern, fromPattern),
@@ -815,6 +818,9 @@ namespace Xsl3.Xslt
         // Whether some template uses mode="#current" where its mode isn't known when it's compiled: then the
         // apply-templates functions record their mode in the tunnel frame, and #current dispatches on it.
         private bool _dynamicCurrentMode31;
+
+        // The xsl:number instructions numbered with XsltLibrary.X31SiblingNumber, each with its own cache slot.
+        private int _siblingNumberSites;
 
         // A template rule of one mode (or of the default mode), not called by name: its #current is that mode.
         private static bool HasStaticMode31(ProtoTemplate t) =>
