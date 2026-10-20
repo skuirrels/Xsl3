@@ -18,7 +18,7 @@ The full design is in [SPEC.md](SPEC.md).
 
 ## What works
 
-Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md](docs/conformance.md).
+Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md](docs/conformance.md).
 
 | Gate | Result |
 |---|---|
