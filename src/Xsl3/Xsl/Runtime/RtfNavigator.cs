@@ -206,10 +206,10 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Create a new navigator over the specified cache of Xml events.
         /// </summary>
-        public RtfTreeNavigator(XmlEventCache events, XmlNameTable nameTable)
+        public RtfTreeNavigator(XmlEventCache events, XmlNameTable nameTable, bool compact = false)
         {
             _events = events;
-            _constr = new NavigatorConstructor();
+            _constr = new NavigatorConstructor(compact);
             _nameTable = nameTable;
         }
 
@@ -317,11 +317,11 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Create a new navigator having a text node with value = "text" string.
         /// </summary>
-        public RtfTextNavigator(string text, string baseUri)
+        public RtfTextNavigator(string text, string baseUri, bool compact = false)
         {
             _text = text;
             _baseUri = baseUri;
-            _constr = new NavigatorConstructor();
+            _constr = new NavigatorConstructor(compact);
         }
 
         /// <summary>
@@ -418,6 +418,13 @@ namespace Xsl3.Runtime
     internal sealed class NavigatorConstructor
     {
         private object? _cache;
+        private readonly bool _compact;
+
+        /// <summary>Xsl3 (P4): compact builds the tree as a compact one (XSLT 2.0+ temporary trees, SPEC §14.4).</summary>
+        public NavigatorConstructor(bool compact = false)
+        {
+            _compact = compact;
+        }
 
         /// <summary>
         /// Create a document from the cache of events.  If a document has already been created previously, return it.
@@ -429,17 +436,16 @@ namespace Xsl3.Runtime
             if (_cache == null)
             {
                 // Create XPathDocument from event cache
-                // Xsl3: a temporary tree has a base URI but no document URI (XSLT 3.0 §9.4).
-                InternalXPathDocument doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true };
-                XmlRawWriter writer = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames | (events.HasRootNode ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment), events.BaseUri);
+                // Xsl3: a temporary tree has a base URI but no document URI (XSLT 3.0 §9.4); compact for 2.0+.
+                var (writer, root) = Xsl3.Tree.CompactDocument.TemporaryTree(nameTable, events.BaseUri, !events.HasRootNode, noDocumentUri: true, _compact);
 
                 events.EventsToWriter(writer);
                 writer.Close();
 
-                _cache = doc;
+                _cache = root;
             }
 
-            return ((InternalXPathDocument)_cache).CreateNavigator();
+            return ((System.Func<XPathNavigator>)_cache)();
         }
 
         /// <summary>
@@ -452,15 +458,14 @@ namespace Xsl3.Runtime
             if (_cache == null)
             {
                 // Create XPathDocument
-                InternalXPathDocument doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true };
-                XmlRawWriter writer = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames, baseUri);
+                var (writer, root) = Xsl3.Tree.CompactDocument.TemporaryTree(nameTable, baseUri, fragment: false, noDocumentUri: true, _compact);
                 writer.WriteString(text);
                 writer.Close();
 
-                _cache = doc;
+                _cache = root;
             }
 
-            return ((InternalXPathDocument)_cache).CreateNavigator();
+            return ((System.Func<XPathNavigator>)_cache)();
         }
     }
 }

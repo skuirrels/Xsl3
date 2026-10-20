@@ -180,3 +180,28 @@ public class Xsl3Profile
     [Benchmark]
     public void Xsl3() => _xsl3.Transform(_input, null, Stream.Null);
 }
+
+/// <summary>
+/// CPU sampling of Xsl3 on the XSLT 3.0 corpus (bench/corpus/xslt30):
+/// dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- --filter '*Xsl3Profile30*' --job short
+/// </summary>
+[EventPipeProfiler(BenchmarkDotNet.Diagnosers.EventPipeProfile.CpuSampling)]
+public class Xsl3Profile30
+{
+    private XslCompiledTransform _xsl3 = null!;
+    private XPathDocument _input = null!;
+
+    [Params("temporary-trees")]
+    public string Stylesheet { get; set; } = "";
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _input = new XPathDocument(new StringReader(Corpus.Orders(10_000)));
+        _xsl3 = new XslCompiledTransform();
+        _xsl3.Load(Path.Combine(AppContext.BaseDirectory, "corpus", "xslt30", Stylesheet + ".xsl"));
+    }
+
+    [Benchmark]
+    public void Xsl3() => _xsl3.Transform(_input, null, Stream.Null);
+}

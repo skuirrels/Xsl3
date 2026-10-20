@@ -53,6 +53,9 @@ namespace Xsl3.Tree
         // that a name test compares integers.
         internal int[] _expanded = null!;
         private Dictionary<string, List<(string Uri, int Expanded)>> _expandedIds = null!;
+
+        // The shared names of a writer-built (temporary) tree, which then has no tables of its own (SPEC §14.2).
+        internal NamePool? _pool;
         internal const int Absent = -2;
 
         internal XmlNameTable _nameTable = null!;
@@ -60,6 +63,12 @@ namespace Xsl3.Tree
         internal Dictionary<int, string>? _baseUris;   // elements and PIs whose base URI differs from their parent's
         internal Dictionary<string, int>? _ids;        // DTD ID value -> element
         internal string _xmlPrefix = null!, _xmlUri = null!;
+
+        /// <summary>Built from writer events (a temporary tree): elements and PIs have an empty base URI, as there.</summary>
+        internal bool _writerBuilt;
+
+        /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
+        internal bool NoDocumentUri { get; set; }
 
         private CompactDocument()
         {
@@ -88,7 +97,19 @@ namespace Xsl3.Tree
             return Load(reader, space);
         }
 
-        public XPathNavigator CreateNavigator() => new CompactNavigator(this, 0);
+        public XPathNavigator CreateNavigator() => new CompactNavigator(this);
+
+        /// <summary>
+        /// Where a navigator starts and MoveToRoot goes: the document node, a fragment's top node, or the parentless
+        /// attribute or namespace node a fragment can consist of.
+        /// </summary>
+        internal (int Node, int Attr, bool Namespace) Root =>
+            _count > 0 ? (0, None, false) : _attrCount > 0 ? (None, 0, false) : (None, None, true);
+
+        /// <summary>The one namespace node of a fragment that is a parentless namespace node.</summary>
+        internal (string, string, int, int)[] RootNamespace => _rootNamespace ??= new[] { (_nsPrefix[0], _nsUri[0], None, 1) };
+
+        private (string, string, int, int)[]? _rootNamespace;
 
         /// <summary>The number of nodes, attributes and namespace declarations the tree holds.</summary>
         public int NodeCount => _count + _attrCount + _nsCount;
@@ -143,6 +164,23 @@ namespace Xsl3.Tree
         /// <summary>The base URI of an element, PI or the document node; other nodes have their parent's.</summary>
         internal string BaseUri(int node)
         {
+            if (_writerBuilt)
+            {
+                // As XPathDocumentBuilder records them from writer events: the document node has the tree's base URI,
+                // elements and PIs none; other nodes take their nearest such ancestor's.
+                for (int n = node; n != None; n = _parent[n])
+                {
+                    switch (Kind(n))
+                    {
+                        case (int)XPathNodeType.Element:
+                        case (int)XPathNodeType.ProcessingInstruction:
+                            return string.Empty;
+                        case (int)XPathNodeType.Root:
+                            return _baseUri;
+                    }
+                }
+                return string.Empty;
+            }
             if (_baseUris != null)
             {
                 for (int n = node; n != None; n = _parent[n])
@@ -200,6 +238,11 @@ namespace Xsl3.Tree
             while (i < _nsCount)
             {
                 int element = _nsOwner[i];
+                if (element == None)
+                {
+                    i++;
+                    continue;
+                }
                 var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(InScopeNamespaces(_parent[element]));
                 for (; i < _nsCount && _nsOwner[i] == element; i++)
                 {
@@ -256,6 +299,10 @@ namespace Xsl3.Tree
         /// <summary>The expanded-name id of a local name and namespace, or Absent when no node in the tree has it.</summary>
         internal int ExpandedId(string localName, string namespaceUri)
         {
+            if (_pool != null)
+            {
+                return _pool.ExpandedId(localName, namespaceUri);
+            }
             if (_expandedIds.TryGetValue(localName, out var list))
             {
                 foreach (var (uri, id) in list)

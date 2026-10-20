@@ -27,10 +27,17 @@ namespace Xsl3.Tree
         private string? _askedLocal, _askedUri;
         private int _askedId;
 
-        public CompactNavigator(CompactDocument doc, int node)
+        public CompactNavigator(CompactDocument doc)
         {
             _doc = doc;
-            _node = node;
+            SetRoot();
+        }
+
+        private void SetRoot()
+        {
+            (_node, _attr, bool ns) = _doc.Root;
+            _ns = ns ? 0 : None;
+            _scope = ns ? _doc.RootNamespace : null;
         }
 
         private CompactNavigator(CompactNavigator other)
@@ -318,6 +325,11 @@ namespace Xsl3.Tree
         {
             if (!OnContent)
             {
+                if (_node == None)
+                {
+                    // A parentless attribute or namespace node.
+                    return false;
+                }
                 _attr = None;
                 _ns = None;
                 _scope = null;
@@ -334,10 +346,16 @@ namespace Xsl3.Tree
 
         public override void MoveToRoot()
         {
-            _node = 0;
-            _attr = None;
-            _ns = None;
-            _scope = null;
+            if (_doc._count > 0)
+            {
+                // The document node, or a fragment's top node (index 0; a fragment has one).
+                _node = 0;
+                _attr = None;
+                _ns = None;
+                _scope = null;
+                return;
+            }
+            SetRoot();
         }
 
         public override bool MoveTo(XPathNavigator other)

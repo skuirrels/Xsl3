@@ -18,7 +18,7 @@ namespace Xsl3.XPath31.Functions
         private static void RegisterNodes()
         {
             Define("fn:document-uri($arg as node()?) as xs:anyURI?", (c, a) =>
-                Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root && n is not XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } ? Uri(n.BaseURI) : Empty);
+                Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root && n is not XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } && n is not Xsl3.Tree.CompactNavigator { Document.NoDocumentUri: true } ? Uri(n.BaseURI) : Empty);
             Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator n ? Uri(BaseUri(n)) : Empty);
             Define("fn:generate-id($arg as node()?) as xs:string", (c, a) =>
                 Str(Node(a[0]) is XPathNavigator n ? (c.Runtime?.GenerateId(n) ?? "id" + n.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture)) : ""));

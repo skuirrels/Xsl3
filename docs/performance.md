@@ -103,8 +103,32 @@ reading a value never allocates.
 - 2.0+ stylesheets always use it.
 - A 1.0 stylesheet uses it when `XslCompiledTransform.UseCompactTree` is set before `Load`. Otherwise it keeps
   `XPathDocument`, so its output stays byte-identical to stock.
-- Temporary trees (variables, `xsl:document`) are still `XPathDocument`'s (§14.4 is the next step).
 - A caller's own `XPathDocument` is used as given.
+
+**Temporary trees (SPEC §14.4):** in 2.0+ stylesheets, these are compact trees too. That covers variables with
+content, `xsl:document`, nodes built in sequences, and the copies `copy-of()` and `snapshot()` make. They're built
+from raw-writer events by `CompactDocument.Writer`, exactly as `XPathDocumentBuilder` builds them:
+
+- fragments whose root is a text, attribute or namespace node;
+- empty base URIs on elements and PIs;
+- shortcut tags only after `WriteEndElement`;
+- the parentless `xml` namespace quirk.
+
+Temporary trees share one name pool per name table (SPEC §14.2), so a small tree builds no name tables of its own.
+1.0 result tree fragments stay `XPathDocument`'s.
+
+Sorting nodes from many trees into document order was quadratic: each comparison between documents scanned every
+root seen so far. Xsl3's own trees are now looked up by their document object, so the order between trees is a hash
+lookup. The numbering, and so `generate-id()`, is unchanged.
+
+On `bench/corpus/xslt30/temporary-trees.xsl` (a temporary tree per order, then grouping; 20,000 orders; Xsl3 alone,
+`quick30` mode):
+
+| | Time per transform | Allocated |
+|---|---:|---:|
+| Before (`XPathDocument` temporary trees, quadratic sort) | 5,640 ms | 400 MB |
+| `XPathDocument` temporary trees | 652 ms | 396 MB |
+| Compact temporary trees with the name pool | 287 ms | 243 MB |
 
 **Memory:**
 
@@ -150,6 +174,9 @@ compact tree (above) helps when the transform builds the tree itself.
 
 ## Measuring
 
+`dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- quick30 [orders] [stylesheet]` times an XSLT
+3.0 stylesheet from `bench/corpus/xslt30` on Xsl3 alone; `XSL3_COMPACT_TREE=0` gives it XPathDocument trees for
+comparison.
 `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- quick [orders] [stylesheet...]` runs the
 two engines interleaved, checks their output is identical, and prints the median and minimum ratios. Set
 `XSL3_QUICK_MS` to change the time per engine (default 3000). BenchmarkDotNet is the record. CPU profiles:

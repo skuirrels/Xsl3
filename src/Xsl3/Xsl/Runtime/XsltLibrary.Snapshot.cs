@@ -58,8 +58,7 @@ namespace Xsl3.Runtime
             while (top.MoveToParent());
             chain.Reverse();
             bool rooted = chain[0].NodeType == XPathNodeType.Root;
-            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = !rooted };
-            XmlRawWriter w = doc.LoadFromWriter(rooted ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment, target.BaseURI);
+            var (w, root) = Xsl3.Tree.CompactDocument.TemporaryTree(node.NameTable, target.BaseURI, fragment: !rooted, noDocumentUri: !rooted, compact: true);
             int start = rooted ? 1 : 0;
             for (int i = start; i < chain.Count - 1; i++)
             {
@@ -81,7 +80,7 @@ namespace Xsl3.Runtime
             w.Close();
 
             // Each copied ancestor has the next one as its only child (a fragment's root is its top element).
-            XPathNavigator nav = doc.CreateNavigator();
+            XPathNavigator nav = root();
             for (int i = 1; i < chain.Count; i++)
             {
                 nav.MoveToFirstChild();
@@ -112,8 +111,7 @@ namespace Xsl3.Runtime
                 return CopyParentless(node);
             }
             bool document = node.NodeType == XPathNodeType.Root;
-            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = !document };
-            XmlRawWriter w = doc.LoadFromWriter(document ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment, node.BaseURI);
+            var (w, root) = Xsl3.Tree.CompactDocument.TemporaryTree(node.NameTable, node.BaseURI, fragment: !document, noDocumentUri: !document, compact: true);
             if (node.NodeType == XPathNodeType.Element)
             {
                 // The copy keeps the element's in-scope namespaces, inherited ones too.
@@ -126,13 +124,12 @@ namespace Xsl3.Runtime
                 CopyDeep(w, node);
             }
             w.Close();
-            return doc.CreateNavigator(); // a fragment's root is its top node
+            return root(); // a fragment's root is its top node
         }
 
         private static XPathNavigator CopyParentless(XPathNavigator node)
         {
-            var doc = new InternalXPathDocument(node.NameTable) { NoDocumentUri = true };
-            XmlRawWriter w = doc.LoadFromWriter(InternalXPathDocument.LoadFlags.Fragment, node.BaseURI);
+            var (w, root) = Xsl3.Tree.CompactDocument.TemporaryTree(node.NameTable, node.BaseURI, fragment: true, noDocumentUri: true, compact: true);
             if (node.NodeType == XPathNodeType.Attribute)
             {
                 w.WriteStartAttribute(node.Prefix, node.LocalName, node.NamespaceURI);
@@ -144,7 +141,7 @@ namespace Xsl3.Runtime
                 w.WriteNamespaceDeclaration(node.LocalName, node.Value);
             }
             w.Close();
-            XPathNavigator nav = doc.CreateNavigator();
+            XPathNavigator nav = root();
             if (node.NodeType == XPathNodeType.Attribute)
             {
                 nav.MoveToFirstAttribute();

@@ -17,7 +17,9 @@ namespace Xsl3.Runtime
     /// </summary>
     internal sealed class DocumentOrderComparer : IComparer<XPathNavigator>
     {
-        private List<XPathNavigator>? _roots;
+        private List<(XPathNavigator Root, int Index)>? _roots;     // foreign trees, by root
+        private Dictionary<object, int>? _documents;              // Xsl3's trees, by document
+        private int _count;
 
         /// <summary>
         /// Return:
@@ -34,9 +36,6 @@ namespace Xsl3.Runtime
                 case XmlNodeOrder.After: return 1;
             }
 
-            // Use this.roots to impose stable ordering
-            _roots ??= new List<XPathNavigator>();
-
             Debug.Assert(GetDocumentIndex(navThis) != GetDocumentIndex(navThat!));
             return GetDocumentIndex(navThis) < GetDocumentIndex(navThat!) ? -1 : 1;
         }
@@ -50,28 +49,46 @@ namespace Xsl3.Runtime
         /// </summary>
         public int GetDocumentIndex(XPathNavigator nav)
         {
+            // Xsl3 (P4): Xsl3's own trees are known by their document object, so that finding the index is a hash
+            // lookup, not a scan of every root seen (which made sorting nodes from many temporary trees quadratic).
+            object? document = nav switch
+            {
+                Xsl3.Tree.CompactNavigator compact => compact.Document,
+                MS.Internal.Xml.Cache.XPathDocumentNavigator vendored => vendored.OwnerDocument,
+                _ => null,
+            };
+            if (document != null)
+            {
+                _documents ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+                if (!_documents.TryGetValue(document, out int index))
+                {
+                    _documents[document] = index = _count++;
+                }
+                return index;
+            }
+
             XPathNavigator navRoot;
 
             // Use this.roots to impose stable ordering
-            _roots ??= new List<XPathNavigator>();
+            _roots ??= new List<(XPathNavigator, int)>();
 
             // Position navigator to root
             navRoot = nav.Clone();
             navRoot.MoveToRoot();
 
-            for (int idx = 0; idx < _roots.Count; idx++)
+            foreach (var (root, index) in _roots)
             {
-                if (navRoot.IsSamePosition(_roots[idx]))
+                if (navRoot.IsSamePosition(root))
                 {
                     // navigator's document was previously mapped to a unique index
-                    return idx;
+                    return index;
                 }
             }
 
             // Add navigator to this.roots mapping
-            _roots.Add(navRoot);
+            _roots.Add((navRoot, _count));
 
-            return _roots.Count - 1;
+            return _count++;
         }
     }
 }

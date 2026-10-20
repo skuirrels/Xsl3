@@ -74,6 +74,33 @@ public static class Quick
         }
     }
 
+    /// <summary>An XSLT 3.0 stylesheet, Xsl3 alone: median and minimum time, and allocation, per transform.</summary>
+    public static void Run30(string[] args)
+    {
+        int orders = args.Length > 0 && int.TryParse(args[0], out int n) ? n : 20_000;
+        string sheet = args.Length > 1 ? args[1] : "temporary-trees";
+        var input = new XPathDocument(new StringReader(Corpus.Orders(orders)));
+        var xsl3 = new XslCompiledTransform();
+        xsl3.Load(Path.Combine(AppContext.BaseDirectory, "corpus", "xslt30", sheet + ".xsl"));
+        for (int i = 0; i < 5; i++)
+        {
+            xsl3.Transform(input, null, Stream.Null);
+        }
+        int budget = int.TryParse(Environment.GetEnvironmentVariable("XSL3_QUICK_MS"), out int b) ? b : 5000;
+        var times = new List<double>();
+        long allocated = GC.GetTotalAllocatedBytes(true);
+        var total = Stopwatch.StartNew();
+        while (total.ElapsedMilliseconds < budget || times.Count < 5)
+        {
+            var watch = Stopwatch.StartNew();
+            xsl3.Transform(input, null, Stream.Null);
+            times.Add(watch.Elapsed.TotalMilliseconds);
+        }
+        allocated = (GC.GetTotalAllocatedBytes(true) - allocated) / times.Count;
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{sheet}: median {Median(times):F2} ms, min {times.Min():F2} ms, {allocated / 1024} KB allocated per transform ({times.Count} runs)"));
+    }
+
     /// <summary>Parse time and retained memory of the two trees for the same text.</summary>
     private static void ReportTrees(string xml)
     {

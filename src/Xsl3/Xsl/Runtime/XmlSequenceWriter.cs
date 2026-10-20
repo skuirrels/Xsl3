@@ -56,15 +56,17 @@ namespace Xsl3.Runtime
     internal sealed class XmlCachedSequenceWriter : XmlSequenceWriter
     {
         private readonly XmlQueryItemSequence _seqTyped;
-        private InternalXPathDocument? _doc;
+        private readonly bool _compact;
         private XmlRawWriter? _writer;
+        private System.Func<XPathNavigator>? _root;
 
         /// <summary>
-        /// Constructor.
+        /// Constructor. Xsl3 (P4): compact makes the trees compact ones (XSLT 2.0+), not XPathDocument's.
         /// </summary>
-        public XmlCachedSequenceWriter()
+        public XmlCachedSequenceWriter(bool compact = false)
         {
             _seqTyped = new XmlQueryItemSequence();
+            _compact = compact;
         }
 
         /// <summary>
@@ -82,8 +84,8 @@ namespace Xsl3.Runtime
         {
             // Build XPathDocument
             // If rootType != XPathNodeType.Root, then build an XQuery fragment
-            _doc = new InternalXPathDocument(nameTable) { NoDocumentUri = true }; // Xsl3: constructed, no document URI
-            _writer = _doc.LoadFromWriter(InternalXPathDocument.LoadFlags.AtomizeNames | (rootType == XPathNodeType.Root ? InternalXPathDocument.LoadFlags.None : InternalXPathDocument.LoadFlags.Fragment), string.Empty);
+            // Xsl3: constructed, so no document URI; a compact tree for XSLT 2.0+ (SPEC §14.4).
+            (_writer, _root) = Xsl3.Tree.CompactDocument.TemporaryTree(nameTable, string.Empty, rootType != XPathNodeType.Root, noDocumentUri: true, _compact);
             _writer.NamespaceResolver = nsResolver;
             return _writer;
         }
@@ -95,7 +97,7 @@ namespace Xsl3.Runtime
         {
             // Add newly constructed document to sequence
             _writer!.Close();
-            _seqTyped.Add(_doc!.CreateNavigator());
+            _seqTyped.Add(_root!());
         }
 
         /// <summary>

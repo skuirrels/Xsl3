@@ -180,18 +180,12 @@ namespace Xsl3.Runtime
         /// </summary>
         private XPathNavigator BuildTree(XmlReader reader)
         {
-            bool compact = s_compactOverride ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
+            bool compact = Xsl3.Tree.CompactDocument.Override ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
             return compact
                 ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator()
                 : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
         }
 
-        private static readonly bool? s_compactOverride = Environment.GetEnvironmentVariable("XSL3_COMPACT_TREE") switch
-        {
-            "1" => true,
-            "0" => false,
-            _ => null,
-        };
 
         private XPathNavigator? ConstructDocument(object dataSource, string? uriRelative, Uri? uriResolved)
         {

@@ -23,18 +23,21 @@ namespace Xsl3.Tree
             private readonly XmlNameTable _nameTable;
 
             // Names by (atomized) local name, then namespace and prefix.
-            private readonly Dictionary<string, List<(string Uri, string Prefix, int Id)>> _names = new(ReferenceEqualityComparer.Instance);
-            private readonly List<string> _local = new(), _uri = new(), _prefix = new();
+            private readonly Dictionary<string, List<(string Uri, string Prefix, int Id)>>? _names;
+            private readonly List<string>? _local, _uri, _prefix;
+
+            // A temporary tree's names come from the pool of its name table instead.
+            private readonly NamePool? _pool;
 
             // Values: each distinct short one once.
             private string[] _values = new string[256];
             private int _valueCount;
-            private readonly Dictionary<string, int> _shared = new(StringComparer.Ordinal);
+            private readonly Dictionary<string, int>? _shared;
             private const int ShortValue = 32;
 
             // Open elements, and their base URIs.
-            private int[] _open = new int[16];
-            private string[] _openBase = new string[16];
+            private int[] _open;
+            private string[] _openBase;
             private int _depth;
 
             // Text not yet made a node.
@@ -46,32 +49,69 @@ namespace Xsl3.Tree
             private Dictionary<(string, string), (string, string)>? _idAttributes;
             private (string Local, string Prefix)? _idAttribute;
 
-            public Builder(XmlNameTable nameTable, string baseUri)
+            /// <param name="fragment">A tree with no document node: its root is its one top-level node (XQuery's fragments).</param>
+            /// <param name="small">A tree expected to be small (a temporary tree), so the arrays start small.</param>
+            public Builder(XmlNameTable nameTable, string baseUri, bool fragment = false, bool small = false)
             {
                 _nameTable = nameTable;
                 CompactDocument d = _doc;
                 d._nameTable = nameTable;
-                d._baseUri = baseUri ?? "";
-                d._xmlPrefix = nameTable.Add("xml");
-                d._xmlUri = nameTable.Add(XmlReservedNs.NsXml);
-                int capacity = 1024;
+                d._baseUri = fragment ? "" : baseUri ?? "";
+                if (small)
+                {
+                    _pool = d._pool = NamePool.For(nameTable);
+                    d._xmlPrefix = _pool.XmlPrefix;
+                    d._xmlUri = _pool.XmlUri;
+                    _open = new int[4];
+                    _openBase = new string[4];
+                }
+                else
+                {
+                    _names = new Dictionary<string, List<(string, string, int)>>(ReferenceEqualityComparer.Instance);
+                    _local = new List<string>();
+                    _uri = new List<string>();
+                    _prefix = new List<string>();
+                    _shared = new Dictionary<string, int>(StringComparer.Ordinal);
+                    d._xmlPrefix = nameTable.Add("xml");
+                    d._xmlUri = nameTable.Add(XmlReservedNs.NsXml);
+                    _open = new int[16];
+                    _openBase = new string[16];
+                }
+                int capacity = small ? 8 : 1024, attributes = small ? 4 : 256;
                 d._kind = new byte[capacity];
                 d._parent = new int[capacity];
                 d._end = new int[capacity];
                 d._name = new int[capacity];
                 d._data = new int[capacity];
-                d._attrOwner = new int[256];
-                d._attrName = new int[256];
-                d._attrValue = new int[256];
-                d._nsOwner = new int[8];
-                d._nsPrefix = new string[8];
-                d._nsUri = new string[8];
-                // The document node.
-                NewNode(XPathNodeType.Root, None, None, None);
-                _open[0] = 0;
+                d._attrOwner = new int[attributes];
+                d._attrName = new int[attributes];
+                d._attrValue = new int[attributes];
+                d._nsOwner = new int[4];
+                d._nsPrefix = new string[4];
+                d._nsUri = new string[4];
+                if (small)
+                {
+                    _values = new string[8];
+                }
+                if (fragment)
+                {
+                    // Top-level nodes have no parent.
+                    _open[0] = None;
+                }
+                else
+                {
+                    NewNode(XPathNodeType.Root, None, None, None);
+                    _open[0] = 0;
+                }
                 _openBase[0] = d._baseUri;
                 _depth = 1;
             }
+
+            /// <summary>The document under construction (for writer-built trees, whose base URIs differ).</summary>
+            internal CompactDocument Document => _doc;
+
+            /// <summary>Whether an element is open (so attributes and namespaces are its, not top-level nodes).</summary>
+            internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
             public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false)
             {
@@ -169,22 +209,52 @@ namespace Xsl3.Tree
                 FlushText();
                 while (_depth > 0)
                 {
-                    _doc._end[_open[--_depth]] = _doc._count;
+                    int open = _open[--_depth];
+                    if (open != None)
+                    {
+                        _doc._end[open] = _doc._count;
+                    }
                 }
-                _doc._local = _local.ToArray();
-                _doc._uri = _uri.ToArray();
-                _doc._prefix = _prefix.ToArray();
-                Array.Resize(ref _values, _valueCount);
+                if (_doc._count == 0 && _doc._attrCount == 0 && _doc._nsCount == 0)
+                {
+                    // An empty fragment is an empty text node, as XPathDocumentBuilder makes it.
+                    NewNode(XPathNodeType.Text, None, None, Value(string.Empty));
+                }
+                if (_pool != null)
+                {
+                    // The pool's arrays as they are now: they hold every name this tree uses.
+                    _doc._local = _pool.Local;
+                    _doc._uri = _pool.Uri;
+                    _doc._prefix = _pool.Prefix;
+                    _doc._expanded = _pool.Expanded;
+                }
+                else
+                {
+                    _doc._local = _local!.ToArray();
+                    _doc._uri = _uri!.ToArray();
+                    _doc._prefix = _prefix!.ToArray();
+                }
+                if (_values.Length != _valueCount && _pool == null)
+                {
+                    Array.Resize(ref _values, _valueCount);
+                }
                 _doc._values = _values;
                 _doc.BuildScopes();
-                _doc.BuildExpandedNames();
+                if (_pool == null)
+                {
+                    _doc.BuildExpandedNames();
+                }
                 return _doc;
             }
 
             private int Name(string prefix, string local, string ns)
             {
+                if (_pool != null)
+                {
+                    return _pool.Name(prefix, local, ns);
+                }
                 // Reader names are atomized in the reader's name table, which is the document's; atomize only on a miss.
-                if (!_names.TryGetValue(local, out var list))
+                if (!_names!.TryGetValue(local, out var list))
                 {
                     local = _nameTable.Add(local);
                     if (!_names.TryGetValue(local, out list))
@@ -201,17 +271,17 @@ namespace Xsl3.Tree
                 }
                 ns = _nameTable.Add(ns);
                 prefix = _nameTable.Add(prefix);
-                int newId = _local.Count;
+                int newId = _local!.Count;
                 _local.Add(local);
-                _uri.Add(ns);
-                _prefix.Add(prefix);
+                _uri!.Add(ns);
+                _prefix!.Add(prefix);
                 list.Add((ns, prefix, newId));
                 return newId;
             }
 
             private int Value(string value)
             {
-                if (value.Length <= ShortValue)
+                if (_shared != null && value.Length <= ShortValue)
                 {
                     if (_shared.TryGetValue(value, out int id))
                     {
@@ -259,11 +329,13 @@ namespace Xsl3.Tree
             /// <summary>Adds a child of the innermost open node.</summary>
             private int Child(XPathNodeType kind, int name, int data) => NewNode(kind, _open[_depth - 1], name, data);
 
-            private void StartElement(string prefix, string local, string ns, string baseUri)
+            /// <param name="baseUri">The element's base URI, or null for a writer-built tree (whose elements have none).</param>
+            internal void StartElement(string prefix, string local, string ns, string? baseUri)
             {
                 FlushText();
                 int element = Child(XPathNodeType.Element, Name(prefix, local, ns), None);
                 string parentBase = _openBase[_depth - 1];
+                baseUri ??= parentBase;
                 if (!ReferenceEquals(baseUri, parentBase) && baseUri != parentBase)
                 {
                     (_doc._baseUris ??= new Dictionary<int, string>())[element] = baseUri;
@@ -279,21 +351,23 @@ namespace Xsl3.Tree
                 _idAttribute = _idAttributes != null && _idAttributes.TryGetValue((local, prefix), out var id) ? id : null;
             }
 
-            private void EndElement(bool emptyTag)
+            internal void EndElement(bool emptyTag)
             {
                 FlushText();
                 int element = _open[--_depth];
                 _doc._end[element] = _doc._count;
-                if (emptyTag)
+                // An element written <e/>: a reader reports it; a writer allows it when the element has no children.
+                if (emptyTag && _doc._count == element + 1)
                 {
                     _doc._kind[element] |= EmptyTag;
                 }
             }
 
-            private void Attribute(string prefix, string local, string ns, string value)
+            internal void Attribute(string prefix, string local, string ns, string value)
             {
                 CompactDocument d = _doc;
-                int element = _open[_depth - 1];
+                // None for a fragment's parentless (top-level) attribute.
+                int element = InElement ? _open[_depth - 1] : None;
                 int i = d._attrCount;
                 if (i == d._attrOwner.Length)
                 {
@@ -302,7 +376,7 @@ namespace Xsl3.Tree
                     Array.Resize(ref d._attrValue, i * 2);
                 }
                 int name = Name(prefix, local, ns);
-                if ((object)_local[name] == (object)"id" && (object)_uri[name] == (object)d._xmlUri)
+                if (IsXmlId(name))
                 {
                     // xml:id processing normalizes the value as the ID type does (xml:id 1.0 §4), as the vendored builder does.
                     value = Xsl3.Xdm.Lexical.Collapse(value);
@@ -310,7 +384,7 @@ namespace Xsl3.Tree
                 d._attrOwner[i] = element;
                 d._attrName[i] = name;
                 d._attrValue[i] = Value(value);
-                if (d._data[element] == None)
+                if (element != None && d._data[element] == None)
                 {
                     d._data[element] = i;
                 }
@@ -322,10 +396,21 @@ namespace Xsl3.Tree
                 }
             }
 
-            private void NamespaceDeclaration(string prefix, string uri)
+            private bool IsXmlId(int name) => _pool != null
+                ? _pool.Local[name] == "id" && (object)_pool.Uri[name] == (object)_doc._xmlUri
+                : _local![name] == "id" && (object)_uri![name] == (object)_doc._xmlUri;
+
+            internal void NamespaceDeclaration(string prefix, string uri)
             {
                 CompactDocument d = _doc;
-                int element = _open[_depth - 1];
+                // None for a fragment's parentless (top-level) namespace node.
+                int element = InElement ? _open[_depth - 1] : None;
+                if (element == None && prefix == "xml")
+                {
+                    // XPathDocumentBuilder lets a parentless xml namespace node override its built-in one, and the
+                    // fragment is then left without a root (so it becomes an empty text node): do the same.
+                    return;
+                }
                 int i = d._nsCount;
                 if (i == d._nsOwner.Length)
                 {
@@ -339,7 +424,19 @@ namespace Xsl3.Tree
                 d._nsCount = i + 1;
             }
 
-            private void Text(string value, XPathNodeType type)
+            internal void Comment(string value)
+            {
+                FlushText();
+                Child(XPathNodeType.Comment, None, Value(value));
+            }
+
+            internal void ProcessingInstruction(string target, string value)
+            {
+                FlushText();
+                Child(XPathNodeType.ProcessingInstruction, Name(string.Empty, target, string.Empty), Value(value));
+            }
+
+            internal void Text(string value, XPathNodeType type)
             {
                 if (_text == null)
                 {

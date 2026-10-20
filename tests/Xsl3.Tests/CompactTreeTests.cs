@@ -213,6 +213,86 @@ public class CompactTreeTests
         Assert.Equal(e.XmlLang, a.XmlLang);
     }
 
+    /// <summary>The same raw-writer events build the same tree, through XPathDocumentBuilder and the compact writer.</summary>
+    [Theory]
+    [InlineData("document")]
+    [InlineData("element")]
+    [InlineData("text")]
+    [InlineData("attribute")]
+    [InlineData("namespace")]
+    [InlineData("empty")]
+    public void TemporaryTreesReadTheSame(string shape)
+    {
+        var nameTable = new NameTable();
+        XPathNavigator Build(bool compact)
+        {
+            var (w, root) = CompactDocument.TemporaryTree(nameTable, "file:///base/style.xsl", fragment: shape != "document", noDocumentUri: true, compact);
+            switch (shape)
+            {
+                case "document":
+                case "element":
+                    w.WriteStartElement("p", "e", "urn:p");
+                    w.WriteNamespaceDeclaration("p", "urn:p");
+                    w.WriteNamespaceDeclaration("q", "urn:q");
+                    w.WriteStartAttribute("", "a", "");
+                    w.WriteString("1");
+                    w.WriteString("2");
+                    w.WriteEndAttribute();
+                    w.WriteStartAttribute("xml", "id", "http://www.w3.org/XML/1998/namespace");
+                    w.WriteString("  i  d ");
+                    w.WriteEndAttribute();
+                    w.StartElementContent();
+                    w.WriteString("text ");
+                    w.WriteString("more");
+                    w.WriteComment("c");
+                    w.WriteStartElement("", "child", "");
+                    w.WriteNamespaceDeclaration("", "");
+                    w.StartElementContent();
+                    w.WriteEndElement("", "child", "");
+                    w.WriteStartElement("", "full", "");
+                    w.StartElementContent();
+                    w.WriteFullEndElement("", "full", "");
+                    w.WriteProcessingInstruction("pi", "data");
+                    w.WriteWhitespace("  ");
+                    w.WriteCData("<x>");
+                    w.WriteFullEndElement("p", "e", "urn:p");
+                    break;
+                case "text":
+                    w.WriteString("a");
+                    w.WriteWhitespace(" ");
+                    w.WriteString("b");
+                    break;
+                case "attribute":
+                    w.WriteStartAttribute("", "lone", "");
+                    w.WriteString("v");
+                    w.WriteEndAttribute();
+                    break;
+                case "namespace":
+                    w.WriteNamespaceDeclaration("n", "urn:n");
+                    break;
+            }
+            w.Close();
+            return root();
+        }
+        XPathNavigator expected = Build(compact: false), actual = Build(compact: true);
+        Assert.IsType<CompactNavigator>(actual);
+        var en = new List<XPathNavigator>();
+        var an = new List<XPathNavigator>();
+        Walk(expected, actual, en, an);
+        for (int i = 0; i < en.Count; i++)
+        {
+            for (int j = 0; j < en.Count; j++)
+            {
+                Assert.Equal(en[i].ComparePosition(en[j]), an[i].ComparePosition(an[j]));
+            }
+        }
+        XPathNavigator e = expected.Clone(), a = actual.Clone();
+        Assert.Equal(e.MoveToParent(), a.MoveToParent());
+        e.MoveToRoot();
+        a.MoveToRoot();
+        Same(e, a);
+    }
+
     [Fact]
     public void DtdIdsAndXmlId()
     {

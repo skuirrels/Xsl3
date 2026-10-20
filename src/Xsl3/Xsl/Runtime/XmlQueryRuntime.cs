@@ -1077,7 +1077,7 @@ namespace Xsl3.Runtime
             _stkOutput.Push(_output);
 
             // Create new writers
-            output = _output = new XmlQueryOutput(this, new XmlCachedSequenceWriter());
+            output = _output = new XmlQueryOutput(this, new XmlCachedSequenceWriter(compact: IsXslt2));
         }
 
         /// <summary>
@@ -1120,7 +1120,7 @@ namespace Xsl3.Runtime
 
             // Return Rtf as an RtfNavigator
             events.EndEvents();
-            return new RtfTreeNavigator(events, _nameTableQuery);
+            return new RtfTreeNavigator(events, _nameTableQuery, compact: IsXslt2);
         }
 
         /// <summary>
@@ -1129,7 +1129,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public XPathNavigator TextRtfConstruction(string text, string baseUri)
         {
-            return new RtfTextNavigator(text, baseUri);
+            return new RtfTextNavigator(text, baseUri, compact: IsXslt2);
         }
 
 
