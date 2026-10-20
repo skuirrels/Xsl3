@@ -595,14 +595,23 @@ namespace Xsl3.XPath31.Functions
             {
                 return Empty;
             }
-            var parts = new List<XPathItem>();
-            int start = 0;
-            for (int at = input.IndexOf(pattern, StringComparison.Ordinal); at >= 0; at = input.IndexOf(pattern, start, StringComparison.Ordinal))
+            // Counted first, so that the tokens go straight into an array of the right size.
+            ReadOnlySpan<char> rest = input;
+            int count = 1;
+            for (int at = rest.IndexOf(pattern, StringComparison.Ordinal); at >= 0; at = rest.IndexOf(pattern, StringComparison.Ordinal))
             {
-                parts.Add(AtomicValue.OfString(input[start..at]));
+                count++;
+                rest = rest[(at + pattern.Length)..];
+            }
+            var parts = new XPathItem[count];
+            int start = 0;
+            for (int i = 0; i < count - 1; i++)
+            {
+                int at = input.IndexOf(pattern, start, StringComparison.Ordinal);
+                parts[i] = AtomicValue.OfString(input[start..at]);
                 start = at + pattern.Length;
             }
-            parts.Add(AtomicValue.OfString(input[start..]));
+            parts[count - 1] = AtomicValue.OfString(input[start..]);
             return parts;
         }
 

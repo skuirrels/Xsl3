@@ -190,7 +190,9 @@ namespace Xsl3.XPath31
         {
             var compiler = new XPath31Compiler(sc, f, env);
             QilNode built = compiler.Build(ast);
-            if (compiler.OptionalString(built) is QilNode s)
+            // Several nodes are joined with spaces here, not an error: they don't take the optional-string path.
+            bool severalNodes = built.XmlType!.IsSubtypeOf(T.NodeNotRtfS) && !built.XmlType.IsSubtypeOf(T.NodeNotRtfQ);
+            if (!severalNodes && compiler.OptionalString(built) is QilNode s)
             {
                 return s;
             }
@@ -864,6 +866,9 @@ namespace Xsl3.XPath31
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
                     case ("sum", 1) when built[0].XmlType!.IsSubtypeOf(T.NodeNotRtfS):
                         return Call(nameof(XsltLibrary.X31SumNodes), T.Item, built[0]);
+                    case ("number", 1) when OptionalString(built[0]) is QilNode numberString:
+                        // A string, or zero or one node (whose value is xs:untypedAtomic): cast as a string; () is "", NaN.
+                        return Call(nameof(XsltLibrary.X31NumberOfString), T.Item, numberString);
                     case ("format-number", 2) when NativeString(built[1]) is QilNode picture:
                         return Call(nameof(XsltLibrary.X31FormatNumber), T.StringX, Items(built[0]), picture, StaticId());
                 }
@@ -913,6 +918,11 @@ namespace Xsl3.XPath31
             {
                 QilIterator i = _f.For(n);
                 return _f.StrConcat(_f.Loop(i, _f.XPathNodeValue(i)));
+            }
+            if (n.XmlType.IsSubtypeOf(T.NodeNotRtfS))
+            {
+                // Nodes not known to be at most one (a child step): checked when run, XPTY0004 for more.
+                return Call(nameof(XsltLibrary.X31OptionalNodeString), T.StringX, n);
             }
             return null;
         }

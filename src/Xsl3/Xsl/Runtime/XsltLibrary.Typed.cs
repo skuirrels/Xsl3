@@ -37,6 +37,34 @@ namespace Xsl3.Runtime
             XPathConvert.TryParseShortDecimal(value, out double d) ? d : ((DoubleValue)Casting.Cast(new StringValue(AtomicTypes.UntypedAtomic, value), AtomicTypes.Double)).Double;
 
         /// <summary>
+        /// The string an argument of type xs:string? (or xs:anyAtomicType?) gives for nodes: "" for none, the string
+        /// value of one, XPTY0004 for more.
+        /// </summary>
+        public string X31OptionalNodeString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> nodes) => nodes.Count switch
+        {
+            0 => "",
+            1 => nodes[0].Value,
+            _ => throw Err.XPTY0004($"An argument that must be at most one item is a sequence of {nodes.Count} nodes"),
+        };
+
+        /// <summary>fn:number of a string or an untyped value: the xs:double it casts to, NaN if it doesn't.</summary>
+        public System.Xml.XPath.XPathItem X31NumberOfString(string value)
+        {
+            if (XPathConvert.TryParseShortDecimal(value, out double d))
+            {
+                return AtomicValue.OfDouble(d);
+            }
+            try
+            {
+                return Casting.Cast(new StringValue(AtomicTypes.UntypedAtomic, value), AtomicTypes.Double);
+            }
+            catch (XdmException)
+            {
+                return AtomicValue.OfDouble(double.NaN);
+            }
+        }
+
+        /// <summary>
         /// fn:sum of nodes (untyped, so each an xs:untypedAtomic cast to xs:double): the doubles added in order, from
         /// the first; the empty sequence is xs:integer 0.
         /// </summary>

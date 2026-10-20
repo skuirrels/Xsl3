@@ -291,6 +291,35 @@ A bug found on the way: the generated code passes a native value to a list param
 reuses. `map:entry`, `map:put` and the `array:` functions that keep their argument now copy such lists. Before,
 `for $k in … return map:entry($k, count(…))` could give every entry the last value.
 
+### Typed code generation, third batch
+
+| Pair | Second batch | Third batch |
+|---|---:|---:|
+| identity | 1.15 | 1.18 |
+| sort | 1.60 | 1.05 |
+| muenchian | 1.15 | 1.11 |
+| string-recursion | 1.64 | 0.92 |
+| key-join | 1.38 | 1.34 |
+
+Same measure, the median of three runs, on a loaded machine. This batch is about sort and string-recursion; the other
+three pairs moved only within the noise.
+
+What changed:
+
+- **`upper-case` and `lower-case` of ASCII strings** map with `System.Text.Ascii`, and return the string itself when
+  nothing changes. Unicode's case mappings of ASCII characters are ASCII's own; a test checks the fast path against
+  the tables for every ASCII character. This was most of string-recursion's extra cost: the general path looked
+  each character up in a table and built the result in a `StringBuilder`.
+- **Sort keys under the codepoint collation** are the strings themselves, not their UTF-8 bytes in hex. The
+  characters from U+D800 up are rearranged so that ordinal order is still code point order. A key that is one node
+  skips atomization.
+- **`number()`** of a string or of nodes is a direct call. With the short-decimal parse, it doesn't go through the
+  library.
+- **Node arguments of string functions.** An argument declared `xs:string?` or `xs:anyAtomicType?` takes a node
+  sequence the compiler can't bound, such as a child step, as a string. The call checks the count when it runs and
+  raises XPTY0004 for more than one node, as before. Value templates still join several nodes with spaces.
+- **`tokenize()` with a literal pattern** counts its tokens first and fills an array of the right size.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

@@ -11,9 +11,31 @@ namespace Xsl3.XPath31.Functions
     /// </summary>
     internal static partial class CaseMapping
     {
-        public static string ToUpper(string s) => Map(s, s_upperKeys, s_upperValues);
+        public static string ToUpper(string s) =>
+            System.Text.Ascii.IsValid(s) ? AsciiMap(s, upper: true) : Map(s, s_upperKeys, s_upperValues);
 
-        public static string ToLower(string s) => Map(s, s_lowerKeys, s_lowerValues);
+        public static string ToLower(string s) =>
+            System.Text.Ascii.IsValid(s) ? AsciiMap(s, upper: false) : Map(s, s_lowerKeys, s_lowerValues);
+
+        /// <summary>The table mappings, which the ASCII path must agree with (for the tests).</summary>
+        internal static string ToUpperByTable(string s) => Map(s, s_upperKeys, s_upperValues);
+
+        internal static string ToLowerByTable(string s) => Map(s, s_lowerKeys, s_lowerValues);
+
+        // Xsl3 (P4): Unicode's case mappings of ASCII characters are ASCII's own (a-z and A-Z, one to one), so an
+        // ASCII string maps with no table look-ups; unchanged, it is returned as it is.
+        private static string AsciiMap(string s, bool upper)
+        {
+            if ((upper ? s.AsSpan().IndexOfAnyInRange('a', 'z') : s.AsSpan().IndexOfAnyInRange('A', 'Z')) < 0)
+            {
+                return s;
+            }
+            return string.Create(s.Length, (s, upper), static (span, state) =>
+            {
+                if (state.upper) System.Text.Ascii.ToUpper(state.s, span, out _);
+                else System.Text.Ascii.ToLower(state.s, span, out _);
+            });
+        }
 
         private static string Map(string s, int[] keys, string[] values)
         {

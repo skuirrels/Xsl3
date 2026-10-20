@@ -16,6 +16,16 @@ public class XPath31EvaluationTests
     private static readonly XPathNavigator s_doc = new XPathDocument(new StringReader(
         "<doc><a n='1'>x</a><a n='2'>y</a><b><a n='3'>z</a></b><!--c--></doc>")).CreateNavigator();
 
+    /// <summary>upper-case and lower-case of ASCII strings (a fast path) agree with the Unicode tables.</summary>
+    [Fact]
+    public void AsciiCaseMappingMatchesTheTables()
+    {
+        string all = new(Enumerable.Range(0, 128).Select(c => (char)c).ToArray());
+        Assert.Equal(Xsl3.XPath31.Functions.CaseMapping.ToUpperByTable(all), Xsl3.XPath31.Functions.CaseMapping.ToUpper(all));
+        Assert.Equal(Xsl3.XPath31.Functions.CaseMapping.ToLowerByTable(all), Xsl3.XPath31.Functions.CaseMapping.ToLower(all));
+        Assert.Same("ABC 1", Xsl3.XPath31.Functions.CaseMapping.ToUpper("ABC 1"));
+    }
+
     private static IList<XPathItem> Eval(string expression, XPathItem? context = null)
     {
         XPath31Executable exe = XPath31Compiler.Compile(expression, new XPathStaticContext());
@@ -74,6 +84,7 @@ public class XPath31EvaluationTests
     [InlineData("round(2.5), round(-2.5), round-half-to-even(2.5)", "3 -2 2")]
     [InlineData("abs(-3), floor(2.7), ceiling(2.1)", "3 2 3")]
     [InlineData("upper-case('abc') => lower-case()", "abc")]
+    [InlineData("upper-case('Mixed 09 _z'), lower-case('Mixed 09 _Z'), upper-case('straße'), lower-case('K')", "MIXED 09 _Z mixed 09 _z STRASSE k")]
     [InlineData("string-length('\U0001F600x')", "2")]
     [InlineData("exists(()), empty(())", "false true")]
     [InlineData("not(()), boolean('a')", "true true")]
@@ -108,8 +119,16 @@ public class XPath31EvaluationTests
     [InlineData("/doc/a/following-sibling::*[1]/name()", "a b")]
     [InlineData("//a[1]/preceding::a/@n/string()", "1 2")]
     [InlineData("/doc/element(a)[@n eq '2']", "y")]
+    [InlineData("number(/doc/b/a/@n), number(/doc/b/a), number(/doc/c), upper-case(/doc/b/a), concat(/doc/c, /doc/b/a)", "3 NaN NaN Z z")]
+    [InlineData("upper-case(/doc/a)", "XPTY0004")]
+    [InlineData("number(/doc/a)", "XPTY0004")]
     public void EvaluatesPaths(string expression, string expected)
     {
+        if (expected == "XPTY0004")
+        {
+            Assert.Equal("XPTY0004", Assert.Throws<XdmException>(() => Render(expression, s_doc)).Code);
+            return;
+        }
         if (expression == "//a/@n * 2")
         {
             Assert.Equal("XPTY0004", Assert.Throws<XdmException>(() => Render(expression, s_doc)).Code);

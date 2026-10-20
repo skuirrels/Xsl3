@@ -5,7 +5,7 @@
 //                                                                       transform to stdout (a number value is a double)
 //   Xsl3.Dev qil  <stylesheet>                                            the QIL the compiler produces
 //   Xsl3.Dev qilopt <stylesheet>                                          the QIL after the optimizer, as code generation sees it
-// Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path.
+// Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path; XSL3_DEV_TIME=n times n runs of `run` instead.
 
 using System;
 using System.IO;
@@ -70,6 +70,21 @@ var transform = new XslCompiledTransform
     Packages = packages,
 };
 transform.Load(stylesheet, settings, new XmlUrlResolver());
+if (int.TryParse(Environment.GetEnvironmentVariable("XSL3_DEV_TIME"), out int runs) && runs > 0 && input != null)
+{
+    // XSL3_DEV_TIME=n: n transforms of the input (as an XPathDocument) to nowhere; prints the median in ms.
+    var document = new XPathDocument(input);
+    var times = new double[runs];
+    for (int i = -3; i < runs; i++)
+    {
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        transform.Transform(document, arguments, Stream.Null);
+        if (i >= 0) times[i] = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+    }
+    Array.Sort(times);
+    Console.WriteLine($"{Path.GetFileName(stylesheet)}: median {times[runs / 2]:F2} ms, min {times[0]:F2} ms");
+    return 0;
+}
 // An XmlReader, so that xsl:strip-space applies to the input.
 using XmlReader source = input != null
     ? XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse })

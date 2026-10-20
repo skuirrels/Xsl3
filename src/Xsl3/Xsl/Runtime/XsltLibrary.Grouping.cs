@@ -28,11 +28,17 @@ namespace Xsl3.Runtime
 
         public string X31SortKey(IList<XPathItem> items, string dataType, string collation, string lang, double site, double position)
         {
-            IList<XPathItem> atoms = Sequences.Atomize(items);
             if (position == 1)
             {
                 _sortKeyKinds.Remove((int)site);
             }
+            if (items.Count == 1 && items[0] is XPathNavigator node && dataType.Length == 0 && collation.Length == 0 && lang.Length == 0)
+            {
+                // Xsl3 (P4): one node, the usual key: its typed value is xs:untypedAtomic, a string, with no atomizing.
+                CheckSortKind(site, "string");
+                return StringKey(Collation.Codepoint, node.Value);
+            }
+            IList<XPathItem> atoms = Sequences.Atomize(items);
             if (atoms.Count == 0)
             {
                 return "0";
@@ -50,19 +56,8 @@ namespace Xsl3.Runtime
                 {
                     throw new XdmException("XTDE1030", $"Values of type {v.Type.Name} have no ordering for sorting");
                 }
-                string kind = v.Type.IsNumeric ? "numeric" : v.Type.Primitive is Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri ? "string"
-                    : v.Type.Primitive.ToString();
-                if (_sortKeyKinds.TryGetValue((int)site, out string? previous))
-                {
-                    if (previous != kind)
-                    {
-                        throw new XdmException("XTDE1030", $"Sort keys of types {previous} and {kind} can't be compared");
-                    }
-                }
-                else
-                {
-                    _sortKeyKinds[(int)site] = kind;
-                }
+                CheckSortKind(site, v.Type.IsNumeric ? "numeric" : v.Type.Primitive is Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri ? "string"
+                    : v.Type.Primitive.ToString());
             }
             Collation coll = SortCollation(collation, lang);
             switch (dataType)
@@ -70,7 +65,7 @@ namespace Xsl3.Runtime
                 case "number":
                     return NumberKey(ToNumber(v));
                 case "text":
-                    return "3" + Hex(coll.KeyBytes(v.Value));
+                    return StringKey(coll, v.Value);
             }
             if (v.Type.IsNumeric)
             {
@@ -85,8 +80,51 @@ namespace Xsl3.Runtime
                 case BooleanValue b:
                     return b.Value == "true" ? "51" : "50";
                 default:
-                    return "3" + Hex(coll.KeyBytes(v.Value));
+                    return StringKey(coll, v.Value);
             }
+        }
+
+        // The keys of one sort without data-type must be of one kind (XTDE1030).
+        private void CheckSortKind(double site, string kind)
+        {
+            if (_sortKeyKinds.TryGetValue((int)site, out string? previous))
+            {
+                if (previous != kind)
+                {
+                    throw new XdmException("XTDE1030", $"Sort keys of types {previous} and {kind} can't be compared");
+                }
+            }
+            else
+            {
+                _sortKeyKinds[(int)site] = kind;
+            }
+        }
+
+        /// <summary>
+        /// A string's sort key: under the codepoint collation the string itself (Xsl3 P4), with the characters from
+        /// U+D800 up rearranged so that ordinal order is code point order (surrogates, which encode the code points
+        /// above U+FFFF, move above U+E000-U+FFFF); under another collation, its collation key in hex. The keys of one
+        /// sort all use one collation, so they all take one form.
+        /// </summary>
+        internal static string StringKey(Collation coll, string s)
+        {
+            if (coll != Collation.Codepoint)
+            {
+                return "3" + Hex(coll.KeyBytes(s));
+            }
+            if (s.AsSpan().IndexOfAnyInRange('\uD800', '￿') < 0)
+            {
+                return string.Concat("3", s);
+            }
+            return string.Create(s.Length + 1, s, static (span, s) =>
+            {
+                span[0] = '3';
+                for (int i = 0; i < s.Length; i++)
+                {
+                    char c = s[i];
+                    span[i + 1] = c >= '' ? (char)(c - 0x800) : c >= '\uD800' ? (char)(c + 0x2000) : c;
+                }
+            });
         }
 
         private readonly Dictionary<(string, string), Collation> _sortCollations = new();
