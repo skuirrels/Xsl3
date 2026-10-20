@@ -662,7 +662,11 @@ namespace Xsl3.Xslt
                     }
                     // The json and adaptive methods and item-separator take the raw result, not a document.
                     bool raw = baseFormat.Extras?.RawMethod != null ||
-                        v2.Serialization!.Exists(p => p.Name == "item-separator" || p.Name == "method" && p.Value.Trim() is "json" or "adaptive");
+                        // (A computed method may be json or adaptive: the items are then serialized by the method it names.)
+                        v2.Serialization!.Exists(p => p.Name == "item-separator" || p.Name == "method" && (p.Value.Trim() is "json" or "adaptive" || p.Value.Contains('{')) ||
+                            p.Name == "build-tree" && p.Value.Trim() is "no" or "false" or "0") ||
+                        // A format computed at run time may name a json or adaptive output definition.
+                        formatName is not QilLiteral && _compiler.NamedOutputs.Values.Any(o => ResultFormat31(o).Extras?.RawMethod is "json" or "adaptive");
                     QilNode doc = raw
                         ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
                         : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
@@ -1357,6 +1361,10 @@ namespace Xsl3.Xslt
         private Output? ResolveOutputName(string lexical)
         {
             lexical = lexical.Trim();
+            if (lexical.StartsWith("Q{", System.StringComparison.Ordinal) && lexical.IndexOf('}') is int close and > 0)
+            {
+                return _compiler.NamedOutputs.TryGetValue(_f.QName(lexical[(close + 1)..], lexical[2..close]), out Output? named) ? named : null;
+            }
             int colon = lexical.IndexOf(':');
             string? ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]);
             if (ns == null)
@@ -1432,8 +1440,11 @@ namespace Xsl3.Xslt
             return _f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns);
         }
 
-        private ResultFormat ResultFormat31(Output output) =>
-            new(output.Settings, OutputExtras31(output), output.Settings.OutputMethod == XmlOutputMethod.Text);
+        private ResultFormat ResultFormat31(Output output)
+        {
+            var (settings, extras) = WithParameterDocument31(output);
+            return new(settings, extras, settings.OutputMethod == XmlOutputMethod.Text);
+        }
 
         private int? _resultFormats31;
 
@@ -2435,6 +2446,7 @@ namespace Xsl3.Xslt
             if (output.NormalizationForm != null && OutputExtras.TryParseNormalizationForm(output.NormalizationForm, out System.Text.NormalizationForm? form))
             {
                 extras.Normalization = form;
+                extras.FullyNormalized = output.NormalizationForm.Trim() == "fully-normalized";
             }
             if (output.UseCharacterMaps != null)
             {

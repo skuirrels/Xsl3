@@ -299,10 +299,18 @@ namespace Xsl3.Runtime
             }
         }
 
+        // HTML5 prefix normalization (Serialization 3.1 §7.1): elements in these namespaces are written unprefixed,
+        // and declarations of prefixes for them are dropped.
+        private static bool Unprefixed5(string ns) => ns is "http://www.w3.org/1999/xhtml" or "http://www.w3.org/2000/svg" or "http://www.w3.org/1998/Math/MathML";
+
         public override void WriteStartElement(string? prefix, string localName, string? ns)
         {
             Content(text: false);
             ns ??= "";
+            if (Html5 && Unprefixed5(ns))
+            {
+                prefix = "";
+            }
             var e = new Element(prefix, localName, ns);
             if (_elements.Count > 0)
             {
@@ -408,7 +416,11 @@ namespace Xsl3.Runtime
                 {
                     // An explicit namespace declaration.
                     string declared = prefix == "xmlns" ? local : "";
-                    if (_open != null && LookupNamespace(declared) != value)
+                    if (Html5 && declared.Length != 0 && Unprefixed5(value))
+                    {
+                        // Declared again where a prefixed attribute needs it.
+                    }
+                    else if (_open != null && LookupNamespace(declared) != value)
                     {
                         Declare(_open, declared, value);
                     }

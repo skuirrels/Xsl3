@@ -92,6 +92,23 @@ The exit criterion is measured over five xslt30-test sets, by the harness as it 
    error keeps its own code; more than one context item is XTTE3210; a `namespace-context` that isn't one node is
    XTTE3170; a `with-params` value that isn't a `map(xs:QName, item()*)` is XPTY0004.
 
+9. **Character maps come first.** The characters to map are found in the text as written, before Unicode
+   normalization, and their strings are written as they are (Serialization 3.1 §11). They don't apply to text in
+   cdata-section-elements, to URI attributes that are escaped, or to namespace declarations.
+10. **Xsl3 writes CDATA sections itself.** When the result goes through `PrincipalResult` and an output definition
+    has cdata-section-elements, `SerializationWriter` writes the sections and .NET's writer gets none: .NET's
+    writer writes a namespace declaration on such an element as a CDATA section. (The vendored `QueryOutputWriter`
+    of the direct path is fixed the same way.)
+11. **Parameter documents are applied over the output definition.** `Runtime.ParameterDocument` reads one; for
+    `xsl:output` it is read when the stylesheet is compiled (the declaration's own attributes win), its method and
+    item-separator decide raw delivery, and its other parameters go through `SerializationParameters.Apply`; for
+    `xsl:result-document` it is read at run time through the document resolver.
+12. **disable-output-escaping marks compact-tree text.** A text node written raw keeps the raw parts in its tree
+    (`CompactDocument._rawText`); copying it to a result by sequence normalization writes them raw, `xsl:copy-of`
+    doesn't (XSLT 3.0 §26.2, as the `disable-output-escaping` set expects).
+13. **Output declarations merge by import precedence**, parameter by parameter, for the 2.0+ parameters as for
+    upstream's; `use-character-maps` of every declaration apply, higher precedence last.
+
 ## Milestones
 
 ### M1: `xsl:evaluate` (decisions 1–8)
@@ -106,24 +123,28 @@ The exit criterion is measured over five xslt30-test sets, by the harness as it 
 
 ### M2: character maps and the parameters around them
 
-- [ ] Characters produced by a character map are not normalized (`normalization-form`) or escaped again.
-- [ ] Character maps and `cdata-section-elements`; character maps and URI escaping in html/xhtml; maps are not
-      applied to namespace declarations.
-- [ ] `character-map` 100%.
+- [x] Characters produced by a character map are not normalized (`normalization-form`) or escaped again.
+- [x] Character maps and `cdata-section-elements`; character maps and URI escaping in html/xhtml; maps are not
+      applied to namespace declarations; character maps in adaptive output.
+- [x] `character-map` 100%.
 
 ### M3: the remaining serialization parameters
 
-- [ ] `include-content-type` for xhtml (the `meta` element) and html5; `escape-uri-attributes` for xhtml.
-- [ ] Doctype identifiers that contain both kinds of quote; `\r` in comments and processing instructions.
-- [ ] `parameter-document` (Serialization 3.1 §3.1), for `xsl:output` and `xsl:result-document`.
-- [ ] json and adaptive output of maps through `xsl:result-document` and `xsl:output`; SERE0012/SESU0011 checks.
-- [ ] `output` and `result-document` ≥ 98%.
+- [x] `include-content-type` for xhtml (the stylesheet's content-type `meta` replaced); quotation marks in xhtml
+      attributes as `&#34;`; HTML5 prefix normalization of SVG and MathML in the html method; the HTML5 doctype only
+      for HTML's `html` element.
+- [x] Doctype identifiers that contain a quotation mark; `\r` as `&#xD;` in text and as it is in comments.
+- [x] `parameter-document` (Serialization 3.1 §3.1), for `xsl:output` and `xsl:result-document`.
+- [x] json and adaptive output of maps through `xsl:result-document` (computed format or method, `build-tree="no"`);
+      characters the encoding lacks escaped in json/adaptive; SERE0012; `byte-order-mark` after `encoding`; EQName
+      formats; `json-node-output-method` html and xhtml.
+- [ ] `output` and `result-document` ≥ 98%: `output` 98.2%, `result-document` 97.9% (three XTDE1480 tests).
 
 ### M4: `disable-output-escaping` and the long tail
 
-- [ ] `disable-output-escaping` on text nodes that reach the result through a sequence or a temporary tree.
-- [ ] The rest of the five sets' failures, by count.
-- [ ] Exit: the five sets ≥ 98% together; docs/conformance.md, README roadmap row.
+- [x] `disable-output-escaping` on text nodes that reach the result through a sequence (decision 12).
+- [ ] The rest of the five sets' failures: seven left (docs/conformance.md lists them).
+- [x] Exit: the five sets ≥ 98% together (98.5%), none below 95%; docs/conformance.md, README roadmap row.
 
 ## Status
 
@@ -133,3 +154,10 @@ The exit criterion is measured over five xslt30-test sets, by the harness as it 
 `higher-order-functions-073` and `collations-0128` pass in passing (a function item escaping a unit without
 dynamic calls now has a dispatcher). The five sets: 407 passed of 457 run (89.1%). xslt30-test 3.0 profile:
 7,593 passed, 384 failed, 86 not run (95.2%); 2.0 profile unchanged at 96.3%.
+
+2026-10-20: M2–M4, exit met. The five sets: 450 passed of 457 run (98.5%): `evaluate` 42 / 42, `output` 217 / 221,
+`character-map` 29 / 29, `result-document` 137 / 140, `disable-output-escaping` 25 / 25. xslt30-test 3.0 profile:
+7,637 passed, 340 failed, 86 not run (95.7%); 2.0 profile 96.7%. Left: `<a />` for empty elements (.NET's writer;
+output-0285, -0311), the xhtml default method on the direct result path (output-0130, P4's fast path), an XML
+declaration in adaptive output (output-0721), XTDE1480 for `xsl:result-document` reached at run time in temporary
+output state (result-document-1139, -1140, -1142).

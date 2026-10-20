@@ -13,10 +13,13 @@ a bug.
 | `XsltContext` | `System.Xml.Xsl.XsltContext` | Not provided | Only used with the stock XPath 1.0 engine's `XPathExpression.SetContext`; keep using `System.Xml.Xsl.XsltContext` for that |
 | `msxsl:script` | Throws `PlatformNotSupportedException` | Same | Unchanged; listed for completeness (SPEC §2.2) |
 | `ms:format-date` / `ms:format-time` with an empty picture string | .NET 8 and 10 use the culture's general format, so `format-date` also prints the time | The culture's short date (`d`) or long time (`T`) format | Inherited from upstream `main`, which fixed this after .NET 10 shipped (dotnet/runtime#115455); matches .NET 11. Allowlisted in `tests/Xsl3.Differential`. |
+| A namespace declaration on an element named in `cdata-section-elements` | Its value is written as a CDATA section (`xmlns:p="<![CDATA[urn:p]]>"`), which isn't well-formed | Written as an attribute value | A bug in the stock writer's handling of namespace declarations written in chunks (`QueryOutputWriter`) |
+| `doctype-system` containing a quotation mark | Written in quotation marks, so the doctype isn't well-formed | Written in apostrophes | A fix in the raw writers |
 | Debugger-only `XmlQueryRuntime.DebugSetGlobalValue` | Converts any value with the `item*` converter | Accepts only `XPathItem` values and sequences of them | The converter is internal to System.Private.Xml |
 
 Xsl3 is forked from dotnet/runtime `main`, so it also carries upstream fixes that haven't shipped in a .NET
-release yet; each one that changes output is listed above. No other output difference is known.
+release yet; each one that changes output is listed above, with the fixes Xsl3 makes itself. No other output
+difference is known.
 `tests/Xsl3.Differential` compares stock and Xsl3
 byte for byte across the 1.0 corpus, including when the caller supplies its own `XmlWriter` (where Xsl3 writes
 through the public `XmlWriter` API instead of stock's internal raw writer; see docs/internals.md).

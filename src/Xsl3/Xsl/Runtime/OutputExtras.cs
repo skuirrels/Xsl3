@@ -26,6 +26,9 @@ namespace Xsl3.Runtime
 
         public NormalizationForm? Normalization { get; set; }
 
+        /// <summary>normalization-form="fully-normalized": also SERE0012 for text that starts with a combining character.</summary>
+        public bool FullyNormalized { get; set; }
+
         /// <summary>The character map (use-character-maps), code point to string.</summary>
         public IReadOnlyDictionary<int, string>? CharacterMap { get; set; }
 
@@ -116,25 +119,74 @@ namespace Xsl3.Runtime
         private bool _inAttribute;
         private bool _pendingHead;
 
-        public SerializationWriter(XmlWriter inner, OutputExtras extras, XmlWriterSettings? settings = null)
+        /// <param name="ownCData">The writer does cdata-section-elements itself (the inner writer's settings have none).</param>
+        public SerializationWriter(XmlWriter inner, OutputExtras extras, XmlWriterSettings? settings = null, bool ownCData = false)
         {
             _inner = inner;
             _extras = extras;
             _settings = settings ?? inner.Settings;
+            _ownCData = ownCData;
         }
+
+        private readonly bool _ownCData;
+        private bool _textStarted; // text has been written since the last element, comment or the like
+        private StringBuilder? _cdataText;
 
         private readonly XmlWriterSettings? _settings;
 
         // Before content of an XHTML head: the meta element that declares the content type.
-        private void Content()
+        private void Content(bool text = false)
         {
+            if (!text)
+            {
+                FlushCData();
+                _textStarted = false;
+            }
+            FlushMeta();
             if (_pendingHead && !_inAttribute)
             {
                 _pendingHead = false;
+                // Its attributes are written like the stylesheet's (a character map applies to them).
                 _inner.WriteStartElement("meta", XhtmlNs);
-                _inner.WriteAttributeString("http-equiv", "Content-Type");
-                _inner.WriteAttributeString("content", _extras.MediaType + "; charset=" + _extras.Encoding);
+                foreach (var (name, value) in new[] { ("http-equiv", "Content-Type"), ("content", _extras.MediaType + "; charset=" + _extras.Encoding) })
+                {
+                    WriteStartAttribute(null, name, null);
+                    WriteString(value);
+                    WriteEndAttribute();
+                }
                 _inner.WriteEndElement();
+            }
+        }
+
+        // A meta element of an XHTML head, held back until its attributes show whether it declares the content type:
+        // with include-content-type, the serializer's own meta element replaces it (Serialization 3.1 §6).
+        private sealed class PendingMeta(string? prefix, string local, string? ns)
+        {
+            public readonly string? Prefix = prefix, Ns = ns;
+            public readonly string Local = local;
+            public readonly List<(string? Prefix, string Local, string? Ns, StringBuilder Value)> Attributes = new();
+            public StringBuilder? Current;
+
+            public bool DeclaresContentType => Attributes.Exists(a => string.IsNullOrEmpty(a.Ns) && a.Local.Equals("http-equiv", System.StringComparison.OrdinalIgnoreCase) &&
+                a.Value.ToString().Trim().Equals("Content-Type", System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        private PendingMeta? _meta;
+        private int _depth, _headDepth = -1; // the open elements; how many are open inside the XHTML head, or -1
+
+        private void FlushMeta()
+        {
+            if (_meta is not { Current: null } m)
+            {
+                return;
+            }
+            _meta = null;
+            _inner.WriteStartElement(m.Prefix, m.Local, m.Ns);
+            foreach (var (prefix, local, ns, value) in m.Attributes)
+            {
+                WriteStartAttribute(prefix, local, ns);
+                WriteString(value.ToString());
+                WriteEndAttribute();
             }
         }
 
@@ -143,53 +195,81 @@ namespace Xsl3.Runtime
 
         public override void WriteString(string? text)
         {
+            if (_meta?.Current is StringBuilder metaValue)
+            {
+                metaValue.Append(text);
+                return;
+            }
             if (_namespaceDeclaration is var (_, declaration))
             {
                 declaration.Append(text);
                 return;
             }
-            Content();
+            Content(text: true);
             if (string.IsNullOrEmpty(text))
             {
                 _inner.WriteString(text);
                 return;
             }
+            IReadOnlyDictionary<int, string>? map = _extras.CharacterMap;
+            if (map != null && map.Count > 0 && !(_inAttribute ? _uriAttribute || _ownUriAttribute || _declaration : _cdata.Count > 0 && _cdata.Peek()))
+            {
+                // Character maps (Serialization 3.1 §11): the characters to map are found before normalization, and
+                // their strings are written as they are, neither normalized nor escaped. They don't apply to the
+                // text of CDATA sections, to URI attributes that are escaped, or to namespace declarations.
+                int start = 0;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    int width = char.IsSurrogatePair(text, i) ? 2 : 1;
+                    if (map.TryGetValue(width == 2 ? char.ConvertToUtf32(text[i], text[i + 1]) : text[i], out string? replacement))
+                    {
+                        if (i > start)
+                        {
+                            WriteUnmapped(text[start..i]);
+                        }
+                        _inner.WriteRaw(replacement);
+                        start = i + width;
+                    }
+                    i += width - 1;
+                }
+                if (start < text.Length)
+                {
+                    WriteUnmapped(start == 0 ? text : text[start..]);
+                }
+                return;
+            }
+            WriteUnmapped(text);
+        }
+
+        // Text that no character map applies to: normalized, then URI-escaped, split around unencodable characters
+        // in CDATA sections, or with C1 controls as references (xhtml).
+        private void WriteUnmapped(string text)
+        {
+            if (_extras.FullyNormalized && !_inAttribute && !_textStarted && text.Length > 0 &&
+                System.Globalization.CharUnicodeInfo.GetUnicodeCategory(text, 0) is System.Globalization.UnicodeCategory.NonSpacingMark
+                    or System.Globalization.UnicodeCategory.SpacingCombiningMark or System.Globalization.UnicodeCategory.EnclosingMark)
+            {
+                throw new Xdm.XdmException("SERE0012", "With normalization-form=\"fully-normalized\", a text node can't start with a combining character");
+            }
+            _textStarted = !_inAttribute;
             text = Normalize(text);
             if (_inAttribute && _uriAttribute)
             {
                 text = EscapeUri(text);
             }
-            if (!_inAttribute && _cdata.Count > 0 && _cdata.Peek() && FirstUnencodable(text) >= 0)
+            if (!_inAttribute && _cdata.Count > 0 && _cdata.Peek())
             {
-                // A character the encoding lacks ends the CDATA section and is written as a character reference
-                // (Serialization 3.1 §5.1.4), then a new CDATA section starts.
-                int from = 0;
-                for (int i = 0; i < text.Length; i++)
+                if (_ownCData)
                 {
-                    int width = char.IsSurrogatePair(text, i) ? 2 : 1;
-                    if (!CanEncode(text.AsSpan(i, width)))
-                    {
-                        if (i > from)
-                        {
-                            _inner.WriteCData(text[from..i]);
-                        }
-                        if (width == 2)
-                        {
-                            _inner.WriteSurrogateCharEntity(text[i + 1], text[i]);
-                        }
-                        else
-                        {
-                            _inner.WriteCharEntity(text[i]);
-                        }
-                        from = i + width;
-                    }
-                    i += width - 1;
+                    // Adjacent text is one CDATA section, written when something else comes.
+                    (_cdataText ??= new StringBuilder()).Append(text);
+                    return;
                 }
-                if (from < text.Length)
+                if (FirstUnencodable(text) >= 0)
                 {
-                    _inner.WriteCData(text[from..]);
+                    WriteCDataEncoded(text);
+                    return;
                 }
-                return;
             }
             if (_extras.Xhtml && text.AsSpan().IndexOfAnyInRange('', '') >= 0)
             {
@@ -201,7 +281,7 @@ namespace Xsl3.Runtime
                     {
                         if (i > from)
                         {
-                            WriteMapped(text[from..i]);
+                            WriteEscaped(text[from..i]);
                         }
                         _inner.WriteCharEntity(text[i]);
                         from = i + 1;
@@ -209,51 +289,101 @@ namespace Xsl3.Runtime
                 }
                 if (from < text.Length)
                 {
-                    WriteMapped(text[from..]);
+                    WriteEscaped(text[from..]);
                 }
                 return;
             }
-            WriteMapped(text);
+            WriteEscaped(text);
         }
 
-        private void WriteMapped(string text)
+        // Text of a cdata-section-elements element as CDATA sections. A character the encoding lacks ends the section
+        // and is written as a character reference (Serialization 3.1 §5.1.4), then a new section starts.
+        private void WriteCDataEncoded(string text)
         {
-            IReadOnlyDictionary<int, string>? map = _extras.CharacterMap;
-            if (map == null || map.Count == 0)
+            if (FirstUnencodable(text) < 0)
+            {
+                _inner.WriteCData(text);
+                return;
+            }
+            int from = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                int width = char.IsSurrogatePair(text, i) ? 2 : 1;
+                if (!CanEncode(text.AsSpan(i, width)))
+                {
+                    if (i > from)
+                    {
+                        _inner.WriteCData(text[from..i]);
+                    }
+                    if (width == 2)
+                    {
+                        _inner.WriteSurrogateCharEntity(text[i + 1], text[i]);
+                    }
+                    else
+                    {
+                        _inner.WriteCharEntity(text[i]);
+                    }
+                    from = i + width;
+                }
+                i += width - 1;
+            }
+            if (from < text.Length)
+            {
+                _inner.WriteCData(text[from..]);
+            }
+        }
+
+        private void FlushCData()
+        {
+            if (_cdataText is { Length: > 0 })
+            {
+                string text = _cdataText.ToString();
+                _cdataText.Clear();
+                WriteCDataEncoded(text);
+            }
+        }
+
+        // xhtml: a quotation mark in an attribute value as a character reference (&#34;), which HTML parsers also read.
+        private void WriteEscaped(string text)
+        {
+            if (!(_inAttribute && _extras.Xhtml) || !text.Contains('"'))
             {
                 _inner.WriteString(text);
                 return;
             }
-            // Mapped characters are written as their map strings, unescaped (Serialization 3.1 §11).
-            int start = 0;
-            for (int i = 0; i < text.Length; i++)
+            string[] parts = text.Split('"');
+            for (int k = 0; k < parts.Length; k++)
             {
-                int width = char.IsSurrogatePair(text, i) ? 2 : 1;
-                int cp = width == 2 ? char.ConvertToUtf32(text[i], text[i + 1]) : text[i];
-                if (map.TryGetValue(cp, out string? replacement))
+                if (k > 0)
                 {
-                    if (i > start)
-                    {
-                        _inner.WriteString(text[start..i]);
-                    }
-                    _inner.WriteRaw(replacement);
-                    start = i + width;
+                    _inner.WriteRaw("&#34;");
                 }
-                i += width - 1;
-            }
-            if (start < text.Length)
-            {
-                _inner.WriteString(text[start..]);
+                if (parts[k].Length > 0)
+                {
+                    _inner.WriteString(parts[k]);
+                }
             }
         }
 
         public override void WriteStartElement(string? prefix, string localName, string? ns)
         {
             Content();
+            if (_extras.Xhtml && _extras.IncludeContentType && _depth == _headDepth && localName == "meta" && (ns == XhtmlNs || _extras.Html5 && string.IsNullOrEmpty(ns)))
+            {
+                _meta = new PendingMeta(prefix, localName, ns);
+                _depth++;
+                _cdata.Push(false);
+                _void.Push(true);
+                _currentXhtml = _currentHtml = true;
+                return;
+            }
+            _depth++;
             if (!_seenElement)
             {
                 _seenElement = true;
-                if (_extras.Html5 && _extras.DefaultDoctype && !OwnHtml && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase))
+                // Only for an HTML html element (an html element in another namespace isn't HTML: Serialization 3.1 §6).
+                if (_extras.Html5 && _extras.DefaultDoctype && !OwnHtml && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase) &&
+                    (string.IsNullOrEmpty(ns) || ns == XhtmlNs))
                 {
                     _inner.WriteRaw($"<!DOCTYPE {localName}>"); // the html writer would write "<!DOCTYPE html >"
                 }
@@ -282,18 +412,25 @@ namespace Xsl3.Runtime
             }
             // With HTML5, elements in no namespace are serialized like XHTML's.
             _cdata.Push(_settings?.CDataSectionElements is { Count: > 0 } cdata && cdata.Exists(q => q.Name == localName && q.Namespace == (ns ?? "")));
+            _currentHtml = string.IsNullOrEmpty(ns) || ns == XhtmlNs;
             bool xhtml = _extras.Xhtml && (ns == XhtmlNs || _extras.Html5 && string.IsNullOrEmpty(ns));
             _currentXhtml = xhtml;
             _void.Push(!_extras.Xhtml || xhtml && (_extras.Html5 ? s_voidElements5 : s_voidElements).Contains(localName));
             if (xhtml && localName == "head" && _extras.IncludeContentType)
             {
                 _pendingHead = true;
+                _headDepth = _depth;
             }
         }
 
         public override void WriteEndElement()
         {
+            if (DroppedMeta())
+            {
+                return;
+            }
             Content();
+            EndDepth();
             if (_cdata.Count > 0)
             {
                 _cdata.Pop();
@@ -311,7 +448,12 @@ namespace Xsl3.Runtime
 
         public override void WriteFullEndElement()
         {
+            if (DroppedMeta())
+            {
+                return;
+            }
             Content();
+            EndDepth();
             if (_cdata.Count > 0)
             {
                 _cdata.Pop();
@@ -323,8 +465,37 @@ namespace Xsl3.Runtime
             _inner.WriteFullEndElement();
         }
 
+        // The end of a held-back meta element that declared the content type: it isn't written.
+        private bool DroppedMeta()
+        {
+            if (_meta is not { Current: null, DeclaresContentType: true })
+            {
+                return false;
+            }
+            _meta = null;
+            _depth--;
+            _cdata.Pop();
+            _void.Pop();
+            return true;
+        }
+
+        private void EndDepth()
+        {
+            if (_depth == _headDepth)
+            {
+                _headDepth = -1;
+            }
+            _depth--;
+        }
+
         public override void WriteStartAttribute(string? prefix, string localName, string? ns)
         {
+            if (_meta is { Current: null } pending)
+            {
+                pending.Current = new StringBuilder();
+                pending.Attributes.Add((prefix, localName, ns, pending.Current));
+                return;
+            }
             if (_extras.Xhtml && _extras.Html5 && prefix == "xmlns" && ns == "http://www.w3.org/2000/xmlns/")
             {
                 // A prefixed declaration: dropped if prefix normalization unprefixes its namespace's elements.
@@ -334,10 +505,15 @@ namespace Xsl3.Runtime
             _inAttribute = true;
             // xhtml: URI attributes of XHTML elements are escaped like the html method's (Serialization 3.1 §7.3).
             _uriAttribute = _extras.Xhtml && _extras.EscapeUriAttributes && string.IsNullOrEmpty(ns) && _currentXhtml && HtmlUriAttributes.Contains(localName);
+            // The html method's serializer escapes the URI attributes of HTML elements itself.
+            _ownUriAttribute = OwnHtml && _extras.EscapeUriAttributes && string.IsNullOrEmpty(ns) && _currentHtml && HtmlUriAttributes.Contains(localName);
+            _declaration = ns == "http://www.w3.org/2000/xmlns/";
             _inner.WriteStartAttribute(prefix, localName, ns);
         }
 
         private bool _uriAttribute;
+        private bool _ownUriAttribute, _declaration;
+        private bool _currentHtml; // the element being started is an HTML element (no namespace, or XHTML's)
 
         // The output encoding with an exception fallback, for testing characters (null for the Unicode encodings).
         private Encoding? _strictEncoding;
@@ -419,6 +595,11 @@ namespace Xsl3.Runtime
 
         public override void WriteEndAttribute()
         {
+            if (_meta is { Current: not null } pending)
+            {
+                pending.Current = null;
+                return;
+            }
             if (_namespaceDeclaration is var (declared, value))
             {
                 _namespaceDeclaration = null;
@@ -438,7 +619,11 @@ namespace Xsl3.Runtime
 
         public override XmlWriterSettings? Settings => _inner.Settings;
 
-        public override void Flush() => _inner.Flush();
+        public override void Flush()
+        {
+            FlushCData();
+            _inner.Flush();
+        }
 
         public override string? LookupPrefix(string ns) => _inner.LookupPrefix(ns);
 
@@ -464,9 +649,22 @@ namespace Xsl3.Runtime
             _inner.WriteComment(text);
         }
 
-        public override void WriteDocType(string name, string? pubid, string? sysid, string? subset) => _inner.WriteDocType(name, pubid, sysid, subset);
+        public override void WriteDocType(string name, string? pubid, string? sysid, string? subset)
+        {
+            if (sysid != null && sysid.Contains('"') && subset == null)
+            {
+                // .NET's writer would quote it with quotation marks.
+                _inner.WriteRaw(pubid != null ? $"<!DOCTYPE {name} PUBLIC \"{pubid}\" '{sysid}'>" : $"<!DOCTYPE {name} SYSTEM '{sysid}'>");
+                return;
+            }
+            _inner.WriteDocType(name, pubid, sysid, subset);
+        }
 
-        public override void WriteEndDocument() => _inner.WriteEndDocument();
+        public override void WriteEndDocument()
+        {
+            Content();
+            _inner.WriteEndDocument();
+        }
 
         public override void WriteEntityRef(string name)
         {
@@ -504,6 +702,11 @@ namespace Xsl3.Runtime
 
         public override void WriteWhitespace(string? ws)
         {
+            if (_ownCData && !_inAttribute && _cdata.Count > 0 && _cdata.Peek())
+            {
+                WriteString(ws);
+                return;
+            }
             Content();
             _inner.WriteWhitespace(ws);
         }
@@ -512,6 +715,7 @@ namespace Xsl3.Runtime
         {
             if (disposing)
             {
+                FlushCData();
                 _inner.Flush();
             }
             base.Dispose(disposing);

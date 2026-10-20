@@ -239,11 +239,15 @@ namespace System.Xml
 
         internal override void WriteStartNamespaceDeclaration(string prefix)
         {
+            // Xsl3: a namespace declaration's value is an attribute value, never a CDATA section (stock writes
+            // xmlns:p="<![CDATA[...]]>" on an element named in cdata-section-elements; docs/divergences.md).
+            _inAttr = true;
             _wrapped.WriteStartNamespaceDeclaration(prefix);
         }
 
         internal override void WriteEndNamespaceDeclaration()
         {
+            _inAttr = false;
             _wrapped.WriteEndNamespaceDeclaration();
         }
 

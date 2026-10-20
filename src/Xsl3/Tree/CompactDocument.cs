@@ -67,6 +67,12 @@ namespace Xsl3.Tree
         /// <summary>Built from writer events (a temporary tree): elements and PIs have an empty base URI, as there.</summary>
         internal bool _writerBuilt;
 
+        /// <summary>
+        /// Text nodes written with disable-output-escaping (XSLT 3.0 §26.2): their parts that are written unescaped
+        /// when the node reaches a result tree by sequence normalization (xsl:copy-of drops the marking).
+        /// </summary>
+        internal Dictionary<int, List<(int Start, int Length)>>? _rawText;
+
         /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
         internal bool NoDocumentUri { get; set; }
 

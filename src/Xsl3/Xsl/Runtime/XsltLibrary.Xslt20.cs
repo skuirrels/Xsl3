@@ -332,7 +332,15 @@ namespace Xsl3.Runtime
                     throw new XdmException("XTDE1460", $"There is no output definition named '{formatName}'");
                 }
             }
-            var (settings, extras, text) = SerializationParameters.Apply(format, parameters, names);
+            var (settings, extras, text) = SerializationParameters.Apply(format, parameters, names, uri =>
+            {
+                // A parameter-document is read like a document fn:doc reads, relative to the static base URI.
+                System.Xml.XmlResolver resolver = _runtime.ExternalContext.DataSources;
+                System.Uri absolute = resolver.ResolveUri(baseUri.Length == 0 ? null : resolver.ResolveUri(null, baseUri), uri);
+                return resolver.GetEntity(absolute, null, typeof(System.IO.Stream)) is System.IO.Stream stream
+                    ? System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings { CloseInput = true }, absolute.AbsoluteUri)
+                    : throw new XdmException("SEPM0017", $"The serialization parameter document '{uri}' can't be read");
+            });
             if (raw && href.Length == 0)
             {
                 // The principal result: the items, separated by the item-separator (or, without one, a space

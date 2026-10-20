@@ -993,7 +993,23 @@ namespace Xsl3.Runtime
         ///   2. If the item is an Rtf, preserve serialization hints when copying.
         ///   3. If the item is a Root node, copy the children of the Root
         /// </summary>
+        // Xsl3: inside xsl:copy-of, which doesn't copy disable-output-escaping markings.
+        private int _copyOf;
+
         public void XsltCopyOf(XPathNavigator navigator)
+        {
+            _copyOf++;
+            try
+            {
+                XsltCopyOfCore(navigator);
+            }
+            finally
+            {
+                _copyOf--;
+            }
+        }
+
+        private void XsltCopyOfCore(XPathNavigator navigator)
         {
             RtfNavigator? navRtf = navigator as RtfNavigator;
 
@@ -1298,6 +1314,27 @@ namespace Xsl3.Runtime
                 case XPathNodeType.Text:
                 case XPathNodeType.SignificantWhitespace:
                 case XPathNodeType.Whitespace:
+                    if (_copyOf == 0 && navigator is Xsl3.Tree.CompactNavigator { RawText: { } raw })
+                    {
+                        // Xsl3: text written with disable-output-escaping keeps it when it reaches a result tree by
+                        // sequence normalization (XSLT 3.0 §26.2); xsl:copy-of drops it.
+                        string text = navigator.Value;
+                        int from = 0;
+                        foreach (var (start, length) in raw)
+                        {
+                            if (start > from)
+                            {
+                                WriteString(text[from..start], false);
+                            }
+                            WriteString(text.Substring(start, length), true);
+                            from = start + length;
+                        }
+                        if (from < text.Length)
+                        {
+                            WriteString(text[from..], false);
+                        }
+                        break;
+                    }
                     // If checks need to be made, call XmlQueryOutput.WriteString
                     if (callChk)
                     {

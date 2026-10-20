@@ -20,13 +20,39 @@ namespace Xsl3.Runtime
     {
         public const char NameEnd = '\u0001', ValueEnd = '\u0002';
 
-        public static (XmlWriterSettings Settings, OutputExtras? Extras, bool Text) Apply(ResultFormat format, string parameters, XsltNameContext names)
+        /// <param name="open">Opens a parameter-document (its URI as given); null if there can be none.</param>
+        public static (XmlWriterSettings Settings, OutputExtras? Extras, bool Text) Apply(ResultFormat format, string parameters, XsltNameContext names,
+            System.Func<string, XmlReader>? open = null)
         {
             XmlWriterSettings settings = format.Settings.Clone();
             OutputExtras? extras = format.Extras?.Clone();
             bool text = format.Text;
             OutputExtras Extras() => extras ??= new OutputExtras();
+            const string document = "parameter-document";
+            int at = parameters.IndexOf(document + NameEnd, System.StringComparison.Ordinal);
+            if (open != null && at >= 0 && (at == 0 || parameters[at - 1] == ValueEnd))
+            {
+                // The parameter document's parameters come first, so that those given explicitly override them.
+                int end = parameters.IndexOf(ValueEnd, at);
+                string uri = parameters[(at + document.Length + 1)..end].Trim();
+                ParameterDocument.Parameters fromDocument;
+                using (XmlReader reader = open(uri))
+                {
+                    fromDocument = ParameterDocument.Read(reader);
+                }
+                parameters = fromDocument.Encode() + parameters;
+                if (fromDocument.CharacterMap.Count > 0)
+                {
+                    var map = new Dictionary<int, string>(extras?.CharacterMap ?? new Dictionary<int, string>());
+                    foreach (var (c, s) in fromDocument.CharacterMap)
+                    {
+                        map[c] = s;
+                    }
+                    Extras().CharacterMap = map;
+                }
+            }
             string? htmlVersion = null;
+            bool? byteOrderMark = null; // applied after the encoding, whichever comes first
             foreach (string pair in parameters.Split(ValueEnd, System.StringSplitOptions.RemoveEmptyEntries))
             {
                 int end = pair.IndexOf(NameEnd);
@@ -56,6 +82,8 @@ namespace Xsl3.Runtime
                         {
                             settings.Encoding = Encoding.GetEncoding(value);
                             Extras().Encoding = value;
+                            // As for xsl:output: UTF-8 has no byte order mark unless byte-order-mark="yes".
+                            byteOrderMark ??= settings.Encoding is UTF8Encoding ? false : null;
                         }
                         catch (System.ArgumentException)
                         {
@@ -89,13 +117,7 @@ namespace Xsl3.Runtime
                         }
                         break;
                     case "byte-order-mark":
-                        bool bom = YesNo(value, name);
-                        settings.Encoding = settings.Encoding switch
-                        {
-                            UTF8Encoding => new UTF8Encoding(bom),
-                            UnicodeEncoding u => new UnicodeEncoding(u.CodePage == 1201, bom),
-                            var e => e,
-                        };
+                        byteOrderMark = YesNo(value, name);
                         break;
                     case "include-content-type":
                         Extras().IncludeContentType = YesNo(value, name);
@@ -106,6 +128,7 @@ namespace Xsl3.Runtime
                             throw new XdmException("SESU0011", $"normalization-form=\"{value}\" is not supported");
                         }
                         Extras().Normalization = form;
+                        extras!.FullyNormalized = value == "fully-normalized";
                         break;
                     case "escape-uri-attributes":
                         Extras().EscapeUriAttributes = YesNo(value, name);
@@ -131,9 +154,18 @@ namespace Xsl3.Runtime
                         Extras().AllowDuplicateNames = YesNo(value, name);
                         break;
                     case "json-node-output-method":
-                        Extras().JsonNodeOutputMethod = value;
+                        Extras().JsonNodeOutputMethod = value.StartsWith("Q{}", System.StringComparison.Ordinal) ? value[3..] : value;
                         break;
                 }
+            }
+            if (byteOrderMark is bool bom)
+            {
+                settings.Encoding = settings.Encoding switch
+                {
+                    UTF8Encoding => new UTF8Encoding(bom),
+                    UnicodeEncoding u => new UnicodeEncoding(u.CodePage == 1201, bom),
+                    var e => e,
+                };
             }
             bool html = settings.OutputMethod == XmlOutputMethod.Html;
             if (htmlVersion != null && htmlVersion.StartsWith('5') && (html || extras?.Xhtml == true))
@@ -227,7 +259,7 @@ namespace Xsl3.Runtime
                 s.SetOutputMethod(XmlOutputMethod.Text);
                 s.ConformanceLevel = ConformanceLevel.Fragment;
                 _inner = _factory!(s);
-                _inner.WriteString(text.ToString());
+                _inner.WriteString(ItemSerializer.EscapeUnencodable(text.ToString(), settings.Encoding, extras.RawMethod == "json"));
                 _inner.Flush();
             }
             else
@@ -271,6 +303,15 @@ namespace Xsl3.Runtime
         public static XmlWriter Create(System.Func<XmlWriterSettings, XmlWriter> factory, XmlWriterSettings settings, OutputExtras? extras)
         {
             bool declaration = settings.OutputMethod is XmlOutputMethod.Xml or XmlOutputMethod.AutoDetect && !settings.OmitXmlDeclaration;
+            // cdata-section-elements are written by SerializationWriter: .NET's writer would write the namespace
+            // declarations of those elements as CDATA sections too.
+            bool ownCData = settings.CDataSectionElements.Count > 0 && settings.OutputMethod != XmlOutputMethod.Html;
+            XmlWriterSettings original = settings;
+            if (ownCData)
+            {
+                settings = settings.Clone();
+                settings.CDataSectionElements.Clear();
+            }
             XmlWriter w;
             if (declaration)
             {
@@ -304,7 +345,11 @@ namespace Xsl3.Runtime
             {
                 w = factory(settings);
             }
-            return extras is { IsEmpty: false } ? extras.Wrap(w, settings) : w;
+            if (ownCData)
+            {
+                return new SerializationWriter(w, extras ?? new OutputExtras(), original, ownCData: true);
+            }
+            return extras is { IsEmpty: false } ? extras.Wrap(w, original) : w;
         }
 
         public override WriteState WriteState => _inner?.WriteState ?? WriteState.Start;
@@ -331,10 +376,16 @@ namespace Xsl3.Runtime
         {
             if (_inner == null && _factory != null && _settings.OutputMethod == XmlOutputMethod.AutoDetect)
             {
-                // The default method (XSLT 3.0 §26.1): html if the first element is an unprefixed html element.
+                // The default method (XSLT 3.0 §26.1): html if the first element is an unprefixed html element, xhtml
+                // if it is XHTML's html element.
                 XmlWriterSettings settings = _settings.Clone();
                 bool html = string.IsNullOrEmpty(ns) && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase);
                 settings.SetOutputMethod(html ? XmlOutputMethod.Html : XmlOutputMethod.Xml);
+                if (ns == "http://www.w3.org/1999/xhtml" && localName == "html" && _extras?.Xhtml != true)
+                {
+                    _extras = _extras?.Clone() ?? new OutputExtras { Encoding = _settings.Encoding.WebName.ToUpperInvariant(), MediaType = _settings.MediaType ?? "text/html" };
+                    _extras.Xhtml = true;
+                }
                 if (html && _settings.IndentInternal == TriState.Unknown)
                 {
                     settings.Indent = true; // the html method indents unless indent="no"
