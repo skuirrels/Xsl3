@@ -29,6 +29,54 @@ namespace Xsl3.Runtime
             return ((XdmMap)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
         }
 
+        /// <summary>
+        /// The xs:double an xs:untypedAtomic value casts to: the exact fast parse for short decimals, the cast otherwise
+        /// (FORG0001 for a string that isn't a double).
+        /// </summary>
+        internal static double UntypedDouble(string value) =>
+            XPathConvert.TryParseShortDecimal(value, out double d) ? d : ((DoubleValue)Casting.Cast(new StringValue(AtomicTypes.UntypedAtomic, value), AtomicTypes.Double)).Double;
+
+        /// <summary>
+        /// fn:sum of nodes (untyped, so each an xs:untypedAtomic cast to xs:double): the doubles added in order, from
+        /// the first; the empty sequence is xs:integer 0.
+        /// </summary>
+        public System.Xml.XPath.XPathItem X31SumNodes(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> nodes)
+        {
+            if (nodes.Count == 0)
+            {
+                return AtomicValue.OfInteger(0);
+            }
+            double sum = UntypedDouble(nodes[0].Value);
+            for (int i = 1; i < nodes.Count; i++)
+            {
+                sum += UntypedDouble(nodes[i].Value);
+            }
+            return AtomicValue.OfDouble(sum);
+        }
+
+        private static readonly SequenceTypeTest s_formatNumberValue =
+            FunctionLibrary.Find(Xdm.QName.Ns.Fn, "format-number", 2)!.ParameterType(0);
+
+        /// <summary>
+        /// fn:format-number with the unnamed decimal format: the value converted as the function's $value (xs:numeric?;
+        /// a double as it is), then formatted.
+        /// </summary>
+        public string X31FormatNumber(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> value, string picture, double sc)
+        {
+            AtomicValue? v = null;
+            if (value.Count == 1 && value[0] is DoubleValue d)
+            {
+                v = d;
+            }
+            else if (value.Count != 0)
+            {
+                System.Collections.Generic.IList<System.Xml.XPath.XPathItem> converted =
+                    Coercion.CoerceTo(value, s_formatNumberValue, "XPTY0004", () => "Argument 1 of fn:format-number#2");
+                v = converted.Count == 0 ? null : (AtomicValue)converted[0];
+            }
+            return Xsl3.XPath31.Functions.NumberFormatter.Format(v, picture, X31ContextFor(sc).DecimalFormats.Unnamed);
+        }
+
         /// <summary>An item known to be an xs:string (or a subtype), as a native string.</summary>
         public string X31ItemString(System.Xml.XPath.XPathItem item) => item.Value;
 

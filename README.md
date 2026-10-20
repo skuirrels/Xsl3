@@ -24,7 +24,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,743 passed, 141 failed (99.4%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,746 passed, 138 failed (99.4%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 96.3% |
 | W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,545 passed, 390 failed, 86 not run (95.1%) |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
@@ -82,7 +82,7 @@ Measured on 2026-10-19 (Release build, .NET 10); details in [docs/conformance.md
   - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
   - XSLT 2.0/3.0 is still slower than 1.0. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3× slower than the
-    1.0 versions on stock, because the 2.0+ code boxes its values; typed codegen has brought that to 1.2–2.6×, and
+    1.0 versions on stock, because the 2.0+ code boxes its values; typed codegen has brought that to 1.15–1.65×, and
     it continues.
   - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.

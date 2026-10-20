@@ -41,6 +41,44 @@ public class Xslt30Tests
             </xsl:template>
             """, "<r><p k='a'>A</p><p k='b'>B</p><p k='c'>C</p></r>"));
 
+    /// <summary>
+    /// Native values kept by maps and arrays: the generated code wraps a native value in a list it reuses, which a
+    /// map or array has to copy.
+    /// </summary>
+    [Fact]
+    public void MapEntriesKeepTheirNativeValues() =>
+        Assert.Equal("<o>1 2 1|a b b c|2 1</o>", Run("""
+            <xsl:template match="/r" xmlns:map="http://www.w3.org/2005/xpath-functions/map" xmlns:array="http://www.w3.org/2005/xpath-functions/array" exclude-result-prefixes="#all">
+              <xsl:variable name="e" select="for $k in distinct-values(p/@k) return map:entry($k, count(p[@k = $k]))"/>
+              <xsl:variable name="a" select="fold-left(p, [], function($a, $x) { array:append($a, upper-case($x/@k)) })"/>
+              <xsl:variable name="b" select="for $k in ('b', 'c') return array:append([], count(p[@k = $k]))"/>
+              <o><xsl:value-of select="$e ! ?*"/>|<xsl:value-of select="lower-case(string-join($a?*, ' '))"/>|<xsl:value-of select="$b ! ?*"/></o>
+            </xsl:template>
+            """, "<r><p k='a'/><p k='b'/><p k='b'/><p k='c'/></r>"));
+
+    /// <summary>
+    /// group-by with string-like keys of mixed types (strings, untyped values, URIs equal when their strings are),
+    /// several keys for an item, and keys of other types, which equal no string.
+    /// </summary>
+    [Fact]
+    public void GroupByMixedKeys() =>
+        Assert.Equal("<o>a:1 2 3 5|b:3 4|1:6|c:6</o>", Run("""
+            <xsl:template match="/r" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <o><xsl:for-each-group select="p" group-by="if (position() = 6) then (1, 'c') else if (position() = 3) then ('b', xs:anyURI('a'), @k) else if (position() mod 2 = 0) then string(@k) else @k">
+                <xsl:if test="position() > 1">|</xsl:if><xsl:value-of select="current-grouping-key(), ':'" separator=""/><xsl:value-of select="current-group()/@n"/>
+              </xsl:for-each-group></o>
+            </xsl:template>
+            """, "<r><p k='a' n='1'/><p k='a' n='2'/><p k='a' n='3'/><p k='b' n='4'/><p k='a' n='5'/><p k='z' n='6'/></r>"));
+
+    /// <summary>Value templates and string functions over zero, one or several nodes (the native-string paths).</summary>
+    [Fact]
+    public void ValueTemplatesOfNodes() =>
+        Assert.Equal("<o all=\"A B C\" one=\"B\" none=\"\" up=\"B\" e=\"\" n=\"7\" s=\"3\">A|B C|</o>", Run("""
+            <xsl:template match="/r">
+              <o all="{p}" one="{p[2]}" none="{q}" up="{upper-case(p[2]/@k)}" e="{upper-case(q/@k)}" n="{string-length(concat(p[1], q, 'xyzabc'))}" s="{count(p)}" xsl:expand-text="yes">{p[1]}|{p[2], p[3]}|{q}</o>
+            </xsl:template>
+            """, "<r><p k='a'>A</p><p k='b'>B</p><p k='c'>C</p></r>"));
+
     /// <summary>A variable used once inside a loop is computed once, not for every iteration (the result is the same).</summary>
     [Fact]
     public void VariableUsedInALoopIsComputedOnce() =>

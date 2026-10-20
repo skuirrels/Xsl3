@@ -258,6 +258,39 @@ What changed:
   counted its items for `last()`. The analyzer can't follow 2.0+ expressions, so this is decided from the
   stylesheet's text, conservatively.
 
+### Typed code generation, second batch
+
+| Pair | First batch | Second batch |
+|---|---:|---:|
+| identity | 1.24 | 1.15 |
+| sort | 1.54 | 1.60 |
+| muenchian | 2.22 | 1.15 |
+| string-recursion | 1.69 | 1.64 |
+| key-join | 2.64 | 1.38 |
+
+Same measure as above, the median of three runs. The machine was loaded for both columns, so differences under
+about 0.2 aren't meaningful: sort and string-recursion are unchanged.
+
+What changed:
+
+- **`count()`** compiles to the length of its sequence, as a native number.
+- **`sum()` of nodes** adds their values as doubles in one call. The fold order is the same as the library's.
+- **Arithmetic on two nodes** goes straight to double arithmetic, without the general operator dispatch.
+- **`format-number`** with a literal picture is a direct call. Doubles take a long-arithmetic path when the
+  picture has no exponent, percent, per-mille or fraction grouping. That covers doubles of up to 17 round-trip digits
+  and integers that fit a long. The path uses the same digits and the same half-to-even rounding as the general
+  (BigInteger) path, and a test compares the two over thousands of values and pictures.
+- **`@name`** compiles to a direct attribute step, known to give at most one node. So `string(@k)`, string-function
+  arguments and value templates take it as a string. Arguments declared `xs:string?` accept zero or one node
+  generally.
+- **Value templates over several elements or attributes** join their string values with spaces directly.
+- **`group-by`** groups string, untyped and URI keys under the codepoint collation by their strings, in a plain
+  dictionary. A tuple with one key atomizes it straight into its own array.
+
+A bug found on the way: the generated code passes a native value to a list parameter in a one-item list that it
+reuses. `map:entry`, `map:put` and the `array:` functions that keep their argument now copy such lists. Before,
+`for $k in … return map:entry($k, count(…))` could give every entry the last value.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

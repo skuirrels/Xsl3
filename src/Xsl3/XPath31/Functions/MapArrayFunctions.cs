@@ -23,9 +23,11 @@ namespace Xsl3.XPath31.Functions
         /// </summary>
         private static IList<XPathItem> Keep(IList<XPathItem> value)
         {
+            // A runtime sequence can also be a buffer the generated code reuses (one native value wrapped as a list).
+            bool reused = value is Xsl3.Runtime.XmlQuerySequence<XPathItem>;
             for (int i = 0; i < value.Count; i++)
             {
-                if (value[i] is XPathNavigator)
+                if (reused || value[i] is XPathNavigator)
                 {
                     var copy = new XPathItem[value.Count];
                     for (int j = 0; j < copy.Length; j++)

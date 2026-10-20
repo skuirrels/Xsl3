@@ -33,6 +33,7 @@ raised a different code are counted separately.
 | 2026-10-19 | 21,685 | 199 | 99 | 99.1% | Maps, arrays, function items, JSON; `higherOrderFunctions` claimed (1,840 more tests apply) |
 | 2026-10-19 | 21,731 | 153 | 99 | 99.3% | `fn:serialize` with a map (json, adaptive); maps keep insertion order |
 | 2026-10-20 | 21,743 | 141 | 99 | 99.4% | Focus-dependent function references with arguments (`fn:lang#1`, `fn:id#1`) keep the focus |
+| 2026-10-20 | 21,746 | 138 | 99 | 99.4% | `map:merge`, `map:put` and `array:` functions copy the reused one-item lists the generated code passes them |
 
 The remaining failures are mostly fn:serialize details (html doctype, CDATA, character maps),
 fn:random-number-generator and fn:function-lookup corner cases.

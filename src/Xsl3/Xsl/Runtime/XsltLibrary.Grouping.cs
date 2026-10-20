@@ -182,7 +182,9 @@ namespace Xsl3.Runtime
         // QIL loops reuse one navigator per iterator, and pass single items to IList parameters in a reused list
         // (XmlQueryItemSequence.CreateOrReuse): anything kept must be copied.
         public XPathItem X31GroupTuple(XPathItem item, IList<XPathItem> key) =>
-            new GroupTuple(item is XPathNavigator n ? n.Clone() : item, new List<XPathItem>(Sequences.Atomize(key)));
+            new GroupTuple(item is XPathNavigator n ? n.Clone() : item,
+                // Xsl3 (P4): one node or atomic value, the usual key, atomized straight into its own array.
+                key.Count == 1 && key[0] is XPathNavigator or AtomicValue ? new[] { Sequences.Atomize(key[0]) } : new List<XPathItem>(Sequences.Atomize(key)));
 
         /// <summary>
         /// Forms the groups (XSLT 3.0 §14.5): kind 0 group-by, 1 group-adjacent, 2 group-starting-with, 3
@@ -197,6 +199,10 @@ namespace Xsl3.Runtime
                 case 0:
                 {
                     var buckets = new Dictionary<object, List<Group>>();
+                    // Xsl3 (P4): under the codepoint collation, string-like keys (strings, untyped values, URIs, which
+                    // equal one another exactly when their strings do) are grouped by their strings.
+                    bool codepoint = c.DefaultCollation == Collation.Codepoint;
+                    Dictionary<string, Group>? byString = null;
                     for (int ti = 0; ti < tuples.Count; ti++)
                     {
                         var t = (GroupTuple)tuples[ti];
@@ -222,11 +228,22 @@ namespace Xsl3.Runtime
                                 continue;
                             }
                             seen.Add(k);
-                            AddToGroup(new XPathItem[] { k }, t.Item);
+                            AddToGroupByOne(k, new XPathItem[] { k }, t.Item);
                         }
                     }
                     void AddToGroupByOne(AtomicValue k, IList<XPathItem> key, XPathItem item)
                     {
+                        if (codepoint && k is StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri } sv)
+                        {
+                            byString ??= new Dictionary<string, Group>(StringComparer.Ordinal);
+                            if (!byString.TryGetValue(sv.String, out Group? sg))
+                            {
+                                byString[sv.String] = sg = new Group(key);
+                                groups.Add(sg);
+                            }
+                            sg.Members.Add(item);
+                            return;
+                        }
                         object hash = SequenceFunctions.HashKey(k, c);
                         if (!buckets.TryGetValue(hash, out List<Group>? bucket))
                         {

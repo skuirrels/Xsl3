@@ -51,6 +51,67 @@ public class DecimalFormatterTests
         }
     }
 
+    /// <summary>2.0+ format-number's long-arithmetic path gives what its general (BigInteger) path gives.</summary>
+    [Fact]
+    public void ShortFormatMatchesTheGeneralFormat()
+    {
+        var random = new Random(7);
+        string[] pictures =
+        {
+            "#,##0.00", "0", "#", "#.#", ".00", "#.###", "000,000.0##", "#,###,##0", "#,##,##0.0", "00.##", "#0.0000000000",
+            "#;(#)", "#,##0.00;[#,##0.00]", "$#,##0.00 USD", "#.##################", "0000000000000000000000.0",
+        };
+        var formats = new[]
+        {
+            Xsl3.XPath31.Functions.XPathDecimalFormat.Default,
+            new Xsl3.XPath31.Functions.XPathDecimalFormat { DecimalSeparator = ',', GroupingSeparator = '.', ZeroDigit = 0x0660, Digit = '#' },
+        };
+        var values = new System.Collections.Generic.List<Xsl3.Xdm.AtomicValue>
+        {
+            Xsl3.Xdm.AtomicValue.OfDouble(0), Xsl3.Xdm.AtomicValue.OfDouble(-0.0), Xsl3.Xdm.AtomicValue.OfDouble(0.5),
+            Xsl3.Xdm.AtomicValue.OfDouble(1.5), Xsl3.Xdm.AtomicValue.OfDouble(2.5), Xsl3.Xdm.AtomicValue.OfDouble(2.675),
+            Xsl3.Xdm.AtomicValue.OfDouble(0.125), Xsl3.Xdm.AtomicValue.OfDouble(1e15), Xsl3.Xdm.AtomicValue.OfDouble(1.5e18),
+            Xsl3.Xdm.AtomicValue.OfDouble(1e-20), Xsl3.Xdm.AtomicValue.OfDouble(-1234567.891), Xsl3.Xdm.AtomicValue.OfDouble(9.995),
+            Xsl3.Xdm.AtomicValue.OfInteger(0), Xsl3.Xdm.AtomicValue.OfInteger(-42), Xsl3.Xdm.AtomicValue.OfInteger(long.MaxValue),
+            Xsl3.Xdm.AtomicValue.OfInteger(1234567890123),
+        };
+        for (int i = 0; i < 3000; i++)
+        {
+            double d = Math.Round((random.NextDouble() - 0.3) * Math.Pow(10, random.Next(-6, 12)), random.Next(0, 8));
+            values.Add(Xsl3.Xdm.AtomicValue.OfDouble(d));
+            values.Add(Xsl3.Xdm.AtomicValue.OfDouble((random.NextDouble() - 0.5) * Math.Pow(10, random.Next(-25, 25))));
+        }
+        foreach (var df in formats)
+        {
+            foreach (string ascii in pictures)
+            {
+                string picture = df.ZeroDigit == '0' ? ascii : Localize(ascii, df);
+                foreach (var v in values)
+                {
+                    Assert.Equal(
+                        Xsl3.XPath31.Functions.NumberFormatter.Format(v, picture, df, shortPath: false),
+                        Xsl3.XPath31.Functions.NumberFormatter.Format(v, picture, df, shortPath: true));
+                }
+            }
+        }
+
+        static string Localize(string picture, Xsl3.XPath31.Functions.XPathDecimalFormat df)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (char c in picture)
+            {
+                sb.Append(c switch
+                {
+                    >= '0' and <= '9' => (char)(df.ZeroDigit + (c - '0')),
+                    '.' => (char)df.DecimalSeparator,
+                    ',' => (char)df.GroupingSeparator,
+                    _ => c,
+                });
+            }
+            return sb.ToString();
+        }
+    }
+
     /// <summary>The short-decimal digits are the shortest round-trip ones, as ToString("R") gives them (format-number uses both).</summary>
     [Fact]
     public void ShortDecimalDigitsAreTheRoundTripDigits()

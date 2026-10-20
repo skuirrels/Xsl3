@@ -205,6 +205,19 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31Arithmetic(IList<XPathItem> left, IList<XPathItem> right, double op)
         {
+            if (left.Count == 1 && right.Count == 1 && left[0] is XPathNavigator l && right[0] is XPathNavigator r && (ArithmeticOp)(int)op != ArithmeticOp.IntegerDivide)
+            {
+                // Xsl3 (P4): two nodes (untyped, so both xs:untypedAtomic, cast to xs:double): double arithmetic.
+                double x = UntypedDouble(l.Value), y = UntypedDouble(r.Value);
+                return One(AtomicValue.OfDouble((ArithmeticOp)(int)op switch
+                {
+                    ArithmeticOp.Add => x + y,
+                    ArithmeticOp.Subtract => x - y,
+                    ArithmeticOp.Multiply => x * y,
+                    ArithmeticOp.Divide => x / y,
+                    _ => x % y,
+                }));
+            }
             AtomicValue? a = Sequences.AtomizeOptional(left, "an arithmetic operand");
             AtomicValue? b = Sequences.AtomizeOptional(right, "an arithmetic operand");
             if (a == null || b == null)

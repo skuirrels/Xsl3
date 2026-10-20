@@ -158,7 +158,10 @@ namespace Xsl3.XPath31.Functions
         // format-number in a loop would otherwise parse the same one for every number). Format never changes them.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<XPathDecimalFormat, System.Collections.Concurrent.ConcurrentDictionary<string, (SubPicture, SubPicture?)>> s_pictures = new();
 
-        public static string Format(AtomicValue? value, string picture, XPathDecimalFormat df)
+        public static string Format(AtomicValue? value, string picture, XPathDecimalFormat df) => Format(value, picture, df, shortPath: true);
+
+        /// <summary>Format, with or without the long-arithmetic path (the tests compare the two).</summary>
+        internal static string Format(AtomicValue? value, string picture, XPathDecimalFormat df, bool shortPath)
         {
             var pictures = s_pictures.GetValue(df, _ => new System.Collections.Concurrent.ConcurrentDictionary<string, (SubPicture, SubPicture?)>(StringComparer.Ordinal));
             if (!pictures.TryGetValue(picture, out var parsed))
@@ -209,6 +212,11 @@ namespace Xsl3.XPath31.Functions
                 return prefix + df.Infinity + suffix;
             }
 
+            if (shortPath && scale == 1 && !pic.HasExponent && FormatShort(value, pic, prefix, suffix, df) is string fast)
+            {
+                return fast;
+            }
+
             Digits number = Digits.From(value).Abs();
             if (scale != 1 && value is DecimalValue or IntegerValue)
             {
@@ -254,6 +262,167 @@ namespace Xsl3.XPath31.Functions
             }
             sb.Append(suffix);
             return sb.ToString();
+        }
+
+        private static readonly long[] s_pow10 =
+        {
+            1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000,
+            100_000_000_000, 1_000_000_000_000, 10_000_000_000_000, 100_000_000_000_000, 1_000_000_000_000_000,
+            10_000_000_000_000_000, 100_000_000_000_000_000, 1_000_000_000_000_000_000,
+        };
+
+        /// <summary>
+        /// Xsl3 (P4): Format's steps in long arithmetic, for a double (by its shortest round-trip digits, at most 17)
+        /// or an integer that fits a long, a picture with no exponent, percent, per-mille or fraction grouping,
+        /// and symbols in the BMP. The digits and the rounding (half to even) are Format's; null when it doesn't apply.
+        /// </summary>
+        private static string? FormatShort(AtomicValue value, SubPicture pic, string prefix, string suffix, XPathDecimalFormat df)
+        {
+            long digits;
+            int k;
+            switch (value)
+            {
+                case DoubleValue dv when XPathConvert.TryShortDecimal(dv.Double, out digits, out k) || TryRoundTripDigits(dv.Double, out digits, out k):
+                    break;
+                case IntegerValue iv when iv.Integer >= long.MinValue + 1 && iv.Integer <= long.MaxValue:
+                    digits = (long)iv.Integer;
+                    k = 0;
+                    break;
+                default:
+                    return null;
+            }
+            if (pic.FractionGrouping.Count > 0 || pic.MaxFraction > 18 || prefix.Length + suffix.Length > 32
+                || df.ZeroDigit > char.MaxValue || df.GroupingSeparator > char.MaxValue || df.DecimalSeparator > char.MaxValue)
+            {
+                return null;
+            }
+            digits = System.Math.Abs(digits);
+            if (k < 0)
+            {
+                // digits × 10^-k, an integer, if it fits.
+                if (-k > 18 || digits > long.MaxValue / s_pow10[-k])
+                {
+                    return null;
+                }
+                digits *= s_pow10[-k];
+                k = 0;
+            }
+            if (k > pic.MaxFraction)
+            {
+                int drop = k - pic.MaxFraction;
+                long q = 0, r = digits, divisor = 0;
+                if (drop <= 18)
+                {
+                    divisor = s_pow10[drop];
+                    q = System.Math.DivRem(digits, divisor, out r);
+                }
+                // Beyond 18 places the digits (below 10^18) are under half the divisor: q stays 0.
+                if (divisor != 0 && (r > divisor - r || (r == divisor - r && (q & 1) == 1)))
+                {
+                    q++;
+                }
+                digits = q;
+                k = pic.MaxFraction;
+            }
+            if (k > 18)
+            {
+                return null;
+            }
+            long integer = System.Math.DivRem(digits, s_pow10[k], out long fraction);
+
+            Span<char> intBuf = stackalloc char[20];
+            int intLen = 0;
+            if (integer != 0)
+            {
+                integer.TryFormat(intBuf, out intLen, default, CultureInfo.InvariantCulture);
+            }
+            Span<char> fracBuf = stackalloc char[20];
+            int fracLen = k;
+            for (int i = k - 1; i >= 0; i--)
+            {
+                fracBuf[i] = (char)('0' + fraction % 10);
+                fraction /= 10;
+            }
+            while (fracLen > 0 && fracBuf[fracLen - 1] == '0') fracLen--;
+            while (fracLen < pic.MinFraction) fracBuf[fracLen++] = '0';
+            int intPad = System.Math.Max(0, pic.MinInteger - intLen);
+            bool zeroInFraction = false;
+            if (intLen + intPad == 0 && fracLen == 0)
+            {
+                // Zero with no mandatory digits shows one digit: in the fraction when the picture has only fractional digits.
+                if (pic.MaxFraction > 0 && pic.MinInteger == 0) zeroInFraction = true;
+                else intPad = 1;
+            }
+            if (zeroInFraction)
+            {
+                fracBuf[fracLen++] = '0';
+            }
+
+            int intDigits = intPad + intLen;
+            List<int> positions = pic.IntegerGrouping;
+            int g = positions.Count == 0 ? 0 : positions.Min();
+            Span<char> buf = stackalloc char[prefix.Length + suffix.Length + 2 * intDigits + fracLen + 2];
+            int n = 0;
+            prefix.AsSpan().CopyTo(buf);
+            n += prefix.Length;
+            char zero = (char)df.ZeroDigit;
+            for (int i = 0; i < intDigits; i++)
+            {
+                char c = i < intPad ? '0' : intBuf[i - intPad];
+                buf[n++] = (char)(zero + (c - '0'));
+                int after = intDigits - 1 - i;
+                if (g != 0 && after > 0 && (pic.RegularIntegerGrouping ? after % g == 0 : positions.Contains(after)))
+                {
+                    buf[n++] = (char)df.GroupingSeparator;
+                }
+            }
+            if (fracLen > 0)
+            {
+                buf[n++] = (char)df.DecimalSeparator;
+                for (int i = 0; i < fracLen; i++)
+                {
+                    buf[n++] = (char)(zero + (fracBuf[i] - '0'));
+                }
+            }
+            suffix.AsSpan().CopyTo(buf[n..]);
+            n += suffix.Length;
+            return new string(buf[..n]);
+        }
+
+        /// <summary>
+        /// The digits of a finite double's shortest round-trip form ("R", as Digits.From takes them): value = digits ×
+        /// 10^-k, the digits (at most 17) in a long.
+        /// </summary>
+        private static bool TryRoundTripDigits(double value, out long digits, out int k)
+        {
+            digits = 0;
+            k = 0;
+            Span<char> r = stackalloc char[32];
+            if (!double.IsFinite(value) || !value.TryFormat(r, out int length, "R", CultureInfo.InvariantCulture))
+            {
+                return false;
+            }
+            int i = r[0] == '-' ? 1 : 0, count = 0;
+            bool point = false;
+            for (; i < length && r[i] != 'E'; i++)
+            {
+                if (r[i] == '.')
+                {
+                    point = true;
+                    continue;
+                }
+                if (++count > 18)
+                {
+                    return false;
+                }
+                digits = digits * 10 + (r[i] - '0');
+                if (point) k++;
+            }
+            if (i < length)
+            {
+                k -= int.Parse(r[(i + 1)..length], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            }
+            return true;
         }
 
         private static string[] Split(string picture, XPathDecimalFormat df)

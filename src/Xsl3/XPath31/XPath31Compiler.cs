@@ -190,7 +190,16 @@ namespace Xsl3.XPath31
         {
             var compiler = new XPath31Compiler(sc, f, env);
             QilNode built = compiler.Build(ast);
-            return compiler.NativeString(built) ?? compiler.Call(nameof(XsltLibrary.X31AvtString), T.StringX, compiler.Items(built));
+            if (compiler.OptionalString(built) is QilNode s)
+            {
+                return s;
+            }
+            if (built.XmlType!.IsSubtypeOf(s_elementsOrAttributes))
+            {
+                QilIterator i = f.For(built);
+                return f.BaseFactory.StrConcat(f.String(" "), f.Loop(i, f.XPathNodeValue(i)));
+            }
+            return compiler.Call(nameof(XsltLibrary.X31AvtString), T.StringX, compiler.Items(built));
         }
 
         /// <summary>Compiles a boxed host value (a variable reference, say) to an item* node.</summary>
@@ -694,6 +703,12 @@ namespace Xsl3.XPath31
                         : n.BracedUri ?? (n.Prefix != null ? _types.Expand(new LexicalQName(n.Prefix, "x"), "").NamespaceUri
                         : n.LocalName == null ? null : defaultNs);
                     string? local = n.LocalName;
+                    if (axis == Axis.Attribute && ns != null && local != null && nodes.NodeType == QilNodeType.Content)
+                    {
+                        // Xsl3 (P4): @name is at most one attribute, as the optimizer would find later; knowing it now
+                        // lets the typed paths take it as an optional string.
+                        return _qf.Attribute(((QilUnary)nodes).Child, _f.QName(local, ns));
+                    }
                     condition = it =>
                         ns != null && local != null ? _f.Eq(_f.NameOf(it), _f.QName(local, ns)) :
                         ns != null ? _f.Eq(_f.NamespaceUriOf(it), _f.String(ns)) :
@@ -842,6 +857,16 @@ namespace Xsl3.XPath31
             {
                 // Xsl3 (P4): string functions of single strings or nodes run on native strings, without item lists.
                 List<QilNode> built = args.Select(Build).ToList();
+                switch (name.LocalName, built.Count)
+                {
+                    case ("count", 1):
+                        // A native double is an xs:integer to Items (as positions are).
+                        return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
+                    case ("sum", 1) when built[0].XmlType!.IsSubtypeOf(T.NodeNotRtfS):
+                        return Call(nameof(XsltLibrary.X31SumNodes), T.Item, built[0]);
+                    case ("format-number", 2) when NativeString(built[1]) is QilNode picture:
+                        return Call(nameof(XsltLibrary.X31FormatNumber), T.StringX, Items(built[0]), picture, StaticId());
+                }
                 return TypedCall(name.LocalName, built) ?? CallLibrary(call, name, built.Select(Items).ToList());
             }
             return CallLibrary(call, name, args.Select(a => Items(Build(a))).ToList());
@@ -874,6 +899,27 @@ namespace Xsl3.XPath31
             return null;
         }
 
+        /// <summary>
+        /// Xsl3 (P4): the native string an xs:string? argument converts to: as NativeString, or for zero or one node,
+        /// its string value or "" (the functions taking xs:string? treat the empty sequence as "").
+        /// </summary>
+        private QilNode? OptionalString(QilNode n)
+        {
+            if (NativeString(n) is QilNode s)
+            {
+                return s;
+            }
+            if (n.XmlType!.IsSubtypeOf(T.NodeNotRtfQ))
+            {
+                QilIterator i = _f.For(n);
+                return _f.StrConcat(_f.Loop(i, _f.XPathNodeValue(i)));
+            }
+            return null;
+        }
+
+        // Elements and attributes, whose simple content (XSLT 3.0 §5.7.2) is their string values joined with spaces.
+        private static readonly XmlQueryType s_elementsOrAttributes = XmlQueryTypeFactory.Choice(T.ElementS, T.AttributeS);
+
         // Xsl3 (P4): calls of library functions declared to return strings (xs:string*, xs:string?, ...), so that the
         // items of what they return are known to be strings. Shared by the compilers of a stylesheet's expressions.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_stringItems = new();
@@ -893,10 +939,16 @@ namespace Xsl3.XPath31
         /// </summary>
         private QilNode? TypedCall(string local, List<QilNode> a)
         {
+            // Which arguments are xs:string? (or xs:anyAtomicType?, as concat's), where zero or one node will do.
+            bool Optional(int i) => (local, i) switch
+            {
+                ("translate", > 0) or ("tokenize", > 0) => false,
+                _ => true,
+            };
             var s = new QilNode?[a.Count];
             for (int i = 0; i < a.Count; i++)
             {
-                if ((s[i] = NativeString(a[i])) == null)
+                if ((s[i] = Optional(i) ? OptionalString(a[i]) : NativeString(a[i])) == null)
                 {
                     return null;
                 }

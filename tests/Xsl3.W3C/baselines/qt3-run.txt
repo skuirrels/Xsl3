@@ -117,10 +117,7 @@ map-contains/map-contains-018
 map-get/map-get-018
 map-merge/map-merge-011
 map-merge/map-merge-012
-map-merge/map-merge-013
-map-merge/map-merge-025
 map-put/map-put-012
-map-put/map-put-013
 misc-HigherOrderFunctions/hof-025
 misc-HigherOrderFunctions/xqhof8
 misc-HigherOrderFunctions/xqhof9
