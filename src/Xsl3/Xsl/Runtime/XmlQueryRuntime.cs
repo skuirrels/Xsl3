@@ -38,6 +38,27 @@ namespace Xsl3.Runtime
             set => t_cancellation = value;
         }
 
+        // Xsl3: opens the file of a secondary result when XsltSettings.EnableResultDocument is set (its URI already
+        // checked to be under the base output URI); the result is written in its own encoding.
+        [System.ThreadStatic]
+        private static System.Func<string, System.IO.Stream>? t_resultDocumentOpener;
+
+        internal static System.Func<string, System.IO.Stream>? ResultDocumentOpener
+        {
+            get => t_resultDocumentOpener;
+            set => t_resultDocumentOpener = value;
+        }
+
+        // Xsl3: XsltSettings.EnableEnvironmentVariables for the running transformation (fn:environment-variable).
+        [System.ThreadStatic]
+        private static bool t_environmentVariables;
+
+        internal static bool EnvironmentVariables
+        {
+            get => t_environmentVariables;
+            set => t_environmentVariables = value;
+        }
+
         // Xsl3: where xsl:result-document writes secondary results (SPEC §21.1, EnableResultDocument): given the
         // absolute URI and the output method, a writer for the serialization. Null: secondary results are refused.
         [System.ThreadStatic]

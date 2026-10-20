@@ -75,12 +75,12 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**: `xsl:assert`, initial functions,
+- **XSLT 3.0**: initial functions,
   `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
   temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
   `cache`).
-- **API**: public ways to supply the package library and the base output URI (the test harness uses internal
-  ones), and to run with no initial match selection (so XTDE0044 and similar can be raised).
+- **API**: the XSLT 3.0 API of SPEC §7.2 (initial templates, modes and functions, the package library, raw
+  results); for now `XslCompiledTransform` plus the settings above. `MaxRecursionDepth` and `MaxOutputBytes`.
 - **Known gaps**: `xsl:next-match` from one alternative of a union pattern to another of the same rule;
   dynamic errors in patterns are non-matches only
   for predicate patterns; static variables declared in modules imported after their use; regex character classes follow .NET's Unicode version rather
@@ -142,6 +142,27 @@ xslt.Transform("input.xml", "output.html");
 See [docs/performance.md](docs/performance.md) for the measurements.
 
 Targets .NET 8 and .NET 10.
+
+### Settings: secure by default
+
+What a stylesheet can reach beyond its input and output is off unless you turn it on (SPEC §21.1):
+
+| Setting | Default | What it allows |
+|---|---|---|
+| `XsltSettings.EnableDocumentFunction` | off, as stock | `document()`, `doc()` and friends |
+| `XsltSettings.EnableEvaluate` | off | `xsl:evaluate` (XSLT 3.0 §10.4); `TrustedXslt` turns it on |
+| `XsltSettings.EnableResultDocument` | off | `xsl:result-document` writing files, only under `XslCompiledTransform.BaseOutputUri` (the results file for `Transform(string, string)`) |
+| `XsltSettings.EnableEnvironmentVariables` | off | `fn:environment-variable` and `fn:available-environment-variables` |
+| `XsltSettings.EnableAssertions` | off | `xsl:assert` (ignored when off) |
+
+Limits:
+- `XsltSettings.Timeout` stops a transformation that runs too long.
+- `XsltArgumentList.CancellationToken` cancels one from outside.
+- `XsltSettings.UseDedicatedThread` (with `DedicatedThreadStackSize`, 64 MB by default) runs each transformation on a
+  thread with a large stack, for stylesheets that recurse deeply.
+
+A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out of stack raises
+`Q{http://xsl3/err}recursion-limit` instead of crashing the process.
 
 ## Building and testing
 

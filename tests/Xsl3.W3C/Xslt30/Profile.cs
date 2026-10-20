@@ -55,7 +55,9 @@ public sealed class Profile
             // xsl:use-package chooses the highest version in range (implementation-defined, XSLT 3.0 §3.5.2).
             "package_version_resolution" => d.Value is "highest_version" or "unspecified",
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),
-            "enable_assertions" or "sweep_and_posture" or "combinations_for_numbering" or "additional_normalization_form" => false,
+            // Assertions can be on or off: the runner sets XsltSettings.EnableAssertions as the test asks.
+            "enable_assertions" => d.Satisfied,
+            "sweep_and_posture" or "combinations_for_numbering" or "additional_normalization_form" => false,
             _ => true,
         };
         return met == d.Satisfied;

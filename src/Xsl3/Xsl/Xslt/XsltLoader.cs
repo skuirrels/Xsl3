@@ -182,6 +182,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_iterateAttributes);
             AtomizeAttributes(_sourceDocumentAttributes);
             AtomizeAttributes(_evaluateAttributes);
+            AtomizeAttributes(_assertAttributes);
             AtomizeAttributes(_contextItemAttributes);
             AtomizeAttributes(_mapEntryAttributes);
             AtomizeAttributes(_packageRuleAttributes);
@@ -625,6 +626,13 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {
                                     LoadFunction(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName == "import-schema")
+                                {
+                                    // Xsl3: schema-awareness is P6 (SPEC §18); until then this is a basic processor (XSLT 3.0 §3.14).
+                                    _input.GetVersionAttribute();
+                                    ReportError(SR.Xml_UserException, "XTSE1650: xsl:import-schema needs a schema-aware processor, and Xsl3 isn't one yet");
+                                    _input.SkipNode();
                                 }
                                 else
                                 {
@@ -1892,6 +1900,7 @@ namespace Xsl3.Xslt
                                     V2 && name == "iterate" ? XslIterate() :
                                     V2 && name == "source-document" ? XslSourceDocument() :
                                     V2 && name == "evaluate" ? XslEvaluate() :
+                                    V2 && name == "assert" ? XslAssert() :
                                     V2 && name == "context-item" ? XslContextItem() :
                                     V2 && name == "map" ? XslMap() :
                                     V2 && name == "merge" ? XslMerge() :
@@ -2752,6 +2761,11 @@ namespace Xsl3.Xslt
             string nsUri = _input.NamespaceUri;
 
             ContextInfo ctxInfo = _input.GetLiteralAttributes(asStylesheet);
+            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml")
+            {
+                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml.
+                _compiler.XhtmlHtmlLiteral = true;
+            }
 
             if (_input.IsExtensionNamespace(nsUri))
             {

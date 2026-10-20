@@ -27,7 +27,6 @@ attribute-set/attribute-set-0108
 attribute/attribute-1101
 axes/axes-201
 axes/axes-202
-backwards/backwards-018
 backwards/backwards-019b
 base-uri/base-uri-023
 base-uri/base-uri-024
@@ -39,6 +38,7 @@ base-uri/base-uri-051b
 base-uri/base-uri-052
 base-uri/base-uri-053
 bug/bug-1301
+bug/bug-1901
 bug/bug-2401
 bug/bug-2502
 bug/bug-3801
@@ -213,7 +213,6 @@ number/number-2506
 number/number-4501
 on-empty/on-empty-114b
 on-non-empty/on-non-empty-007
-output/output-0130
 output/output-0285
 output/output-0311
 override/override-f-029

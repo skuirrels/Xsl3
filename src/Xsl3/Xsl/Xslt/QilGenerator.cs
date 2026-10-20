@@ -248,7 +248,9 @@ namespace Xsl3.Xslt
                 {
                     ValidateCharacterMaps31();
                     (qil.DefaultWriterSettings, qil.OutputExtras) = WithParameterDocument31(compiler.Output);
-                    qil.ResultDocuments = _resultDocuments31;
+                    // The principal result writer is needed for xsl:result-document, and to choose the xhtml method when
+                    // the result starts with XHTML's html element and no method is declared (XSLT 3.0 §26.1).
+                    qil.ResultDocuments = _resultDocuments31 || compiler.XhtmlHtmlLiteral && compiler.Output.Method == null;
                     qil.Xslt2 = true;
                     qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
                 }

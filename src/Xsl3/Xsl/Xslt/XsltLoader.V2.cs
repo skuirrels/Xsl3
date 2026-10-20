@@ -620,6 +620,73 @@ namespace Xsl3.Xslt
             return SetInfo(F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion), content, ctxInfo);
         }
 
+        // XSLT 3.0 §23.2
+        private readonly XsltAttribute[] _assertAttributes = {
+            new XsltAttribute("test",       V2Req),
+            new XsltAttribute("select",     V2Opt),
+            new XsltAttribute("error-code", V2Opt),
+        };
+
+        // The xsl:assert instructions loaded so far, for the names of the variables they bind.
+        private int _assertCount;
+
+        /// <summary>
+        /// xsl:assert (XSLT 3.0 §23.2). With XsltSettings.EnableAssertions off, nothing (it is checked, then dropped).
+        /// On, <c>xsl:if test="not(test)"</c> around a variable holding the message (select, else the content) and a
+        /// call of fn:error with the error code (XTMM9001 by default), the message as description and as error value.
+        /// </summary>
+        private XslNode? XslAssert()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_assertAttributes);
+            string test = ParseStringAttribute(0, "test") ?? "true()";
+            string? select = ParseStringAttribute(1, "select");
+            string? errorCode = ParseStringAttribute(2, "error-code");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3205]*/SR.Xslt_ElementCntSel, "xsl:assert");
+            if (!_compiler.Settings.EnableAssertions)
+            {
+                return null;
+            }
+
+            // The error code: an EQName or a lexical QName, as an expression of an xs:QName.
+            string code;
+            if (errorCode == null)
+            {
+                code = $"QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTMM9001')";
+            }
+            else if (errorCode.Contains('{') && !errorCode.TrimStart().StartsWith("Q{", StringComparison.Ordinal))
+            {
+                // An attribute value template, whose value would be resolved against the instruction's namespaces.
+                ReportError(SR.Xml_UserException, "XTSE0020: a computed error-code on xsl:assert isn't supported yet");
+                return null;
+            }
+            else
+            {
+                string value = errorCode.Trim();
+                int colon = value.IndexOf(':');
+                if (value.StartsWith("Q{", StringComparison.Ordinal) && value.IndexOf('}') is int close and > 0)
+                {
+                    code = $"QName('{value[2..close].Replace("'", "''")}', '{value[(close + 1)..]}')";
+                }
+                else
+                {
+                    string ns = colon < 0 ? "" : _input.LookupXmlNamespace(value[..colon]) ?? "";
+                    code = $"QName('{ns.Replace("'", "''")}', '{value}')";
+                }
+            }
+
+            QilName message = F.QName($"a{_assertCount++}", Runtime.DynamicEvaluation.Namespace, "");
+            VarPar variable = F.VarPar(XslNodeType.Variable, message, select, _input.XslVersion);
+            variable.V2 = new XslNodeV2();
+            SetLineInfo(variable, ctxInfo.lineInfo);
+            variable.SetContent(content.Count == 0 ? null : content);
+            string reference = $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{message.LocalName}";
+            XslNode raise = SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
+                $"error({code}, string-join({reference} ! string(.), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
+            XslNode check = F.XslNode(XslNodeType.If, null, $"not({test})", _input.XslVersion);
+            return SetInfo(check, new List<XslNode> { variable, raise }, ctxInfo);
+        }
+
         // An attribute value template as an XPath expression of its string value.
         internal static string AvtAsXPath31(string avt)
         {

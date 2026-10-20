@@ -53,6 +53,41 @@ namespace Xsl3
             set { _enableEvaluate = value; }
         }
 
+        /// <summary>
+        /// Xsl3: whether <c>xsl:assert</c> is evaluated (XSLT 3.0 §23.2). Off by default, when assertions are ignored;
+        /// on, a false assertion raises XTMM9001 (or its <c>error-code</c>).
+        /// </summary>
+        public bool EnableAssertions { get; set; }
+
+        /// <summary>
+        /// Xsl3: whether <c>xsl:result-document</c> may write secondary results (SPEC §21.1). Off by default, as a
+        /// stylesheet could otherwise write files. When on, a secondary result is written to a file, and only under
+        /// <see cref="XslCompiledTransform.BaseOutputUri"/> (the results file for <c>Transform(string, string)</c>);
+        /// anywhere else is XTDE1480.
+        /// </summary>
+        public bool EnableResultDocument { get; set; }
+
+        /// <summary>
+        /// Xsl3: whether <c>fn:environment-variable</c> and <c>fn:available-environment-variables</c> see the
+        /// process's environment variables (SPEC §21.1). Off by default: there are none.
+        /// </summary>
+        public bool EnableEnvironmentVariables { get; set; }
+
+        /// <summary>
+        /// Xsl3: how long a transformation may run; it is then stopped at its next template or function entry with
+        /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1). Null: no limit.
+        /// </summary>
+        public TimeSpan? Timeout { get; set; }
+
+        /// <summary>
+        /// Xsl3: run each transformation on a thread of its own with a stack of <see cref="DedicatedThreadStackSize"/>
+        /// bytes, for stylesheets that recurse deeply without tail calls (SPEC §21.2). Off by default.
+        /// </summary>
+        public bool UseDedicatedThread { get; set; }
+
+        /// <summary>Xsl3: the stack size of the thread <see cref="UseDedicatedThread"/> runs on (64 MB by default).</summary>
+        public int DedicatedThreadStackSize { get; set; } = 64 * 1024 * 1024;
+
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public bool EnableScript
         {

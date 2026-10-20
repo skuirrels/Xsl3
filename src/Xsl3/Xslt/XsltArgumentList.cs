@@ -27,6 +27,12 @@ namespace Xsl3
 
         public XsltArgumentList() { }
 
+        /// <summary>
+        /// Xsl3: stops a transformation that uses this argument list: it is checked at every template and function
+        /// entry, and raises <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1).
+        /// </summary>
+        public System.Threading.CancellationToken CancellationToken { get; set; }
+
         public object? GetParam(string name, string namespaceUri)
         {
             return _parameters[new XmlQualifiedName(name, namespaceUri)];

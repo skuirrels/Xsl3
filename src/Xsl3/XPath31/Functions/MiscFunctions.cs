@@ -89,8 +89,13 @@ namespace Xsl3.XPath31.Functions
             Define("fn:static-base-uri() as xs:anyURI?", (c, a) => c.StaticBaseUri == null ? Empty : One(new StringValue(AtomicTypes.AnyUri, c.StaticBaseUri)));
 
             // ---------------------------------------------------------- environment (F&O §19.5)
-            Define("fn:environment-variable($name as xs:string) as xs:string?", (c, a) => Empty);
-            Define("fn:available-environment-variables() as xs:string*", (c, a) => Empty);
+            // Xsl3: only with XsltSettings.EnableEnvironmentVariables (SPEC §21.1); otherwise there are none.
+            Define("fn:environment-variable($name as xs:string) as xs:string?", (c, a) =>
+                Xsl3.Runtime.XmlQueryRuntime.EnvironmentVariables && System.Environment.GetEnvironmentVariable(S(a[0])) is string value ? One(AtomicValue.OfString(value)) : Empty);
+            Define("fn:available-environment-variables() as xs:string*", (c, a) =>
+                Xsl3.Runtime.XmlQueryRuntime.EnvironmentVariables
+                    ? System.Environment.GetEnvironmentVariables().Keys.Cast<string>().Order(System.StringComparer.Ordinal).Select(k => (XPathItem)AtomicValue.OfString(k)).ToList()
+                    : Empty);
         }
 
         private static bool ContainsToken(IList<XPathItem> input, string token, Collation collation)

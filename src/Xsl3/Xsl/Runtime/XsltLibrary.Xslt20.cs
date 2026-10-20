@@ -404,11 +404,14 @@ namespace Xsl3.Runtime
                 throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");
             }
             System.Func<string, string, System.IO.TextWriter>? handler = XmlQueryRuntime.ResultDocumentHandler;
-            if (handler == null)
+            System.Func<string, System.IO.Stream>? opener = XmlQueryRuntime.ResultDocumentOpener;
+            if (handler == null && opener == null)
             {
-                throw new XdmException("XTDE1480", $"Secondary results are not enabled; can't write {uri}");
+                throw new XdmException("XTDE1480", $"Secondary results are not enabled (XsltSettings.EnableResultDocument); can't write {uri}");
             }
-            System.IO.TextWriter output = handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant());
+            System.IO.TextWriter output = handler != null
+                ? handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant())
+                : new System.IO.StreamWriter(opener!(uri), settings.Encoding);
             if (raw)
             {
                 if (extras?.RawMethod is "json" or "adaptive")

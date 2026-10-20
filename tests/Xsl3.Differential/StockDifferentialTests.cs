@@ -260,7 +260,12 @@ internal static class Child
         " \"" + Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 300)).ReplaceLineEndings("⏎") + "\"";
 
     // Exception types are compared by name: Xsl3 throws its own XsltException types, not System.Xml.Xsl's.
-    private static string Error(Exception e) => $"error {Name(e)}: {e.Message}" + (e.InnerException is { } inner ? $" <- {Name(inner)}: {inner.Message}" : "");
+    private static string Error(Exception e) => $"error {Name(e)}: {e.Message}" + (e.InnerException is { } inner ? $" <- {Name(inner)}: {Detail(inner)}" : "");
+
+    // A network failure's message comes from the resolver of the moment ("Name or service not known", "Temporary
+    // failure in name resolution", …), so two runs of the same lookup may differ: its type is compared, not its text.
+    private static string Detail(Exception e) =>
+        e is System.Net.Http.HttpRequestException or System.Net.Sockets.SocketException or System.Net.WebException ? "(network error)" : e.Message;
 
     private static string Name(Exception e) => e.GetType().Namespace is "Xsl3" or "System.Xml.Xsl" ? "Xsl." + e.GetType().Name : e.GetType().FullName!;
 }

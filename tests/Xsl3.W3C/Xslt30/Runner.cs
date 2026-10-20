@@ -34,6 +34,11 @@ public sealed class Runner
         public string? BaseUri { get; init; }
     }
 
+    // Tests whose expected tree the serialization of the result can't match: bug-1901's result starts with XHTML's html
+    // element, so its default output method is xhtml (XSLT 3.0 §26.1, for a 2.0 or 3.0 stylesheet), which adds a meta
+    // element the tree doesn't have.
+    private static readonly HashSet<string> s_treeComparisons = new(StringComparer.Ordinal) { "bug/bug-1901" };
+
     public Outcome Run(TestCase test)
     {
         Outcome outcome = Outcome.Fail("timeout");
@@ -76,6 +81,11 @@ public sealed class Runner
             return Outcome.NotRun("environment: " + unsupported);
         }
         XElement t = test.TestElement;
+        if (s_treeComparisons.Contains(test.Id))
+        {
+            // The runner compares serializations; these tests compare the result tree, which serialization changes.
+            return Outcome.NotRun("compares the result tree, not its serialization");
+        }
         if (t.Element(Catalog.Ns + "initial-function") != null)
         {
             return Outcome.NotRun("initial functions");
@@ -184,7 +194,11 @@ public sealed class Runner
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
-                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false) { EnableEvaluate = true }, resolver);
+                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false)
+                {
+                    EnableEvaluate = true,
+                    EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+                }, resolver);
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).

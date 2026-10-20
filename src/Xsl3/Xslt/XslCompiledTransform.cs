@@ -136,6 +136,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(stylesheet);
 
             settings ??= XsltSettings.Default;
+            _settings = settings;
             CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
             CompilerError? error = GetFirstError();
             if (error != null)
@@ -164,6 +165,16 @@ namespace Xsl3
         /// generate-id() gives different (equally unique) ids. XSLT 2.0+ stylesheets always use it.
         /// </summary>
         public bool UseCompactTree { get; set; }
+
+        // Xsl3: the settings of the last Load (run-time ones: result documents, environment variables, time limit, thread).
+        private XsltSettings? _settings;
+
+        /// <summary>
+        /// Xsl3: the base output URI (XSLT 3.0 §2.3.6): what <c>xsl:result-document</c> resolves a relative href against
+        /// and <c>current-output-uri()</c> returns; with <see cref="XsltSettings.EnableResultDocument"/>, the directory
+        /// secondary results are confined to. <c>Transform(string, string)</c> uses the results file when this is null.
+        /// </summary>
+        public Uri? BaseOutputUri { get; set; }
 
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
@@ -475,7 +486,9 @@ namespace Xsl3
             // SQLBUDT 276415: Prevent wiping out the content of the input file if the output file is the same
             using XmlReader reader = XmlReader.Create(inputUri);
             using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, resultsFile);
-            Transform(reader, null, writer, CreateDefaultResolver());
+            CheckCommand();
+            // Xsl3: secondary results go next to the results file unless BaseOutputUri says otherwise.
+            Run(null, BaseOutputUri ?? new Uri(Path.GetFullPath(resultsFile)), () => _command.Execute(reader, CreateDefaultResolver(), null, writer));
         }
 
         //------------------------------------------------
@@ -492,10 +505,10 @@ namespace Xsl3
             CheckCommand();
             if (results is RawResultWriter raw)
             {
-                raw.Write(_command.Evaluate(input, documentResolver, arguments));
+                Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input, documentResolver, arguments)));
                 return;
             }
-            _command.Execute(input, documentResolver, arguments, results);
+            Run(arguments, BaseOutputUri, () => _command.Execute(input, documentResolver, arguments, results));
         }
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
@@ -508,11 +521,102 @@ namespace Xsl3
             CheckCommand();
             if (results is RawResultWriter raw)
             {
-                raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments));
+                Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments)));
                 return;
             }
-            _command.Execute(input.CreateNavigator()!, documentResolver, arguments, results);
+            Run(arguments, BaseOutputUri, () => _command.Execute(input.CreateNavigator()!, documentResolver, arguments, results));
         }
+
+        /// <summary>
+        /// Xsl3: runs a transformation with the run-time settings in force for the current thread (SPEC §21.1–2):
+        /// cancellation (the argument list's token, the timeout), the base output URI, secondary results written under
+        /// it, environment variables; on a dedicated thread if asked. What a caller has already set for the thread
+        /// (the W3C harness sets these itself) is kept.
+        /// </summary>
+        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform)
+        {
+            XsltSettings settings = _settings ?? XsltSettings.Default;
+            System.Threading.CancellationToken token = arguments?.CancellationToken ?? default;
+            using System.Threading.CancellationTokenSource? limit = settings.Timeout is TimeSpan timeout
+                ? System.Threading.CancellationTokenSource.CreateLinkedTokenSource(token) : null;
+            if (limit != null)
+            {
+                limit.CancelAfter(settings.Timeout!.Value);
+                token = limit.Token;
+            }
+            void Body()
+            {
+                System.Threading.CancellationToken savedToken = XmlQueryRuntime.Cancellation;
+                string? savedBase = XmlQueryRuntime.BaseOutputUri;
+                Func<string, Stream>? savedOpener = XmlQueryRuntime.ResultDocumentOpener;
+                bool savedEnvironment = XmlQueryRuntime.EnvironmentVariables;
+                try
+                {
+                    if (token.CanBeCanceled)
+                    {
+                        XmlQueryRuntime.Cancellation = token;
+                    }
+                    if (baseOutputUri != null && savedBase == null)
+                    {
+                        XmlQueryRuntime.BaseOutputUri = baseOutputUri.AbsoluteUri;
+                    }
+                    if (settings.EnableResultDocument && XmlQueryRuntime.ResultDocumentHandler == null && savedOpener == null)
+                    {
+                        XmlQueryRuntime.ResultDocumentOpener = ResultFileOpener(XmlQueryRuntime.BaseOutputUri);
+                    }
+                    XmlQueryRuntime.EnvironmentVariables = settings.EnableEnvironmentVariables;
+                    transform();
+                }
+                finally
+                {
+                    XmlQueryRuntime.Cancellation = savedToken;
+                    XmlQueryRuntime.BaseOutputUri = savedBase;
+                    XmlQueryRuntime.ResultDocumentOpener = savedOpener;
+                    XmlQueryRuntime.EnvironmentVariables = savedEnvironment;
+                }
+            }
+            if (!settings.UseDedicatedThread)
+            {
+                Body();
+                return;
+            }
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo? failure = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    Body();
+                }
+                catch (Exception e)
+                {
+                    failure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e);
+                }
+            }, settings.DedicatedThreadStackSize);
+            thread.Start();
+            thread.Join();
+            failure?.Throw();
+        }
+
+        /// <summary>
+        /// Xsl3: the default destination of secondary results with XsltSettings.EnableResultDocument: a file, which
+        /// must be under the base output URI's directory (or the error is XTDE1480; so it is without a base output URI).
+        /// </summary>
+        private static Func<string, Stream> ResultFileOpener(string? baseOutputUri) => uri =>
+        {
+            Uri target = new Uri(uri, UriKind.RelativeOrAbsolute);
+            if (baseOutputUri == null || !target.IsAbsoluteUri || !target.IsFile || !new Uri(baseOutputUri).IsFile)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under the base output URI (XslCompiledTransform.BaseOutputUri); can't write {uri}");
+            }
+            string directory = Path.GetDirectoryName(Path.GetFullPath(new Uri(baseOutputUri).LocalPath))!;
+            string file = Path.GetFullPath(target.LocalPath);
+            if (!file.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under {directory}; can't write {file}");
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            return new FileStream(file, FileMode.Create, FileAccess.Write, FileShare.Read);
+        };
 
         [MemberNotNull(nameof(_command))]
         private void CheckCommand()
