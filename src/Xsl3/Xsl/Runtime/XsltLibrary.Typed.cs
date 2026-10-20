@@ -47,6 +47,33 @@ namespace Xsl3.Runtime
             _ => throw Err.XPTY0004($"An argument that must be at most one item is a sequence of {nodes.Count} nodes"),
         };
 
+        /// <summary>
+        /// xsl:namespace (XSLT 3.0 §11.7.1): the name of the namespace node, checked with its value. The name must be
+        /// "" or an NCName other than xmlns (XTDE0920); xml goes with the XML namespace and only with it (XTDE0925);
+        /// the value can't be the xmlns namespace (XTDE0905) or empty (XTDE0930).
+        /// </summary>
+        public string X31NamespaceName(string name, string value)
+        {
+            const string XmlNs = "http://www.w3.org/XML/1998/namespace", XmlnsNs = "http://www.w3.org/2000/xmlns/";
+            if ((name.Length != 0 && !Casting.IsNCName(name)) || name == "xmlns")
+            {
+                throw new XdmException("XTDE0920", $"'{name}' is not a namespace node name");
+            }
+            if ((name == "xml") != (value == XmlNs))
+            {
+                throw new XdmException("XTDE0925", name == "xml" ? "The prefix xml can only be bound to the XML namespace" : $"The XML namespace can only be bound to the prefix xml, not '{name}'");
+            }
+            if (value == XmlnsNs)
+            {
+                throw new XdmException("XTDE0905", "A namespace node can't have the xmlns namespace as its value");
+            }
+            if (value.Length == 0)
+            {
+                throw new XdmException("XTDE0930", "A namespace node can't have an empty value");
+            }
+            return name;
+        }
+
         /// <summary>fn:number of a string or an untyped value: the xs:double it casts to, NaN if it doesn't.</summary>
         public System.Xml.XPath.XPathItem X31NumberOfString(string value)
         {

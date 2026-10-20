@@ -161,10 +161,8 @@ namespace Xsl3.Runtime
             {
                 do
                 {
-                    if (!(n.LocalName == element.Prefix && n.Value == element.NamespaceURI))
-                    {
-                        w.WriteNamespaceDeclaration(n.LocalName, n.Value);
-                    }
+                    // The element's own namespace too: the tree writer adds no namespace nodes of its own.
+                    w.WriteNamespaceDeclaration(n.LocalName, n.Value);
                 }
                 while (n.MoveToNextNamespace(scope));
                 n.MoveToParent();

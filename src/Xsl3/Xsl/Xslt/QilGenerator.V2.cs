@@ -602,6 +602,7 @@ namespace Xsl3.Xslt
                     return CompileNumber31((Number)node);
                 case XslNodeType.ResultDocument:
                 {
+                    _resultDocuments31 = true;
                     // The secondary result is built as a document and handed to the result-document handler; with
                     // no href, its content is part of the principal result.
                     XslNodeV2 v2 = node.V2!;
@@ -1263,7 +1264,9 @@ namespace Xsl3.Xslt
             QilNode prefix = CompileStringAvt(node.V2!.NameAvt!)!;
             QilNode uri = SimpleContent31(SelectOrContent31(node, node.Select), _f.String(" "));
             _outputScope.InvalidateAllPrefixes();
-            return _f.NamespaceDecl(prefix, uri);
+            // The name and the value are checked (XTDE0920, XTDE0925, XTDE0905, XTDE0930) when the node is made.
+            QilIterator u = _f.Let(uri);
+            return _f.Loop(u, _f.NamespaceDecl(X31(nameof(XsltLibrary.X31NamespaceName), T.StringX, prefix, u), u));
         }
 
         // ------------------------------------------------------------ variables
@@ -2266,6 +2269,9 @@ namespace Xsl3.Xslt
         private QilNode CompileWherePopulated31(XslNode node) =>
             X31(nameof(XsltLibrary.X31Populated), T.ItemS, Box(CompileInstructions(node.Content)));
 
+        // Whether the stylesheet has xsl:result-document instructions (the principal result writer serves them).
+        private bool _resultDocuments31;
+
         // ------------------------------------------------------------ modes
 
         /// <summary>
@@ -2273,7 +2279,7 @@ namespace Xsl3.Xslt
         /// the attributes and children of documents and elements; deep-copy copies the node; deep-skip does nothing;
         /// fail is XTDE0555.
         /// </summary>
-        private QilNode BuiltinRules31(string onNoMatch, QilIterator current, QilName mode, QilNode applyToChildren)
+        private QilNode BuiltinRules31(string onNoMatch, QilIterator current, QilName mode)
         {
             switch (onNoMatch)
             {
@@ -2285,15 +2291,16 @@ namespace Xsl3.Xslt
                 case "deep-copy":
                     return _f.XsltCopyOf(current);
             }
-            QilNode attributesThenChildren = _f.Sequence(BuiltinApply31(current, mode, attributes: true), applyToChildren);
+            // Xsl3 (P4): apply-templates to @* | node() is one pass over the content, which holds the attributes first
+            // and then the children (as 1.0's @*|node() is compiled); one sequence, so position() runs across both.
+            QilNode attributesThenChildren = BuiltinApply31(current, mode);
             if (onNoMatch == "shallow-skip")
             {
                 return _f.Conditional(_f.IsType(current, T.DocumentOrElement), attributesThenChildren, _f.Sequence());
             }
             // shallow-copy
-            return _f.Conditional(_f.IsType(current, T.Element), _f.XsltCopy(current, ContentNodes(attributesThenChildren)),
-                _f.Conditional(_f.IsType(current, T.Document), _f.XsltCopy(current, ContentNodes(BuiltinApply31(current, mode, attributes: false))),
-                    _f.XsltCopy(current, _f.Sequence())));
+            return _f.Conditional(_f.IsType(current, T.DocumentOrElement), _f.XsltCopy(current, ContentNodes(attributesThenChildren)),
+                _f.XsltCopy(current, _f.Sequence()));
         }
 
         // Functions applying the template rules of a mode to items that aren't nodes, by mode.
@@ -2374,13 +2381,10 @@ namespace Xsl3.Xslt
         }
 
         // apply-templates to the attributes (or the children) of the current node, in the same mode.
-        private QilNode BuiltinApply31(QilIterator current, QilName mode, bool attributes)
+        private QilNode BuiltinApply31(QilIterator current, QilName mode)
         {
-            QilIterator child = _f.For(_f.Content(current));
-            QilNode filter = _f.Filter(child, _f.IsType(child, attributes ? T.Attribute : T.Content));
-            filter.XmlType = attributes ? T.AttributeS : T.ContentS;
             LoopFocus saved = _curLoop;
-            _curLoop.SetFocus(_f.For(filter));
+            _curLoop.SetFocus(_f.For(_f.Content(current)));
             QilNode body = InvokeApplyFunction(_compiler.Root!, mode, null);
             QilNode loop = _curLoop.ConstructLoop(body);
             _curLoop = saved;

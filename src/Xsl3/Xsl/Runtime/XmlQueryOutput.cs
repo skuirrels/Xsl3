@@ -53,6 +53,7 @@ namespace Xsl3.Runtime
         private Stack<string>? _stkNames;             // Keep stack of name parts computed during StartElement
         private XPathNodeType _rootType;             // NodeType of the root of the tree
 
+        private string _elementPrefix = string.Empty, _elementNs = string.Empty; // Xsl3: the element being started (XTDE0430, XTDE0440)
         private UsedPrefixes _usedPrefixes;          // The prefixes used by the current element (Xsl3 P4: a list, not a dictionary)
 
         /// <summary>
@@ -509,6 +510,8 @@ namespace Xsl3.Runtime
             Debug.Assert(_xstate == XmlState.WithinContent, $"WriteStartElement cannot be called in the {_xstate} state.");
             _nsmgr?.PushScope();
             Writer!.WriteStartElement(prefix, localName, ns);
+            _elementPrefix = prefix;
+            _elementNs = ns;
             //reset when enter element
             _usedPrefixes.Clear();
             _usedPrefixes.Add(prefix);
@@ -600,6 +603,7 @@ namespace Xsl3.Runtime
         {
             Debug.Assert(prefix != null && ns != null);
             Debug.Assert(_xstate == XmlState.EnumAttrs, $"WriteNamespaceDeclaration cannot be called in the {_xstate} state.");
+            CheckDefaultNamespace(prefix, ns);
 
             // xmlns:foo="" is illegal
             Debug.Assert(prefix.Length == 0 || ns.Length != 0);
@@ -625,6 +629,27 @@ namespace Xsl3.Runtime
                 AddNamespace(prefix, ns);
 
             _usedPrefixes.Add(prefix);
+        }
+
+        /// <summary>
+        /// Xsl3: in 2.0+, XTDE0440 (XSLT 3.0 §5.7.1) for a default namespace node on an element in no namespace, and
+        /// XTDE0430 for a namespace node binding the element's own prefix to another namespace. XmlWellFormedWriter
+        /// used to catch these when the result was serialized; the element's own namespace declaration trips neither.
+        /// </summary>
+        private void CheckDefaultNamespace(string prefix, string ns)
+        {
+            if (!_runtime.IsXslt2 || _depth == 0 || _xstate != XmlState.EnumAttrs)
+            {
+                return;
+            }
+            if (prefix.Length == 0 && ns.Length != 0 && _elementNs.Length == 0)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0440", $"An element in no namespace can't have a default namespace node ({ns})");
+            }
+            if (prefix == _elementPrefix && ns != _elementNs && (prefix.Length != 0 || ns.Length != 0))
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0430", $"The prefix '{prefix}' of the element is bound to {_elementNs}; a namespace node can't bind it to {ns}");
+            }
         }
 
         /// <summary>
@@ -773,6 +798,8 @@ namespace Xsl3.Runtime
             Debug.Assert(prefix != null && ns != null);
 
             ConstructInEnumAttrs(XPathNodeType.Namespace);
+
+            CheckDefaultNamespace(prefix, ns);
 
             if (_nsmgr == null)
             {

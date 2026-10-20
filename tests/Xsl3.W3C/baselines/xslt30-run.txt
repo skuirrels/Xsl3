@@ -330,10 +330,6 @@ si-iterate/si-iterate-037
 snapshot/snapshot-0101c
 snapshot/snapshot-0101e
 snapshot/snapshot-0102a
-snapshot/snapshot-0108
-snapshot/snapshot-0109
-snapshot/snapshot-0110
-snapshot/snapshot-0111
 sort/sort-018
 sort/sort-027
 sort/sort-028

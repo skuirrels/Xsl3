@@ -270,14 +270,42 @@ namespace Xsl3
         private XmlWriter CreateResultWriter(Stream results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
-                ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                ? DirectPrincipalSettings() is XmlWriterSettings direct
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
+                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateResultWriter(TextWriter results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
-                ? new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                ? DirectPrincipalSettings() is XmlWriterSettings direct
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
+                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
+
+        /// <summary>
+        /// Xsl3 (P4): for a 2.0+ stylesheet that needs nothing of the principal result writer (no xsl:result-document,
+        /// no serialization parameters beyond XmlWriterSettings, the xml method), the settings to write the result
+        /// with a raw writer directly, as 1.0 does: those PrincipalResult.Create would give its writer, with the
+        /// encoding named as the stylesheet names it. Null when the principal result writer is needed.
+        /// </summary>
+        private XmlWriterSettings? DirectPrincipalSettings()
+        {
+            XmlQueryStaticData data = _command!.StaticData;
+            XmlWriterSettings settings = OutputSettings ?? s_defaultWriterSettings;
+            if (data.ResultDocuments || data.OutputExtras is { IsEmpty: false } || settings.OutputMethod is not (XmlOutputMethod.Xml or XmlOutputMethod.AutoDetect)
+                || settings.ConformanceLevel == ConformanceLevel.Fragment)
+            {
+                return null;
+            }
+            if (settings.OmitXmlDeclaration)
+            {
+                return settings;
+            }
+            XmlWriterSettings s = settings.Clone();
+            s.Encoding = new NamedEncoding(settings.Encoding, data.OutputExtras?.Encoding ?? settings.Encoding.WebName.ToUpperInvariant());
+            return s;
+        }
 
         /// <summary>
         /// Xsl3: transforms to a <see cref="TextWriter"/>, resolving documents with <paramref name="documentResolver"/>.

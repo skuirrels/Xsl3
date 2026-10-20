@@ -248,6 +248,7 @@ namespace Xsl3.Xslt
                 {
                     ValidateCharacterMaps31();
                     qil.OutputExtras = OutputExtras31(compiler.Output);
+                    qil.ResultDocuments = _resultDocuments31;
                     qil.Xslt2 = true;
                     qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
                 }
@@ -3034,7 +3035,7 @@ namespace Xsl3.Xslt
                 if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? modeDecl) && modeDecl.OnNoMatch != "text-only-copy")
                 {
                     // Xsl3: the built-in template rules of xsl:mode on-no-match (XSLT 3.0 §6.7).
-                    builtinTemplates = BuiltinRules31(modeDecl.OnNoMatch, current, mode, loopOnContent);
+                    builtinTemplates = BuiltinRules31(modeDecl.OnNoMatch, current, mode);
                 }
 
                 // 3.2 Stylesheet templates

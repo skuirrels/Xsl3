@@ -305,6 +305,36 @@ public class Xslt30Tests
         Assert.Contains("<a>" + System.Environment.NewLine + "  <b />", xml);
     }
 
+    /// <summary>
+    /// A 2.0+ stylesheet without xsl:result-document writes its principal result with a raw writer directly (P4); the
+    /// bytes are those of the principal-result writer, which the same stylesheet with an (unused) xsl:result-document
+    /// takes.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("<xsl:output encoding='utf-8'/>")]
+    [InlineData("<xsl:output encoding='iso-8859-1' indent='yes'/>")]
+    [InlineData("<xsl:output encoding='UTF-16' standalone='yes'/>")]
+    [InlineData("<xsl:output omit-xml-declaration='yes' doctype-system='a.dtd' cdata-section-elements='b'/>")]
+    [InlineData("<xsl:output byte-order-mark='yes' doctype-public='-//A//EN' doctype-system='a.dtd'/>")]
+    public void DirectPrincipalResultMatchesThePrincipalResultWriter(string output)
+    {
+        byte[] Run(string extra)
+        {
+            string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:p='urn:p'>{output}" +
+                                "<xsl:template match='/'><a x='1' p:y='&lt;&amp;&quot;'><b>café € &lt; &#x1F600;</b><p:c/><!--c--><?pi d?></a></xsl:template>" +
+                                extra + "</xsl:stylesheet>";
+            var transform = new XslCompiledTransform();
+            transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+            var bytes = new MemoryStream();
+            transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+            return bytes.ToArray();
+        }
+        byte[] direct = Run("");
+        byte[] principal = Run("<xsl:template name='unused'><xsl:result-document href='x.xml'><x/></xsl:result-document></xsl:template>");
+        Assert.Equal(System.Convert.ToHexString(principal), System.Convert.ToHexString(direct));
+    }
+
     [Fact]
     public void XhtmlHtml5VoidElementsAndPrefixNormalization()
     {

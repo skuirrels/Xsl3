@@ -164,6 +164,7 @@ namespace Xsl3
                 _helper.StaticData
             );
             staticData.OutputExtras = _qil.OutputExtras;
+            staticData.ResultDocuments = _qil.ResultDocuments;
             staticData.Xslt2 = _qil.Xslt2;
             staticData.CompactTree = _qil.CompactTree;
 

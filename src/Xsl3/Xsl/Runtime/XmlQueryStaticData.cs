@@ -328,6 +328,9 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: serialization parameters the result writer applies (XSLT 2.0+), or null.</summary>
         public OutputExtras? OutputExtras { get; set; }
 
+        /// <summary>Xsl3: the stylesheet has xsl:result-document instructions (XSLT 2.0+).</summary>
+        public bool ResultDocuments { get; set; }
+
         /// <summary>
         /// Xsl3: the compiled dispatcher of function items (docs/plan/p3-xslt30.md, decision 4), so that the run-time
         /// library can call them (folds, sort keys, …).

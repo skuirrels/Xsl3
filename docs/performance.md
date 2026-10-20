@@ -320,6 +320,40 @@ What changed:
   raises XPTY0004 for more than one node, as before. Value templates still join several nodes with spaces.
 - **`tokenize()` with a literal pattern** counts its tokens first and fills an array of the right size.
 
+### The 2.0+ result writer
+
+| Pair | Third batch | Direct writer |
+|---|---:|---:|
+| identity | 1.18 | 0.78 |
+| sort | 1.05 | 1.11 |
+| muenchian | 1.11 | 1.12 |
+| string-recursion | 0.92 | 0.88 |
+| key-join | 1.34 | 1.08 |
+
+Same measure, the median of three runs. Sort and muenchian moved only within the noise.
+
+A 2.0+ stylesheet's principal result used to go through `PrincipalResult` (serves `xsl:result-document` without
+`href`) and then .NET's `XmlWriter.Create`. That meant `XmlWellFormedWriter` over System.Private.Xml's raw writer,
+which re-checks every name and namespace and lacks Xsl3's vectorized escaping. In identity, that layer was about a
+quarter of the time. When the stylesheet has no `xsl:result-document`, no serialization parameters beyond
+`XmlWriterSettings` and the xml method, the Stream and TextWriter overloads now write with Xsl3's raw writer
+directly, as 1.0 does. The settings, and so the XML declaration and the encoding as the stylesheet names it, are
+those `PrincipalResult` would use. A test compares the bytes of the two paths over several `xsl:output`
+declarations.
+
+Removing `XmlWellFormedWriter` showed what it had been covering for:
+
+- **`copy-of()` and `snapshot()`** dropped each copied element's own namespace declaration (`p` on `p:subelem`). It
+  was redeclared only when serializing. Four more W3C tests now pass.
+- **`xsl:namespace`** now raises its errors itself: XTDE0920 (the name), XTDE0925 (`xml` and the XML namespace),
+  XTDE0905 (the xmlns namespace), XTDE0930 (an empty value). So does the result tree, for 2.0+: XTDE0440 (a default
+  namespace on an element in no namespace) and XTDE0430 (the element's own prefix bound elsewhere). Before, these
+  tests passed only because `XmlWellFormedWriter` threw an `XmlException`.
+
+The built-in shallow-copy and shallow-skip rules now apply templates to `@* | node()` in one pass over the content,
+which holds the attributes first and then the children. That is how 1.0's `@*|node()` is compiled. As one sequence,
+`position()` now runs across the attributes and children, as the spec defines the rule.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

@@ -261,7 +261,8 @@ namespace System.Xml
 
             // create raw writer
             Debug.Assert(Encoding.UTF8.WebName == "utf-8");
-            if (settings.Encoding.WebName == "utf-8")
+            // Xsl3: UTF-8 named another way (a 2.0+ declaration naming it as the stylesheet does) writes the same bytes.
+            if (settings.Encoding.WebName == "utf-8" || settings.Encoding is Xsl3.Runtime.NamedEncoding { CodePage: 65001 })
             { // Encoding.CodePage is not supported in Silverlight
                 // create raw UTF-8 writer
                 writer = settings.OutputMethod switch
