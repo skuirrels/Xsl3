@@ -35,6 +35,29 @@ public sealed class Runner
 
         /// <summary>The URI of a secondary result: the base URI of its tree when it is parsed back.</summary>
         public string? BaseUri { get; init; }
+
+        /// <summary>
+        /// The principal result written as XML (the transformation run again into an XmlWriter), for tree assertions
+        /// when the serialization (html, text, json) doesn't parse as XML.
+        /// </summary>
+        public Func<string>? AsXml { get; init; }
+    }
+
+    // An html serialization: starts with an html element in any case (no XML declaration), or a DOCTYPE html.
+    private static bool IsHtml(string serialized) =>
+        System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    // The result tree for an assertion: the serialization parsed back, else the result written as XML.
+    private static XPathNavigator ResultTree(RunResult run, string serialized)
+    {
+        try
+        {
+            return ResultDocument(serialized, run.BaseUri);
+        }
+        catch (XmlException) when (run.AsXml != null)
+        {
+            return ResultDocument(run.AsXml(), run.BaseUri);
+        }
     }
 
     // Tests whose expected tree the serialization of the result can't match: bug-1901's result starts with XHTML's html
@@ -251,7 +274,19 @@ public sealed class Runner
                 transform.Transform(reader, args, bytes, resolver);
                 sw.Write(Decode(bytes.ToArray()));
             }
-            return new RunResult(sw.ToString(), null, messages) { SecondaryResults = secondary };
+            return new RunResult(sw.ToString(), null, messages)
+            {
+                SecondaryResults = secondary,
+                AsXml = () =>
+                {
+                    var xml = new StringWriter();
+                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
+                    {
+                        transform.Transform(context, args, writer, resolver);
+                    }
+                    return xml.ToString();
+                },
+            };
         }
         catch (Exception e) when (e is not OutOfMemoryException and not ThreadAbortException)
         {
@@ -414,17 +449,19 @@ public sealed class Runner
                 {
                     string? file = (string?)assertion.Attribute("file");
                     string expected = file != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file)) : assertion.Value;
-                    return XmlEquals(serialized, expected) ? Outcome.Pass() : Outcome.Fail($"assert-xml mismatch: got {Trim(serialized)}");
+                    // assert-xml compares trees: an html serialization is compared as the result written as XML.
+                    return XmlEquals(serialized, expected) || run.AsXml != null && IsHtml(serialized) && XmlEquals(run.AsXml(), expected)
+                        ? Outcome.Pass() : Outcome.Fail($"assert-xml mismatch: got {Trim(serialized)}");
                 }
                 case "assert":
                 {
-                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultDocument(serialized, run.BaseUri);
+                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
                     bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
                 case "assert-string-value":
                 {
-                    string actual = ResultDocument(serialized, run.BaseUri).Value, expected = assertion.Value;
+                    string actual = ResultTree(run, serialized).Value, expected = assertion.Value;
                     if ((string?)assertion.Attribute("normalize-space") is not ("false" or "0")) // the default is true
                     {
                         actual = Lexical.Collapse(actual);
@@ -464,7 +501,7 @@ public sealed class Runner
                 case "assert-true":
                 case "assert-false":
                 {
-                    XPathNavigator doc = run.Raw != null ? EmptyDocument() : ResultDocument(serialized, run.BaseUri);
+                    XPathNavigator doc = run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
                     string text = assertion.Value;
                     string expression = kind switch
                     {
