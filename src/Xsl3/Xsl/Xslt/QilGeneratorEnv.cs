@@ -537,7 +537,8 @@ namespace Xsl3.Xslt
 
             if (baseNode == null)
             {
-                baseUri = _f.String(_lastScope!.SourceLine!.Uri);
+                // Xsl3: in 2.0+ the static base URI, which xml:base changes (base-uri-050); 1.0 has the module's.
+                baseUri = _f.String((IsV2 ? StaticBaseUri31() : null) ?? _lastScope!.SourceLine!.Uri);
             }
             else
             {

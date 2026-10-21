@@ -818,6 +818,7 @@ namespace Xsl3.Xslt
             {
                 // Xsl3: the principal module's version picks the processor (SPEC §4.3).
                 _compiler.Version = version < 2.0 && _compiler.Settings.VersionMode == XsltVersionMode.Legacy || !Compiler.Xslt2Enabled ? 1 : 2;
+                _compiler.PrincipalVersion = version;
             }
 
             if (_compiler.Version == 1)

@@ -2845,9 +2845,10 @@ namespace Xsl3.Xslt
             string nsUri = _input.NamespaceUri;
 
             ContextInfo ctxInfo = _input.GetLiteralAttributes(asStylesheet);
-            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml")
+            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml" && _compiler.PrincipalVersion >= 2.0)
             {
-                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml.
+                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml; but xml
+                // when the principal module says version="1.0" (XSLT 3.0 §26.1, backwards-019).
                 _compiler.XhtmlHtmlLiteral = true;
             }
 

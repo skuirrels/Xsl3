@@ -2899,6 +2899,21 @@ namespace Xsl3.Xslt
         // The keys declared composite="yes": a node's key is its whole sequence of use values (XSLT 3.0 §20.2.1).
         private readonly HashSet<QilName> _compositeKeys31 = new();
 
+        // The keys with a definition in backwards compatible mode: their values are compared as strings (XSLT 3.0 §20.2.2).
+        private readonly HashSet<QilName> _stringKeys31 = new();
+
+        private bool IsStringKey31(QilNode name)
+        {
+            if (_stringKeys31.Count == 0 || name.NodeType != QilNodeType.LiteralString)
+            {
+                return false;
+            }
+            string lexical = (string)(QilLiteral)name;
+            int colon = lexical.IndexOf(':');
+            string? ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]);
+            return ns != null && _stringKeys31.Contains(PackageComponents.Mangle(_f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns), _package31));
+        }
+
         private bool IsCompositeKey31(QilNode name)
         {
             if (_compositeKeys31.Count == 0 || name.NodeType != QilNodeType.LiteralString)
@@ -2943,6 +2958,10 @@ namespace Xsl3.Xslt
                     if (key.V2?.Composite == true)
                     {
                         _compositeKeys31.Add(key.Name!);
+                    }
+                    if (key.XslVersion == XslVersion.BackwardsCompatible)
+                    {
+                        _stringKeys31.Add(key.Name!);
                     }
                     if ((key.V2?.Composite ?? false) != (_compiler.Keys[idx][0].V2?.Composite ?? false))
                     {
@@ -3038,8 +3057,12 @@ namespace Xsl3.Xslt
         // xsl:key's use (or content): the key values of the node in focus, as the strings key() compares.
         private QilNode CompileKeyUse31(Key key)
         {
-            QilNode values = key.Use != null ? CompileXPath31(key.Use) : CompileInstructions(key.Content);
-            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(_keyCollations31.TryGetValue(key.Name!, out string? c) ? c : Collation.CodepointUri),
+            QilNode values = Box(key.Use != null ? CompileXPath31(key.Use) : CompileInstructions(key.Content));
+            if (_stringKeys31.Contains(key.Name!))
+            {
+                values = X31(nameof(XsltLibrary.X31StringValues), T.ItemS, values);
+            }
+            return X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, values, _f.String(_keyCollations31.TryGetValue(key.Name!, out string? c) ? c : Collation.CodepointUri),
                 _f.Boolean(_compositeKeys31.Contains(key.Name!)));
         }
 
@@ -3048,7 +3071,8 @@ namespace Xsl3.Xslt
             // key() may use its context node and name once per key definition: they are shared through Lets.
             QilIterator context = _f.Let(Node31(top, "XTDE1270"));
             QilIterator? nameLet = name.NodeType == QilNodeType.LiteralString ? null : _f.Let(name);
-            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, Box(values), _f.String(KeyCollation31(name)), _f.Boolean(IsCompositeKey31(name))));
+            values = IsStringKey31(name) ? X31(nameof(XsltLibrary.X31StringValues), T.ItemS, Box(values)) : Box(values);
+            QilIterator v = _f.For(X31(nameof(XsltLibrary.X31KeyValues), T.ItemS, values, _f.String(KeyCollation31(name)), _f.Boolean(IsCompositeKey31(name))));
             QilNode single;
             try
             {

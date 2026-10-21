@@ -1,14 +1,10 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
 attribute/attribute-1101
-backwards/backwards-019
-backwards/backwards-043
 base-uri/base-uri-046
-base-uri/base-uri-050
 base-uri/base-uri-052
 copy/copy-1221
 docbook/docbook-001
 docbook/docbook-004
-document/document-2003
 document/document-2401
 document/document-2402
 error/error-2210a
@@ -27,7 +23,6 @@ package-version/package-version-011
 package/package-909
 package/package-910
 package/package-912
-select/select-6101
 snapshot/snapshot-0102a
 static/static-013c
 static/static-021

@@ -37,6 +37,18 @@ namespace Xsl3.Runtime
         /// the atomised values, encoded so that equal strings are values that are equal by eq (XSLT 3.0 §20.2.2).
         /// Values that equal nothing (NaN) are dropped.
         /// </summary>
+        /// <summary>The atomized values as xs:string (a key with a definition in backwards compatible mode).</summary>
+        public IList<XPathItem> X31StringValues(IList<XPathItem> values)
+        {
+            IList<XPathItem> atoms = Sequences.Atomize(values);
+            var result = new XPathItem[atoms.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = AtomicValue.OfString(atoms[i].Value);
+            }
+            return result;
+        }
+
         public IList<XPathItem> X31KeyValues(IList<XPathItem> values, string collation, bool composite)
         {
             var result = new List<XPathItem>(values.Count);

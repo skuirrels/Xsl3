@@ -481,6 +481,18 @@ public class Xslt30Tests
     }
 
     /// <summary>
+    /// A key with a definition in backwards compatible mode compares its values as strings, whatever the version of its
+    /// other definitions (XSLT 3.0 §20.2.2): use="1" in either version finds key('k', 1).
+    /// </summary>
+    [Fact]
+    public void BackwardsCompatibleKeysCompareStrings() =>
+        Assert.Equal("<o>a b</o>", Run("""
+            <xsl:key name="k" match="*[@m = 'a']" use="1" version="1.0"/>
+            <xsl:key name="k" match="*[@m = 'b']" use="1"/>
+            <xsl:template match="/"><o><xsl:value-of select="key('k', 1)/@m"/></o></xsl:template>
+            """, "<r><x m='a'/><x m='b'/><x m='c'/></r>"));
+
+    /// <summary>
     /// format-number rounds a double's shortest digits half to even: values whose scaled form sits next to a half
     /// (2.675 is 267.49999999999997 scaled) round as their digits do, others by scaling.
     /// </summary>

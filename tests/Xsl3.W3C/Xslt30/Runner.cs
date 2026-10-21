@@ -717,7 +717,11 @@ public sealed class Runner
                 case "assert-serialization":
                 {
                     string? file = (string?)assertion.Attribute("file");
-                    string expected = file != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file)) : assertion.Value;
+                    // The file is in the encoding the assertion names (select-6101: ISO-8859-1).
+                    string? encoding = (string?)assertion.Attribute("encoding");
+                    string expected = file == null ? assertion.Value
+                        : encoding != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file), System.Text.Encoding.GetEncoding(encoding))
+                        : File.ReadAllText(Path.Combine(test.Set.Directory, file));
                     bool same = serialized.ReplaceLineEndings("\n") == expected.ReplaceLineEndings("\n") || XmlEquals(serialized, expected);
                     return same ? Outcome.Pass() : Outcome.Fail($"assert-serialization mismatch: got {Trim(serialized)}");
                 }

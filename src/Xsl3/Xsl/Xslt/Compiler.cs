@@ -79,6 +79,7 @@ namespace Xsl3.Xslt
         public Dictionary<QilName, CharacterMap> CharacterMaps = new Dictionary<QilName, CharacterMap>();
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
         public bool XhtmlHtmlLiteral; // Xsl3: a 2.0+ literal result element is XHTML's html element
+        public double PrincipalVersion; // Xsl3: the [xsl:]version of the principal module's outermost element
         public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
         public QilName? DefaultInitialMode; // Xsl3: the principal stylesheet module's default-mode
         public (string Use, string? As)? GlobalContextItem; // Xsl3: the principal package's xsl:global-context-item
