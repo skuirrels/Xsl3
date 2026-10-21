@@ -422,6 +422,7 @@ namespace Xsl3.XPath31
                         }
                         try
                         {
+                            using System.IDisposable? declared = _env?.DeclaredComponents();
                             return NamedFunctionReference(new NamedFunctionRef(new LexicalQName(null, local, ns.Value), arity.Value) { Span = args[0].Span });
                         }
                         catch (XPathStaticException e) when (e.Code == "XPST0017")
@@ -439,6 +440,7 @@ namespace Xsl3.XPath31
                         {
                             try
                             {
+                                using System.IDisposable? declared = _env?.DeclaredComponents();
                                 QilNode reference = NamedFunctionReference(new NamedFunctionRef(known, candidate) { Span = args[0].Span });
                                 result = _f.Conditional(Call(nameof(XsltLibrary.X31ArityIs), T.BooleanX, lookupArity, _f.Double(candidate)), Items(reference), result);
                             }

@@ -133,6 +133,15 @@ namespace Xsl3.XPath31.Functions
         internal static string BaseUri(XPathNavigator n)
         {
             XPathNavigator nav = n.Clone();
+            if (nav.NodeType == XPathNodeType.ProcessingInstruction && nav.BaseURI is { Length: > 0 } piBase)
+            {
+                // A processing instruction from an external entity has the entity's base URI, not its parent's.
+                XPathNavigator piParent = nav.Clone();
+                if (piParent.MoveToParent() && piParent.BaseURI is { Length: > 0 } parentBase && parentBase != piBase)
+                {
+                    return piBase;
+                }
+            }
             if (nav.NodeType is not (XPathNodeType.Element or XPathNodeType.Root))
             {
                 if (!nav.MoveToParent())

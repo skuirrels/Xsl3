@@ -36,7 +36,7 @@ namespace Xsl3.Xslt
                 sc.Namespaces[prefix] = uri;
             }
             sc.Namespaces["xml"] = XmlReservedNs.NsXml;
-            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()) { EvaluateEnabled = evaluateEnabled });
+            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()) { EvaluateEnabled = evaluateEnabled, Static = true });
             XPath31Executable executable = XPath31Compiler.CompileHosted(Parser.ParseXPath(expression), sc, f => new Environment(f, names, staticValues));
             return executable.Evaluate();
         }

@@ -165,6 +165,12 @@ namespace Xsl3.Runtime
                 if (uriResolved != null)
                     nav = _dataSourceCache[uriResolved] as XPathNavigator;
 
+                // Xsl3: a resource the transformation has written as a final result can't be read back (XSLT 3.0 §25.2).
+                if (nav == null && uriResolved != null && _runtime.IsXslt2 && _runtime.ResultDocumentUris.Contains(uriResolved.OriginalString))
+                {
+                    throw new Xsl3.Xdm.XdmException("XTDE1500", $"'{uriResolved.OriginalString}' is written by xsl:result-document and can't be read in the same transformation");
+                }
+
                 if (nav == null)
                 {
                     // Get the entity from the resolver and ensure it is cached as a document
@@ -183,6 +189,10 @@ namespace Xsl3.Runtime
                 // Don't need to wrap XslTransformException
                 throw;
             }
+            catch (Xsl3.Xdm.XdmException e) when (e.Code == "XTDE1500")
+            {
+                throw;
+            }
             catch (Exception e)
             {
                 if (!XmlException.IsCatchableException(e))
@@ -194,6 +204,9 @@ namespace Xsl3.Runtime
 
             return nav;
         }
+
+        /// <summary>Xsl3: whether the transformation has read the document at this absolute URI (XTDE1500).</summary>
+        internal bool HasRead(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out Uri? absolute) && _dataSourceCache.ContainsKey(absolute);
 
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.

@@ -121,7 +121,7 @@ namespace Xsl3.Xslt
         public bool AllModes;
         public List<string>? Errors; // xsl:catch/@errors as EQNames, "Q{ns}*", "*:local" or "*"
         public string? Match, Phase; // xsl:accumulator-rule
-        public string? ForEachItem, ForEachSource, Order; // xsl:merge-source, xsl:merge-key
+        public string? ForEachItem, ForEachSource, Order, DataType; // xsl:merge-source, xsl:merge-key
         public bool SortBeforeMerge;
     }
 

@@ -19,6 +19,19 @@ namespace Xsl3.Runtime
         /// <summary>Whether xsl:evaluate is enabled (XsltSettings.EnableEvaluate); otherwise it is statically disabled.</summary>
         public bool EvaluateEnabled { get; init; }
 
+        /// <summary>
+        /// A static expression's names (use-when, static variables): of the XSLT functions, only those that need no
+        /// dynamic context are available (XSLT 3.0 §3.13.1).
+        /// </summary>
+        public bool Static { get; init; }
+
+        private static readonly HashSet<string> s_staticXsltFunctions = new(System.StringComparer.Ordinal)
+        {
+            "element-available", "function-available", "type-available", "system-property",
+            // F&O functions this table lists because XSLT compiles them
+            "position", "last", "format-number",
+        };
+
         public static readonly HashSet<string> Instructions = new(System.StringComparer.Ordinal)
         {
             "analyze-string", "apply-imports", "apply-templates", "attribute", "call-template", "choose", "comment", "copy",
@@ -118,7 +131,8 @@ namespace Xsl3.Runtime
             // With an arity, just that one (concat takes any number of arguments); without, any up to 10.
             for (int n = arity ?? 0; n <= (arity ?? 10); n++)
             {
-                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) || (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n))) ||
+                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) ||
+                    (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n)) && (!Static || s_staticXsltFunctions.Contains(local))) ||
                     // The context-item forms (fn:name#0 and the like), compiled rather than in the library.
                     ns == QName.Ns.Fn && n == 0 && XPath31Compiler.s_contextFunctions.Contains(local) ||
                     XPath31Compiler.CompiledHigherOrderFunctions.Contains((ns, local, n)))

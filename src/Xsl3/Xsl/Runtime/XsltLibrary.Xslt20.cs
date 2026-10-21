@@ -493,6 +493,11 @@ namespace Xsl3.Runtime
                 return Sequences.Empty;
             }
             string uri = X31OutputUri(href, baseUri);
+            if (_runtime.ExternalContext.HasRead(uri))
+            {
+                // XSLT 3.0 §25.2: a resource can't be both read and written by the transformation.
+                throw new XdmException("XTDE1500", $"'{uri}' was read by the transformation and can't be written by xsl:result-document");
+            }
             if (!_runtime.ResultDocumentUris.Add(uri))
             {
                 throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");

@@ -108,6 +108,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,978 | 58 | 49 | 99.3% | The global context item of 2.0+ stylesheets: absent without an input or with `xsl:global-context-item use="absent"` (XPDY0002 where global variables use it, XTTE0945 for `xsl:copy`); `xsl:next-match` from an alternative of a union pattern without a priority goes on to the template's other alternatives; the 2.0 profile is at 99.4% (4,571 passed, 26 failed) |
 | 2026-10-21 | 7,981 | 55 | 49 | 99.3% | `xsl:mode typed="yes"` raises XTTE3100 for untyped elements and attributes; German number words for `format-integer` and `xsl:number lang="de"`; `function-lookup` with a literal name and a computed arity finds the XSLT functions; the 2.0 profile is at 99.5% (4,572 passed, 25 failed) |
 | 2026-10-21 | 7,982 | 54 | 49 | 99.3% | `xsl:copy` of an element keeps its original's base URI; the 2.0 profile is at 99.5% (4,573 passed, 24 failed) |
+| 2026-10-21 | 7,996 | 40 | 49 | 99.5% | Shadowed variables in split templates, `function-lookup` in used packages, use-when `function-available`, entity base URIs, element content whitespace, XTDE1500, `xsl:merge-key data-type`, disable-output-escaping in CDATA elements, base URIs of copies, XTSE3020 for function names without arity; the 2.0 profile is at 99.6% (4,580 passed, 17 failed) |
 
 ### P5 exit sets
 

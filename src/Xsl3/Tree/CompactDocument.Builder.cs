@@ -129,6 +129,9 @@ namespace Xsl3.Tree
             {
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
+                // Xsl3: the elements the DTD declares with element-only content, and whether each open one is such.
+                HashSet<(string, string)>? elementOnly = null;
+                bool[] inElementOnly = System.Array.Empty<bool>();
                 int initialDepth = reader.Depth;
                 if (topLevelReader && !reader.Read())
                 {
@@ -145,6 +148,15 @@ namespace Xsl3.Tree
                         case XmlNodeType.Element:
                         {
                             bool empty = reader.IsEmptyElement;
+                            if (elementOnly != null)
+                            {
+                                // Xsl3: whether the DTD gives this element element-only content (its whitespace is left out).
+                                if (reader.Depth >= inElementOnly.Length)
+                                {
+                                    System.Array.Resize(ref inElementOnly, reader.Depth * 2 + 2);
+                                }
+                                inElementOnly[reader.Depth] = elementOnly.Contains((reader.LocalName, reader.Prefix));
+                            }
                             StartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI, reader.BaseURI);
                             while (reader.MoveToNextAttribute())
                             {
@@ -172,6 +184,10 @@ namespace Xsl3.Tree
                             Text(reader.Value, XPathNodeType.Text);
                             break;
                         case XmlNodeType.SignificantWhitespace:
+                            if (elementOnly != null && reader.Depth > 0 && reader.Depth - 1 < inElementOnly.Length && inElementOnly[reader.Depth - 1])
+                            {
+                                break; // element content whitespace
+                            }
                             if (reader.XmlSpace == XmlSpace.Preserve)
                             {
                                 Text(reader.Value, XPathNodeType.SignificantWhitespace);
@@ -182,6 +198,10 @@ namespace Xsl3.Tree
                             }
                             break;
                         case XmlNodeType.Whitespace:
+                            if (elementOnly != null && reader.Depth > 0 && reader.Depth - 1 < inElementOnly.Length && inElementOnly[reader.Depth - 1])
+                            {
+                                break; // element content whitespace
+                            }
                             if (space == XmlSpace.Preserve && (keepTopLevelWhitespace || !topLevelReader || reader.Depth != 0))
                             {
                                 Text(reader.Value, XPathNodeType.Whitespace);
@@ -206,6 +226,11 @@ namespace Xsl3.Tree
                             reader.ResolveEntity();
                             break;
                         case XmlNodeType.DocumentType:
+                            if (DtdInfoBridge.GetElementOnlyElements(reader) is { Count: > 0 } declared)
+                            {
+                                elementOnly = declared;
+                                inElementOnly = new bool[16];
+                            }
                             foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdAttributes(reader))
                             {
                                 (_idAttributes ??= new())[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
@@ -371,6 +396,17 @@ namespace Xsl3.Tree
                 _depth++;
                 _idAttribute = _idAttributes != null && _idAttributes.TryGetValue((local, prefix), out var id) ? id : null;
                 _idrefs = _idrefAttributes != null && _idrefAttributes.TryGetValue((local, prefix), out var idrefs) ? idrefs : null;
+            }
+
+            /// <summary>Xsl3: gives the document node a base URI of its own (a copy of a document node keeps its original's).</summary>
+            internal void SetDocumentBaseUri(string baseUri)
+            {
+                if (_depth != 1 || InElement || baseUri.Length == 0)
+                {
+                    return;
+                }
+                _doc._baseUri = baseUri;
+                _openBase[0] = baseUri;
             }
 
             /// <summary>Xsl3: gives the innermost open element a base URI of its own (a copy keeps its original's).</summary>

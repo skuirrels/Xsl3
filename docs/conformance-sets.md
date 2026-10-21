@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 7982 passed, 54 failed, 49 not run; 99.3% of those run (1638 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 7996 passed, 40 failed, 49 not run; 99.5% of those run (1640 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -14,16 +14,16 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 |---|---:|---:|---:|---:|
 | feature XPath_3.1 | 96 | 1 | 1 | 99.0% |
 | feature backwards_compatibility | 114 | 3 | 0 | 97.4% |
-| feature disabling_output_escaping | 29 | 1 | 0 | 96.7% |
-| feature dtd | 74 | 5 | 0 | 93.7% |
+| feature disabling_output_escaping | 30 | 0 | 0 | 100.0% |
+| feature dtd | 78 | 1 | 0 | 98.7% |
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
-| feature higher_order_functions | 218 | 2 | 0 | 99.1% |
+| feature higher_order_functions | 219 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
 | feature serialization | 364 | 6 | 0 | 98.4% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
-| spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2683 | 18 | 11 | 99.3% |
-| spec XSLT30+ | 3408 | 30 | 38 | 99.1% |
+| spec XSLT10+ | 1887 | 5 | 0 | 99.7% |
+| spec XSLT20+ | 2689 | 12 | 11 | 99.6% |
+| spec XSLT30+ | 3415 | 23 | 38 | 99.3% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -42,9 +42,9 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | avt | 35 | 0 | 0 | 100.0% |
 | axes | 202 | 0 | 0 | 100.0% |
 | backwards | 45 | 2 | 0 | 95.7% |
-| base-uri | 51 | 4 | 0 | 92.7% |
+| base-uri | 52 | 3 | 0 | 94.5% |
 | boolean | 112 | 0 | 0 | 100.0% |
-| bug | 81 | 1 | 1 | 98.8% |
+| bug | 82 | 0 | 1 | 100.0% |
 | built-in-templates | 5 | 0 | 0 | 100.0% |
 | call-template | 41 | 0 | 0 | 100.0% |
 | castable | 7 | 0 | 0 | 100.0% |
@@ -69,10 +69,10 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | document | 61 | 3 | 0 | 95.3% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 509 | 2 | 0 | 99.6% |
+| error | 510 | 1 | 0 | 99.8% |
 | evaluate | 42 | 0 | 0 | 100.0% |
 | expand-text | 59 | 0 | 0 | 100.0% |
-| expose | 41 | 1 | 0 | 97.6% |
+| expose | 42 | 0 | 0 | 100.0% |
 | expression | 105 | 0 | 0 | 100.0% |
 | extension-functions | 7 | 0 | 0 | 100.0% |
 | for | 4 | 0 | 0 | 100.0% |
@@ -83,7 +83,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | forwards | 22 | 1 | 0 | 95.7% |
 | function | 88 | 0 | 0 | 100.0% |
 | function-available | 10 | 0 | 0 | 100.0% |
-| function-lookup | 7 | 1 | 0 | 87.5% |
+| function-lookup | 8 | 0 | 0 | 100.0% |
 | global-context-item | 14 | 0 | 0 | 100.0% |
 | higher-order-functions | 75 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
@@ -102,16 +102,16 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | maps | 50 | 0 | 0 | 100.0% |
 | match | 183 | 0 | 0 | 100.0% |
 | math | 154 | 0 | 0 | 100.0% |
-| merge | 59 | 2 | 16 | 96.7% |
+| merge | 60 | 1 | 16 | 98.4% |
 | message | 45 | 0 | 0 | 100.0% |
 | mode | 139 | 0 | 2 | 100.0% |
-| namespace | 202 | 5 | 0 | 97.6% |
+| namespace | 203 | 4 | 0 | 98.1% |
 | namespace-alias | 25 | 1 | 0 | 96.2% |
 | next-match | 40 | 0 | 0 | 100.0% |
 | node | 32 | 0 | 0 | 100.0% |
 | nodetest | 3 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
-| number | 157 | 1 | 0 | 99.4% |
+| number | 158 | 0 | 0 | 100.0% |
 | on-empty | 72 | 0 | 0 | 100.0% |
 | on-non-empty | 14 | 0 | 0 | 100.0% |
 | outermost | 26 | 0 | 0 | 100.0% |
@@ -125,13 +125,13 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | predicate | 57 | 0 | 0 | 100.0% |
 | regex | 65 | 0 | 0 | 100.0% |
 | regex-syntax | 987 | 0 | 0 | 100.0% |
-| resolve-uri | 23 | 1 | 0 | 95.8% |
+| resolve-uri | 24 | 0 | 0 | 100.0% |
 | result-document | 140 | 0 | 0 | 100.0% |
 | root | 10 | 0 | 0 | 100.0% |
 | select | 156 | 1 | 0 | 99.4% |
 | seqtor | 72 | 0 | 0 | 100.0% |
 | sequence | 88 | 0 | 0 | 100.0% |
-| sf-unparsed-entity-uri | 7 | 1 | 0 | 87.5% |
+| sf-unparsed-entity-uri | 8 | 0 | 0 | 100.0% |
 | shadow | 8 | 0 | 0 | 100.0% |
 | si-iterate | 1 | 0 | 0 | 100.0% |
 | snapshot | 18 | 1 | 0 | 94.7% |
@@ -149,11 +149,11 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | tunnel | 58 | 0 | 0 | 100.0% |
 | type | 58 | 0 | 1 | 100.0% |
 | type-available | 3 | 0 | 0 | 100.0% |
-| unparsed-entity-uri | 9 | 3 | 0 | 75.0% |
+| unparsed-entity-uri | 11 | 1 | 0 | 91.7% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 46 | 3 | 0 | 93.9% |
-| use-when | 97 | 2 | 0 | 98.0% |
+| use-when | 99 | 0 | 0 | 100.0% |
 | validation | 5 | 1 | 0 | 83.3% |
 | variable | 107 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
@@ -167,20 +167,20 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4573 passed, 24 failed, 11 not run; 99.5% of those run (634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4580 passed, 17 failed, 11 not run; 99.6% of those run (634 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | feature backwards_compatibility | 110 | 2 | 0 | 98.2% |
-| feature disabling_output_escaping | 11 | 1 | 0 | 91.7% |
-| feature dtd | 60 | 5 | 0 | 92.3% |
+| feature disabling_output_escaping | 12 | 0 | 0 | 100.0% |
+| feature dtd | 64 | 1 | 0 | 98.5% |
 | feature namespace_axis | 65 | 1 | 0 | 98.5% |
 | feature serialization | 231 | 6 | 0 | 97.5% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
-| spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2682 | 18 | 11 | 99.3% |
+| spec XSLT10+ | 1887 | 5 | 0 | 99.7% |
+| spec XSLT20+ | 2688 | 12 | 11 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -195,7 +195,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | backwards | 44 | 2 | 0 | 95.7% |
 | base-uri | 47 | 1 | 0 | 97.9% |
 | boolean | 112 | 0 | 0 | 100.0% |
-| bug | 81 | 1 | 1 | 98.8% |
+| bug | 82 | 0 | 1 | 100.0% |
 | built-in-templates | 4 | 0 | 0 | 100.0% |
 | call-template | 34 | 0 | 0 | 100.0% |
 | castable | 4 | 0 | 0 | 100.0% |
@@ -238,25 +238,25 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | math | 149 | 0 | 0 | 100.0% |
 | message | 26 | 0 | 0 | 100.0% |
 | mode | 31 | 0 | 0 | 100.0% |
-| namespace | 200 | 5 | 0 | 97.6% |
+| namespace | 201 | 4 | 0 | 98.0% |
 | namespace-alias | 25 | 1 | 0 | 96.2% |
 | next-match | 28 | 0 | 0 | 100.0% |
 | node | 32 | 0 | 0 | 100.0% |
 | nodetest | 3 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
-| number | 146 | 1 | 0 | 99.3% |
+| number | 147 | 0 | 0 | 100.0% |
 | output | 131 | 2 | 0 | 98.5% |
 | param | 26 | 0 | 0 | 100.0% |
 | path | 10 | 0 | 0 | 100.0% |
 | position | 209 | 0 | 0 | 100.0% |
 | predicate | 55 | 0 | 0 | 100.0% |
 | regex | 49 | 0 | 0 | 100.0% |
-| resolve-uri | 20 | 1 | 0 | 95.2% |
+| resolve-uri | 21 | 0 | 0 | 100.0% |
 | result-document | 68 | 0 | 0 | 100.0% |
 | root | 10 | 0 | 0 | 100.0% |
 | select | 151 | 1 | 0 | 99.3% |
 | sequence | 84 | 0 | 0 | 100.0% |
-| sf-unparsed-entity-uri | 3 | 1 | 0 | 75.0% |
+| sf-unparsed-entity-uri | 4 | 0 | 0 | 100.0% |
 | sort | 74 | 0 | 0 | 100.0% |
 | string | 133 | 0 | 0 | 100.0% |
 | strip-space | 21 | 0 | 0 | 100.0% |
@@ -266,7 +266,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | tunnel | 54 | 0 | 0 | 100.0% |
 | type | 56 | 0 | 1 | 100.0% |
 | type-available | 1 | 0 | 0 | 100.0% |
-| unparsed-entity-uri | 3 | 3 | 0 | 50.0% |
+| unparsed-entity-uri | 5 | 1 | 0 | 83.3% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | use-when | 77 | 0 | 0 | 100.0% |
 | validation | 2 | 0 | 0 | 100.0% |

@@ -319,6 +319,7 @@ namespace Xsl3.Xslt
                         string? keySelect = ParseStringAttribute(0, "select");
                         string? order = ParseStringAttribute(2, "order")?.Trim();
                         string? collation = ParseStringAttribute(3, "collation")?.Trim();
+                        string? dataType = ParseStringAttribute(5, "data-type")?.Trim();
                         List<XslNode> keyContent = LoadInstructions();
                         CheckError(keySelect != null && keyContent.Count != 0, /*[XTSE3200]*/SR.Xslt_ElementCntSel, "xsl:merge-key");
                         if (order is not (null or "ascending" or "descending") && !order.Contains('{'))
@@ -326,7 +327,7 @@ namespace Xsl3.Xslt
                             ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "order", order);
                         }
                         XslNode key = F.XslNode(XslNodeType.MergeKey, null, keySelect ?? (keyContent.Count == 0 ? "." : null), _input.XslVersion);
-                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation };
+                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType };
                         keys.Add(SetInfo(key, LoadEndTag(keyContent), keyInfo));
                     }
                     else if (_input.NodeType == XmlNodeType.Element)

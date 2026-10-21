@@ -544,7 +544,8 @@ namespace Xsl3.Xslt
         }
 
         /// <summary>Xsl3: the static base URI at the current element (xml:base applied).</summary>
-        public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _reader.BaseURI;
+        // The element's own base URI: the reader may have read past the end of an external entity by now.
+        public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _records[0].baseUri ?? _reader.BaseURI;
 
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
         public string XPathDefaultNamespace => _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "";

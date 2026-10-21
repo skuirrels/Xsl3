@@ -945,6 +945,44 @@ public class Xslt30Tests
     }
 
     /// <summary>
+    /// Whitespace in an element the DTD gives element-only content is element content whitespace, which the data
+    /// model leaves out; in mixed content it stays.
+    /// </summary>
+    [Fact]
+    public void ElementContentWhitespaceIsLeftOut()
+    {
+        string input = """
+            <!DOCTYPE r [
+              <!ELEMENT r (a*)>
+              <!ELEMENT a (#PCDATA)>
+            ]>
+            <r>
+              <a>x</a>
+              <a> </a>
+            </r>
+            """;
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select='count(r/text()), count(r/a/text())'/></o></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
+        Assert.Equal("<o>0 2</o>", text.ToString());
+    }
+
+    /// <summary>Text with disable-output-escaping in a cdata-section element is written as it is, not as CDATA.</summary>
+    [Fact]
+    public void DisabledEscapingIsNotCData()
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>" +
+            "<xsl:output omit-xml-declaration='yes' cdata-section-elements='c'/><xsl:template match='/'>" +
+            "<c>a&lt;<xsl:text disable-output-escaping='yes'>&lt;b/></xsl:text>c&lt;</c></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, text);
+        Assert.Equal("<c><![CDATA[a<]]><b/><![CDATA[c<]]></c>", text.ToString());
+    }
+
+    /// <summary>
     /// Automatic indexing of /path[key = $value] gives what the filter gives, evaluated many times (the index is built
     /// on the second): strings and nodes by string, numbers as numbers (no index), several values in document order,
     /// repeated child keys, descendant paths, and each document its own index.

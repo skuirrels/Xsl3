@@ -196,6 +196,12 @@ namespace Xsl3.Xslt
             {
                 foreach (PackageNameTest test in rule.Names.Where(n => !n.IsWildcard))
                 {
+                    if (rule.Kind == 'F' && test.Arity == null)
+                    {
+                        // A function is named with its arity (erratum E36).
+                        Error(rule.Line, $"XTSE3020: xsl:expose names the function {test.Token} without its arity");
+                        continue;
+                    }
                     bool any = components.Any(c => c.Package == p.Id && c.OverrideOf < 0 && (rule.Kind == '*' || rule.Kind == c.Kind) && test.Matches(c.Ns, c.Local, c.Arity)
                         && !(c.Kind == 'V' && c.Decl.NodeType == XslNodeType.Param));
                     if (!any)
@@ -521,7 +527,7 @@ namespace Xsl3.Xslt
         /// compilation uses no packages or the package's table doesn't know it, null if it's hidden there, else
         /// the component's registered name, redirected to its override if it has one.
         /// </summary>
-        public static QilName? Resolve(Compiler compiler, int package, char kind, QilName name, int arity)
+        public static QilName? Resolve(Compiler compiler, int package, char kind, QilName name, int arity, bool redirect = true)
         {
             if (compiler.PackageInfos.Count <= 1 || package >= compiler.PackageInfos.Count)
             {
@@ -532,7 +538,7 @@ namespace Xsl3.Xslt
             {
                 // A name already qualified with a package (a mode in that package's code): as that package sees it.
                 return compiler.PackageInfos[owner].Visible.TryGetValue((kind, plainNs, name.LocalName, arity), out PackageComponent? seen) && seen.Visibility != "hidden"
-                    ? Redirect(compiler, kind, seen.Actual, arity) : name;
+                    ? (redirect ? Redirect(compiler, kind, seen.Actual, arity) : seen.Actual) : name;
             }
             if (!compiler.PackageInfos[package].Visible.TryGetValue((kind, name.NamespaceUri, name.LocalName, arity), out PackageComponent? component))
             {
@@ -543,7 +549,7 @@ namespace Xsl3.Xslt
             {
                 return null;
             }
-            return Redirect(compiler, kind, component.Actual, arity);
+            return redirect ? Redirect(compiler, kind, component.Actual, arity) : component.Actual;
         }
 
         public static QilName Redirect(Compiler compiler, char kind, QilName actual, int arity)

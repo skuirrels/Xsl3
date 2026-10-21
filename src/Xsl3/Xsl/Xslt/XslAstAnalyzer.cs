@@ -1457,6 +1457,8 @@ namespace Xsl3.Xslt
             newtemplate.SetContent(new List<XslNode>(content.Count - split + 8));
 
             // Pass parameters from the current scope into the called template
+            // Xsl3: innermost first; a 2.0+ local variable may shadow another of its name, which is then not passed.
+            var passed = new HashSet<(string, string)>();
             foreach (var scoperecord in _scope!.GetActiveRecords())
             {
                 if (!scoperecord.IsVariable)
@@ -1472,7 +1474,7 @@ namespace Xsl3.Xslt
                     var variable = scoperecord.value;
 
                     // Skip variables generated during errors
-                    if (Compiler.IsPhantomNamespace(variable.Name!.NamespaceUri))
+                    if (Compiler.IsPhantomNamespace(variable.Name!.NamespaceUri) || !passed.Add((variable.Name.LocalName, variable.Name.NamespaceUri)))
                     {
                         continue;
                     }

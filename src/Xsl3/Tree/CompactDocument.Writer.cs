@@ -69,6 +69,8 @@ namespace Xsl3.Tree
             /// <summary>Xsl3: the base URI of the element just started, a copy's (XSLT 3.0 §11.9.1, §11.9.2).</summary>
             internal void SetElementBaseUri(string baseUri) => _builder.SetElementBaseUri(baseUri);
 
+        internal void SetDocumentBaseUri(string baseUri) => _builder.SetDocumentBaseUri(baseUri);
+
             public override void WriteEndElement() => _builder.EndElement(emptyTag: true);
 
             public override void WriteFullEndElement() => _builder.EndElement(emptyTag: false);

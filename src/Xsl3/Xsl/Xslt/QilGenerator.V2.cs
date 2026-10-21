@@ -227,7 +227,31 @@ namespace Xsl3.Xslt
                 ReportXPath31Error("XTSE3075", "xsl:original is only available in a component that overrides one in xsl:override");
                 return null;
             }
+            if (_declaredComponents31 && kind == 'F')
+            {
+                // function-lookup: the package's own declaration, not its override; an abstract one isn't there.
+                QilName? declared = PackageComponents.Resolve(_compiler, _package31, kind, name, arity, redirect: false);
+                return declared != null && _compiler.Functions.TryGetValue((declared, arity), out var entry) && entry.Function.Visibility == "abstract" ? null : declared;
+            }
             return PackageComponents.Resolve(_compiler, _package31, kind, name, arity);
+        }
+
+        // True while function-lookup resolves a literal name (IXPath31Environment.DeclaredComponents).
+        private bool _declaredComponents31;
+
+        System.IDisposable? IXPath31Environment.DeclaredComponents()
+        {
+            if (_compiler.PackageInfos.Count <= 1 || _declaredComponents31)
+            {
+                return null;
+            }
+            _declaredComponents31 = true;
+            return new DeclaredComponentsScope(this);
+        }
+
+        private sealed class DeclaredComponentsScope(QilGenerator generator) : System.IDisposable
+        {
+            public void Dispose() => generator._declaredComponents31 = false;
         }
 
         // The lifted functions of the stylesheet's function items, and their dispatcher (completed by Compile).
@@ -1750,7 +1774,9 @@ namespace Xsl3.Xslt
                     foreach (XslNode key in source.Content)
                     {
                         EnterScope(key);
-                        keys.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(SelectOrContent31(key, key.Select))));
+                        // data-type="number": each key value is converted as by number() (XSLT 3.0 §15.3).
+                        string? keySelect = key.V2?.DataType == "number" && key.Select != null ? $"data(({key.Select})) ! number(.)" : key.Select;
+                        keys.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(SelectOrContent31(key, keySelect))));
                         ExitScope();
                     }
                     return Box(keys);

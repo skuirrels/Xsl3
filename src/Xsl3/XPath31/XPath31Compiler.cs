@@ -114,6 +114,12 @@ namespace Xsl3.XPath31
 
         /// <summary>The declared parameter and result types of a host function, for a named reference to it; null if unknown.</summary>
         (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? FunctionSignature(QName name, int arity) => null;
+
+        /// <summary>
+        /// Until disposed, host functions resolve to the components their package declares, not to their overrides,
+        /// and abstract ones not at all (function-lookup in a used package); null if the host has no such components.
+        /// </summary>
+        System.IDisposable? DeclaredComponents() => null;
     }
 
     internal sealed partial class XPath31Compiler
