@@ -659,13 +659,20 @@ public sealed class Runner
             case "any-of":
             {
                 var details = new List<string>();
+                Outcome? otherCode = null;
                 foreach (XElement a in assertion.Elements())
                 {
                     Outcome o = Check(test, a, run);
+                    if (o.Kind == OutcomeKind.Pass && o.Detail.StartsWith("error code", StringComparison.Ordinal))
+                    {
+                        // An error that another alternative names exactly (XTDE1350 or FOFD1350) matches that one.
+                        otherCode ??= o;
+                        continue;
+                    }
                     if (o.Kind == OutcomeKind.Pass) return o;
                     details.Add(o.Detail);
                 }
-                return Outcome.Fail(string.Join(" | ", details));
+                return otherCode ?? Outcome.Fail(string.Join(" | ", details));
             }
             case "not":
                 return Check(test, assertion.Elements().Single(), run).Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
