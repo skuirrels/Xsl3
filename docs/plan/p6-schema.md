@@ -56,3 +56,8 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 2026-10-21, second part | 802 passed, 42 failed, 2 not run (95.0%) |
 | 2026-10-21, third part | 822 passed, 22 failed, 2 not run (97.4%) |
 | 2026-10-21, fourth part | 827 passed, 17 failed, 2 not run (98.0%) |
+| 2026-10-21, after 1.0.0-rc.1 | 836 passed, 8 failed, 2 not run (99.1%) |
+
+The eight left: accumulator-073, copy-5034, import-schema-177, validation-0108, -0201, -0202 and -0214, and
+si-result-document-116, which the runner can't pass: it receives result documents as text through the
+`TextWriter` handler, so their type annotations don't reach the assertion.

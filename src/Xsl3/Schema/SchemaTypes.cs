@@ -356,6 +356,15 @@ namespace Xsl3.Schema
             a.QualifiedName.IsEmpty && b.QualifiedName.IsEmpty && a.SourceUri != null && a.SourceUri == b.SourceUri &&
             a.LineNumber == b.LineNumber && a.LinePosition == b.LinePosition && a.LineNumber > 0;
 
+        // A union type whose member types are all atomic, or pure union types themselves.
+        private static bool IsPureUnion(XmlSchemaSimpleType union) =>
+            System.Linq.Enumerable.All(UnionMemberTypes(union), m => m.Datatype?.Variety switch
+            {
+                XmlSchemaDatatypeVariety.Atomic => true,
+                XmlSchemaDatatypeVariety.Union => IsPureUnion(m),
+                _ => false,
+            });
+
         /// <summary>Whether <paramref name="type"/> is <paramref name="ancestor"/> or derived from it (by any method).</summary>
         public static bool DerivesFrom(XmlSchemaType? type, XmlSchemaType ancestor)
         {
@@ -370,8 +379,8 @@ namespace Xsl3.Schema
                     return true;
                 }
             }
-            // A member of a union type is substitutable for it.
-            if (ancestor is XmlSchemaSimpleType { Datatype.Variety: XmlSchemaDatatypeVariety.Union } union && type != null)
+            // A member of a pure union type (its members atomic or pure unions) derives from it (XPath 3.1 §2.5.6.1).
+            if (ancestor is XmlSchemaSimpleType { Datatype.Variety: XmlSchemaDatatypeVariety.Union } union && type != null && IsPureUnion(union))
             {
                 foreach (XmlSchemaSimpleType member in UnionMemberTypes(union))
                 {

@@ -22,7 +22,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
 | W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 3.0 profile | 8,829 passed, 38 failed, 42 not run (99.6%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 3.0 profile | 8,838 passed, 29 failed, 42 not run (99.7%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
 | W3C xslt30-test, 2.0 profile | 4,588 passed, 9 failed (99.8%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
@@ -588,6 +588,6 @@ A sensible sequence:
 | 1.3 Real stylesheets: DocBook xslTNG | `eng/fetch-bench.sh` fetches the 2.7.1 release (owner's approval, 2026-10-21); `DocBookStylesheetTests` (CI) converts the sample article and a test book; `-- docbook` benchmarks it. It found five faults, all fixed: static variables of imported modules after the `xsl:import` (static-021, static-027 pass), next-match from a union rule passing on a parameter, namespace nodes after attributes, the current group in called templates, and an `xsl:evaluate` cache too small for DocBook's 151 localization patterns (15 s to 2.3 s for a 301 KB book; docs/performance.md). Allocation for that book reduced from 3.1 GB to 2.4 GB a run (docs/performance.md) |
 | Publishing Xsl3.Build and Xsl3.Cli (owner's decision, 2026-10-21) | The release workflow packs both at the tag's version beside Xsl3 (symbols for Xsl3 only; the tool packages keep their PDBs). Checked locally: packed at 0.9.0-test, the `xsl3` tool installs from the package and transforms, and a project with `Xsl3` and `Xsl3.Build` package references compiles an `XsltStylesheet` item at build time and loads it with `Load(Type)`. Xsl3.Build carries the compiler without a native app host. Publishing stays with the owner: the next tag and the `nuget` environment approval; nuget.org's trusted-publishing policy must allow the two new package ids |
 | 5.5 Divergences | Done: the W3C list in docs/divergences.md |
-| 6 `xsl:import-schema` | Raises XTSE1650 without `XsltSettings.SchemaAware`; with it, P6 is in progress (98.0% of the schema-aware tests; section 6) |
+| 6 `xsl:import-schema` | Raises XTSE1650 without `XsltSettings.SchemaAware`; with it, P6 is in progress (99.1% of the schema-aware tests; section 6) |
 | 8.4 Memory test | Fixed: it runs in a child process |
 | 8.6 DNS flake | Fixed: network failures are compared by type |

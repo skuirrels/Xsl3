@@ -99,6 +99,8 @@ namespace Xsl3.Runtime
                 // Dates and times are equal when they are the same instant (timezones normalised).
                 DateTimeValue dt => "t" + p + " " + dt.DateTime.ToTimeline(p, 0).ToString(System.Globalization.CultureInfo.InvariantCulture),
                 DurationValue d => "d" + d.Duration.Months + " " + d.Duration.Seconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                // QNames and NOTATIONs are equal by expanded name, whatever their prefixes.
+                QNameValue q => "t" + p + " " + q.QName.EQName,
                 _ => "t" + p + " " + a.Value,
             };
         }

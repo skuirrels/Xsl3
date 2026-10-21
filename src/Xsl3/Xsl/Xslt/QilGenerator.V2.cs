@@ -2938,22 +2938,31 @@ namespace Xsl3.Xslt
             }
         }
 
-        // Compiling the pattern of a template rule of a mode with typed="strict" (Xsl3, P6).
-        private bool _strictPattern31;
+        // Compiling the pattern of a template rule of a mode with typed="strict" or "lax" (Xsl3, P6): that value, or null.
+        private string? _strictPattern31;
 
         /// <summary>
         /// Xsl3 (P6): a pattern of a mode with typed="strict" (XSLT 3.0 §3.5.4.1): the element name test of its first
-        /// step means schema-element(N).
+        /// step means schema-element(N); with typed="lax", only if the imported schemas declare N (match-221).
         /// </summary>
-        private static XPath31.Expr StrictPattern31(XPath31.Expr e) => e switch
+        private XPath31.Expr StrictPattern31(XPath31.Expr e, bool lax) => e switch
         {
-            XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u => u with { Left = StrictPattern31(u.Left), Right = StrictPattern31(u.Right) },
-            XPath31.PathExpr { Left: XPath31.RootExpr } path => path with { Right = StrictPattern31(path.Right) },
-            XPath31.PathExpr path => path with { Left = StrictPattern31(path.Left) },
-            XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name } step =>
+            XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u => u with { Left = StrictPattern31(u.Left, lax), Right = StrictPattern31(u.Right, lax) },
+            XPath31.PathExpr { Left: XPath31.RootExpr } path => path with { Right = StrictPattern31(path.Right, lax) },
+            XPath31.PathExpr path => path with { Left = StrictPattern31(path.Left, lax) },
+            XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name } step when !lax || Declared31(name, local) =>
                 step with { Test = new XPath31.KindNodeTest(new XPath31.SchemaElementTest(new LexicalQName(name.Prefix, local, name.BracedUri))) },
             _ => e,
         };
+
+        // Whether the imported schemas declare a global element of the name a name test names.
+        private bool Declared31(XPath31.NameTest name, string local)
+        {
+            string? ns = name.BracedUri ?? (name.Prefix == null
+                ? _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? ""
+                : _scope.LookupNamespace(name.Prefix));
+            return ns != null && _compiler.Schemas?.GlobalElements[new XmlQualifiedName(local, ns)] != null;
+        }
 
         private static IEnumerable<XPath31.Expr> Alternatives31(XPath31.Expr e) =>
             e is XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u ? Alternatives31(u.Left).Concat(Alternatives31(u.Right)) : new[] { e };
@@ -3007,9 +3016,9 @@ namespace Xsl3.Xslt
             try
             {
                 XPath31.Expr ast = Parser.ParseXPath(pattern);
-                if (_strictPattern31)
+                if (_strictPattern31 != null)
                 {
-                    ast = StrictPattern31(ast);
+                    ast = StrictPattern31(ast, lax: _strictPattern31 == "lax");
                 }
                 if (XPath31Compiler.IsPredicatePattern(ast) && WithoutComments31(pattern).TrimStart().StartsWith('('))
                 {

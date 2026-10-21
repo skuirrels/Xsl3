@@ -1325,8 +1325,9 @@ namespace Xsl3.Runtime
             Debug.Assert(navigator != null);
             // Xsl3 (P6): a typed node added to a temporary tree's document node keeps its type annotations (XSLT 3.0
             // §9.4, the temporary tree is built with validation="preserve"); not a copy xsl:copy-of makes, which strips them.
-            // With default-validation="preserve", every copy into a constructed tree keeps them.
-            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
+            // With default-validation="preserve", every copy into a constructed tree keeps them. Into an element (a
+            // parentless one is the root of its tree) that strips them, a constructed node loses them too (§25.4.1).
+            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0 && _rootType == XPathNodeType.Root) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
                 ? Xsl3.Schema.AnnotatingWriters.Of(Writer) : null;
             if (navigator.NodeType == XPathNodeType.Attribute)
             {
