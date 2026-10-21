@@ -278,9 +278,9 @@ public class Xslt30ApiTests
         fromSource.Load(XmlReader.Create(new StringReader(stylesheet)), settings, null);
         var saved = new MemoryStream();
         new XslCompiledTransform().CompileToAssembly(XmlReader.Create(new StringReader(stylesheet)), settings, null, "Xsl3.Tests.Saved", "Saved.Stylesheet", saved);
-        var context = new System.Runtime.Loader.AssemblyLoadContext("saved", isCollectible: true);
+        // (Not into a collectible context: docs/plan/p4-sink-b.md.)
         var fromAssembly = new XslCompiledTransform();
-        fromAssembly.Load(context.LoadFromStream(new MemoryStream(saved.ToArray())).GetType("Saved.Stylesheet", throwOnError: true)!, settings);
+        fromAssembly.Load(System.Reflection.Assembly.Load(saved.ToArray()).GetType("Saved.Stylesheet", throwOnError: true)!, settings);
         string Run(XslCompiledTransform t)
         {
             var text = new StringWriter();
@@ -289,7 +289,6 @@ public class Xslt30ApiTests
         }
         Assert.Equal("<out>3 2 1 2026-10-22 1.234,5 42 2caught</out>", Run(fromSource));
         Assert.Equal(Run(fromSource), Run(fromAssembly));
-        context.Unload();
     }
 
     /// <summary>Compiled with debug information, a saved assembly embeds a portable PDB mapping its IL to the stylesheet's lines.</summary>
@@ -314,13 +313,11 @@ public class Xslt30ApiTests
             Assert.Contains(2, lines); // the template
             Assert.Contains(4, lines); // xsl:value-of
             // And it runs.
-            var context = new System.Runtime.Loader.AssemblyLoadContext("debug", isCollectible: true);
             var transform = new XslCompiledTransform();
-            transform.Load(context.LoadFromStream(new MemoryStream(saved.ToArray())).GetType("Debug.Stylesheet", throwOnError: true)!, null);
+            transform.Load(System.Reflection.Assembly.Load(saved.ToArray()).GetType("Debug.Stylesheet", throwOnError: true)!, null);
             var text = new StringWriter();
             transform.Transform(XmlReader.Create(new StringReader("<a><b/></a>")), null, text);
             Assert.Contains("<out>2</out>", text.ToString());
-            context.Unload();
         }
         finally
         {
