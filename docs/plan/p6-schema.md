@@ -56,3 +56,9 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 2026-10-21, second part | 802 passed, 42 failed, 2 not run (95.0%) |
 | 2026-10-21, third part | 822 passed, 22 failed, 2 not run (97.4%) |
 | 2026-10-21, fourth part | 827 passed, 17 failed, 2 not run (98.0%) |
+| 2026-10-22, after 1.0.0-rc.1 | 837 passed, 7 failed, 2 not run (99.2%) |
+
+The seven left: accumulator-073, copy-5034, import-schema-177; validation-0201 and -0202 (the expected xhtml has no
+attributes the XHTML schema defaults, and isn't indented before inline elements); validation-0214 (an item-separator
+inside a validated result document); and si-result-document-116, which the runner can't pass: it receives result
+documents as text through the `TextWriter` handler, so their type annotations don't reach the assertion.

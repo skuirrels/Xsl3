@@ -194,7 +194,7 @@ namespace Xsl3.XPath31
                     {
                         TypeName = e.TypeName == null ? null : Expand(e.TypeName, DefaultElementNamespace).LocalName,
                         Nillable = e.TypeName == null || e.Nillable,
-                        SchemaType = e.TypeName == null ? null : NamedSchemaType(Expand(e.TypeName, DefaultElementNamespace)),
+                        SchemaType = e.TypeName == null ? null : NamedSchemaType(Expand(e.TypeName, DefaultElementNamespace), element: true),
                     };
                 }
                 case AttributeTest a:
@@ -264,13 +264,15 @@ namespace Xsl3.XPath31
         }
 
         // Xsl3 (P6): the type a name in element(N, T) / attribute(N, T) stands for, built-in or the schemas'; null for
-        // xs:untyped and xs:untypedAtomic, which only untyped nodes have.
-        private XmlSchemaType? NamedSchemaType(QName q)
+        // xs:untyped and an attribute's xs:untypedAtomic, which untyped nodes have. (An element is xs:untypedAtomic only
+        // when validated with that type: validation-0108.)
+        private XmlSchemaType? NamedSchemaType(QName q, bool element = false)
         {
             if (q.NamespaceUri == QName.Ns.Xs)
             {
                 var xq = new XmlQualifiedName(q.LocalName, XmlSchema.Namespace);
-                return q.LocalName is "untyped" or "untypedAtomic" ? null
+                return element && q.LocalName == "untypedAtomic" ? Xsl3.Schema.SchemaTypes.UntypedAtomic
+                    : q.LocalName is "untyped" or "untypedAtomic" ? null
                     : q.LocalName == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
                     : XmlSchemaType.GetBuiltInSimpleType(xq);
             }

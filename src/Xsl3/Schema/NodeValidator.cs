@@ -339,7 +339,19 @@ namespace Xsl3.Schema
                     return Constructed(builder.Finish(), node);
                 }
                 default:
-                    return node;
+                {
+                    // Text, comments, processing instructions and namespace nodes: a parentless copy.
+                    var builder = new CompactDocument.Builder(node.NameTable, node.BaseURI, fragment: true, small: true);
+                    if (node.NodeType == XPathNodeType.Namespace)
+                    {
+                        builder.NamespaceDeclaration(node.LocalName, node.Value);
+                    }
+                    else
+                    {
+                        CopyChild(builder, node, copyNamespaces, keepTypes);
+                    }
+                    return Constructed(builder.Finish(), node);
+                }
             }
         }
 

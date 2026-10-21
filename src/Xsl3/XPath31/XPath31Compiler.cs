@@ -132,7 +132,7 @@ namespace Xsl3.XPath31
         private readonly IXPath31Environment? _env;
         private readonly XPathStaticContext _sc;
         private readonly StaticTypeResolver _types;
-        private readonly IXmlNamespaceResolver _namespaces;
+        private IXmlNamespaceResolver? _namespacesValue;
         private readonly List<(QName Name, QilNode Value)> _scope = new();
         private Focus? _focus;
 
@@ -149,15 +149,19 @@ namespace Xsl3.XPath31
             _env = env;
             _sc = sc;
             _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
-            _namespaces = sc.CreateResolver();
-            _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
-                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
         }
 
-        // The StaticInfo id passed to runtime calls that read the static context.
-        private readonly int _staticId;
+        // Xsl3: the static context's namespaces as a resolver, and its StaticInfo constant, made when first needed (most
+        // compilers, such as Box's, need neither).
+        private IXmlNamespaceResolver _namespaces => _namespacesValue ??= _sc.CreateResolver();
 
-        private QilNode StaticId() => _f.Double(_staticId);
+        // The StaticInfo id passed to runtime calls that read the static context; -1 until first needed.
+        private int _staticIdValue = -1;
+
+        private int StaticIdValue => _staticIdValue >= 0 ? _staticIdValue : _staticIdValue = ConstantPool.Add(new StaticInfo(_sc.BaseUri, _sc.DefaultCollation,
+            new DecimalFormatTable(_sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(_sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
+
+        private QilNode StaticId() => _f.Double(StaticIdValue);
 
         [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Compiles the expression to IL at run time.")]
         public static XPath31Executable Compile(string expression, XPathStaticContext sc)
@@ -222,7 +226,10 @@ namespace Xsl3.XPath31
         }
 
         /// <summary>Compiles a boxed host value (a variable reference, say) to an item* node.</summary>
-        public static QilNode Box(QilNode n, QilPatternFactory f) => new XPath31Compiler(new XPathStaticContext(), f, null).Items(n);
+        public static QilNode Box(QilNode n, QilPatternFactory f) => new XPath31Compiler(s_boxContext, f, null).Items(n);
+
+        // (Boxing reads nothing of the static context: one for all.)
+        private static readonly XPathStaticContext s_boxContext = new();
 
         private QilExpression CompileQuery(Expr ast)
         {

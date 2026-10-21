@@ -243,16 +243,17 @@ namespace Xsl3.Runtime
                 key.Append(name.EQName).Append('\u0001');
             }
 
-            var names = new HashSet<QName>(variables.Keys);
-            names.UnionWith(functionTable.Values.Keys);
-            var called = new HashSet<QName>();
-            XPathStaticContext sc = context.StaticContext(namespaces, defaultElementNamespace, staticBase);
             if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
             {
                 throw new System.PlatformNotSupportedException("xsl:evaluate compiles its target expression at run time, which needs dynamic code; NativeAOT doesn't have it.");
             }
             XPath31Executable executable = context.Get(key.ToString(), () =>
             {
+                // (Only on a cache miss: the static context and the name sets are for the compilation.)
+                var names = new HashSet<QName>(variables.Keys);
+                names.UnionWith(functionTable.Values.Keys);
+                var called = new HashSet<QName>();
+                XPathStaticContext sc = context.StaticContext(namespaces, defaultElementNamespace, staticBase);
                 try
                 {
                     Expr ast = Parser.ParseXPath(target);

@@ -43,7 +43,7 @@ namespace Xsl3.Runtime
         private int _depth;                          // Depth of the currently constructing tree
         private int _nestedRoots;                    // Xsl3: document constructors inside content, contributing their children
         private XmlState _xstate;                    // Current XML state
-        private readonly XmlSequenceWriter? _seqwrt;           // Current XmlSequenceWriter
+        private XmlSequenceWriter? _seqwrt;           // Current XmlSequenceWriter
         private XmlNamespaceManager? _nsmgr;          // Output namespace manager
         private int _cntNmsp;                        // Number of pending namespaces
         private Dictionary<string, string>? _conflictPrefixes;         // Remembers prefixes that were auto-generated previously in case they can be reused
@@ -116,6 +116,40 @@ namespace Xsl3.Runtime
             _xstate = XmlState.WithinContent;
             _depth = 1;
             _rootType = XPathNodeType.Root;
+        }
+
+        /// <summary>
+        /// Xsl3 (perf): readies an output the runtime reuses for another nested sequence (<paramref name="seqwrt"/>) or
+        /// temporary tree (<paramref name="events"/>), as the constructors would; its attribute cache and namespace
+        /// manager are kept, emptied, rather than allocated again.
+        /// </summary>
+        internal void Reset(XmlSequenceWriter? seqwrt, XmlEventCache? events)
+        {
+            _seqwrt = seqwrt;
+            _xwrt = events;
+            _xstate = events != null ? XmlState.WithinContent : XmlState.WithinSequence;
+            _depth = events != null ? 1 : 0;
+            _rootType = XPathNodeType.Root;
+            _nestedRoots = 0;
+            if (_nsmgr != null)
+            {
+                while (_nsmgr.PopScope())
+                {
+                }
+                _nsmgr.PushScope();
+            }
+            _cntNmsp = 0;
+            _conflictPrefixes?.Clear();
+            _prefixIndex = 0;
+            _piTarget = null;
+            _nodeText = default;
+            _stkNames?.Clear();
+            _elementPrefix = _elementNs = string.Empty;
+            _usedPrefixes = default;
+            _noInheritAt?.Clear();
+            _copyOf = 0;
+            _copiedRoots?.Clear();
+            _documentContent?.Clear();
         }
 
         /// <summary>
@@ -547,6 +581,13 @@ namespace Xsl3.Runtime
             if (_cntNmsp != 0)
                 WriteCachedNamespaces();
 
+            if (_runtime.PendingAnyType)
+            {
+                // Xsl3 (P6): an element a constructor with validation="preserve" made is xs:anyType.
+                _runtime.PendingAnyType = false;
+                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.AnnotateElement(Xsl3.Schema.SchemaTypes.AnyType, false);
+            }
+
             Writer!.StartElementContent();
             _xstate = XmlState.WithinContent;
         }
@@ -675,7 +716,7 @@ namespace Xsl3.Runtime
             if (_nsmgr.LookupNamespace(prefix) != ns || ParentDoesntInherit && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
             {
                 // Xsl3: in 2.0+, two namespace nodes of one element can't bind a prefix to different URIs (XTDE0430).
-                if (_runtime.IsXslt2 && _nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).TryGetValue(prefix, out string? declared) && declared != ns)
+                if (_runtime.IsXslt2 && DeclaredHere(prefix) is string declared && declared != ns)
                 {
                     throw new Xsl3.Xdm.XdmException("XTDE0430", $"The element has two namespace nodes for the prefix '{prefix}': {declared} and {ns}");
                 }
@@ -1284,8 +1325,9 @@ namespace Xsl3.Runtime
             Debug.Assert(navigator != null);
             // Xsl3 (P6): a typed node added to a temporary tree's document node keeps its type annotations (XSLT 3.0
             // §9.4, the temporary tree is built with validation="preserve"); not a copy xsl:copy-of makes, which strips them.
-            // With default-validation="preserve", every copy into a constructed tree keeps them.
-            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
+            // With default-validation="preserve", every copy into a constructed tree keeps them. Into an element (a
+            // parentless one is the root of its tree) that strips them, a constructed node loses them too (§25.4.1).
+            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0 && _rootType == XPathNodeType.Root) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
                 ? Xsl3.Schema.AnnotatingWriters.Of(Writer) : null;
             if (navigator.NodeType == XPathNodeType.Attribute)
             {
@@ -1648,6 +1690,20 @@ namespace Xsl3.Runtime
         /// Namespace declarations are added to this.nsmgr.  Just before element content has begun, write out
         /// all namespaces that were declared locally on the element.
         /// </summary>
+        // Xsl3 (perf): the URI the element being started declares for a prefix, among its pending namespace
+        // declarations (the last _cntNmsp of the manager), without building a dictionary of them.
+        private string? DeclaredHere(string prefix)
+        {
+            for (int i = 0; i < _cntNmsp; i++)
+            {
+                if (_nsmgr!.GetNamespaceDeclaration(i, out string? declaredPrefix, out string? uri) && declaredPrefix == prefix)
+                {
+                    return uri;
+                }
+            }
+            return null;
+        }
+
         private void WriteCachedNamespaces()
         {
             string? prefix, ns;

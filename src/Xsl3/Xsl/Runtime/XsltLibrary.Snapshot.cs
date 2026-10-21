@@ -12,11 +12,19 @@ namespace Xsl3.Runtime
         /// fn:snapshot (XSLT 3.0 §20.3.2): each node is copied with its subtree, its ancestors (shallow, with their
         /// attributes and namespaces) and, for an attribute or a namespace node, its parent's other attributes.
         /// </summary>
-        public IList<XPathItem> X31Snapshot(IList<XPathItem> items)
+        /// <summary>fn:snapshot; <paramref name="schemaAware"/>: a typed document's snapshot keeps its type annotations (P6).</summary>
+        public IList<XPathItem> X31Snapshot(IList<XPathItem> items, bool schemaAware)
         {
             var result = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
+                if (schemaAware && item is Xsl3.Tree.CompactNavigator { Typed: true, NodeType: XPathNodeType.Root } typedDocument)
+                {
+                    // Xsl3 (P6): a typed document's snapshot keeps its type annotations (its copy is made with
+                    // validation="preserve"), and its accumulator values.
+                    result.AddRange(X31CopyPreserving(new XPathItem[] { typedDocument }, true));
+                    continue;
+                }
                 if (item is XPathNavigator n)
                 {
                     // The snapshot keeps the accumulator values of the node and its descendants.

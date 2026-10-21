@@ -29,7 +29,8 @@ namespace Xsl3.Runtime
 #if DEBUG
         private const int DefaultCacheSize = 2;
 #else
-        private const int DefaultCacheSize = 16;
+        // Xsl3: the first array, allocated on the first Add (most sequences a transformation builds hold 0 or 1 item).
+        private const int DefaultCacheSize = 4;
 #endif
 
         /// <summary>
@@ -67,7 +68,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public XmlQuerySequence()
         {
-            _items = new T[DefaultCacheSize];
+            _items = Array.Empty<T>();
         }
 
         /// <summary>
@@ -429,7 +430,7 @@ namespace Xsl3.Runtime
 
             if (_size >= _items.Length)
             {
-                cacheNew = new T[_size * 2];
+                cacheNew = new T[_size == 0 ? DefaultCacheSize : _size * 2];
                 CopyTo(cacheNew, 0);
                 _items = cacheNew;
             }

@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8830 passed, 37 failed, 42 not run; 99.6% of those run (218 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8839 passed, 28 failed, 42 not run; 99.7% of those run (218 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
@@ -19,12 +19,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature schema_aware | 828 | 16 | 2 | 98.1% |
+| feature schema_aware | 837 | 7 | 2 | 99.2% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 3253 | 16 | 7 | 99.5% |
-| spec XSLT30+ | 3680 | 18 | 35 | 99.5% |
+| spec XSLT20+ | 3258 | 11 | 7 | 99.7% |
+| spec XSLT30+ | 3684 | 14 | 35 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -89,7 +89,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 201 | 2 | 0 | 99.0% |
+| import-schema | 202 | 1 | 0 | 99.5% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |
@@ -101,7 +101,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | load-xquery-module | 4 | 0 | 0 | 100.0% |
 | lre | 35 | 0 | 0 | 100.0% |
 | maps | 50 | 0 | 0 | 100.0% |
-| match | 283 | 3 | 0 | 99.0% |
+| match | 286 | 0 | 0 | 100.0% |
 | math | 155 | 0 | 0 | 100.0% |
 | merge | 66 | 1 | 11 | 98.5% |
 | message | 45 | 0 | 0 | 100.0% |
@@ -112,13 +112,13 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | node | 32 | 0 | 0 | 100.0% |
 | nodetest | 38 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
-| notation | 22 | 1 | 0 | 95.7% |
+| notation | 23 | 0 | 0 | 100.0% |
 | number | 158 | 0 | 0 | 100.0% |
 | on-empty | 72 | 0 | 0 | 100.0% |
 | on-non-empty | 14 | 0 | 0 | 100.0% |
 | outermost | 26 | 0 | 0 | 100.0% |
 | output | 221 | 0 | 1 | 100.0% |
-| override | 100 | 2 | 0 | 98.0% |
+| override | 102 | 0 | 0 | 100.0% |
 | package | 53 | 0 | 19 | 100.0% |
 | package-version | 35 | 0 | 0 | 100.0% |
 | param | 31 | 0 | 0 | 100.0% |
@@ -174,7 +174,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 47 | 2 | 0 | 95.9% |
 | use-when | 99 | 0 | 0 | 100.0% |
-| validation | 51 | 5 | 0 | 91.1% |
+| validation | 53 | 3 | 0 | 94.6% |
 | variable | 108 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
 | where-populated | 27 | 0 | 0 | 100.0% |

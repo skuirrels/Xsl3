@@ -440,7 +440,7 @@ namespace Xsl3.XPath31
                     QilIterator f = _f.Let(Items(Build(args[2])));
                     QilIterator x = _f.For(items);
                     QilNode keys = _f.Loop(x, Call(nameof(XsltLibrary.X31Wrap), T.Item, DynamicCall(f, new[] { (QilNode)x })));
-                    return _f.Loop(items, _f.Loop(f, Call(nameof(XsltLibrary.X31SortByKeys), T.ItemS, items, keys, Items(Build(args[1])), _f.Double(_staticId))));
+                    return _f.Loop(items, _f.Loop(f, Call(nameof(XsltLibrary.X31SortByKeys), T.ItemS, items, keys, Items(Build(args[1])), StaticId())));
                 }
                 case "fn:apply#2":
                     return _f.Invoke(Registry.Dispatcher, _f.ActualParameterList(Call(nameof(XsltLibrary.X31ApplyCall), T.Item, Items(Build(args[0])), Items(Build(args[1])))));
@@ -473,7 +473,7 @@ namespace Xsl3.XPath31
                         // Xsl3: a literal name with an arity computed at run time (system-property-024): a reference for
                         // each arity that resolves (the host's functions too), else the run-time lookup.
                         QilIterator lookupArity = _f.Let(Items(Build(args[1])));
-                        QilNode result = Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), lookupArity, _f.Double(_staticId));
+                        QilNode result = Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), lookupArity, StaticId());
                         for (int candidate = 4; candidate >= 0; candidate--)
                         {
                             try
@@ -488,7 +488,7 @@ namespace Xsl3.XPath31
                         }
                         return _f.Loop(lookupArity, result);
                     }
-                    return Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), Items(Build(args[1])), _f.Double(_staticId));
+                    return Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), Items(Build(args[1])), StaticId());
                 case "map:for-each#2":
                 {
                     QilIterator m = _f.Let(Items(Build(args[0])));
@@ -525,7 +525,7 @@ namespace Xsl3.XPath31
                     QilIterator x = _f.For(members);
                     QilNode keys = _f.Loop(x, Call(nameof(XsltLibrary.X31Wrap), T.Item, DynamicCall(f, new[] { Unwrap(x) })));
                     return _f.Loop(members, _f.Loop(f, Call(nameof(XsltLibrary.X31ArrayOfWrapped), T.Item,
-                        Call(nameof(XsltLibrary.X31SortByKeys), T.ItemS, members, keys, Items(Build(args[1])), _f.Double(_staticId)))));
+                        Call(nameof(XsltLibrary.X31SortByKeys), T.ItemS, members, keys, Items(Build(args[1])), StaticId()))));
                 }
             }
             return null;

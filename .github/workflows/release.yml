@@ -104,9 +104,20 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER }}
 
+      # Each package is pushed on its own, Xsl3 first, so that one nuget.org refuses (a new package id the
+      # trusted-publishing policy doesn't cover yet, say) doesn't stop the others; the job fails if any was refused.
       - name: Push to nuget.org
-        run: >
-          dotnet nuget push "artifacts/packages/*.nupkg"
-          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          failed=""
+          for package in artifacts/packages/Xsl3.[0-9]*.nupkg artifacts/packages/Xsl3.[A-Za-z]*.nupkg; do
+            [ -f "$package" ] || continue
+            echo "== $(basename "$package")"
+            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate \
+              || failed="$failed $(basename "$package")"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::nuget.org refused:$failed"
+            exit 1
+          fi

@@ -238,7 +238,7 @@ namespace Xsl3.Xslt
                         Error(o.Decl.SourceLine, $"XTSE3060: {o.Local} is final in the used package and can't be overridden");
                         continue;
                     }
-                    if (original.Declaration != null && !SameSignature(o.Kind, o.Decl, original.Declaration))
+                    if (original.Declaration != null && !SameSignature(o.Kind, o.Decl, original.Declaration, compiler.Schemas))
                     {
                         Error(o.Decl.SourceLine, $"XTSE3070: the override of {o.Local} doesn't have the same type signature");
                     }
@@ -349,12 +349,13 @@ namespace Xsl3.Xslt
 
         // §3.5.3.3: an overriding component has the overridden one's type: functions and templates the same
         // declared types of result and parameters (and templates the same parameter names), variables the same type.
-        private static bool SameSignature(char kind, XslNode o, XslNode original)
+        private static bool SameSignature(char kind, XslNode o, XslNode original, System.Xml.Schema.XmlSchemaSet? schemas)
         {
             static string Norm(string? type) => type == null ? "" : string.Concat(type.Where(c => !char.IsWhiteSpace(c)));
+            bool SameType(string? x, string? y) => Norm(x) == Norm(y) || SameUnions(Norm(x), Norm(y), schemas);
             if (kind == 'V' || kind == 'F' || kind == 'T')
             {
-                if (Norm(o.V2?.As) != Norm(original.V2?.As))
+                if (!SameType(o.V2?.As, original.V2?.As))
                 {
                     return false;
                 }
@@ -366,7 +367,7 @@ namespace Xsl3.Xslt
                 if (kind == 'F')
                 {
                     // The same parameter types, and the same determinism (new-each-time).
-                    return a.Count == b.Count && a.Zip(b).All(x => Norm(x.First.V2?.As) == Norm(x.Second.V2?.As)) &&
+                    return a.Count == b.Count && a.Zip(b).All(x => SameType(x.First.V2?.As, x.Second.V2?.As)) &&
                         (o.V2?.NewEachTime ?? "maybe") == (original.V2?.NewEachTime ?? "maybe");
                 }
                 // Templates: the overridden template's non-tunnel parameters, by name and type; others not required.
@@ -374,13 +375,13 @@ namespace Xsl3.Xslt
                 foreach (VarPar q in b.Where(q => !(q.V2?.Tunnel ?? false)))
                 {
                     VarPar? match = Same(q);
-                    if (match == null || Norm(match.V2?.As) != Norm(q.V2?.As) || (match.V2?.Tunnel ?? false) != (q.V2?.Tunnel ?? false))
+                    if (match == null || !SameType(match.V2?.As, q.V2?.As) || (match.V2?.Tunnel ?? false) != (q.V2?.Tunnel ?? false))
                     {
                         return false;
                     }
                 }
                 // Tunnel parameters both declare: the same type.
-                if (b.Where(q => q.V2?.Tunnel ?? false).Any(q => Same(q) is VarPar match && Norm(match.V2?.As) != Norm(q.V2?.As)))
+                if (b.Where(q => q.V2?.Tunnel ?? false).Any(q => Same(q) is VarPar match && !SameType(match.V2?.As, q.V2?.As)))
                 {
                     return false;
                 }
@@ -395,6 +396,38 @@ namespace Xsl3.Xslt
                 return a.All(x => b.Any(q => q.Name!.LocalName == x.Name!.LocalName) || !(x.V2?.Required ?? false));
             }
             return true;
+        }
+
+        // Xsl3 (P6): two sequence types that differ only in the names of user-defined union types whose member types are
+        // the same, in any order (§3.5.3.3 type identity; override-v-005, override-f-031). Names are unprefixed: the
+        // imported schemas' no-namespace types.
+        private static bool SameUnions(string x, string y, System.Xml.Schema.XmlSchemaSet? schemas)
+        {
+            if (schemas == null)
+            {
+                return false;
+            }
+            const string Name = @"[\p{L}_][\p{L}\p{Nd}_.\-]*(?::[\p{L}_][\p{L}\p{Nd}_.\-]*)?";
+            string[] a = System.Text.RegularExpressions.Regex.Split(x, "(" + Name + ")"), b = System.Text.RegularExpressions.Regex.Split(y, "(" + Name + ")");
+            if (a.Length != b.Length)
+            {
+                return false;
+            }
+            for (int i = 0; i < a.Length; i++)
+            {
+                // Odd parts are names; even parts the punctuation between them.
+                if (a[i] != b[i] && (i % 2 == 0 || MemberTypes(a[i]) is not { } m || MemberTypes(b[i]) is not { } n || !m.SetEquals(n)))
+                {
+                    return false;
+                }
+            }
+            return true;
+
+            HashSet<System.Xml.XmlQualifiedName>? MemberTypes(string name) =>
+                !name.Contains(':') && schemas.GlobalTypes[new System.Xml.XmlQualifiedName(name)] is System.Xml.Schema.XmlSchemaSimpleType { Content: System.Xml.Schema.XmlSchemaSimpleTypeUnion union }
+                && union.BaseMemberTypes is { } members && members.All(t => !t.QualifiedName.IsEmpty)
+                    ? new HashSet<System.Xml.XmlQualifiedName>(members.Select(t => t.QualifiedName))
+                    : null;
         }
 
         // §3.5.4.2: in a package with declared-modes="yes", the modes of its template rules and xsl:apply-templates
