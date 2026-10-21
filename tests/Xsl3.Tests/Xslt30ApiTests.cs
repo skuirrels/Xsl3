@@ -170,6 +170,31 @@ public class Xslt30ApiTests
         Assert.Contains("<part", parts[new Uri("file:///out/part.xml")].ToString());
     }
 
+    /// <summary>A document's xml-stylesheet processing instruction names its stylesheet, here embedded in it.</summary>
+    [Fact]
+    public void AssociatedStylesheetsAreCompiled()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "xsl3-associated-" + Guid.NewGuid().ToString("N") + ".xml");
+        File.WriteAllText(file,
+            "<?xml-stylesheet type='text/xsl' href='#style'?>" +
+            "<doc><xsl:stylesheet id='style' version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>" +
+            "<xsl:output omit-xml-declaration='yes'/><xsl:template match='/'><n><xsl:value-of select='count(//item)'/></n></xsl:template>" +
+            "</xsl:stylesheet><item/><item/></doc>");
+        try
+        {
+            XdmNode document = XdmNode.Load(File.OpenRead(file), new Uri(file).AbsoluteUri);
+            Assert.Equal(new Uri(file).AbsoluteUri + "#style", XsltCompiler.GetAssociatedStylesheet(document)!.AbsoluteUri);
+            var text = new StringWriter();
+            new XsltCompiler().CompileAssociatedStylesheet(document).CreateTransformer().ApplyTemplates(document, text);
+            Assert.Equal("<n>2</n>", text.ToString());
+            Assert.Null(XsltCompiler.GetAssociatedStylesheet(Parse("<doc/>")));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     [Fact]
     public void AnExecutableServesManyTransformersAndEntryPoints()
     {

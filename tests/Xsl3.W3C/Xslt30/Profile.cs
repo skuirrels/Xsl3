@@ -22,7 +22,7 @@ public sealed class Profile
     public static Profile Xslt20 { get; } = new()
     {
         Specs = new HashSet<string>(StringComparer.Ordinal) { "XSLT10+", "XSLT20+" },
-        Features = new HashSet<string>(StringComparer.Ordinal) { "namespace_axis", "dtd", "disabling_output_escaping", "serialization" },
+        Features = new HashSet<string>(StringComparer.Ordinal) { "namespace_axis", "dtd", "disabling_output_escaping", "serialization", "xsl-stylesheet-processing-instruction" },
     };
 
     /// <summary>P3: a basic XSLT 3.0 processor with XPath 3.1 and higher-order functions; P5 adds dynamic evaluation.</summary>
@@ -32,6 +32,8 @@ public sealed class Profile
         Features = new HashSet<string>(StringComparer.Ordinal)
         {
             "namespace_axis", "dtd", "disabling_output_escaping", "serialization", "higher_order_functions", "XPath_3.1",
+            // XsltCompiler.GetAssociatedStylesheet: the source's xml-stylesheet processing instruction names the stylesheet.
+            "xsl-stylesheet-processing-instruction",
             // P5: xsl:evaluate (the runner enables it with XsltSettings.EnableEvaluate).
             "dynamic_evaluation",
         },

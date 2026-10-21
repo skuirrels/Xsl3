@@ -94,6 +94,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,738 | 169 | 49 | 97.9% | Memo functions (`new-each-time="no"`, `cache="yes"`), `copy-namespaces="no"` on `xsl:copy` and `xsl:copy-of`; the 2.0 profile is at 98.7% (4,416 passed, 56 failed) |
 | 2026-10-21 | 7,805 | 102 | 49 | 98.7% | `fn:transform`, `inherit-namespaces="no"`, absent initial context items, DTDs read for 2.0+ documents, base URIs from external entities, embedded stylesheet modules, IDs kept through whitespace stripping, keys on namespace nodes, collections, XTDE0430/0905; the 2.0 profile is at 99.1% |
 | 2026-10-21 | 7,831 | 76 | 49 | 99.0% | Hardening target met. Initial template and mode parameters (tunnel ones too), `$err:line-number`, local variables nothing refers to aren't evaluated, accumulator applicability (`use-accumulators` of the initial mode and of `xsl:source-document`, none by default), XTSE3040/3051/3080 package checks, `element(*)` default priority, element types in function-type subtyping, temporary trees in creation order, arrays deemed empty, `xsl:context-item` optional by default; the 2.0 profile is at 99.2% (4,435 passed, 37 failed) |
+| 2026-10-21 | 7,849 | 76 | 49 | 99.0% | The `xsl-stylesheet-processing-instruction` feature claimed (`XsltCompiler.GetAssociatedStylesheet`): the 18 `embedded-stylesheet` tests run and pass; the 2.0 profile is at 99.2% (4,453 passed, 37 failed) |
 
 ### P5 exit sets
 

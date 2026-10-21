@@ -25,8 +25,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,810 passed, 74 failed (99.7%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,435 passed, 37 failed (99.2%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,831 passed, 76 failed, 49 not run (99.0%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,453 passed, 37 failed (99.2%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,849 passed, 76 failed, 49 not run (99.0%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -75,8 +75,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**: backwards-compatible processing of `version="1.0"` regions in 2.0+ stylesheets, the stylesheet
-  processing instruction, unparsed entities of temporary trees (a document's own are read from its DTD).
+- **XSLT 3.0**: backwards-compatible processing of `version="1.0"` regions in 2.0+ stylesheets, unparsed entities
+  of temporary trees (a document's own are read from its DTD).
 - **API**: the XSLT 3.0 API is new in this branch (below). Extension functions for 2.0+ stylesheets and the W3C
   runner on the public API are still to do.
 - **Known gaps**:
@@ -171,6 +171,8 @@ XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows
 - `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`).
 - An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
   [docs/plan/api.md](docs/plan/api.md).
+- `XsltCompiler.CompileAssociatedStylesheet(document)` compiles the stylesheet a document names in its
+  `<?xml-stylesheet?>` processing instruction, embedded in it (`href="#id"`) or not.
 
 ### Parameters of XSLT 2.0 and 3.0 stylesheets
 

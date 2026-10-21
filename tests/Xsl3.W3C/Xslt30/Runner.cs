@@ -138,6 +138,14 @@ public sealed class Runner
         XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal")
             ?? t.Elements(Catalog.Ns + "package").FirstOrDefault(p => (string?)p.Attribute("role") == "principal");
         string? stylesheetPath = sheet != null ? Path.Combine(test.Set.Directory, (string)sheet.Attribute("file")!) : envs.SelectMany(e => e.Stylesheets).FirstOrDefault();
+        if (stylesheetPath == null && envs.SelectMany(e => e.Sources).FirstOrDefault(s => s.DefinesStylesheet && s.File != null) is { } defining)
+        {
+            // The source names its stylesheet in an xml-stylesheet processing instruction (embedded, as a rule).
+            using var stream = File.OpenRead(defining.File!);
+            Uri? associated = XsltCompiler.GetAssociatedStylesheet(Xsl3.Xdm.XdmNode.Load(XmlReader.Create(stream,
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }, new Uri(defining.File!).AbsoluteUri)));
+            stylesheetPath = associated?.AbsoluteUri;
+        }
         if (stylesheetPath == null)
         {
             return Outcome.NotRun("no principal stylesheet");
@@ -267,7 +275,10 @@ public sealed class Runner
                     test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
             // Some stylesheets declare entities in an internal DTD subset.
-            using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
+            // (An embedded stylesheet, named with a fragment identifier, is compiled through a module that includes it.)
+            using (XmlReader stylesheetReader = stylesheet.Contains('#')
+                ? XmlReader.Create(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver })
+                : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
                 transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {

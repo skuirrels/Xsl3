@@ -74,6 +74,70 @@ namespace Xsl3
             return Build(() => XmlReader.Create(new StringReader(text), ReaderSettings(resolver), baseUri?.AbsoluteUri), resolver);
         }
 
+        /// <summary>
+        /// The stylesheet <paramref name="document"/> names in an <c>xml-stylesheet</c> processing instruction
+        /// (W3C Associating Style Sheets with XML documents; XSLT 3.0 §3.12 embedded stylesheet modules): the first
+        /// one before the document element whose type is an XSLT or XML media type and that isn't an alternate,
+        /// resolved against the document's base URI. A fragment identifier (<c>#id</c>) names an embedded module.
+        /// Null if there is none.
+        /// </summary>
+        public static Uri? GetAssociatedStylesheet(XdmNode document)
+        {
+            ArgumentNullException.ThrowIfNull(document);
+            XPathNavigator node = document.Navigator;
+            node.MoveToRoot();
+            Uri? baseUri = document.BaseUri ?? (Uri.TryCreate(node.BaseURI, UriKind.Absolute, out Uri? b) ? b : null);
+            if (!node.MoveToFirstChild())
+            {
+                return null;
+            }
+            do
+            {
+                if (node.NodeType == XPathNodeType.Element)
+                {
+                    break;
+                }
+                if (node.NodeType != XPathNodeType.ProcessingInstruction || node.LocalName != "xml-stylesheet")
+                {
+                    continue;
+                }
+                Dictionary<string, string> pseudo = PseudoAttributes(node.Value);
+                if (pseudo.TryGetValue("href", out string? href) &&
+                    pseudo.GetValueOrDefault("type", "").Trim().ToLowerInvariant() is "text/xsl" or "text/xml" or "application/xml" or "application/xslt+xml" &&
+                    pseudo.GetValueOrDefault("alternate", "no") != "yes")
+                {
+                    return baseUri != null ? new Uri(baseUri, href) : Uri.TryCreate(href, UriKind.Absolute, out Uri? absolute) ? absolute : null;
+                }
+            }
+            while (node.MoveToNext());
+            return null;
+        }
+
+        // The pseudo-attributes of an xml-stylesheet processing instruction: name="value" or name='value'.
+        private static Dictionary<string, string> PseudoAttributes(string text)
+        {
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"([\w:.-]+)\s*=\s*(?:""([^""]*)""|'([^']*)')"))
+            {
+                result.TryAdd(m.Groups[1].Value, System.Net.WebUtility.HtmlDecode(m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value));
+            }
+            return result;
+        }
+
+        /// <summary>Compiles the stylesheet <paramref name="document"/> names in an <c>xml-stylesheet</c> processing instruction.</summary>
+        /// <exception cref="ArgumentException">The document names no stylesheet.</exception>
+        /// <exception cref="XsltStaticException">The stylesheet has static errors.</exception>
+        [RequiresDynamicCode(XslCompiledTransform.CompilesIL)]
+        public XsltExecutable CompileAssociatedStylesheet(XdmNode document)
+        {
+            Uri stylesheet = GetAssociatedStylesheet(document) ?? throw new ArgumentException("The document has no xml-stylesheet processing instruction naming an XSLT stylesheet", nameof(document));
+            return Compile(new StringReader(IncludeWrapper(stylesheet)));
+        }
+
+        /// <summary>A stylesheet that includes the module at <paramref name="module"/>, which may be embedded (a fragment identifier).</summary>
+        internal static string IncludeWrapper(Uri module) =>
+            $"<xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'><xsl:include href='{System.Security.SecurityElement.Escape(module.AbsoluteUri)}'/></xsl:stylesheet>";
+
         private static XmlReaderSettings ReaderSettings(XmlResolver resolver) =>
             new() { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver, MaxCharactersFromEntities = 10_000_000 };
 
