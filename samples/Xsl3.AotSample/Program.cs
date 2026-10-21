@@ -14,7 +14,7 @@ const string Input = """
       <order customer="b" price="1" quantity="3"/>
     </orders>
     """;
-const string Expected = """<report title="Q4"><customer name="a" orders="1" total="10" /><customer name="b" orders="2" total="13" /><largest>13</largest></report>""";
+const string Expected = """<report title="Q4"><customer name="a" orders="1" total="10"/><customer name="b" orders="2" total="13"/><largest>13</largest></report>""";
 
 var transform = new XslCompiledTransform();
 transform.Load(typeof(Stylesheets.Report), new XsltSettings());
