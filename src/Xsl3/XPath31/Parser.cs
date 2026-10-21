@@ -16,9 +16,10 @@ namespace Xsl3.XPath31
         private readonly List<Token> _tokens;
         private int _pos;
 
-        private Parser(string text)
+        private Parser(string? text)
         {
-            _tokens = Lexer.Tokenize(text);
+            // (A missing expression: an attribute a stylesheet left out, which the loader has reported.)
+            _tokens = Lexer.Tokenize(text ?? throw new XPathStaticException("XPST0003", "An expression is missing", 0));
         }
 
         /// <summary>Parses a complete XPath expression.</summary>

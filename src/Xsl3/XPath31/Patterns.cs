@@ -65,8 +65,12 @@ namespace Xsl3.XPath31
         /// context node, its nodes are in document order, distinct and all at one depth, and so is any subsequence
         /// of them in their order (such as a group of xsl:for-each-group).
         /// </summary>
-        public static bool IsChildPath(string expression)
+        public static bool IsChildPath(string? expression)
         {
+            if (expression == null)
+            {
+                return false; // (a missing select, reported by the loader)
+            }
             try
             {
                 return IsChildSteps(Parser.ParseXPath(expression));
