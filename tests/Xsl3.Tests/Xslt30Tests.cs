@@ -480,6 +480,17 @@ public class Xslt30Tests
         Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(stylesheet))));
     }
 
+    /// <summary>
+    /// format-number rounds a double's shortest digits half to even: values whose scaled form sits next to a half
+    /// (2.675 is 267.49999999999997 scaled) round as their digits do, others by scaling.
+    /// </summary>
+    [Fact]
+    public void FormatNumberRoundsNearHalvesByDigits() =>
+        Assert.Equal("<o>2.68 1.00 0.12 370.35 3,703.50 0.10</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="format-number(2.675e0, '0.00'), format-number(1.005e0, '0.00'), format-number(0.125e0, '0.00'),
+              format-number(3 * 123.45e0, '#,##0.00'), format-number(30 * 123.45e0, '#,##0.00'), format-number(0.1e0, '0.00')"/></o></xsl:template>
+            """));
+
     /// <summary>The initial mode's xsl:mode names the accumulators applicable to the source document; by default none (XTDE3362).</summary>
     [Fact]
     public void AccumulatorsTheInitialModeDoesNotNameAreXTDE3362()

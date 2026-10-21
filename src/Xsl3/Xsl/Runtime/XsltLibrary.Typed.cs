@@ -29,6 +29,10 @@ namespace Xsl3.Runtime
             return ((MapItem)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
         }
 
+        /// <summary>$m(key) for a map and a key that is one xs:string: looked up as a string.</summary>
+        public System.Collections.Generic.IList<System.Xml.XPath.XPathItem> X31MapLookupString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function, string key) =>
+            ((MapItem)function[0]).GetString(key) ?? Sequences.Empty;
+
         /// <summary>
         /// The xs:double an xs:untypedAtomic value casts to: the exact fast parse for short decimals, the cast otherwise
         /// (FORG0001 for a string that isn't a double).

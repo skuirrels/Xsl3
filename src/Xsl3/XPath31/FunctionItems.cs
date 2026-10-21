@@ -325,7 +325,17 @@ namespace Xsl3.XPath31
                 // Xsl3 (P4): $map(key), the usual one-argument call, looks the key up directly; anything else that
                 // is called with one argument goes through the dispatcher as before.
                 QilIterator fn = _f.Let(Items(Build(d.Function)));
-                QilIterator arg = _f.Let(Items(Build(d.Arguments[0])));
+                QilNode argument = Build(d.Arguments[0]);
+                if (argument.XmlType!.TypeCode == System.Xml.Schema.XmlTypeCode.String && argument.XmlType.IsSingleton && NativeString(argument) is QilNode text)
+                {
+                    // A key that is one string (string(@sku), say) is looked up as a string, with no atomic value.
+                    QilIterator key = _f.Let(text);
+                    return _f.Loop(fn, _f.Loop(key, _f.Conditional(
+                        Call(nameof(XsltLibrary.X31IsMap), T.BooleanX, fn),
+                        Call(nameof(XsltLibrary.X31MapLookupString), T.ItemS, fn, key),
+                        DynamicCall(fn, new QilNode[] { Call(nameof(XsltLibrary.X31StringItem), T.Item, key) }))));
+                }
+                QilIterator arg = _f.Let(Items(argument));
                 return _f.Loop(fn, _f.Loop(arg, _f.Conditional(
                     Call(nameof(XsltLibrary.X31IsMap), T.BooleanX, fn),
                     Call(nameof(XsltLibrary.X31MapLookup), T.ItemS, fn, arg),

@@ -410,6 +410,26 @@ branch (docs/plan/remaining-scope.md) leaves the pairs where main has them. Muen
 the earlier table's 0.83 and 1.03 on both, so that difference is the machine and the run, not a code change; both
 are still above the ≤ 1.0 target.
 
+### Every pair under 1× (2026-10-21)
+
+| Pair | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|
+| identity | 0.87 | 0.86 | 0.85 |
+| sort | 0.74 | 0.71 | 0.71 |
+| muenchian | 0.97 | 0.95 | 0.98 |
+| string-recursion | 0.78 | 0.77 | 0.75 |
+| key-join | 0.95 | 0.95 | 0.98 |
+
+Three `pairs 20000` runs in a row, rewrite time over stock 1.0 time. Before these changes muenchian measured
+1.07–1.22 and key-join 1.08–1.13 on the same machine. The changes:
+
+| Change | Where | Pair |
+|---|---|---|
+| `format-number` rounds a double by scaling when the scaled value is below 10^9 and more than 10^-6 from a half, instead of finding its shortest round-trip digits (Dragon4); near a half the exact digits still decide | `NumberFormatter.TryScaledDigits` | key-join |
+| A map built in one go (`map:merge`, constructors, JSON) keeps a hash table, and makes the persistent dictionary only when it is first updated | `MapItem.Of` | key-join |
+| `$map(string-expression)` looks the string up without making an atomic value for it | `XPath31Compiler.DynamicFunctionCall`, `X31MapLookupString` | key-join |
+| A `group-by` key that is one node is kept as its string, and grouped by it under the codepoint collation without an atomic value and an array per item | `X31GroupTuple`, `X31Groups` | muenchian |
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

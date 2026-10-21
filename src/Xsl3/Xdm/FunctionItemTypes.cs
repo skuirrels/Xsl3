@@ -58,6 +58,15 @@ namespace Xsl3.Xdm
             (Kind, Normal) = Normalize(value);
         }
 
+        // Xsl3 (P4): the key of a string, for lookups only (MapItem.GetString): equal to the key of an xs:string,
+        // xs:untypedAtomic or xs:anyURI value with these characters.
+        public MapKey(string s)
+        {
+            Value = null!;
+            Kind = 2;
+            Normal = s;
+        }
+
         public AtomicValue Value { get; }
 
         private int Kind { get; }
@@ -131,61 +140,83 @@ namespace Xsl3.Xdm
 
         public static readonly MapItem Empty = new(ImmutableDictionary<MapKey, Entry>.Empty);
 
-        private readonly ImmutableDictionary<MapKey, Entry> _entries;
+        // Xsl3 (P4): a map built in one go (MapItem.Of: map:merge, map constructors, JSON) keeps a hash table and no
+        // persistent dictionary until it is first updated; maps made by updates share structure through the
+        // persistent one. Exactly one of the two is the map's contents (_entries may also be set alongside
+        // _lookup, as a cache, when an updated map is read often).
+        private ImmutableDictionary<MapKey, Entry>? _entries;
+        private Dictionary<MapKey, Entry>? _lookup;
 
         private MapItem(ImmutableDictionary<MapKey, Entry> entries)
         {
             _entries = entries;
         }
 
-        public int Count => _entries.Count;
+        private MapItem(Dictionary<MapKey, Entry> lookup)
+        {
+            _lookup = lookup;
+        }
+
+        public int Count => _lookup?.Count ?? _entries!.Count;
 
         public IEnumerable<AtomicValue> Keys => Ordered.Select(e => e.Key);
 
         public IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> Entries => Ordered.Select(e => new KeyValuePair<AtomicValue, IList<XPathItem>>(e.Key, e.Value));
 
-        private IEnumerable<Entry> Ordered => _entries.Count <= 1 ? _entries.Values : _entries.Values.OrderBy(e => e.Order);
+        private IEnumerable<Entry> Ordered
+        {
+            get
+            {
+                IEnumerable<Entry> values = _lookup != null ? _lookup.Values : _entries!.Values;
+                return Count <= 1 ? values : values.OrderBy(e => e.Order);
+            }
+        }
 
         public bool ContainsKey(AtomicValue key) => Lookup(new MapKey(key), out _);
 
         public IList<XPathItem>? Get(AtomicValue key) => Lookup(new MapKey(key), out var e) ? e.Value : null;
 
-        // Xsl3 (P4): a map that is read again and again (a lookup table in a loop) gets a hash table of its entries,
-        // which the map's immutability makes safe to keep; the persistent dictionary is a tree, slower to search.
-        // Built after a few reads, so maps made, read once and updated don't pay for it. Races only build it twice.
-        private Dictionary<MapKey, Entry>? _lookup;
+        /// <summary>The value for the key that is the string <paramref name="key"/> (as xs:string), or null.</summary>
+        public IList<XPathItem>? GetString(string key) => Lookup(new MapKey(key), out var e) ? e.Value : null;
+
+        // Xsl3 (P4): an updated map that is read again and again (a lookup table in a loop) gets a hash table of its
+        // entries, which the map's immutability makes safe to keep; the persistent dictionary is a tree, slower to
+        // search. Built after a few reads, so maps made, read once and updated don't pay for it. Races only build it twice.
         private int _reads;
 
         private bool Lookup(MapKey key, out Entry entry)
         {
             Dictionary<MapKey, Entry>? lookup = _lookup;
-            if (lookup == null && _entries.Count >= 8 && ++_reads == 16)
+            if (lookup == null && _entries!.Count >= 8 && ++_reads == 16)
             {
                 _lookup = lookup = new Dictionary<MapKey, Entry>(_entries);
             }
-            return lookup != null ? lookup.TryGetValue(key, out entry) : _entries.TryGetValue(key, out entry);
+            return lookup != null ? lookup.TryGetValue(key, out entry) : _entries!.TryGetValue(key, out entry);
         }
+
+        // The persistent dictionary, made from the hash table the first time the map is updated.
+        private ImmutableDictionary<MapKey, Entry> Persistent => _entries ??= _lookup!.ToImmutableDictionary();
 
         // A replaced entry keeps its place.
         public MapItem Put(AtomicValue key, IList<XPathItem> value)
         {
             var k = new MapKey(key);
-            long order = _entries.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
-            return new(_entries.SetItem(k, new Entry(key, value, order)));
+            long order = Lookup(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
+            return new(Persistent.SetItem(k, new Entry(key, value, order)));
         }
 
-        public MapItem Remove(AtomicValue key) => new(_entries.Remove(new MapKey(key)));
+        public MapItem Remove(AtomicValue key) => new(Persistent.Remove(new MapKey(key)));
 
         public static MapItem Of(IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> entries)
         {
-            var builder = ImmutableDictionary.CreateBuilder<MapKey, Entry>();
+            var lookup = new Dictionary<MapKey, Entry>();
             foreach (var e in entries)
             {
                 var k = new MapKey(e.Key);
-                long order = builder.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
-                builder[k] = new Entry(e.Key, e.Value, order);
+                long order = lookup.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
+                lookup[k] = new Entry(e.Key, e.Value, order);
             }
-            return new MapItem(builder.ToImmutable());
+            return lookup.Count == 0 ? Empty : new MapItem(lookup);
         }
 
         public override int Arity => 1;

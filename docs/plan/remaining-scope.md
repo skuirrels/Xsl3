@@ -26,7 +26,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | W3C xslt30-test, 2.0 profile | 4,560 passed, 37 failed (99.2%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
-| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.80, sort 0.68, muenchian 1.15, string-recursion 0.74, key-join 1.12 (2026-10-21; main measures the same) | ≤ 1.0 on every pair (§19.6) |
+| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.86, sort 0.71, muenchian 0.97, string-recursion 0.77, key-join 0.95 (medians of three runs, 2026-10-21) | ≤ 1.0 on every pair (§19.6, met) |
 | Compact tree memory | 59% of `XPathDocument` | ≤ 75% (met) |
 | NuGet | 0.7.0-alpha (published 2026-10-21) | 1.0 after P4 (§22 release plan) |
 
@@ -37,9 +37,9 @@ rest depend on features Xsl3 doesn't claim yet:
 |---|---:|---|
 | `streaming` | 2,983 | 7 (P7) |
 | `schema_aware` | 933 | 6 (P6) |
-| `backwards_compatibility` | 122 | 4 |
+| `backwards_compatibility` | 122 | 4 (claimed 2026-10-21) |
 | `XML_1.1` | 65 | 4 (decide, probably declare unsupported) |
-| `xsl-stylesheet-processing-instruction` | 18 | 4 |
+| `xsl-stylesheet-processing-instruction` | 18 | 4 (claimed 2026-10-21) |
 | `built_in_derived_types` | 10 | 6 |
 | `XSD_1.1` | 8 | 6 (decision) |
 | `streaming-fallback` | 7 | 7 |
@@ -542,6 +542,7 @@ A sensible sequence:
 
 | Item | State |
 |---|---|
+| 1.1 key-join under 1× | Done, with muenchian: every pair is under 1× in three runs in a row (key-join 0.95–0.98, muenchian 0.95–0.98): scaled rounding in `format-number`, maps built in one go keep a hash table, string-keyed map lookups, string group-by keys. Left in workstream 1: more benchmarks (1.3), dispatch tables (1.4), automatic indexing (1.5), compile-time benchmarks (1.6), perf gates in CI (1.7) |
 | 1.2 Direct writer differences | output-0130 fixed: a 2.0+ stylesheet with an XHTML `html` literal result element and no method takes the principal writer. `<a />` is recorded as implementation-defined (docs/divergences.md). |
 | 2.1 Plan Sink B | Done: docs/plan/p4-sink-b.md, with the NativeAOT warnings measured |
 | 2.2–2.3 Sink B, NativeAOT | B1 done: no NativeAOT warnings from Xsl3 (lazy IL module, annotated bridges, `RequiresDynamicCode` only on loading from source and on XPath compilation, `xsl:evaluate` refusing clearly without dynamic code). B2 done: constants belong to the stylesheet (`ConstantTable`), not the process. B3 done: `XslCompiledTransform.CompileToAssembly` (`PersistedAssemblyBuilder`, .NET 9+) with the static data and constants serialized, `Load(Type, XsltSettings)`, embedded portable PDBs, `Xsl3.Build` (MSBuild targets running `xsl3 compile`). B4 done: `samples/Xsl3.AotSample` published with NativeAOT (no warnings) and run in CI; one xslt30-test case in ten round-trips through a saved assembly in CI (all of them locally, unchanged). Publishing `Xsl3.Build` and `Xsl3.Cli` is the owner's call |
