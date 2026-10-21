@@ -1748,7 +1748,14 @@ namespace Xsl3.Runtime
             string prefix, localName, ns;
 
             // Parse the tag name and map the prefix to a namespace
-            _runtime.ParseTagName(tagName, prefixMappingsIndex, out prefix, out localName, out ns);
+            try
+            {
+                _runtime.ParseTagName(tagName, prefixMappingsIndex, out prefix, out localName, out ns);
+            }
+            catch (Xsl3.Xdm.XdmException e) when (e.Code == "XTDE0830" && nodeType == XPathNodeType.Attribute)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0860", e.Message);
+            }
 
             // Validate the name parts
             prefix = EnsureValidName(prefix, localName, ns, nodeType);

@@ -677,6 +677,9 @@ namespace Xsl3.Runtime
                 // It is not correct to resolve xmlns prefix in XPath but removing it would be a breaking change.
                 else if (prefix.Equals("xmlns"))
                     ns = XmlReservedNs.NsXmlNs;
+                else if (IsXslt2)
+                    // Xsl3: a computed element name's undeclared prefix (an attribute's is XTDE0860, XmlQueryOutput).
+                    throw new Xsl3.Xdm.XdmException("XTDE0830", $"The prefix '{prefix}' of the computed name '{tagName}' is not declared");
                 else
                     throw new XslTransformException(SR.Xslt_InvalidPrefix, prefix);
             }

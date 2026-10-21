@@ -762,7 +762,15 @@ namespace Xsl3.Xslt
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
                 {
-                    ReportError(/*[XT0210]*/SR.Xslt_CircularInclude, _input.Value);
+                    if (V2)
+                    {
+                        // Xsl3: an import cycle is XTSE0210 (an include cycle XTSE0180).
+                        ReportError(SR.Xml_UserException, $"XTSE0210: the stylesheet '{_input.Value}' imports itself, directly or indirectly");
+                    }
+                    else
+                    {
+                        ReportError(/*[XT0210]*/SR.Xslt_CircularInclude, _input.Value);
+                    }
                 }
                 else
                 {
@@ -858,7 +866,23 @@ namespace Xsl3.Xslt
             new XsltAttribute("parameter-document",     V2Opt),
             new XsltAttribute("suppress-indentation",   V2Opt),
         };
+        // Xsl3: xsl:output's attributes are being read (an invalid yes/no is SEPM0016 there).
+        private bool _serializationAttributes;
+
         private void LoadOutput()
+        {
+            _serializationAttributes = true;
+            try
+            {
+                LoadOutputCore();
+            }
+            finally
+            {
+                _serializationAttributes = false;
+            }
+        }
+
+        private void LoadOutputCore()
         {
             _input.GetAttributes(_outputAttributes);
 
@@ -3629,7 +3653,15 @@ namespace Xsl3.Xslt
                     default:
                         if (!_input.ForwardCompatibility)
                         {
-                            ReportError(/*[XT_028]*/SR.Xslt_BistateAttribute, attName, "yes", "no");
+                            if (V2 && _serializationAttributes)
+                            {
+                                // Xsl3: a serialization parameter of xsl:output (SEPM0016).
+                                ReportError(SR.Xml_UserException, $"SEPM0016: the value of the '{attName}' attribute must be 'yes' or 'no'");
+                            }
+                            else
+                            {
+                                ReportError(/*[XT_028]*/SR.Xslt_BistateAttribute, attName, "yes", "no");
+                            }
                         }
                         break;
                 }
