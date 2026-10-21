@@ -1681,7 +1681,8 @@ namespace Xsl3.Xslt
         {
             int colon = lexical.IndexOf(':');
             string ns = colon < 0 ? "" : _scope.LookupNamespace(lexical[..colon]) ?? "";
-            return _f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns);
+            // (Qualified with the package whose code this is: character maps are local to it.)
+            return PackageComponents.Mangle(_f.QName(colon < 0 ? lexical : lexical[(colon + 1)..], ns), _package31);
         }
 
         private ResultFormat ResultFormat31(Output output)
@@ -1754,6 +1755,20 @@ namespace Xsl3.Xslt
                 if (source.Content.Count != sources[0].Content.Count)
                 {
                     ReportXPath31Error("XTSE2200", "The merge sources have different numbers of merge keys");
+                }
+                else
+                {
+                    for (int k = 0; k < source.Content.Count; k++)
+                    {
+                        // Corresponding merge keys agree on lang, order, collation, case-order and data-type (XTDE2210,
+                        // reported here when the attributes are fixed).
+                        XslNodeV2? a = sources[0].Content[k].V2, b = source.Content[k].V2;
+                        string?[] x = { a?.Lang, a?.Order, a?.Collation, a?.CaseOrder, a?.DataType }, y = { b?.Lang, b?.Order, b?.Collation, b?.CaseOrder, b?.DataType };
+                        if (!x.Concat(y).Any(v => v != null && v.Contains('{')) && !x.SequenceEqual(y))
+                        {
+                            ReportXPath31Error("XTDE2210", $"Merge key {k + 1} of the merge sources differs in its lang, order, collation, case-order or data-type");
+                        }
+                    }
                 }
                 spec.SortBeforeMerge.Add(source.V2!.SortBeforeMerge);
                 string? forEach = source.V2.ForEachItem ?? source.V2.ForEachSource; // (the loader made it the documents)

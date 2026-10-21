@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8001 passed, 35 failed, 49 not run; 99.6% of those run (1640 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8008 passed, 28 failed, 49 not run; 99.7% of those run (573 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -23,7 +23,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1888 | 4 | 0 | 99.8% |
 | spec XSLT20+ | 2692 | 9 | 11 | 99.7% |
-| spec XSLT30+ | 3416 | 22 | 38 | 99.4% |
+| spec XSLT30+ | 3423 | 15 | 38 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -69,7 +69,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | document | 62 | 2 | 0 | 96.9% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 510 | 1 | 0 | 99.8% |
+| error | 511 | 0 | 0 | 100.0% |
 | evaluate | 42 | 0 | 0 | 100.0% |
 | expand-text | 59 | 0 | 0 | 100.0% |
 | expose | 42 | 0 | 0 | 100.0% |
@@ -80,7 +80,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | format-date | 37 | 0 | 0 | 100.0% |
 | format-date-en | 33 | 0 | 0 | 100.0% |
 | format-number | 67 | 0 | 0 | 100.0% |
-| forwards | 22 | 1 | 0 | 95.7% |
+| forwards | 23 | 0 | 0 | 100.0% |
 | function | 88 | 0 | 0 | 100.0% |
 | function-available | 10 | 0 | 0 | 100.0% |
 | function-lookup | 8 | 0 | 0 | 100.0% |
@@ -117,8 +117,8 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | outermost | 26 | 0 | 0 | 100.0% |
 | output | 219 | 2 | 1 | 99.1% |
 | override | 99 | 0 | 0 | 100.0% |
-| package | 50 | 3 | 19 | 94.3% |
-| package-version | 34 | 1 | 0 | 97.1% |
+| package | 53 | 0 | 19 | 100.0% |
+| package-version | 35 | 0 | 0 | 100.0% |
 | param | 31 | 0 | 0 | 100.0% |
 | path | 10 | 0 | 0 | 100.0% |
 | position | 211 | 0 | 0 | 100.0% |
@@ -152,7 +152,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | unparsed-entity-uri | 11 | 1 | 0 | 91.7% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
-| use-package | 46 | 3 | 0 | 93.9% |
+| use-package | 47 | 2 | 0 | 95.9% |
 | use-when | 99 | 0 | 0 | 100.0% |
 | validation | 5 | 1 | 0 | 83.3% |
 | variable | 107 | 0 | 0 | 100.0% |
@@ -167,7 +167,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4584 passed, 13 failed, 11 not run; 99.7% of those run (634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4584 passed, 13 failed, 11 not run; 99.7% of those run (343 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 

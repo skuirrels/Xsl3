@@ -320,6 +320,8 @@ namespace Xsl3.Xslt
                         string? order = ParseStringAttribute(2, "order")?.Trim();
                         string? collation = ParseStringAttribute(3, "collation")?.Trim();
                         string? dataType = ParseStringAttribute(5, "data-type")?.Trim();
+                        string? lang = ParseStringAttribute(1, "lang")?.Trim();
+                        string? caseOrder = ParseStringAttribute(4, "case-order")?.Trim();
                         List<XslNode> keyContent = LoadInstructions();
                         CheckError(keySelect != null && keyContent.Count != 0, /*[XTSE3200]*/SR.Xslt_ElementCntSel, "xsl:merge-key");
                         if (order is not (null or "ascending" or "descending") && !order.Contains('{'))
@@ -327,7 +329,7 @@ namespace Xsl3.Xslt
                             ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "order", order);
                         }
                         XslNode key = F.XslNode(XslNodeType.MergeKey, null, keySelect ?? (keyContent.Count == 0 ? "." : null), _input.XslVersion);
-                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType };
+                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType, Lang = lang, CaseOrder = caseOrder };
                         keys.Add(SetInfo(key, LoadEndTag(keyContent), keyInfo));
                     }
                     else if (_input.NodeType == XmlNodeType.Element)
@@ -1342,6 +1344,11 @@ namespace Xsl3.Xslt
         private void LoadMode()
         {
             _input.GetAttributes(_modeAttributes);
+            if (_input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() == "#unnamed")
+            {
+                // The name is an EQName; #unnamed is for the attributes that refer to modes (package-909).
+                ReportError(SR.Xml_UserException, "XTSE0020: xsl:mode name=\"#unnamed\" isn't an EQName; an unnamed mode's xsl:mode has no name attribute");
+            }
             QilName mode = PackageMode(_input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() != "#unnamed" ? ParseQNameAttribute(0) ?? nullMode : nullMode);
             var decl = new ModeDecl { ImportPrecedence = _curStylesheet!.ImportPrecedence };
             decl.Declaration = new ModeDeclNode(mode) { PackageId = _packageId, OverrideOf = _overrideTarget, SourceLine = _input.BuildNameLineInfo() };
@@ -1453,9 +1460,10 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_characterMapAttributes);
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
-            QilName? name = ParseQNameAttribute(0);
+            // Character maps are local to their package: their names are qualified with it (use-package-106).
+            QilName? name = ParseQNameAttribute(0) is QilName declared ? PackageComponents.Mangle(declared, _packageId) : null;
             string? uses = ParseStringAttribute(1, "use-character-maps");
-            var map = new CharacterMap(name, uses == null ? new List<QilName>() : ParseQNameList(uses));
+            var map = new CharacterMap(name, uses == null ? new List<QilName>() : ParseQNameList(uses).ConvertAll(n => PackageComponents.Mangle(n, _packageId)));
 
             QName parentName = _input.ElementName;
             if (_input.MoveToFirstChild())

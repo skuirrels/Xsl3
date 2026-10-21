@@ -2632,6 +2632,11 @@ namespace Xsl3.Xslt
             }
             foreach (VarPar var in _compiler.GlobalVars)
             {
+                if (IsV2)
+                {
+                    // Xsl3: a used package's global variables have no global context item (XSLT 3.0 §2.3.2, XPDY0002).
+                    _singlFocus.SetGlobalFocus(var.PackageId > 0 || _compiler.GlobalContextItem is ("absent", _));
+                }
                 _gloVars.Add(CompileGlobalVarPar(var));
             }
 

@@ -7,8 +7,6 @@ docbook/docbook-001
 docbook/docbook-004
 document/document-2401
 document/document-2402
-error/error-2210a
-forwards/forwards-008
 id/id-001
 import/import-1201
 merge/merge-097
@@ -19,10 +17,6 @@ namespace/namespace-2614
 namespace/namespace-2615
 output/output-0285
 output/output-0311
-package-version/package-version-011
-package/package-909
-package/package-910
-package/package-912
 snapshot/snapshot-0102a
 static/static-013c
 static/static-021
@@ -30,7 +24,6 @@ static/static-027
 streamable/streamable-141
 try/try-034
 unparsed-entity-uri/unparsed-entity-50
-use-package/use-package-106
 use-package/use-package-108
 use-package/use-package-108b
 validation/validation-0102b

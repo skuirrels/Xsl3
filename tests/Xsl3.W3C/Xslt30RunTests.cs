@@ -43,6 +43,8 @@ public class Xslt30RunTests
         var notRunReasons = new SortedDictionary<string, int>(StringComparer.Ordinal);
         // XSL3_XSLT30_TRACE=file appends each test id before running it, to find a test that crashes the process.
         string? trace = Environment.GetEnvironmentVariable("XSL3_XSLT30_TRACE");
+        // XSL3_XSLT30_CODES=file appends each test that expected an error and raised another code, with the codes.
+        string? codes = Environment.GetEnvironmentVariable("XSL3_XSLT30_CODES");
 
         // XSL3_XSLT30_SETS=sequence,for-each-group runs only those test sets (prefixes); the baseline is then not checked.
         string[]? sets = Environment.GetEnvironmentVariable("XSL3_XSLT30_SETS")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -80,6 +82,10 @@ public class Xslt30RunTests
             else if (outcome.Kind == OutcomeKind.Pass && outcome.Detail.StartsWith("error code", StringComparison.Ordinal))
             {
                 wrongErrorCode++;
+                if (codes != null)
+                {
+                    File.AppendAllText(codes, $"{test.Id}: {outcome.Detail}{Environment.NewLine}");
+                }
             }
         }
 

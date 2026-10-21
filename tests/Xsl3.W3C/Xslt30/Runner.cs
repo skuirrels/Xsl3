@@ -673,7 +673,13 @@ public sealed class Runner
             case "assert-serialization-error":
             {
                 string code = (string?)assertion.Attribute("code") ?? "*";
-                return run.Error != null ? Outcome.Pass($"error code {code} expected; got {Describe(run.Error)}") : Outcome.Fail($"expected error {code}, got a result");
+                if (run.Error == null)
+                {
+                    return Outcome.Fail($"expected error {code}, got a result");
+                }
+                // Any error passes, as the suite allows; one that doesn't name the expected code is recorded.
+                string described = Describe(run.Error);
+                return code == "*" || described.Contains(code, StringComparison.Ordinal) ? Outcome.Pass() : Outcome.Pass($"error code {code} expected; got {described}");
             }
         }
         if (run.Error != null)

@@ -605,6 +605,13 @@ namespace Xsl3.Xslt
                     {
                         return !UseWhen.Evaluate(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                     }
+                    catch (System.Exception e) when (e is Xsl3.XPath31.XPathStaticException or Xsl3.Xdm.XdmException && xslt && _scopeManager.ForwardCompatibility &&
+                        !Xsl3.Runtime.XsltNameContext.Instructions.Contains(_records[0].localName) && _records[0].localName != "evaluate")
+                    {
+                        // An XSLT element this processor doesn't know is ignored in forwards compatible mode, with
+                        // whatever its use-when says (forwards-008).
+                        return false;
+                    }
                     catch (Xsl3.XPath31.XPathStaticException e)
                     {
                         ReportError(SR.Xml_UserException, $"{e.Code}: {e.Message}");

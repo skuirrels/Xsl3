@@ -42,6 +42,22 @@ namespace Xsl3.Xslt
 
         public void Load(Compiler compiler, object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver)
         {
+            // Xsl3: static expressions read documents (doc('') in a shadow attribute) as document() does: through the
+            // stylesheet's resolver, when EnableDocumentFunction allows it.
+            XmlResolver? savedStaticResolver = UseWhen.Resolver;
+            UseWhen.Resolver = compiler.Settings.EnableDocumentFunction ? xmlResolver : null;
+            try
+            {
+                LoadCore(compiler, stylesheet, xmlResolver, origResolver);
+            }
+            finally
+            {
+                UseWhen.Resolver = savedStaticResolver;
+            }
+        }
+
+        private void LoadCore(Compiler compiler, object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver)
+        {
             Debug.Assert(compiler != null);
             _compiler = compiler;
             _xmlResolver = xmlResolver ?? XmlResolver.ThrowingResolver;
@@ -512,6 +528,11 @@ namespace Xsl3.Xslt
             if (!_loadingInclude)
             {
                 _packageTopModule = V2 && _packageTopModules.Add(_packageId);
+            }
+            if (V2 && isPackage && (_loadingInclude || !_packageTopModule))
+            {
+                // Xsl3: xsl:import and xsl:include name stylesheet modules; a package is used with xsl:use-package.
+                ReportError(SR.Xml_UserException, "XTSE0165: an imported or included module is an xsl:package, not a stylesheet module");
             }
             // Xsl3: name, package-version and declared-modes belong to xsl:package only (XTSE0090).
             if (V2 && !isPackage && !_input.ForwardCompatibility)
@@ -3528,7 +3549,8 @@ namespace Xsl3.Xslt
                 _compiler.EnterForwardsCompatible();
                 foreach (string qname in XmlConvert.SplitString(_input.Value))
                 {
-                    useCharacterMaps.Add(CreateXPathQName(qname));
+                    // Xsl3: character maps are local to their package (use-package-106).
+                    useCharacterMaps.Add(PackageComponents.Mangle(CreateXPathQName(qname), _packageId));
                 }
                 if (!_compiler.ExitForwardsCompatible(_input.ForwardCompatibility))
                 {
