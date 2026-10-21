@@ -130,7 +130,8 @@ namespace Xsl3.Runtime
 
         public bool ElementAvailable(string name)
         {
-            var (ns, local) = Resolve(name, "", "XTDE1440");
+            // An unprefixed name is in the default namespace in scope (XSLT 3.0 §20.4.2).
+            var (ns, local) = Resolve(name, Namespaces.TryGetValue("", out string? defaultNs) ? defaultNs : "", "XTDE1440");
             return ns == XsltNs && (Instructions.Contains(local) || local == "evaluate" && EvaluateEnabled);
         }
 

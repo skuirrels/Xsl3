@@ -2922,7 +2922,8 @@ namespace Xsl3.Xslt
             var namespaces = new Dictionary<string, string>(System.StringComparer.Ordinal) { ["xml"] = XmlReservedNs.NsXml };
             foreach (CompilerScopeManager<QilIterator>.ScopeRecord rec in _scope)
             {
-                if (rec.ncName != null && rec.nsUri != null && rec.ncName.Length > 0 && rec.ncName[0] != '#')
+                // (The default namespace too, under "": element-available's unprefixed names are in it.)
+                if (rec.ncName != null && rec.nsUri != null && (rec.ncName.Length == 0 || rec.ncName[0] != '#'))
                 {
                     namespaces.TryAdd(rec.ncName, rec.nsUri);
                 }
