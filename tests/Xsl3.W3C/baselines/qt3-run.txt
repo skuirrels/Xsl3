@@ -10,10 +10,6 @@ fn-function-lookup/fn-function-lookup-404
 fn-function-lookup/fn-function-lookup-759
 fn-function-lookup/fn-function-lookup-762
 fn-function-name/fn-function-name-018
-fn-serialize/serialize-html-001b
-fn-serialize/serialize-html-002b
-fn-serialize/serialize-json-114
-fn-serialize/serialize-xml-110
 fn-serialize/serialize-xml-120b
 misc-HigherOrderFunctions/xqhof8
 misc-HigherOrderFunctions/xqhof9

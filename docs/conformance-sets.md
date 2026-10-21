@@ -280,7 +280,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21862 passed, 22 failed, 99 not run; 99.9% of those run (87 passes raised a different error code)**
+**QT3 (XPath 3.1): 21866 passed, 18 failed, 99 not run; 99.9% of those run (87 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -292,7 +292,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | spec XP30 | 7 | 0 | 0 | 100.0% |
 | spec XP30+ | 4068 | 10 | 5 | 99.8% |
 | spec XP31 | 91 | 0 | 0 | 100.0% |
-| spec XP31+ | 2519 | 11 | 22 | 99.6% |
+| spec XP31+ | 2523 | 7 | 22 | 99.7% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -443,7 +443,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-seconds-from-dateTime | 27 | 0 | 0 | 100.0% |
 | fn-seconds-from-duration | 32 | 0 | 0 | 100.0% |
 | fn-seconds-from-time | 27 | 0 | 0 | 100.0% |
-| fn-serialize | 88 | 5 | 26 | 94.6% |
+| fn-serialize | 92 | 1 | 26 | 98.9% |
 | fn-sort | 37 | 0 | 0 | 100.0% |
 | fn-starts-with | 60 | 0 | 0 | 100.0% |
 | fn-static-base-uri | 5 | 0 | 0 | 100.0% |
