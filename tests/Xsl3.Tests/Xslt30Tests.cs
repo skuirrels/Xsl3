@@ -1037,4 +1037,21 @@ public class Xslt30Tests
             <xsl:template match="/"><out><xsl:value-of select="$g"/></out></xsl:template>
             """));
     }
+
+    /// <summary>
+    /// 2.0+ stylesheets accept the common encoding aliases .NET doesn't know (utf8, as TEI's LaTeX stylesheet writes
+    /// it), in xsl:output and xsl:result-document; an unknown name is still SESU0007.
+    /// </summary>
+    [Fact]
+    public void CommonEncodingAliasesAreAccepted()
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='text' encoding='utf8'/>" +
+            "<xsl:template match='/'>é</xsl:template></xsl:stylesheet>")));
+        var bytes = new MemoryStream();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+        Assert.Equal("é", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+        Assert.Contains("SESU0007", Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(
+            $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output encoding='no-such-encoding'/><xsl:template match='/'/></xsl:stylesheet>")))).Message);
+    }
 }

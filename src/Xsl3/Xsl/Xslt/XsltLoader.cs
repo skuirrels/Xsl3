@@ -920,7 +920,8 @@ namespace Xsl3.Xslt
                     try
                     {
                         // Encoding.GetEncoding() should never throw NotSupportedException, only ArgumentException
-                        Encoding encoding = Encoding.GetEncoding(_input.Value);
+                        // Xsl3: in 2.0+ the common aliases too (utf8, as TEI's LaTeX stylesheets write it).
+                        Encoding encoding = V2 ? Xsl3.Runtime.SerializationParameters.EncodingByName(_input.Value) : Encoding.GetEncoding(_input.Value);
                         if (currentPrec == output.EncodingPrec && output.Encoding != _input.Value)
                         {
                             ReportOutputRedefinition("encoding");

@@ -493,6 +493,28 @@ job runs it on every pull request against the target branch. `perf-nightly.yml` 
 and the rewritten pairs every night, as an artifact. `micro --alloc-types` adds the runtime's allocation samples by
 type to each row, which is how the compile allocation above was found.
 
+## Real stylesheets: the TEI Stylesheets (remaining-scope 1.3)
+
+`eng/fetch-bench.sh` fetches the TEI Stylesheets (BSD-2-Clause or CC BY-SA 3.0) at a pinned commit; they aren't
+committed. `tests/Xsl3.W3C/TeiStylesheetTests` runs seven of their test suite's conversions (HTML of two documents,
+LaTeX of four, text of one) against the expected results, made with Saxon, and they agree word for word apart from
+the dates of the run. `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- tei` times four
+conversions of `Test/test14.xml` (550 KB); the nightly workflow runs it.
+
+Measured on 2026-10-21, after a temporary tree stopped allocating a 256-entry value table it then replaced (allocation
+before the fix in brackets):
+
+| Stylesheet | Compile | Transform | Allocated per transform |
+|---|---:|---:|---:|
+| html/html.xsl | 241 ms | 476 ms | 304 MB (426 MB) |
+| latex/latex.xsl | 90 ms | 277 ms | 453 MB (557 MB) |
+| fo/fo.xsl | 90 ms | 66 ms | 240 MB (356 MB) |
+| txt/tei-to-text.xsl | 12 ms | 27 ms | 84 MB (97 MB) |
+
+These stylesheets build many small temporary trees and copy navigators freely; `tei --alloc-types` shows where the
+rest goes (item arrays, navigators, item sequences). XMark isn't run: its generator is a C program, to be fetched and
+built separately.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

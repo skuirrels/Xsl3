@@ -147,6 +147,72 @@ public static class Micro
         }
     }
 
+    /// <summary>
+    /// tei [--ms budget]: real stylesheets (remaining-scope 1.3), the TEI Stylesheets' HTML, LaTeX, XSL-FO and text
+    /// conversions of Test/test14.xml (550 KB): compile time and transform time and allocation.
+    /// </summary>
+    public static void RunTei(string[] args)
+    {
+        int budget = 3000;
+        string? only = null;
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--ms":
+                    budget = int.Parse(args[++i], CultureInfo.InvariantCulture);
+                    break;
+                case "--alloc-types":
+                    s_allocations = new AllocationSampler();
+                    break;
+                default:
+                    only = args[i];
+                    break;
+            }
+        }
+        string? root = null;
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null && root == null; dir = dir.Parent)
+        {
+            string candidate = Path.Combine(dir.FullName, "external", "bench", "tei");
+            root = File.Exists(Path.Combine(candidate, "html", "html.xsl")) ? candidate : null;
+        }
+        if (root == null)
+        {
+            Console.WriteLine("TEI Stylesheets not found: run eng/fetch-bench.sh");
+            return;
+        }
+        var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false);
+        var resolver = new XmlUrlResolver();
+        var readerSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse };
+        Tree.CompactDocument input;
+        using (XmlReader reader = XmlReader.Create(Path.Combine(root, "Test", "test14.xml"), readerSettings))
+        {
+            input = Tree.CompactDocument.Load(reader);
+        }
+        bool header = true;
+        foreach (string stylesheet in new[] { "html/html.xsl", "latex/latex.xsl", "fo/fo.xsl", "txt/tei-to-text.xsl" }.Where(n => only == null || n.StartsWith(only, StringComparison.Ordinal)))
+        {
+            string path = Path.Combine(root, stylesheet);
+            XslCompiledTransform Compile()
+            {
+                var t = new XslCompiledTransform();
+                using XmlReader reader = XmlReader.Create(path, readerSettings);
+                t.Load(reader, settings, resolver);
+                return t;
+            }
+            string name = stylesheet.Split('/')[0];
+            Print(Measure(name, "compile", budget, () => Compile()), header);
+            header = false;
+            XslCompiledTransform transform = Compile();
+            Print(Measure(name, "test14", budget, () =>
+            {
+                // (With the resolver: the stylesheets read their own i18n.xml with document().)
+                using XmlWriter writer = XmlWriter.Create(Stream.Null, transform.OutputSettings);
+                transform.Transform(input, null, writer, resolver);
+            }));
+        }
+    }
+
     private static readonly Dictionary<string, Tree.CompactDocument> s_inputs = new(StringComparer.Ordinal);
 
     private static Tree.CompactDocument CompactInput(string size)

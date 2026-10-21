@@ -30,7 +30,7 @@ namespace Xsl3.Tree
             private readonly NamePool? _pool;
 
             // Values: each distinct short one once.
-            private string[] _values = new string[256];
+            private string[] _values;
             private int _valueCount;
             private readonly Dictionary<string, int>? _shared;
             private const int ShortValue = 32;
@@ -93,10 +93,8 @@ namespace Xsl3.Tree
                 d._nsOwner = new int[4];
                 d._nsPrefix = new string[4];
                 d._nsUri = new string[4];
-                if (small)
-                {
-                    _values = new string[8];
-                }
+                // (Sized here, not by an initializer: a temporary tree would allocate the large array only to drop it.)
+                _values = small ? new string[8] : new string[256];
                 if (fragment)
                 {
                     // Top-level nodes have no parent.

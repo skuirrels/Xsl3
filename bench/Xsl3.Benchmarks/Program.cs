@@ -35,6 +35,12 @@ if (args.Length == 3 && args[0] == "micro-compare")
     // dotnet run ... -- micro-compare base.json[,…] head.json[,…]: the performance gate (eng/perf-gate.sh).
     System.Environment.Exit(Xsl3.Benchmarks.Micro.Compare(args[1..]));
 }
+if (args.Length > 0 && args[0] == "tei")
+{
+    // dotnet run ... -- tei [--ms budget]: the TEI Stylesheets (eng/fetch-bench.sh) on their largest test document.
+    Xsl3.Benchmarks.Micro.RunTei(args[1..]);
+    return;
+}
 if (args.Length > 0 && args[0] == "quick")
 {
     Xsl3.Benchmarks.Quick.Run(args[1..]);
