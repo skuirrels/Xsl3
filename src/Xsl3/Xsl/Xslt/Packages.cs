@@ -215,6 +215,12 @@ namespace Xsl3.Xslt
                 var overrides = components.Where(c => c.Package == p.Id && c.OverrideOf == use.Id && c.Kind != 'M').ToList();
                 foreach (var o in overrides)
                 {
+                    // A component named (not by a wildcard) in xsl:accept can't also be overridden (XTSE3051).
+                    if (use.Accept.Any(r => (r.Kind == '*' || r.Kind == o.Kind) && r.Names.Any(n => !n.IsWildcard && n.Matches(o.Ns, o.Local, o.Arity))))
+                    {
+                        Error(o.Decl.SourceLine, $"XTSE3051: {o.Local} is both accepted and overridden");
+                        continue;
+                    }
                     if (!q.Visible.TryGetValue((o.Kind, o.Ns, o.Local, o.Arity), out PackageComponent? original) ||
                         original.Visibility is "private" or "hidden")
                     {
@@ -255,6 +261,12 @@ namespace Xsl3.Xslt
                         continue;
                     }
                     bool param = kind == 'V' && component.Declaration?.NodeType == XslNodeType.Param;
+                    // A private component can't be given a visibility by name (XTSE3040; a wildcard just doesn't match it).
+                    if (!param && component.Visibility == "private" && use.Accept.FirstOrDefault(r => (r.Kind == '*' || r.Kind == kind)
+                        && r.Names.Any(n => !n.IsWildcard && n.Matches(ns, local, arity))) is PackageRule named)
+                    {
+                        Error(named.Line, $"XTSE3040: xsl:accept can't give {local}, private in the used package, visibility {named.Visibility}");
+                    }
                     string visibility = param ? "public" : component.Visibility switch
                     {
                         "public" or "final" => "private",
@@ -270,6 +282,11 @@ namespace Xsl3.Xslt
                         else
                         {
                             visibility = accept.Visibility;
+                            if (visibility == "abstract" && p.Id == 0)
+                            {
+                                // The top-level package can't have abstract components, used or not (XTSE3080).
+                                Error(accept.Line, $"XTSE3080: the top-level package accepts the abstract component {local}");
+                            }
                         }
                     }
                     if (visibility == "hidden")
