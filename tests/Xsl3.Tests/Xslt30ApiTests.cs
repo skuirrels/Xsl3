@@ -182,7 +182,11 @@ public class Xslt30ApiTests
             "</xsl:stylesheet><item/><item/></doc>");
         try
         {
-            XdmNode document = XdmNode.Load(File.OpenRead(file), new Uri(file).AbsoluteUri);
+            XdmNode document;
+            using (FileStream stream = File.OpenRead(file))
+            {
+                document = XdmNode.Load(stream, new Uri(file).AbsoluteUri);
+            }
             Assert.Equal(new Uri(file).AbsoluteUri + "#style", XsltCompiler.GetAssociatedStylesheet(document)!.AbsoluteUri);
             var text = new StringWriter();
             new XsltCompiler().CompileAssociatedStylesheet(document).CreateTransformer().ApplyTemplates(document, text);

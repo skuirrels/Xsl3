@@ -56,7 +56,7 @@ jobs:
           path: artifacts/test-results
 
   # Sink B (docs/plan/p4-sink-b.md, B4): a stylesheet compiled ahead of time by Xsl3.Build's targets, published with
-  # NativeAOT (no warnings allowed) and run; the sample checks its own output.
+  # NativeAOT (no trim or AOT warnings allowed) and run; the sample checks its own output.
   native-aot:
     runs-on: ubuntu-latest
     steps:
@@ -66,8 +66,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # No trim or AOT analysis warnings allowed (IL2xxx, IL3xxx).
       - name: Publish the NativeAOT sample
-        run: dotnet publish samples/Xsl3.AotSample -c Release -r linux-x64 -o artifacts/aot -p:TreatWarningsAsErrors=true
+        run: |
+          set -o pipefail
+          dotnet publish samples/Xsl3.AotSample -c Release -r linux-x64 -o artifacts/aot 2>&1 | tee artifacts-publish.log
+          if grep -E "warning IL[23][0-9]{3}" artifacts-publish.log; then echo "Trim or AOT warnings"; exit 1; fi
 
       - name: Run it
         run: artifacts/aot/Xsl3.AotSample

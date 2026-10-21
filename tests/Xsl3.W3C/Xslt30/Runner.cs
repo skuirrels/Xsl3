@@ -53,6 +53,17 @@ public sealed class Runner
 
     private static int s_savedCount;
 
+    // The same tests on every machine and run (string.GetHashCode is randomized per process).
+    private static uint StableHash(string s)
+    {
+        uint hash = 2166136261;
+        foreach (char c in s)
+        {
+            hash = (hash ^ c) * 16777619;
+        }
+        return hash;
+    }
+
     /// <summary>The stylesheet compiled into an assembly in memory, loaded into its own context, and loaded from its type.</summary>
     private static XslCompiledTransform RoundTrip(XslCompiledTransform transform, XmlReader stylesheet, XsltSettings settings, XmlResolver resolver)
     {
@@ -309,8 +320,10 @@ public sealed class Runner
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
                 };
-                if (s_savedEvery > 0 && (uint)test.Id.GetHashCode(StringComparison.Ordinal) % s_savedEvery == 0)
+                if (s_savedEvery > 0 && StableHash(test.Id) % s_savedEvery == 0)
                 {
+                    // (On stderr, so that a crash in saved code names its test.)
+                    Console.Error.WriteLine("xslt30 saved round trip: " + test.Id);
                     transform = RoundTrip(transform, stylesheetReader, settings, resolver);
                 }
                 else
