@@ -253,7 +253,7 @@ namespace System.Xml
             }
         }
 
-        internal static XmlRawWriter CreateRawWriter(XmlWriterSettings settings, Stream output)
+        internal static XmlRawWriter CreateRawWriter(XmlWriterSettings settings, Stream output, bool compactEmptyTags = false)
         {
             ArgumentNullException.ThrowIfNull(output);
 
@@ -287,10 +287,12 @@ namespace System.Xml
                 };
             }
 
+            // Xsl3: <a/> rather than <a /> (2.0+ results of the xml method; XmlAutoDetectWriter passes it on).
+            writer.CompactEmptyTags = compactEmptyTags && settings.OutputMethod is XmlOutputMethod.Xml or XmlOutputMethod.AutoDetect;
             return WrapQuerySpecific(settings, writer);
         }
 
-        internal static XmlRawWriter CreateRawWriter(XmlWriterSettings settings, TextWriter output)
+        internal static XmlRawWriter CreateRawWriter(XmlWriterSettings settings, TextWriter output, bool compactEmptyTags = false)
         {
             ArgumentNullException.ThrowIfNull(output);
 
@@ -304,6 +306,8 @@ namespace System.Xml
                 _ => throw new UnreachableException("Invalid XmlOutputMethod setting."),
             };
 
+            // Xsl3: <a/> rather than <a /> (2.0+ results of the xml method; XmlAutoDetectWriter passes it on).
+            writer.CompactEmptyTags = compactEmptyTags && settings.OutputMethod is XmlOutputMethod.Xml or XmlOutputMethod.AutoDetect;
             return WrapQuerySpecific(settings, writer);
         }
 

@@ -1,2 +1,1 @@
 # Known failures for qt3-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
-fn-serialize/serialize-xml-120b

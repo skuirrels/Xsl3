@@ -345,7 +345,7 @@ public class Xslt30Tests
         transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
         string xml = System.Text.Encoding.UTF8.GetString(bytes.ToArray());
         Assert.StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", xml);
-        Assert.Contains("<a>" + System.Environment.NewLine + "  <b />", xml);
+        Assert.Contains("<a>" + System.Environment.NewLine + "  <b/>", xml);
     }
 
     /// <summary>

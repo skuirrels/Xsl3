@@ -44,6 +44,7 @@ raised a different code are counted separately.
 | 2026-10-21 | 21,862 | 22 | 99 | 99.9% | Map keys by `op:same-key` (a double equals a decimal only when exactly equal, QNames by namespace and local name, `use-last` keeps the last key); an empty array atomizes to no value in a value comparison; the harness maps the suite's case-blind collation to UCA at secondary strength |
 | 2026-10-21 | 21,866 | 18 | 99 | 99.9% | `fn:serialize` with a map of parameters writes through the engine's serializer (the html method's doctype and meta element, `cdata-section-elements` as QNames, unencodable characters escaped in JSON); QName keys in no namespace are ignored |
 | 2026-10-21 | 21,883 | 1 | 99 | 99.99% | `position#0` and `last#0` keep the focus they are made in; comparisons with a range use its bounds; partial application checks the function's arity; signatures for the compiled higher-order functions; `fn:load-xquery-module` (FOQM0006); German ordinal endings; FOAR0002 for huge arities; the harness maps relative resource URIs to their files (the JSON use cases). The one failure is `<f />` for an empty element (docs/divergences.md) |
+| 2026-10-21 | 21,884 | 0 | 99 | 100% | Empty elements as `<a/>` in 2.0+ xml-method results |
 
 The remaining failures are mostly `fn:serialize` details (html doctype, CDATA, character maps), `fn:function-lookup`
 and named function reference corner cases.
@@ -112,6 +113,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,996 | 40 | 49 | 99.5% | Shadowed variables in split templates, `function-lookup` in used packages, use-when `function-available`, entity base URIs, element content whitespace, XTDE1500, `xsl:merge-key data-type`, disable-output-escaping in CDATA elements, base URIs of copies, XTSE3020 for function names without arity; the 2.0 profile is at 99.6% (4,580 passed, 17 failed) |
 | 2026-10-21 | 8,001 | 35 | 49 | 99.6% | `document('')` resolves against the static base URI that xml:base sets; a key with a definition in backwards compatible mode compares strings; a version="1.0" principal module's implicit result defaults to the xml method for XHTML's `html`; the harness reads an expected serialization in the encoding the assertion names. The 2.0 profile is at 99.7% (4,584 passed, 13 failed) |
 | 2026-10-21 | 8,008 | 28 | 49 | 99.7% | XTSE0165 for an imported or included `xsl:package`, XTSE0020 for `xsl:mode name="#unnamed"`, no global context item for a used package's variables (XPDY0002), character maps local to their package, `doc()` in static expressions through the stylesheet's resolver, XTDE2210 for merge keys that disagree, use-when errors ignored on unknown elements in forwards compatible mode. The runner now checks error codes: 573 expected-error tests pass with an error that doesn't name the expected code (343 in the 2.0 profile) |
+| 2026-10-21 | 8,012 | 24 | 49 | 99.7% | 2.0+ results of the xml method write empty elements as `<a/>` (owner's decision); the 2.0 profile is at 99.8% (4,584 → 4,588 passed, 9 failed) |
 
 ### P5 exit sets
 

@@ -44,8 +44,8 @@ public class SettingsTests
         string directory = Directory.CreateTempSubdirectory("xsl3-").FullName;
         XslCompiledTransform transform = Load(WritesSecondary, new XsltSettings { EnableResultDocument = true });
         transform.BaseOutputUri = new Uri(Path.Combine(directory, "main.xml"));
-        Assert.Equal("<main />", Run(transform));
-        Assert.Equal("<second />", File.ReadAllText(Path.Combine(directory, "sub", "second.xml")).Replace("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", ""));
+        Assert.Equal("<main/>", Run(transform));
+        Assert.Equal("<second/>", File.ReadAllText(Path.Combine(directory, "sub", "second.xml")).Replace("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", ""));
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class SettingsTests
 
     /// <summary>xsl:assert is ignored unless assertions are enabled (XSLT 3.0 §23.2).</summary>
     [Fact]
-    public void AssertionsOffByDefault() => Assert.Equal("<out />", Run(Load(Asserts)));
+    public void AssertionsOffByDefault() => Assert.Equal("<out/>", Run(Load(Asserts)));
 
     [Fact]
     public void FailedAssertionRaisesXTMM9001()

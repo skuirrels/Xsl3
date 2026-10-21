@@ -536,7 +536,7 @@ namespace Xsl3.Runtime
                     {
                         System.Xml.XmlWriterSettings s = settings.Clone();
                         s.CloseOutput = false;
-                        ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(output, ws));
+                        ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, ws, extras), ws));
                     }
                     output.Dispose();
                     return Sequences.Empty;
@@ -548,7 +548,7 @@ namespace Xsl3.Runtime
                     return Sequences.Empty;
                 }
                 settings.CloseOutput = true;
-                using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(output, s), settings, extras))
+                using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, s, extras), s), settings, extras))
                 {
                     WriteChildren(w, doc);
                     w.Flush();

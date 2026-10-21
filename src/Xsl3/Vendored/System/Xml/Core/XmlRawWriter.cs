@@ -38,6 +38,9 @@ namespace System.Xml
     /// </summary>
     internal abstract partial class XmlRawWriter : XmlWriter
     {
+        // Xsl3: an empty element is written <a/> rather than <a /> (2.0+ results of the xml method, EmptyTagFilter).
+        internal bool CompactEmptyTags;
+
         //
         // Fields
         //

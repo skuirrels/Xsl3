@@ -287,7 +287,7 @@ namespace Xsl3.XPath31.Functions
             }
             else
             {
-                Xsl3.Runtime.ItemSerializer.WriteSequence(items, settings, extras, ws => System.Xml.XmlWriter.Create(sw, ws));
+                Xsl3.Runtime.ItemSerializer.WriteSequence(items, settings, extras, ws => System.Xml.XmlWriter.Create(Xsl3.Runtime.EmptyTagFilter.Wrap(sw, ws, extras), ws));
             }
             string result = sw.ToString();
             // Characters the encoding lacks: \uXXXX in JSON, character references otherwise (Serialization 3.1 §10, §11).

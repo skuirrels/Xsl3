@@ -515,20 +515,21 @@ namespace Xsl3
 
         private XmlWriter CreateResultWriter(TextWriter results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedTextWriter(results, max) : results);
 
+        // (2.0+ xml-method results write empty elements as <a/>: Runtime.EmptyTagFilter.)
         private XmlWriter CreateLimitedWriter(Stream results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
-                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
-                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results, compactEmptyTags: EmptyTagFilter.Compact(direct, _command.StaticData.OutputExtras))
+                    : new PrincipalResult(s => XmlWriter.Create(EmptyTagFilter.Wrap(results, s, _command.StaticData.OutputExtras), s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateLimitedWriter(TextWriter results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
-                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
-                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results, compactEmptyTags: EmptyTagFilter.Applies(direct, _command.StaticData.OutputExtras))
+                    : new PrincipalResult(s => XmlWriter.Create(EmptyTagFilter.Wrap(results, s, _command.StaticData.OutputExtras), s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         /// <summary>

@@ -342,6 +342,8 @@ namespace Xsl3.Runtime
                 settings = settings.Clone();
                 settings.CDataSectionElements.Clear();
             }
+            // (The factory sees only the settings: an xhtml result keeps "<a />", EmptyTagFilter.)
+            using System.IDisposable? xhtml = EmptyTagFilter.Xhtml(extras?.Xhtml == true);
             XmlWriter w;
             if (declaration)
             {

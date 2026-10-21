@@ -413,9 +413,9 @@ namespace System.Xml
 
             // Xsl3: upstream creates a stock XmlWellFormedWriter and takes its RawWriter; build the same raw chain directly.
             if (_textWriter != null)
-                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _textWriter);
+                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _textWriter, CompactEmptyTags && outMethod == XmlOutputMethod.Xml);
             else
-                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _strm!);
+                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _strm!, CompactEmptyTags && outMethod == XmlOutputMethod.Xml);
 
             // Send cached events to the new writer
             _eventCache.EndEvents();
