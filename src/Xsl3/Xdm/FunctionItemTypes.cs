@@ -99,6 +99,9 @@ namespace Xsl3.Xdm
                 case Primitive.Duration or Primitive.YearMonthDuration or Primitive.DayTimeDuration:
                     var du = ((DurationValue)v).Duration;
                     return (4, (du.Months, du.Seconds));
+                case Primitive.QName or Primitive.Notation when v is QNameValue q:
+                    // By namespace and local name: the prefix doesn't count (QT3 same-key-022).
+                    return (40 + (int)v.Type.Primitive, (q.QName.NamespaceUri, q.QName.LocalName));
                 default:
                     return (40 + (int)v.Type.Primitive, v.Value);
             }
@@ -116,9 +119,45 @@ namespace Xsl3.Xdm
             {
                 return d;
             }
-            // A double equals a decimal when their mathematical values are equal: compare as decimal when exact.
-            decimal m = (decimal)d;
-            return (double)m == d ? m : d;
+            // A double equals a decimal when their mathematical values are equal: compare as decimal when the double's
+            // exact binary value is a decimal (1.5, 3), not when it only rounds to one (1.1E0 isn't 1.1: QT3 same-key-007).
+            return ExactDecimal(d) is decimal m ? m : d;
+        }
+
+        private static decimal? ExactDecimal(double d)
+        {
+            long bits = BitConverter.DoubleToInt64Bits(d);
+            bool negative = bits < 0;
+            int exponent = (int)((bits >> 52) & 0x7FF);
+            long mantissa = bits & 0xFFFFFFFFFFFFFL;
+            if (exponent == 0)
+            {
+                exponent = 1;
+            }
+            else
+            {
+                mantissa |= 1L << 52;
+            }
+            exponent -= 1075;
+            if (mantissa == 0)
+            {
+                return 0m;
+            }
+            while ((mantissa & 1) == 0 && exponent < 0)
+            {
+                mantissa >>= 1;
+                exponent++;
+            }
+            // mantissa * 2^exponent: with a negative exponent, mantissa * 5^-exponent / 10^-exponent.
+            BigInteger numerator = exponent >= 0 ? (BigInteger)mantissa << exponent : mantissa * BigInteger.Pow(5, -exponent);
+            int scale = exponent >= 0 ? 0 : -exponent;
+            if (scale > 28 || numerator >= BigInteger.One << 96)
+            {
+                return null;
+            }
+            byte[] bytes = new byte[12];
+            numerator.TryWriteBytes(bytes, out _, isUnsigned: true);
+            return new decimal(BitConverter.ToInt32(bytes, 0), BitConverter.ToInt32(bytes, 4), BitConverter.ToInt32(bytes, 8), negative, (byte)scale);
         }
 
         public bool Equals(MapKey other) => Kind == other.Kind && Equals(Normal, other.Normal);

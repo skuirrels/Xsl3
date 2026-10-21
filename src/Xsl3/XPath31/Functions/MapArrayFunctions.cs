@@ -147,7 +147,8 @@ namespace Xsl3.XPath31.Functions
                         case "reject":
                             throw new XdmException("FOJS0003", $"map:merge: the key '{e.Key.Value}' is in two maps");
                         case "use-last":
-                            entries[key] = new(existing.Key, e.Value);
+                            // The last entry wins, its key too (op:same-key keys can differ in type: QT3 same-key-001).
+                            entries[key] = e;
                             break;
                         case "combine":
                             entries[key] = new(existing.Key, existing.Value.Concat(e.Value).ToList());
