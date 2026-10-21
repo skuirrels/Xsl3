@@ -144,6 +144,7 @@ namespace Xsl3.XPath31
 
         private QilNode StaticId() => _f.Double(_staticId);
 
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Compiles the expression to IL at run time.")]
         public static XPath31Executable Compile(string expression, XPathStaticContext sc)
         {
             Expr ast = Parser.ParseXPath(expression);
@@ -157,6 +158,7 @@ namespace Xsl3.XPath31
         /// Compiles a standalone expression whose focus, variables and extra functions come from a host
         /// environment (XSLT's use-when, say). The environment is made for the compiler's QIL factory.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Compiles the expression to IL at run time.")]
         public static XPath31Executable CompileHosted(Expr ast, XPathStaticContext sc, System.Func<QilPatternFactory, IXPath31Environment> environment)
         {
             var f = new QilPatternFactory(new QilFactory(), false);

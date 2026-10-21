@@ -244,14 +244,14 @@ namespace Xsl3.Runtime
         /// <summary>The function conversion rules to a variable's, parameter's or function's declared type.</summary>
         public IList<XPathItem> X31Coerce(IList<XPathItem> value, double typeId, string errorCode)
         {
-            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            var type = (SequenceTypeTest)Constant((int)typeId);
             return Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
         }
 
         /// <summary>The value, if it is an instance of the type (no conversion is applied); else the error.</summary>
         public IList<XPathItem> X31InstanceCheck(IList<XPathItem> value, double typeId, string errorCode)
         {
-            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            var type = (SequenceTypeTest)Constant((int)typeId);
             return type.Matches(value) ? value : throw new XdmException(errorCode, $"The context item must be {type}, but is {Coercion.Describe(value)}");
         }
 
@@ -326,12 +326,12 @@ namespace Xsl3.Runtime
             }
             bool raw = parameters.Contains("#raw" + SerializationParameters.NameEnd, System.StringComparison.Ordinal);
             var doc = raw ? null! : (XPathNavigator)document[0];
-            XsltNameContext names = (XsltNameContext)ConstantPool.Get((int)namesId);
-            var format = (ResultFormat)ConstantPool.Get((int)formatId);
+            XsltNameContext names = (XsltNameContext)Constant((int)namesId);
+            var format = (ResultFormat)Constant((int)formatId);
             if (formatName.Length > 0)
             {
                 var (ns, local) = names.Resolve(formatName, "", "XTDE1460");
-                var formats = (Dictionary<(string, string), ResultFormat>)ConstantPool.Get((int)formatsId);
+                var formats = (Dictionary<(string, string), ResultFormat>)Constant((int)formatsId);
                 if (!formats.TryGetValue((ns, local), out format!))
                 {
                     throw new XdmException("XTDE1460", $"There is no output definition named '{formatName}'");

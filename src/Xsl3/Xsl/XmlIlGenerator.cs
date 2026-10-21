@@ -167,6 +167,7 @@ namespace Xsl3
             staticData.ResultDocuments = _qil.ResultDocuments;
             staticData.Xslt2 = _qil.Xslt2;
             staticData.CompactTree = _qil.CompactTree;
+            staticData.Constants = Xsl3.XPath31.ConstantPool.Compilation;
 
             // Create static constructor that initializes XmlQueryStaticData instance at runtime
             if (typeBldr != null)

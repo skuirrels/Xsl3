@@ -24,6 +24,8 @@ namespace Xsl3.Xslt
             Sequences.EffectiveBooleanValue(EvaluateValue(expression, namespaces, defaultElementNamespace, baseUri, staticValues, evaluateEnabled));
 
         /// <summary>A static expression's value (use-when, static variables, shadow attributes).</summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050",
+            Justification = "Only reached while a stylesheet is loaded from source, which XslCompiledTransform.Load marks as needing dynamic code.")]
         public static IList<XPathItem> EvaluateValue(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
             IReadOnlyDictionary<QName, int>? staticValues, bool evaluateEnabled = false)
         {

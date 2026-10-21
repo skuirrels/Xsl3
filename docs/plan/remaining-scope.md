@@ -544,7 +544,7 @@ A sensible sequence:
 |---|---|
 | 1.2 Direct writer differences | output-0130 fixed: a 2.0+ stylesheet with an XHTML `html` literal result element and no method takes the principal writer. `<a />` is recorded as implementation-defined (docs/divergences.md). |
 | 2.1 Plan Sink B | Done: docs/plan/p4-sink-b.md, with the NativeAOT warnings measured |
-| 2.2–2.3 Sink B, NativeAOT | B1 started: lazy IL module (precompiled stylesheets no longer need Reflection.Emit at start-up), three of the eight warning sources fixed |
+| 2.2–2.3 Sink B, NativeAOT | B1 done: no NativeAOT warnings from Xsl3 (lazy IL module, annotated bridges, `RequiresDynamicCode` only on loading from source and on XPath compilation, `xsl:evaluate` refusing clearly without dynamic code). B2 done: constants belong to the stylesheet (`ConstantTable`), not the process. B3 (`PersistedAssemblyBuilder`, `Xsl3.Build`) and B4 (AOT in CI) remain |
 | 4.3 `AddParam` CLR mappings | Done for 2.0+ stylesheets |
 | 4.1 Design the 3.0 API | Done: docs/plan/api.md (one compiled unit per entry point, per-run base output URI, initial template and mode parameters, registered extension functions); two questions for the owner there |
 | 4.4 Settings | Done: `EnableResultDocument` (with `BaseOutputUri`), `EnableEnvironmentVariables`, `EnableAssertions`, `EnableExtensionFunctions`, `Timeout`, `MaxRecursionDepth` (a depth counter compiled in when set; tail calls don't count), `MaxOutputBytes`, `UseDedicatedThread`, `XsltArgumentList.CancellationToken` |

@@ -35,9 +35,12 @@ namespace Xsl3
     //      results, resultsFile        - cannot be null
     //----------------------------------------------------------------------------------------------------
 
-    [RequiresDynamicCode("XslCompiledTransform requires dynamic code because it generates IL at runtime.")]
+    // Xsl3 (Sink B, B1): only compiling from source needs dynamic code; a precompiled stylesheet (Load(Type),
+    // Load(MethodInfo, ...)) and the transforms themselves don't.
     public sealed class XslCompiledTransform
     {
+        private const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
+
         // Version for GeneratedCodeAttribute
         private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
 
@@ -85,6 +88,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(XmlReader stylesheet)
         {
             Reset();
@@ -93,6 +97,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
@@ -101,6 +106,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(IXPathNavigable stylesheet)
         {
             Reset();
@@ -109,12 +115,14 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(IXPathNavigable stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
             LoadInternal(stylesheet, settings, stylesheetResolver, stylesheetResolver);
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(string stylesheetUri)
         {
             Reset();
@@ -122,6 +130,7 @@ namespace Xsl3
             LoadInternal(stylesheetUri, XsltSettings.Default, CreateDefaultResolver(), originalStylesheetResolver: null);
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(string stylesheetUri, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
@@ -132,12 +141,15 @@ namespace Xsl3
         // The 'originalStylesheetResolver' argument should be the original XmlResolver
         // that was passed to the caller (or null), *before* any default substitutions
         // were made by the caller.
+        [RequiresDynamicCode(CompilesIL)]
         private void LoadInternal(object stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
             ArgumentNullException.ThrowIfNull(stylesheet);
 
             settings ??= XsltSettings.Default;
             _settings = settings.Clone();
+            // Xsl3: the stylesheet's own constants, for every unit compiled for it (ConstantPool).
+            using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
             CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
             CompilerError? error = GetFirstError();
             if (error != null)
@@ -152,6 +164,7 @@ namespace Xsl3
 
         [MemberNotNull(nameof(_compilerErrorColl))]
         [MemberNotNull(nameof(_qil))]
+        [RequiresDynamicCode(CompilesIL)]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
             var compiler = new Compiler(settings, _enableDebug, null)
@@ -240,6 +253,7 @@ namespace Xsl3
             return null;
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         private void CompileQilToMsil()
         {
             _command = new XmlILGenerator().Generate(_qil!, null)!;

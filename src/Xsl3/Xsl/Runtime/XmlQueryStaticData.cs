@@ -343,6 +343,9 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3 (P4): build the documents the transform parses as compact trees (always for 2.0+).</summary>
         public bool CompactTree { get; set; }
 
+        /// <summary>Xsl3: the stylesheet compilation's constants (ConstantPool); null for the process-wide table.</summary>
+        public Xsl3.XPath31.ConstantTable? Constants { get; set; }
+
         /// <summary>
         /// Return the default writer settings.
         /// </summary>

@@ -89,16 +89,24 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
 
 ## Milestones
 
-### B1: AOT-safe runtime
+### B1: AOT-safe runtime (done, 2026-10-21)
 
-- [ ] Lazy `XmlILModule` (decision 5).
-- [ ] Reflection fixes (decision 6), so a precompiled stylesheet publishes with no warnings from `Xsl3`.
-- [ ] `RequiresDynamicCode` only on what really emits: `Load` from source, `xsl:evaluate`.
+- [x] Lazy `XmlILModule` (decision 5).
+- [x] Reflection fixes (decision 6): the bridges' type lookups are annotated with `DynamicallyAccessedMembers`, the
+  `XsltLibrary` method table and `MentionsPositionOrLast` carry justified suppressions.
+- [x] `RequiresDynamicCode` only on what really emits: the `Load` overloads that compile from source, and
+  `XPath31Compiler.Compile`/`CompileHosted`. `xsl:evaluate` checks `RuntimeFeature.IsDynamicCodeSupported` and
+  raises `PlatformNotSupportedException` without it. The probe app now publishes with no warnings from `Xsl3`; its
+  own `Load` from source is the one warning left, as it should be.
 
-### B2: unit-local constants
+### B2: unit-local constants (done, 2026-10-21)
 
-- [ ] Decision 3, Sink A first: no behaviour change.
-- [ ] The gates, and the performance pairs, show no slowdown (the constant read is an array index either way).
+- [x] Decision 3, Sink A first: each `Load` opens a `ConstantTable` that every unit compiled for the stylesheet
+  shares (its use-when expressions and `xsl:evaluate` targets refer to its constants by number). The static data
+  carries the table; `XsltLibrary` reads constants through the runtime. XPath compiled outside a stylesheet still
+  uses the process-wide table. A test checks that loading stylesheets doesn't add to it.
+- [x] The gates pass unchanged, and the pairs show no slowdown: identity 0.82, sort 0.70, muenchian 1.18,
+  string-recursion 0.75, key-join 1.10 (main: 0.82, 0.71, 1.14, 0.76, 1.11).
 
 ### B3: Sink B
 

@@ -112,6 +112,9 @@ namespace Xsl3.Runtime
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
 
+        // Xsl3: the constants compiled code refers to by number (ConstantPool); null for the process-wide table.
+        internal Xsl3.XPath31.ConstantTable? Constants { get; }
+
         /// <summary>Xsl3 (P4): documents the transform parses become compact trees (always for 2.0+).</summary>
         internal bool UseCompactTree { get; }
 
@@ -223,6 +226,7 @@ namespace Xsl3.Runtime
             Dispatcher = data.Dispatcher;
             IsXslt2 = data.Xslt2;
             UseCompactTree = data.CompactTree;
+            Constants = data.Constants;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;

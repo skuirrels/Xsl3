@@ -31,7 +31,7 @@ namespace Xsl3.Runtime
             var (ns, local) = NameContext(nameContext).Resolve(name, "", "XTDE3340");
             // The accumulators of the package the call is in (their names carry its id).
             string key = new QName(Xsl3.Xslt.PackageComponents.MangleNamespace((int)package, ns), local).EQName;
-            var table = (Dictionary<string, AccumulatorInfo>)ConstantPool.Get((int)tableId);
+            var table = (Dictionary<string, AccumulatorInfo>)Constant((int)tableId);
             if (!table.TryGetValue(key, out AccumulatorInfo? info))
             {
                 throw new XdmException("XTDE3340", $"There is no accumulator named {name}");

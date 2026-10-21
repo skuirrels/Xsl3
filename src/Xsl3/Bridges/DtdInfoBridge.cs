@@ -21,8 +21,12 @@ namespace System.Xml
         private const DynamicallyAccessedMemberTypes Members = DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties;
 
         private static readonly PropertyInfo? s_dtdInfo = typeof(XmlReader).GetProperty("DtdInfo", BindingFlags.Instance | BindingFlags.NonPublic);
+        // Xsl3: annotated, so the trimmer keeps the members looked up below (a literal type name is analyzable).
+        [DynamicallyAccessedMembers(Members)]
         private static readonly Type? s_iDtdInfo = Type.GetType("System.Xml.IDtdInfo, System.Private.Xml");
+        [DynamicallyAccessedMembers(Members)]
         private static readonly Type? s_iAttrList = Type.GetType("System.Xml.IDtdAttributeListInfo, System.Private.Xml");
+        [DynamicallyAccessedMembers(Members)]
         private static readonly Type? s_iAttr = Type.GetType("System.Xml.IDtdAttributeInfo, System.Private.Xml");
 
         [DynamicDependency("get_DtdInfo", typeof(XmlReader))]

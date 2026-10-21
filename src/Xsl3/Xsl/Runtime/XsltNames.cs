@@ -137,7 +137,7 @@ namespace Xsl3.Runtime
 
     public sealed partial class XsltLibrary
     {
-        private static XsltNameContext NameContext(double id) => (XsltNameContext)ConstantPool.Get((int)id);
+        private XsltNameContext NameContext(double id) => (XsltNameContext)Constant((int)id);
 
         public XPathItem X31SystemProperty(string name, double context) => AtomicValue.OfString(NameContext(context).SystemProperty(name));
 
@@ -151,7 +151,7 @@ namespace Xsl3.Runtime
         public XPathItem X31TypeAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).TypeAvailable(name));
 
         /// <summary>The value of a static variable or parameter, computed when the stylesheet was compiled.</summary>
-        public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)ConstantPool.Get((int)id);
+        public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)Constant((int)id);
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
         public XPathItem X31AbsentFocus() => AtomicValue.OfString("");

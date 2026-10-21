@@ -100,7 +100,7 @@ namespace Xsl3.Runtime
         // ---------------------------------------------------------------- creating function items
 
         public XPathItem X31FunctionNew(double id, double signature) =>
-            new CompiledFunction((int)id, (FunctionSignature)ConstantPool.Get((int)signature), _runtime);
+            new CompiledFunction((int)id, (FunctionSignature)Constant((int)signature), _runtime);
 
         public XPathItem X31FunctionCapture(XPathItem function, IList<XPathItem> value)
         {
@@ -232,7 +232,7 @@ namespace Xsl3.Runtime
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
                 _runtime.RestoreOutput(output);
-                var errors = (List<List<string>>)ConstantPool.Get((int)errorsId);
+                var errors = (List<List<string>>)Constant((int)errorsId);
                 for (int i = 0; i < errors.Count; i++)
                 {
                     if (errors[i].Exists(test => ErrorNameMatches(test, code)))

@@ -10,35 +10,78 @@ namespace Xsl3.XPath31
     /// Objects that compiled code refers to by number: literal values, cast targets, sequence types.
     /// </summary>
     /// <remarks>
-    /// Process-wide and append-only for now, which is simple and thread-safe but never frees entries. P4 moves
-    /// constants into the compiled executable's own static data (SPEC §12.1) so they unload with it.
+    /// Xsl3 (Sink B, B2; docs/plan/p4-sink-b.md decision 3): each stylesheet compilation has its own table, shared by
+    /// every unit compiled for it (the stylesheet, its use-when expressions, the targets of its xsl:evaluate), and
+    /// reached at run time through the unit's static data, so the constants go when the stylesheet does. Code
+    /// compiled outside a stylesheet (XPath evaluated directly) uses the process-wide table.
     /// </remarks>
     internal static class ConstantPool
     {
-        // Xsl3 (P4): reads are lock-free (compiled code reads constants on every evaluation): an entry is written
-        // before its id is returned, and a full array is replaced by a larger copy, never changed in place.
-        private static object[] s_entries = new object[256];
-        private static int s_count;
-        private static readonly object s_lock = new();
+        private static readonly ConstantTable s_global = new();
 
-        public static int Add(object value)
+        [System.ThreadStatic]
+        private static ConstantTable? t_current;
+
+        /// <summary>The table constants are added to on this thread: the compilation's, if one is open.</summary>
+        public static ConstantTable Current => t_current ?? s_global;
+
+        /// <summary>The open compilation's table; null outside one.</summary>
+        public static ConstantTable? Compilation => t_current;
+
+        /// <summary>Makes <paramref name="table"/> the current one until the result is disposed.</summary>
+        public static Scope Use(ConstantTable? table)
         {
-            lock (s_lock)
+            var scope = new Scope(t_current);
+            t_current = table;
+            return scope;
+        }
+
+        public readonly struct Scope(ConstantTable? previous) : System.IDisposable
+        {
+            public void Dispose() => t_current = previous;
+        }
+
+        /// <summary>The size of the process-wide table (for tests: stylesheets don't add to it).</summary>
+        internal static int GlobalCount => s_global.Count;
+
+        public static int Add(object value) => Current.Add(value);
+
+        /// <summary>A constant of the current table (while compiling).</summary>
+        public static object Get(int id) => Current.Get(id);
+
+        /// <summary>A constant of a unit's table (at run time), or of the process-wide one.</summary>
+        public static object Get(ConstantTable? table, int id) => (table ?? s_global).Get(id);
+    }
+
+    /// <summary>A table of constants, appended to while compiling and read lock-free by compiled code.</summary>
+    internal sealed class ConstantTable
+    {
+        // Reads are lock-free (compiled code reads constants on every evaluation): an entry is written before its id
+        // is returned, and a full array is replaced by a larger copy, never changed in place.
+        private object[] _entries = new object[64];
+        private int _count;
+        private readonly object _lock = new();
+
+        public int Count => _count;
+
+        public int Add(object value)
+        {
+            lock (_lock)
             {
-                object[] entries = s_entries;
-                if (s_count == entries.Length)
+                object[] entries = _entries;
+                if (_count == entries.Length)
                 {
                     var larger = new object[entries.Length * 2];
                     System.Array.Copy(entries, larger, entries.Length);
                     entries = larger;
                 }
-                entries[s_count] = value;
-                System.Threading.Volatile.Write(ref s_entries, entries);
-                return s_count++;
+                entries[_count] = value;
+                System.Threading.Volatile.Write(ref _entries, entries);
+                return _count++;
             }
         }
 
-        public static object Get(int id) => System.Threading.Volatile.Read(ref s_entries)[id];
+        public object Get(int id) => System.Threading.Volatile.Read(ref _entries)[id];
     }
 
     /// <summary>

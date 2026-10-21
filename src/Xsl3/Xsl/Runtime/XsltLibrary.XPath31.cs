@@ -54,7 +54,7 @@ namespace Xsl3.Runtime
             _x31Contexts ??= new Dictionary<int, FunctionContext>();
             if (!_x31Contexts.TryGetValue(id, out FunctionContext? context))
             {
-                _x31Contexts[id] = context = X31Context.WithStatic((StaticInfo)ConstantPool.Get(id));
+                _x31Contexts[id] = context = X31Context.WithStatic((StaticInfo)Constant(id));
             }
             return context;
         }
@@ -70,7 +70,10 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ values
 
-        public XPathItem X31Constant(double id) => (XPathItem)ConstantPool.Get((int)id);
+        // A constant of this unit (ConstantPool).
+        private object Constant(int id) => ConstantPool.Get(_runtime.Constants, id);
+
+        public XPathItem X31Constant(double id) => (XPathItem)Constant((int)id);
 
         public XPathItem X31BooleanItem(bool value) => AtomicValue.OfBoolean(value);
 
@@ -426,7 +429,7 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31Cast(IList<XPathItem> seq, double targetId, bool allowEmpty)
         {
-            var target = (CastTarget)ConstantPool.Get((int)targetId);
+            var target = (CastTarget)Constant((int)targetId);
             AtomicValue? a = Sequences.AtomizeOptional(seq, "the operand of a cast");
             if (a == null)
             {
@@ -437,7 +440,7 @@ namespace Xsl3.Runtime
 
         public bool X31Castable(IList<XPathItem> seq, double targetId, bool allowEmpty)
         {
-            var target = (CastTarget)ConstantPool.Get((int)targetId);
+            var target = (CastTarget)Constant((int)targetId);
             IList<XPathItem> atomized = Sequences.Atomize(seq);
             if (atomized.Count == 0)
             {
@@ -446,11 +449,11 @@ namespace Xsl3.Runtime
             return atomized.Count == 1 && target.IsCastable((AtomicValue)atomized[0]);
         }
 
-        public bool X31InstanceOf(IList<XPathItem> seq, double typeId) => ((SequenceTypeTest)ConstantPool.Get((int)typeId)).Matches(seq);
+        public bool X31InstanceOf(IList<XPathItem> seq, double typeId) => ((SequenceTypeTest)Constant((int)typeId)).Matches(seq);
 
         public IList<XPathItem> X31Treat(IList<XPathItem> seq, double typeId)
         {
-            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            var type = (SequenceTypeTest)Constant((int)typeId);
             return type.Matches(seq) ? seq : throw new XdmException("XPDY0050", $"The value does not match the type {type} required by 'treat as'");
         }
 
