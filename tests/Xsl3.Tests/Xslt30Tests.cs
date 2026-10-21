@@ -870,4 +870,57 @@ public class Xslt30Tests
             <xsl:template match="/"><xsl:element name="p" namespace="urn:p" inherit-namespaces="no"><b/></xsl:element></xsl:template>
             """));
     }
+
+    /// <summary>
+    /// A predicate that can't depend on the focus ($s[$i]) is evaluated once and used as a position, with the same
+    /// results as evaluating it per item: numbers select by position (none for fractions or out of range), anything
+    /// else keeps all items or none, errors are raised only when there are items to filter.
+    /// </summary>
+    [Fact]
+    public void FocusFreePredicatesSelectByPosition()
+    {
+        Assert.Equal("<o>c|b|d|||a b c d e|||a</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="s" select="('a', 'b', 'c', 'd', 'e')"/>
+              <xsl:variable name="i" select="3"/>
+              <xsl:variable name="half" select="2.5"/>
+              <xsl:variable name="yes" select="true()"/>
+              <xsl:variable name="no" select="''"/>
+              <xsl:variable name="none" select="()"/>
+              <o><xsl:value-of select="$s[$i]"/>|<xsl:value-of select="$s[$i - 1]"/>|<xsl:value-of select="$s[($i + 1)]"/>|<xsl:value-of select="$s[$half]"/>|<xsl:value-of select="$s[$i * 10]"/>|<xsl:value-of select="$s[$yes]"/>|<xsl:value-of select="$s[$no]"/>|<xsl:value-of select="$none[$i + 'x']"/>|<xsl:value-of select="$s[-$i + 4 idiv 1]"/></o>
+            </xsl:template>
+            """));
+        // A sequence of two numbers has no effective boolean value (FORG0006), when there are items to filter.
+        Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><xsl:variable name="two" select="(1, 2)"/><o><xsl:value-of select="(1, 2, 3)[$two]"/></o></xsl:template>
+            """));
+    }
+
+    /// <summary>
+    /// A sequence converted to a parameter's declared type is passed on to the same parameter (a recursive call)
+    /// without being checked again; a value of the wrong type is still rejected.
+    /// </summary>
+    [Fact]
+    public void RecursiveCallsPassConvertedSequencesOn()
+    {
+        Assert.Equal("<o>55</o>", Run("""
+            <xsl:function name="f:sum" as="xs:decimal" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:decimal*"/>
+              <xsl:param name="i" as="xs:integer"/>
+              <xsl:sequence select="if ($i gt count($items)) then 0 else $items[$i] + f:sum($items, $i + 1)"/>
+            </xsl:function>
+            <xsl:template match="/"><o xmlns:f="urn:f" xsl:exclude-result-prefixes="f"><xsl:value-of select="f:sum(1 to 10, 1)"/></o></xsl:template>
+            """));
+        Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:function name="f:sum" as="xs:decimal" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:decimal*"/>
+              <xsl:sequence select="sum($items)"/>
+            </xsl:function>
+            <xsl:function name="f:dates" as="xs:date*" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:date*"/>
+              <xsl:sequence select="$items"/>
+            </xsl:function>
+            <xsl:template match="/"><o xmlns:f="urn:f"><xsl:value-of select="f:sum(f:dates((1 to 10) ! xs:date('2026-10-21')))"/></o></xsl:template>
+            """));
+    }
 }

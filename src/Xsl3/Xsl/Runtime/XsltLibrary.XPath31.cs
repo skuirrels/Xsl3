@@ -151,6 +151,20 @@ namespace Xsl3.Runtime
             return Sequences.EffectiveBooleanValue(value);
         }
 
+        /// <summary>
+        /// E[P] for a predicate whose value is the same for every item (XPath31Compiler.FocusFree): a number selects the
+        /// item at that position, anything else keeps all items or none by its effective boolean value.
+        /// </summary>
+        public IList<XPathItem> X31Subscript(IList<XPathItem> items, IList<XPathItem> predicate)
+        {
+            if (predicate.Count == 1 && predicate[0] is { IsNode: false } and not FunctionItem && Sequences.Atomize(predicate[0]) is { Type.IsNumeric: true } a)
+            {
+                double position = Numeric.ToDouble(a);
+                return position >= 1 && position <= items.Count && position == System.Math.Floor(position) ? One(items[(int)position - 1]) : Sequences.Empty;
+            }
+            return Sequences.EffectiveBooleanValue(predicate) ? Unshared(items, new[] { items }) : Sequences.Empty;
+        }
+
         // ------------------------------------------------------------ comparisons
 
         public IList<XPathItem> X31ValueCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)

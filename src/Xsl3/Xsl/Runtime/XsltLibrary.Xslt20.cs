@@ -245,8 +245,18 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Coerce(IList<XPathItem> value, double typeId, string errorCode)
         {
             var type = (SequenceTypeTest)Constant((int)typeId);
+            if (value is CoercedSequence { Type: var done } && ReferenceEquals(done, type))
+            {
+                // Already converted to this type (a recursive call passing its parameter on): nothing to check again.
+                return value;
+            }
             IList<XPathItem> coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
-            return type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test ? CoerceFunctions(coerced, test) : coerced;
+            if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test)
+            {
+                return CoerceFunctions(coerced, test);
+            }
+            // A longer sequence remembers the type it was converted to, so that passing it on costs nothing.
+            return coerced.Count >= CoercedSequence.MinimumCount ? new CoercedSequence(coerced, type) : coerced;
         }
 
         /// <summary>

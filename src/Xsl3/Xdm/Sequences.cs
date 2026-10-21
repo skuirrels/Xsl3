@@ -169,4 +169,54 @@ namespace Xsl3.Xdm
             return result;
         }
     }
+
+    /// <summary>
+    /// Xsl3 (perf): a sequence the function conversion rules have converted to <see cref="Type"/>, read-only. Passed on
+    /// to a parameter of the same declared type (a recursive call), it isn't checked again.
+    /// </summary>
+    internal sealed class CoercedSequence : IList<XPathItem>, IReadOnlyList<XPathItem>
+    {
+        /// <summary>Shorter sequences are cheaper to check again than to wrap.</summary>
+        public const int MinimumCount = 8;
+
+        private readonly IList<XPathItem> _items;
+
+        public CoercedSequence(IList<XPathItem> items, SequenceTypeTest type)
+        {
+            _items = items is CoercedSequence c ? c._items : items;
+            Type = type;
+        }
+
+        public SequenceTypeTest Type { get; }
+
+        public XPathItem this[int index]
+        {
+            get => _items[index];
+            set => throw new System.NotSupportedException();
+        }
+
+        public int Count => _items.Count;
+
+        public bool IsReadOnly => true;
+
+        public bool Contains(XPathItem item) => _items.Contains(item);
+
+        public void CopyTo(XPathItem[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+
+        public IEnumerator<XPathItem> GetEnumerator() => _items.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+
+        public int IndexOf(XPathItem item) => _items.IndexOf(item);
+
+        public void Add(XPathItem item) => throw new System.NotSupportedException();
+
+        public void Clear() => throw new System.NotSupportedException();
+
+        public void Insert(int index, XPathItem item) => throw new System.NotSupportedException();
+
+        public bool Remove(XPathItem item) => throw new System.NotSupportedException();
+
+        public void RemoveAt(int index) => throw new System.NotSupportedException();
+    }
 }

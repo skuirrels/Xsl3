@@ -678,7 +678,29 @@ namespace Xsl3.XPath31
             return WrapLet(input, _f.Loop(it, body));
         }
 
-        private QilNode Filter(FilterExpr fe) => Predicate(Items(Build(fe.Base)), fe.Predicate);
+        private QilNode Filter(FilterExpr fe)
+        {
+            if (fe.Predicate is not IntegerLiteral && FocusFree(fe.Predicate))
+            {
+                // Xsl3 (perf): a predicate that can't depend on the focus ($seq[$i], $seq[$i + 1]) has one value for every
+                // item: evaluated once, when there are items to filter, and used as a position by index.
+                QilIterator items = _f.Let(Items(Build(fe.Base)));
+                return _f.Loop(items, _f.Conditional(_f.IsEmpty(items), _f.TypeAssert(_f.Sequence(), T.ItemS),
+                    Call(nameof(XsltLibrary.X31Subscript), T.ItemS, items, Items(Build(fe.Predicate)))));
+            }
+            return Predicate(Items(Build(fe.Base)), fe.Predicate);
+        }
+
+        // Whether an expression's value can't depend on the focus it is evaluated in: variables, numbers and arithmetic.
+        private static bool FocusFree(Expr e) => e switch
+        {
+            VarRef or IntegerLiteral or DecimalLiteral or DoubleLiteral => true,
+            BinaryExpr { Op: BinaryOp.Add or BinaryOp.Subtract or BinaryOp.Multiply or BinaryOp.Divide or BinaryOp.IntegerDivide or BinaryOp.Modulo } b =>
+                FocusFree(b.Left) && FocusFree(b.Right),
+            UnaryExpr u => FocusFree(u.Operand),
+            SequenceExpr { Items.Count: 1 } s => FocusFree(s.Items[0]),
+            _ => false,
+        };
 
         // E[P]: keeps the items for which P is true, or whose position equals P when P is numeric.
         private QilNode Predicate(QilNode input, Expr predicate)
