@@ -118,6 +118,7 @@ namespace Xsl3.XPath31.Functions
                 }
             }
             var bases = new List<string>();
+            string? start = null;
             do
             {
                 if (nav.NodeType == XPathNodeType.Element)
@@ -127,10 +128,19 @@ namespace Xsl3.XPath31.Functions
                     {
                         bases.Add(xmlBase);
                     }
+                    // An element whose own base URI differs from its parent's starts an external entity: its base URI
+                    // is the entity's (xml:base inside it applies on top).
+                    string own = nav.BaseURI;
+                    XPathNavigator parent = nav.Clone();
+                    if (own.Length > 0 && parent.MoveToParent() && parent.BaseURI is { Length: > 0 } parentBase && parentBase != own)
+                    {
+                        start = own;
+                        break;
+                    }
                 }
             }
             while (nav.MoveToParent());
-            string result = nav.BaseURI;
+            string result = start ?? nav.BaseURI;
             for (int i = bases.Count - 1; i >= 0; i--)
             {
                 result = UriReference.IsAbsolute(bases[i]) || !UriReference.IsAbsolute(result) ? bases[i] : UriReference.Resolve(bases[i], result);
