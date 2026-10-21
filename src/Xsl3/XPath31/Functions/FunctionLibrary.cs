@@ -170,6 +170,27 @@ namespace Xsl3.XPath31.Functions
 
         public static FunctionDefinition ById(int id) => s_byId[id];
 
+        private static int? s_fingerprint;
+
+        /// <summary>
+        /// Xsl3: a hash of the functions in id order. Compiled code calls functions by id, so a stylesheet saved as an
+        /// assembly records it and runs only where it is the same (XmlQueryStaticData).
+        /// </summary>
+        public static int Fingerprint => s_fingerprint ??= ComputeFingerprint();
+
+        private static int ComputeFingerprint()
+        {
+            uint hash = 2166136261; // FNV-1a over "ns local arity;" for each function
+            foreach (FunctionDefinition f in s_byId)
+            {
+                foreach (char c in $"{f.Name.NamespaceUri} {f.Name.LocalName} {f.Arity};")
+                {
+                    hash = (hash ^ c) * 16777619;
+                }
+            }
+            return unchecked((int)hash);
+        }
+
         /// <summary>The function with this name and arity, or null. Variadic functions accept any arity from their declared one.</summary>
         public static FunctionDefinition? Find(string namespaceUri, string localName, int arity)
         {

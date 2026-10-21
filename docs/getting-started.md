@@ -119,7 +119,8 @@ compiler.StaticParameters[new QName("debug")] = new XdmAtomicValue(false);
 `XslCompiledTransform.CompileToAssembly` saves a compiled stylesheet as an assembly, and `Load(Type, XsltSettings)` loads
 it without compiling, which works under NativeAOT. The `Xsl3.Build` targets do this at build time for
 `<XsltStylesheet Include="report.xsl" TypeName="Stylesheets.Report" />` items; see `src/Xsl3.Build/README.md` and
-`samples/Xsl3.AotSample`.
+`samples/Xsl3.AotSample`. A compiled stylesheet runs only on the version of Xsl3 that compiled it; `Load(Type)` refuses
+another.
 
 ## The command line
 

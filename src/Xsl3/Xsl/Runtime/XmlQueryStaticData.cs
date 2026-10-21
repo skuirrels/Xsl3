@@ -21,7 +21,7 @@ namespace Xsl3.Runtime
 
         // Format version marker to support versioning: (major << 8) | minor
         // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B); 2 the stylesheet frames.
-        private const int CurrentFormatVersion = (0 << 8) | 2;
+        private const int CurrentFormatVersion = (0 << 8) | 3; // Xsl3: 3 adds the function library's fingerprint
 
         private readonly XmlWriterSettings _defaultWriterSettings;
         private readonly IList<WhitespaceRule>? _whitespaceRules;
@@ -85,6 +85,12 @@ namespace Xsl3.Runtime
             // Changes in the major part of version are not supported
             if ((formatVersion & ~0xff) > CurrentFormatVersion)
                 throw new NotSupportedException();
+
+            if ((formatVersion & 0xff) >= 3 && dataReader.ReadInt32() != Xsl3.XPath31.Functions.FunctionLibrary.Fingerprint)
+            {
+                // Xsl3: compiled code calls library functions by number, which differ from one Xsl3 to another.
+                throw new NotSupportedException("The stylesheet was compiled by another version of Xsl3, whose function library differs: compile it again with this one.");
+            }
 
             // XmlWriterSettings defaultWriterSettings;
             _defaultWriterSettings = XmlWriterSettingsInternals.Create(dataReader);
@@ -219,6 +225,7 @@ namespace Xsl3.Runtime
 
             // First put the format version
             dataWriter.Write7BitEncodedInt(CurrentFormatVersion);
+            dataWriter.Write(Xsl3.XPath31.Functions.FunctionLibrary.Fingerprint); // Xsl3: version 3
 
             // XmlWriterSettings defaultWriterSettings;
             _defaultWriterSettings.GetObjectData(dataWriter);
@@ -365,7 +372,6 @@ namespace Xsl3.Runtime
                     dataWriter.Write(frame.Value);
                 }
             }
-
             dataWriter.Dispose();
             data = dataStream.ToArray();
         }

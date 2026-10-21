@@ -435,6 +435,13 @@ namespace Xsl3.Xslt
                     new SourceLineInfo(ex.SourceUri, ex.LineNumber, ex.LinePosition, ex.LineNumber, ex.LinePosition) :
                     _input.BuildReaderLineInfo()
                 );
+                if (V2 && e is System.IO.IOException or UnauthorizedAccessException or System.Net.WebException)
+                {
+                    // Xsl3: a module that xsl:import or xsl:include names and that can't be read (XTSE0165).
+                    var load = new XslLoadException(SR.Xml_UserException, $"XTSE0165: {e.Message}");
+                    load.SetSourceLineInfo(lineInfo);
+                    throw load;
+                }
                 throw new XslLoadException(e, lineInfo);
             }
             finally

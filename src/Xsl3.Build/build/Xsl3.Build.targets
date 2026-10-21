@@ -2,14 +2,17 @@
   <PropertyGroup>
     <!-- How the stylesheet compiler (Xsl3.Cli's compile command, .NET 9 or later) is run. -->
     <Xsl3CompilerCommand Condition="'$(Xsl3CompilerCommand)' == ''">dotnet "$(MSBuildThisFileDirectory)../tools/net10.0/Xsl3.Cli.dll"</Xsl3CompilerCommand>
-    <Xsl3StylesheetOutputPath Condition="'$(Xsl3StylesheetOutputPath)' == ''">$(IntermediateOutputPath)xsl3/</Xsl3StylesheetOutputPath>
+    <!-- (BaseIntermediateOutputPath, obj/, is set before the project body; IntermediateOutputPath may not be yet.) -->
+    <Xsl3StylesheetOutputPath Condition="'$(Xsl3StylesheetOutputPath)' == ''">$(BaseIntermediateOutputPath)$(Configuration)/xsl3/</Xsl3StylesheetOutputPath>
   </PropertyGroup>
 
-  <!-- Each XsltStylesheet item becomes an assembly holding one type, referenced by the project. -->
+  <!-- Each XsltStylesheet item becomes an assembly holding one type, referenced by the project. It is compiled again
+       when the stylesheet changes, or one of Xsl3CompilerInputs (the compiler's files, when it is built from source):
+       a compiled stylesheet runs only on the Xsl3 it was compiled with. -->
   <Target Name="Xsl3CompileStylesheets"
           BeforeTargets="ResolveAssemblyReferences"
           Condition="'@(XsltStylesheet)' != ''"
-          Inputs="@(XsltStylesheet)"
+          Inputs="@(XsltStylesheet);$(Xsl3CompilerInputs)"
           Outputs="@(XsltStylesheet->'$(Xsl3StylesheetOutputPath)%(TypeName).dll')">
     <MakeDir Directories="$(Xsl3StylesheetOutputPath)" />
     <ItemGroup>

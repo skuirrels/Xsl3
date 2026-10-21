@@ -10,6 +10,8 @@
     <IsPackable>false</IsPackable>
     <!-- From source: the compiler is this repository's Xsl3.Cli build. -->
     <Xsl3CompilerCommand>dotnet "$(MSBuildThisFileDirectory)../../src/Xsl3.Cli/bin/$(Configuration)/net10.0/Xsl3.Cli.dll"</Xsl3CompilerCommand>
+    <!-- Compiled again whenever the compiler is rebuilt. -->
+    <Xsl3CompilerInputs>$(MSBuildThisFileDirectory)../../src/Xsl3.Cli/bin/$(Configuration)/net10.0/Xsl3.dll</Xsl3CompilerInputs>
   </PropertyGroup>
 
   <Import Project="..\..\src\Xsl3.Build\build\Xsl3.Build.props" />

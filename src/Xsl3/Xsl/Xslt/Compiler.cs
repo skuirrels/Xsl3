@@ -383,10 +383,63 @@ namespace Xsl3.Xslt
         public CompilerError CreateError(ISourceLineInfo lineInfo, string res, params string?[]? args)
         {
             AddModule(lineInfo.Uri!);
+            string text = XslTransformException.CreateMessage(res, args);
+            if (Version == 2 && ErrorCode31(res, args) is string code)
+            {
+                // Xsl3: in 2.0+ the messages inherited from the 1.0 compiler start with their XSLT error code (as the
+                // 3.0 ones do); 1.0 keeps stock's text.
+                text = code + ": " + text;
+            }
             return new CompilerError(
                 lineInfo.Uri!, lineInfo.Start.Line, lineInfo.Start.Pos, /*errorNumber:*/string.Empty,
-                /*errorText:*/XslTransformException.CreateMessage(res, args)
+                /*errorText:*/text
             );
+        }
+
+        // Xsl3: the XSLT 3.0 error code of an inherited static error message (by its resource), null if it has none.
+        private static string? ErrorCode31(string res, string?[]? args)
+        {
+            string Local(int i) => args is { Length: > 0 } && args[i] is string a ? a[(a.IndexOf(':') + 1)..] : "";
+            if (ReferenceEquals(res, SR.Xslt_ElementCntSel) || res == SR.Xslt_ElementCntSel)
+            {
+                return Local(0) switch
+                {
+                    "variable" or "param" or "with-param" => "XTSE0620",
+                    "attribute" => "XTSE0840",
+                    "value-of" => "XTSE0870",
+                    "processing-instruction" => "XTSE0880",
+                    "namespace" => "XTSE0910",
+                    "comment" => "XTSE0940",
+                    "sort" => "XTSE1015",
+                    "break" or "on-completion" => "XTSE3125",
+                    "try" => "XTSE3140",
+                    "catch" => "XTSE3150",
+                    "sequence" => "XTSE3185",
+                    "merge-key" => "XTSE3200",
+                    "map-entry" => "XTSE3280",
+                    _ => null,
+                };
+            }
+            if (res == SR.Xslt_NotAtTop)
+            {
+                return Local(0) == "import" ? "XTSE0200" : "XTSE0010";
+            }
+            return res switch
+            {
+                _ when res == SR.Xslt_UnexpectedElement || res == SR.Xslt_MissingAttribute || res == SR.Xslt_TextNodesNotAllowed || res == SR.Xslt_RequiredAndSelect => "XTSE0010",
+                _ when res == SR.Xslt_InvalidAttribute => "XTSE0090",
+                _ when res == SR.Xslt_BistateAttribute || res == SR.Xslt_InvalidAttrValue => "XTSE0020",
+                _ when res == SR.Xslt_InvalidPrefix => "XTSE0280",
+                _ when res == SR.Xslt_CircularInclude => "XTSE0180",
+                _ when res == SR.Xslt_DupTemplateName => "XTSE0660",
+                _ when res == SR.Xslt_NotEmptyContents => "XTSE0260",
+                _ when res == SR.Xslt_InvalidCallTemplate => "XTSE0650",
+                _ when res == SR.Xslt_WrongStylesheetElement => "XTSE0150",
+                _ when res == SR.Xslt_NoAttributeSet => "XTSE0710",
+                _ when res == SR.Xslt_CircularAttributeSet => "XTSE0720",
+                _ when res == SR.Xslt_DuplicateWithParam => "XTSE0670",
+                _ => null,
+            };
         }
 
         public void ReportError(ISourceLineInfo lineInfo, string res, params string?[]? args)
