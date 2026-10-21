@@ -14,7 +14,6 @@ import-schema/import-schema-177
 import/import-1201
 match/match-187
 match/match-197
-match/match-220
 match/match-221
 merge/merge-097
 namespace-alias/namespace-alias-1903

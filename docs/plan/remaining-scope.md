@@ -28,7 +28,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
 | 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.86, sort 0.71, muenchian 0.97, string-recursion 0.77, key-join 0.95 (medians of three runs, 2026-10-21) | ≤ 1.0 on every pair (§19.6, met) |
 | Compact tree memory | 59% of `XPathDocument` | ≤ 75% (met) |
-| NuGet | 0.8.0-alpha (published 2026-10-21) | 1.0 after P4 (§22 release plan) |
+| NuGet | 1.0.0-rc.1 (tagged 2026-10-21; 0.8.0-alpha before it) | 1.0 after P4 (§22 release plan) |
 
 The xslt30-test catalogue has about 14,600 test cases. The 3.0 profile runs about 8,000 of them. Most of the
 rest depend on features Xsl3 doesn't claim yet:
@@ -498,7 +498,8 @@ in 1.x minor releases.
    - 5: parallelism in 1.0;
    - 6: the licence and contribution terms.
 9.2 **API freeze**: run a public API analyzer (`Microsoft.CodeAnalysis.PublicApiAnalyzers`) from the first
-   release candidate.
+   release candidate. Done for 1.0.0-rc.1 (owner's decision to cut it, 2026-10-21): `src/Xsl3/PublicAPI.Shipped.txt`
+   records 955 members, and `PublicAPI/net10.0` the .NET 10-only `CompileToAssembly`.
 9.3 **Docs for users**: a getting-started page for the 3.0 API, migration notes from `System.Xml.Xsl`, the
    divergences list, and the security defaults.
 9.4 **Release mechanics** are in place: a tag `v*` triggers `.github/workflows/release.yml`, which publishes

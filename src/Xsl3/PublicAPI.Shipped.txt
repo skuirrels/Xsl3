@@ -1,0 +1,955 @@
+#nullable enable
+abstract Xsl3.Runtime.XmlNavigatorFilter.IsFiltered(System.Xml.XPath.XPathNavigator! navigator) -> bool
+abstract Xsl3.Runtime.XmlNavigatorFilter.MoveToContent(System.Xml.XPath.XPathNavigator! navigator) -> bool
+abstract Xsl3.Runtime.XmlNavigatorFilter.MoveToFollowing(System.Xml.XPath.XPathNavigator! navigator, System.Xml.XPath.XPathNavigator? navigatorEnd) -> bool
+abstract Xsl3.Runtime.XmlNavigatorFilter.MoveToFollowingSibling(System.Xml.XPath.XPathNavigator! navigator) -> bool
+abstract Xsl3.Runtime.XmlNavigatorFilter.MoveToNextContent(System.Xml.XPath.XPathNavigator! navigator) -> bool
+abstract Xsl3.Runtime.XmlNavigatorFilter.MoveToPreviousSibling(System.Xml.XPath.XPathNavigator! navigator) -> bool
+abstract Xsl3.Xdm.XdmItem.IsAtomic.get -> bool
+abstract Xsl3.XsltMessageEncounteredEventArgs.Message.get -> string!
+override Xsl3.Runtime.XmlCollation.Equals(object? obj) -> bool
+override Xsl3.Runtime.XmlCollation.GetHashCode() -> int
+override Xsl3.Runtime.XmlQueryOutput.Close() -> void
+override Xsl3.Runtime.XmlQueryOutput.Flush() -> void
+override Xsl3.Runtime.XmlQueryOutput.LookupPrefix(string! ns) -> string!
+override Xsl3.Runtime.XmlQueryOutput.WriteBase64(byte[]! buffer, int index, int count) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteCData(string? text) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteCharEntity(char ch) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteChars(char[]! buffer, int index, int count) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteComment(string? text) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteDocType(string! name, string? pubid, string? sysid, string? subset) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteEndAttribute() -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteEndDocument() -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteEndElement() -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteEntityRef(string! name) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteFullEndElement() -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteProcessingInstruction(string! target, string? text) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteRaw(char[]! buffer, int index, int count) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteRaw(string! data) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteStartAttribute(string? prefix, string! localName, string? ns) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteStartDocument() -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteStartDocument(bool standalone) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteStartElement(string? prefix, string! localName, string? ns) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteState.get -> System.Xml.WriteState
+override Xsl3.Runtime.XmlQueryOutput.WriteString(string? text) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteSurrogateCharEntity(char lowChar, char highChar) -> void
+override Xsl3.Runtime.XmlQueryOutput.WriteWhitespace(string? ws) -> void
+override Xsl3.Runtime.XmlQueryOutput.XmlLang.get -> string!
+override Xsl3.Runtime.XmlQueryOutput.XmlSpace.get -> System.Xml.XmlSpace
+override Xsl3.Xdm.QName.Equals(object? obj) -> bool
+override Xsl3.Xdm.QName.GetHashCode() -> int
+override Xsl3.Xdm.QName.ToString() -> string!
+override Xsl3.Xdm.XdmAtomicValue.Equals(object? obj) -> bool
+override Xsl3.Xdm.XdmAtomicValue.GetHashCode() -> int
+override Xsl3.Xdm.XdmAtomicValue.IsAtomic.get -> bool
+override Xsl3.Xdm.XdmFunctionItem.IsAtomic.get -> bool
+override Xsl3.Xdm.XdmFunctionItem.StringValue.get -> string!
+override Xsl3.Xdm.XdmItem.ToString() -> string!
+override Xsl3.Xdm.XdmNode.IsAtomic.get -> bool
+override Xsl3.Xdm.XdmNode.ToString() -> string!
+override Xsl3.Xdm.XdmValue.ToString() -> string!
+override Xsl3.XsltCompileException.GetObjectData(System.Runtime.Serialization.SerializationInfo! info, System.Runtime.Serialization.StreamingContext context) -> void
+override Xsl3.XsltException.GetObjectData(System.Runtime.Serialization.SerializationInfo! info, System.Runtime.Serialization.StreamingContext context) -> void
+override Xsl3.XsltException.Message.get -> string!
+override Xsl3.XsltFrame.ToString() -> string!
+override Xsl3.XsltStaticError.ToString() -> string!
+static readonly Xsl3.Runtime.XmlQueryItemSequence.Empty -> Xsl3.Runtime.XmlQueryItemSequence!
+static readonly Xsl3.Runtime.XmlQueryNodeSequence.Empty -> Xsl3.Runtime.XmlQueryNodeSequence!
+static readonly Xsl3.Runtime.XmlQuerySequence<T>.Empty -> Xsl3.Runtime.XmlQuerySequence<T>!
+static Xsl3.Runtime.XmlILStorageConverter.BooleanToAtomicValue(bool value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.BytesToAtomicValue(byte[]! value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.DateTimeToAtomicValue(System.DateTime value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.DecimalToAtomicValue(decimal value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.DoubleToAtomicValue(double value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.Int32ToAtomicValue(int value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.Int64ToAtomicValue(long value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.ItemsToNavigators(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+static Xsl3.Runtime.XmlILStorageConverter.NavigatorsToItems(System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>! listNavigators) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+static Xsl3.Runtime.XmlILStorageConverter.SingleToAtomicValue(float value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.StringToAtomicValue(string! value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.TimeSpanToAtomicValue(System.TimeSpan value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlILStorageConverter.XmlQualifiedNameToAtomicValue(System.Xml.XmlQualifiedName! value, int index, Xsl3.Runtime.XmlQueryRuntime! runtime) -> System.Xml.Schema.XmlAtomicValue!
+static Xsl3.Runtime.XmlQueryItemSequence.CreateOrReuse(Xsl3.Runtime.XmlQueryItemSequence! seq) -> Xsl3.Runtime.XmlQueryItemSequence!
+static Xsl3.Runtime.XmlQueryItemSequence.CreateOrReuse(Xsl3.Runtime.XmlQueryItemSequence! seq, System.Xml.XPath.XPathItem! item) -> Xsl3.Runtime.XmlQueryItemSequence!
+static Xsl3.Runtime.XmlQueryNodeSequence.CreateOrReuse(Xsl3.Runtime.XmlQueryNodeSequence! seq) -> Xsl3.Runtime.XmlQueryNodeSequence!
+static Xsl3.Runtime.XmlQueryNodeSequence.CreateOrReuse(Xsl3.Runtime.XmlQueryNodeSequence! seq, System.Xml.XPath.XPathNavigator! navigator) -> Xsl3.Runtime.XmlQueryNodeSequence!
+static Xsl3.Runtime.XmlQueryRuntime.EnterFunction() -> void
+static Xsl3.Runtime.XmlQueryRuntime.EnterFunctionCounted(int max) -> void
+static Xsl3.Runtime.XmlQueryRuntime.ExitFunctionCounted() -> void
+static Xsl3.Runtime.XmlQueryRuntime.OnCurrentNodeChanged(System.Xml.XPath.XPathNavigator! currentNode) -> int
+static Xsl3.Runtime.XmlQuerySequence<T>.CreateOrReuse(Xsl3.Runtime.XmlQuerySequence<T>! seq) -> Xsl3.Runtime.XmlQuerySequence<T>!
+static Xsl3.Runtime.XmlQuerySequence<T>.CreateOrReuse(Xsl3.Runtime.XmlQuerySequence<T>! seq, T item) -> Xsl3.Runtime.XmlQuerySequence<T>!
+static Xsl3.Runtime.XsltConvert.EnsureNodeSet(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+static Xsl3.Runtime.XsltConvert.ToBoolean(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> bool
+static Xsl3.Runtime.XsltConvert.ToBoolean(System.Xml.XPath.XPathItem! item) -> bool
+static Xsl3.Runtime.XsltConvert.ToDateTime(string! value) -> System.DateTime
+static Xsl3.Runtime.XsltConvert.ToDecimal(double value) -> decimal
+static Xsl3.Runtime.XsltConvert.ToDouble(decimal value) -> double
+static Xsl3.Runtime.XsltConvert.ToDouble(int value) -> double
+static Xsl3.Runtime.XsltConvert.ToDouble(long value) -> double
+static Xsl3.Runtime.XsltConvert.ToDouble(string! value) -> double
+static Xsl3.Runtime.XsltConvert.ToDouble(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> double
+static Xsl3.Runtime.XsltConvert.ToDouble(System.Xml.XPath.XPathItem! item) -> double
+static Xsl3.Runtime.XsltConvert.ToInt(double value) -> int
+static Xsl3.Runtime.XsltConvert.ToLong(double value) -> long
+static Xsl3.Runtime.XsltConvert.ToNode(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> System.Xml.XPath.XPathNavigator!
+static Xsl3.Runtime.XsltConvert.ToNode(System.Xml.XPath.XPathItem! item) -> System.Xml.XPath.XPathNavigator!
+static Xsl3.Runtime.XsltConvert.ToNodeSet(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+static Xsl3.Runtime.XsltConvert.ToNodeSet(System.Xml.XPath.XPathItem! item) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+static Xsl3.Runtime.XsltConvert.ToString(double value) -> string!
+static Xsl3.Runtime.XsltConvert.ToString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! listItems) -> string!
+static Xsl3.Runtime.XsltConvert.ToString(System.DateTime value) -> string!
+static Xsl3.Runtime.XsltConvert.ToString(System.Xml.XPath.XPathItem! item) -> string!
+static Xsl3.Runtime.XsltFunctions.BaseUri(System.Xml.XPath.XPathNavigator! navigator) -> string!
+static Xsl3.Runtime.XsltFunctions.Contains(string! s1, string! s2) -> bool
+static Xsl3.Runtime.XsltFunctions.EXslObjectType(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> string!
+static Xsl3.Runtime.XsltFunctions.Lang(string! value, System.Xml.XPath.XPathNavigator! context) -> bool
+static Xsl3.Runtime.XsltFunctions.MSFormatDateTime(string! dateTime, string! format, string! lang, bool isDate) -> string!
+static Xsl3.Runtime.XsltFunctions.MSLocalName(string! name) -> string!
+static Xsl3.Runtime.XsltFunctions.MSNamespaceUri(string! name, System.Xml.XPath.XPathNavigator! currentNode) -> string!
+static Xsl3.Runtime.XsltFunctions.MSNumber(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> double
+static Xsl3.Runtime.XsltFunctions.MSStringCompare(string! s1, string! s2, string! lang, string! options) -> double
+static Xsl3.Runtime.XsltFunctions.MSUtc(string! dateTime) -> string!
+static Xsl3.Runtime.XsltFunctions.NormalizeSpace(string! value) -> string!
+static Xsl3.Runtime.XsltFunctions.OuterXml(System.Xml.XPath.XPathNavigator! navigator) -> string!
+static Xsl3.Runtime.XsltFunctions.Round(double value) -> double
+static Xsl3.Runtime.XsltFunctions.StartsWith(string! s1, string! s2) -> bool
+static Xsl3.Runtime.XsltFunctions.Substring(string! value, double startIndex) -> string!
+static Xsl3.Runtime.XsltFunctions.Substring(string! value, double startIndex, double length) -> string!
+static Xsl3.Runtime.XsltFunctions.SubstringAfter(string! s1, string! s2) -> string!
+static Xsl3.Runtime.XsltFunctions.SubstringBefore(string! s1, string! s2) -> string!
+static Xsl3.Runtime.XsltFunctions.SystemProperty(System.Xml.XmlQualifiedName! name) -> System.Xml.XPath.XPathItem!
+static Xsl3.Runtime.XsltFunctions.Translate(string! arg, string! mapString, string! transString) -> string!
+static Xsl3.Tree.CompactDocument.Load(string! uri, System.Xml.XmlSpace space = System.Xml.XmlSpace.Default) -> Xsl3.Tree.CompactDocument!
+static Xsl3.Tree.CompactDocument.Load(System.IO.TextReader! text, System.Xml.XmlSpace space = System.Xml.XmlSpace.Default) -> Xsl3.Tree.CompactDocument!
+static Xsl3.Tree.CompactDocument.Load(System.Xml.XmlReader! reader, System.Xml.XmlSpace space = System.Xml.XmlSpace.Default) -> Xsl3.Tree.CompactDocument!
+static Xsl3.Xdm.QName.operator !=(Xsl3.Xdm.QName? a, Xsl3.Xdm.QName? b) -> bool
+static Xsl3.Xdm.QName.operator ==(Xsl3.Xdm.QName? a, Xsl3.Xdm.QName? b) -> bool
+static Xsl3.Xdm.XdmArray.EmptyArray.get -> Xsl3.Xdm.XdmArray!
+static Xsl3.Xdm.XdmEmptySequence.Instance.get -> Xsl3.Xdm.XdmEmptySequence!
+static Xsl3.Xdm.XdmMap.EmptyMap.get -> Xsl3.Xdm.XdmMap!
+static Xsl3.Xdm.XdmNode.Load(System.IO.Stream! stream, string? baseUri = null) -> Xsl3.Xdm.XdmNode!
+static Xsl3.Xdm.XdmNode.Load(System.IO.TextReader! text, string? baseUri = null) -> Xsl3.Xdm.XdmNode!
+static Xsl3.Xdm.XdmNode.Load(System.Xml.XmlReader! reader) -> Xsl3.Xdm.XdmNode!
+static Xsl3.Xdm.XdmValue.Empty.get -> Xsl3.Xdm.XdmValue!
+static Xsl3.Xdm.XdmValue.MakeValue(object? value) -> Xsl3.Xdm.XdmValue!
+static Xsl3.Xslt30Transformer.UnnamedMode.get -> Xsl3.Xdm.QName!
+static Xsl3.XsltCompiler.GetAssociatedStylesheet(Xsl3.Xdm.XdmNode! document) -> System.Uri?
+static Xsl3.XsltSettings.Default.get -> Xsl3.XsltSettings!
+static Xsl3.XsltSettings.TrustedXslt.get -> Xsl3.XsltSettings!
+virtual Xsl3.Runtime.XmlQuerySequence<T>.OnItemsChanged() -> void
+virtual Xsl3.Xdm.XdmItem.StringValue.get -> string!
+virtual Xsl3.XsltException.LineNumber.get -> int
+virtual Xsl3.XsltException.LinePosition.get -> int
+virtual Xsl3.XsltException.SourceUri.get -> string?
+virtual Xsl3.XsltMessageEncounteredEventHandler.Invoke(object! sender, Xsl3.XsltMessageEncounteredEventArgs! e) -> void
+Xsl3.IXsltTraceListener
+Xsl3.IXsltTraceListener.Enter(Xsl3.XsltFrame! frame) -> void
+Xsl3.IXsltTraceListener.Leave(Xsl3.XsltFrame! frame) -> void
+Xsl3.Runtime.AncestorDocOrderIterator
+Xsl3.Runtime.AncestorDocOrderIterator.AncestorDocOrderIterator() -> void
+Xsl3.Runtime.AncestorDocOrderIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter, bool orSelf) -> void
+Xsl3.Runtime.AncestorDocOrderIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.AncestorDocOrderIterator.MoveNext() -> bool
+Xsl3.Runtime.AncestorIterator
+Xsl3.Runtime.AncestorIterator.AncestorIterator() -> void
+Xsl3.Runtime.AncestorIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter, bool orSelf) -> void
+Xsl3.Runtime.AncestorIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.AncestorIterator.MoveNext() -> bool
+Xsl3.Runtime.AttributeContentIterator
+Xsl3.Runtime.AttributeContentIterator.AttributeContentIterator() -> void
+Xsl3.Runtime.AttributeContentIterator.Create(System.Xml.XPath.XPathNavigator! context) -> void
+Xsl3.Runtime.AttributeContentIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.AttributeContentIterator.MoveNext() -> bool
+Xsl3.Runtime.AttributeIterator
+Xsl3.Runtime.AttributeIterator.AttributeIterator() -> void
+Xsl3.Runtime.AttributeIterator.Create(System.Xml.XPath.XPathNavigator! context) -> void
+Xsl3.Runtime.AttributeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.AttributeIterator.MoveNext() -> bool
+Xsl3.Runtime.ContentIterator
+Xsl3.Runtime.ContentIterator.ContentIterator() -> void
+Xsl3.Runtime.ContentIterator.Create(System.Xml.XPath.XPathNavigator! context) -> void
+Xsl3.Runtime.ContentIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.ContentIterator.MoveNext() -> bool
+Xsl3.Runtime.ContentMergeIterator
+Xsl3.Runtime.ContentMergeIterator.ContentMergeIterator() -> void
+Xsl3.Runtime.ContentMergeIterator.Create(Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.ContentMergeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.ContentMergeIterator.MoveNext(System.Xml.XPath.XPathNavigator! input) -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.DecimalAggregator
+Xsl3.Runtime.DecimalAggregator.Average(decimal value) -> void
+Xsl3.Runtime.DecimalAggregator.AverageResult.get -> decimal
+Xsl3.Runtime.DecimalAggregator.Create() -> void
+Xsl3.Runtime.DecimalAggregator.DecimalAggregator() -> void
+Xsl3.Runtime.DecimalAggregator.IsEmpty.get -> bool
+Xsl3.Runtime.DecimalAggregator.Maximum(decimal value) -> void
+Xsl3.Runtime.DecimalAggregator.MaximumResult.get -> decimal
+Xsl3.Runtime.DecimalAggregator.Minimum(decimal value) -> void
+Xsl3.Runtime.DecimalAggregator.MinimumResult.get -> decimal
+Xsl3.Runtime.DecimalAggregator.Sum(decimal value) -> void
+Xsl3.Runtime.DecimalAggregator.SumResult.get -> decimal
+Xsl3.Runtime.DescendantIterator
+Xsl3.Runtime.DescendantIterator.Create(System.Xml.XPath.XPathNavigator! input, Xsl3.Runtime.XmlNavigatorFilter! filter, bool orSelf) -> void
+Xsl3.Runtime.DescendantIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.DescendantIterator.DescendantIterator() -> void
+Xsl3.Runtime.DescendantIterator.MoveNext() -> bool
+Xsl3.Runtime.DescendantMergeIterator
+Xsl3.Runtime.DescendantMergeIterator.Create(Xsl3.Runtime.XmlNavigatorFilter! filter, bool orSelf) -> void
+Xsl3.Runtime.DescendantMergeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.DescendantMergeIterator.DescendantMergeIterator() -> void
+Xsl3.Runtime.DescendantMergeIterator.MoveNext(System.Xml.XPath.XPathNavigator! input) -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.DifferenceIterator
+Xsl3.Runtime.DifferenceIterator.Create(Xsl3.Runtime.XmlQueryRuntime! runtime) -> void
+Xsl3.Runtime.DifferenceIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.DifferenceIterator.DifferenceIterator() -> void
+Xsl3.Runtime.DifferenceIterator.MoveNext(System.Xml.XPath.XPathNavigator! nestedNavigator) -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.DodSequenceMerge
+Xsl3.Runtime.DodSequenceMerge.AddSequence(System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>! sequence) -> void
+Xsl3.Runtime.DodSequenceMerge.Create(Xsl3.Runtime.XmlQueryRuntime! runtime) -> void
+Xsl3.Runtime.DodSequenceMerge.DodSequenceMerge() -> void
+Xsl3.Runtime.DodSequenceMerge.MergeSequences() -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+Xsl3.Runtime.DoubleAggregator
+Xsl3.Runtime.DoubleAggregator.Average(double value) -> void
+Xsl3.Runtime.DoubleAggregator.AverageResult.get -> double
+Xsl3.Runtime.DoubleAggregator.Create() -> void
+Xsl3.Runtime.DoubleAggregator.DoubleAggregator() -> void
+Xsl3.Runtime.DoubleAggregator.IsEmpty.get -> bool
+Xsl3.Runtime.DoubleAggregator.Maximum(double value) -> void
+Xsl3.Runtime.DoubleAggregator.MaximumResult.get -> double
+Xsl3.Runtime.DoubleAggregator.Minimum(double value) -> void
+Xsl3.Runtime.DoubleAggregator.MinimumResult.get -> double
+Xsl3.Runtime.DoubleAggregator.Sum(double value) -> void
+Xsl3.Runtime.DoubleAggregator.SumResult.get -> double
+Xsl3.Runtime.ElementContentIterator
+Xsl3.Runtime.ElementContentIterator.Create(System.Xml.XPath.XPathNavigator! context, string! localName, string! ns) -> void
+Xsl3.Runtime.ElementContentIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.ElementContentIterator.ElementContentIterator() -> void
+Xsl3.Runtime.ElementContentIterator.MoveNext() -> bool
+Xsl3.Runtime.FollowingSiblingIterator
+Xsl3.Runtime.FollowingSiblingIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.FollowingSiblingIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.FollowingSiblingIterator.FollowingSiblingIterator() -> void
+Xsl3.Runtime.FollowingSiblingIterator.MoveNext() -> bool
+Xsl3.Runtime.FollowingSiblingMergeIterator
+Xsl3.Runtime.FollowingSiblingMergeIterator.Create(Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.FollowingSiblingMergeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.FollowingSiblingMergeIterator.FollowingSiblingMergeIterator() -> void
+Xsl3.Runtime.FollowingSiblingMergeIterator.MoveNext(System.Xml.XPath.XPathNavigator! navigator) -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.IdIterator
+Xsl3.Runtime.IdIterator.Create(System.Xml.XPath.XPathNavigator! context, string! value) -> void
+Xsl3.Runtime.IdIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.IdIterator.IdIterator() -> void
+Xsl3.Runtime.IdIterator.MoveNext() -> bool
+Xsl3.Runtime.Int32Aggregator
+Xsl3.Runtime.Int32Aggregator.Average(int value) -> void
+Xsl3.Runtime.Int32Aggregator.AverageResult.get -> int
+Xsl3.Runtime.Int32Aggregator.Create() -> void
+Xsl3.Runtime.Int32Aggregator.Int32Aggregator() -> void
+Xsl3.Runtime.Int32Aggregator.IsEmpty.get -> bool
+Xsl3.Runtime.Int32Aggregator.Maximum(int value) -> void
+Xsl3.Runtime.Int32Aggregator.MaximumResult.get -> int
+Xsl3.Runtime.Int32Aggregator.Minimum(int value) -> void
+Xsl3.Runtime.Int32Aggregator.MinimumResult.get -> int
+Xsl3.Runtime.Int32Aggregator.Sum(int value) -> void
+Xsl3.Runtime.Int32Aggregator.SumResult.get -> int
+Xsl3.Runtime.Int64Aggregator
+Xsl3.Runtime.Int64Aggregator.Average(long value) -> void
+Xsl3.Runtime.Int64Aggregator.AverageResult.get -> long
+Xsl3.Runtime.Int64Aggregator.Create() -> void
+Xsl3.Runtime.Int64Aggregator.Int64Aggregator() -> void
+Xsl3.Runtime.Int64Aggregator.IsEmpty.get -> bool
+Xsl3.Runtime.Int64Aggregator.Maximum(long value) -> void
+Xsl3.Runtime.Int64Aggregator.MaximumResult.get -> long
+Xsl3.Runtime.Int64Aggregator.Minimum(long value) -> void
+Xsl3.Runtime.Int64Aggregator.MinimumResult.get -> long
+Xsl3.Runtime.Int64Aggregator.Sum(long value) -> void
+Xsl3.Runtime.Int64Aggregator.SumResult.get -> long
+Xsl3.Runtime.IntersectIterator
+Xsl3.Runtime.IntersectIterator.Create(Xsl3.Runtime.XmlQueryRuntime! runtime) -> void
+Xsl3.Runtime.IntersectIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.IntersectIterator.IntersectIterator() -> void
+Xsl3.Runtime.IntersectIterator.MoveNext(System.Xml.XPath.XPathNavigator! nestedNavigator) -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.IteratorResult.HaveCurrentNode = 2 -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.IteratorResult.NeedInputNode = 1 -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.IteratorResult.NoMoreNodes = 0 -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.NamespaceIterator
+Xsl3.Runtime.NamespaceIterator.Create(System.Xml.XPath.XPathNavigator! context) -> void
+Xsl3.Runtime.NamespaceIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.NamespaceIterator.MoveNext() -> bool
+Xsl3.Runtime.NamespaceIterator.NamespaceIterator() -> void
+Xsl3.Runtime.NodeKindContentIterator
+Xsl3.Runtime.NodeKindContentIterator.Create(System.Xml.XPath.XPathNavigator! context, System.Xml.XPath.XPathNodeType nodeType) -> void
+Xsl3.Runtime.NodeKindContentIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.NodeKindContentIterator.MoveNext() -> bool
+Xsl3.Runtime.NodeKindContentIterator.NodeKindContentIterator() -> void
+Xsl3.Runtime.NodeRangeIterator
+Xsl3.Runtime.NodeRangeIterator.Create(System.Xml.XPath.XPathNavigator! start, Xsl3.Runtime.XmlNavigatorFilter! filter, System.Xml.XPath.XPathNavigator! end) -> void
+Xsl3.Runtime.NodeRangeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.NodeRangeIterator.MoveNext() -> bool
+Xsl3.Runtime.NodeRangeIterator.NodeRangeIterator() -> void
+Xsl3.Runtime.ParentIterator
+Xsl3.Runtime.ParentIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.ParentIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.ParentIterator.MoveNext() -> bool
+Xsl3.Runtime.ParentIterator.ParentIterator() -> void
+Xsl3.Runtime.PrecedingIterator
+Xsl3.Runtime.PrecedingIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.PrecedingIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.PrecedingIterator.MoveNext() -> bool
+Xsl3.Runtime.PrecedingIterator.PrecedingIterator() -> void
+Xsl3.Runtime.PrecedingSiblingDocOrderIterator
+Xsl3.Runtime.PrecedingSiblingDocOrderIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.PrecedingSiblingDocOrderIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.PrecedingSiblingDocOrderIterator.MoveNext() -> bool
+Xsl3.Runtime.PrecedingSiblingDocOrderIterator.PrecedingSiblingDocOrderIterator() -> void
+Xsl3.Runtime.PrecedingSiblingIterator
+Xsl3.Runtime.PrecedingSiblingIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.PrecedingSiblingIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.PrecedingSiblingIterator.MoveNext() -> bool
+Xsl3.Runtime.PrecedingSiblingIterator.PrecedingSiblingIterator() -> void
+Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.SetIteratorResult.HaveCurrentNode = 4 -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.SetIteratorResult.InitRightIterator = 1 -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.SetIteratorResult.NeedLeftNode = 2 -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.SetIteratorResult.NeedRightNode = 3 -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.SetIteratorResult.NoMoreNodes = 0 -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.StringConcat
+Xsl3.Runtime.StringConcat.Clear() -> void
+Xsl3.Runtime.StringConcat.Concat(string! value) -> void
+Xsl3.Runtime.StringConcat.Delimiter.get -> string?
+Xsl3.Runtime.StringConcat.Delimiter.set -> void
+Xsl3.Runtime.StringConcat.GetResult() -> string!
+Xsl3.Runtime.StringConcat.StringConcat() -> void
+Xsl3.Runtime.UnionIterator
+Xsl3.Runtime.UnionIterator.Create(Xsl3.Runtime.XmlQueryRuntime! runtime) -> void
+Xsl3.Runtime.UnionIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.UnionIterator.MoveNext(System.Xml.XPath.XPathNavigator! nestedNavigator) -> Xsl3.Runtime.SetIteratorResult
+Xsl3.Runtime.UnionIterator.UnionIterator() -> void
+Xsl3.Runtime.XmlCollation
+Xsl3.Runtime.XmlILIndex
+Xsl3.Runtime.XmlILIndex.Add(string! key, System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlILIndex.Lookup(string! key) -> Xsl3.Runtime.XmlQueryNodeSequence!
+Xsl3.Runtime.XmlILStorageConverter
+Xsl3.Runtime.XmlNavigatorFilter
+Xsl3.Runtime.XmlNavigatorFilter.XmlNavigatorFilter() -> void
+Xsl3.Runtime.XmlQueryContext
+Xsl3.Runtime.XmlQueryContext.DefaultDataSource.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XmlQueryContext.DefaultNameTable.get -> System.Xml.XmlNameTable?
+Xsl3.Runtime.XmlQueryContext.GetDataSource(string! uriRelative, string? uriBase) -> System.Xml.XPath.XPathNavigator?
+Xsl3.Runtime.XmlQueryContext.GetLateBoundObject(string! namespaceUri) -> object?
+Xsl3.Runtime.XmlQueryContext.GetParameter(string! localName, string! namespaceUri) -> object?
+Xsl3.Runtime.XmlQueryContext.InvokeXsltLateBoundFunction(string! name, string! namespaceUri, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>![]! args) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XmlQueryContext.LateBoundFunctionExists(string! name, string! namespaceUri) -> bool
+Xsl3.Runtime.XmlQueryContext.OnXsltMessageEncountered(string! message) -> void
+Xsl3.Runtime.XmlQueryContext.QueryNameTable.get -> System.Xml.XmlNameTable!
+Xsl3.Runtime.XmlQueryItemSequence
+Xsl3.Runtime.XmlQueryItemSequence.AddClone(System.Xml.XPath.XPathItem! item) -> void
+Xsl3.Runtime.XmlQueryItemSequence.XmlQueryItemSequence() -> void
+Xsl3.Runtime.XmlQueryItemSequence.XmlQueryItemSequence(int capacity) -> void
+Xsl3.Runtime.XmlQueryItemSequence.XmlQueryItemSequence(System.Xml.XPath.XPathItem! item) -> void
+Xsl3.Runtime.XmlQueryNodeSequence
+Xsl3.Runtime.XmlQueryNodeSequence.AddClone(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryNodeSequence.DocOrderDistinct(System.Collections.Generic.IComparer<System.Xml.XPath.XPathNavigator!>! comparer) -> Xsl3.Runtime.XmlQueryNodeSequence!
+Xsl3.Runtime.XmlQueryNodeSequence.IsDocOrderDistinct.get -> bool
+Xsl3.Runtime.XmlQueryNodeSequence.IsDocOrderDistinct.set -> void
+Xsl3.Runtime.XmlQueryNodeSequence.XmlQueryNodeSequence() -> void
+Xsl3.Runtime.XmlQueryNodeSequence.XmlQueryNodeSequence(int capacity) -> void
+Xsl3.Runtime.XmlQueryNodeSequence.XmlQueryNodeSequence(System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>! list) -> void
+Xsl3.Runtime.XmlQueryNodeSequence.XmlQueryNodeSequence(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryNodeSequence.XmlQueryNodeSequence(System.Xml.XPath.XPathNavigator![]! array, int size) -> void
+Xsl3.Runtime.XmlQueryOutput
+Xsl3.Runtime.XmlQueryOutput.EndCopy(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryOutput.EndTree() -> void
+Xsl3.Runtime.XmlQueryOutput.StartCopy(System.Xml.XPath.XPathNavigator! navigator) -> bool
+Xsl3.Runtime.XmlQueryOutput.StartElementContentUnchecked() -> void
+Xsl3.Runtime.XmlQueryOutput.StartTree(System.Xml.XPath.XPathNodeType rootType) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteCommentString(string? text) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndAttributeUnchecked() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndComment() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndElementUnchecked(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndElementUnchecked(string! prefix, string! localName, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndNamespace() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndProcessingInstruction() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteEndRoot() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteItem(System.Xml.XPath.XPathItem! item) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteNamespaceDeclaration(string! prefix, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteNamespaceDeclarationUnchecked(string! prefix, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteNamespaceString(string! text) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteProcessingInstructionString(string? text) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteRawUnchecked(string! text) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeComputed(string! tagName, int prefixMappingsIndex) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeComputed(string! tagName, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeComputed(System.Xml.XmlQualifiedName! name) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeComputed(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeLocalName(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeUnchecked(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartAttributeUnchecked(string? prefix, string! localName, string? ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartComment() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementComputed(string! tagName, int prefixMappingsIndex) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementComputed(string! tagName, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementComputed(System.Xml.XmlQualifiedName! name) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementComputed(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementLocalName(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementLocalNameUncached(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementUncached(string! prefix, string! localName, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementUnchecked(string! localName) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartElementUnchecked(string! prefix, string! localName, string! ns) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartNamespace(string! prefix) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartProcessingInstruction(string! target) -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStartRoot() -> void
+Xsl3.Runtime.XmlQueryOutput.WriteStringUnchecked(string! text) -> void
+Xsl3.Runtime.XmlQueryOutput.XsltCopyOf(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XmlQueryRuntime
+Xsl3.Runtime.XmlQueryRuntime.AddNewIndex(System.Xml.XPath.XPathNavigator! context, int indexId, Xsl3.Runtime.XmlILIndex! index) -> void
+Xsl3.Runtime.XmlQueryRuntime.ChangeTypeXsltArgument(int indexType, object! value, System.Type! destinationType) -> object!
+Xsl3.Runtime.XmlQueryRuntime.ChangeTypeXsltResult(int indexType, object! value) -> object!
+Xsl3.Runtime.XmlQueryRuntime.ComparePosition(System.Xml.XPath.XPathNavigator! navigatorThis, System.Xml.XPath.XPathNavigator! navigatorThat) -> int
+Xsl3.Runtime.XmlQueryRuntime.CreateCollation(string! collation) -> Xsl3.Runtime.XmlCollation?
+Xsl3.Runtime.XmlQueryRuntime.DebugGetGlobalNames() -> string![]?
+Xsl3.Runtime.XmlQueryRuntime.DebugGetGlobalValue(string! name) -> System.Collections.IList?
+Xsl3.Runtime.XmlQueryRuntime.DebugGetXsltValue(System.Collections.IList? seq) -> object?
+Xsl3.Runtime.XmlQueryRuntime.DebugSetGlobalValue(string! name, object! value) -> void
+Xsl3.Runtime.XmlQueryRuntime.DocOrderDistinct(System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>! seq) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+Xsl3.Runtime.XmlQueryRuntime.EarlyBoundFunctionExists(string! name, string! namespaceUri) -> bool
+Xsl3.Runtime.XmlQueryRuntime.EndRtfConstruction(out Xsl3.Runtime.XmlQueryOutput! output) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XmlQueryRuntime.EndSequenceConstruction(out Xsl3.Runtime.XmlQueryOutput! output) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XmlQueryRuntime.ExternalContext.get -> Xsl3.Runtime.XmlQueryContext!
+Xsl3.Runtime.XmlQueryRuntime.FindIndex(System.Xml.XPath.XPathNavigator! context, int indexId, out Xsl3.Runtime.XmlILIndex! index) -> bool
+Xsl3.Runtime.XmlQueryRuntime.GenerateId(System.Xml.XPath.XPathNavigator! navigator) -> string!
+Xsl3.Runtime.XmlQueryRuntime.GetAtomizedName(int index) -> string!
+Xsl3.Runtime.XmlQueryRuntime.GetCollation(int index) -> Xsl3.Runtime.XmlCollation!
+Xsl3.Runtime.XmlQueryRuntime.GetEarlyBoundObject(int index) -> object!
+Xsl3.Runtime.XmlQueryRuntime.GetGlobalValue(int index) -> object!
+Xsl3.Runtime.XmlQueryRuntime.GetNameFilter(int index) -> Xsl3.Runtime.XmlNavigatorFilter!
+Xsl3.Runtime.XmlQueryRuntime.GetTypeFilter(System.Xml.XPath.XPathNodeType nodeType) -> Xsl3.Runtime.XmlNavigatorFilter!
+Xsl3.Runtime.XmlQueryRuntime.IsGlobalComputed(int index) -> bool
+Xsl3.Runtime.XmlQueryRuntime.IsQNameEqual(System.Xml.XPath.XPathNavigator! n1, System.Xml.XPath.XPathNavigator! n2) -> bool
+Xsl3.Runtime.XmlQueryRuntime.IsQNameEqual(System.Xml.XPath.XPathNavigator! navigator, int indexLocalName, int indexNamespaceUri) -> bool
+Xsl3.Runtime.XmlQueryRuntime.MatchesXmlType(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, int indexType) -> bool
+Xsl3.Runtime.XmlQueryRuntime.MatchesXmlType(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, System.Xml.Schema.XmlTypeCode code) -> bool
+Xsl3.Runtime.XmlQueryRuntime.MatchesXmlType(System.Xml.XPath.XPathItem! item, int indexType) -> bool
+Xsl3.Runtime.XmlQueryRuntime.MatchesXmlType(System.Xml.XPath.XPathItem! item, System.Xml.Schema.XmlTypeCode code) -> bool
+Xsl3.Runtime.XmlQueryRuntime.NameTable.get -> System.Xml.XmlNameTable!
+Xsl3.Runtime.XmlQueryRuntime.Output.get -> Xsl3.Runtime.XmlQueryOutput!
+Xsl3.Runtime.XmlQueryRuntime.ParseTagName(string! tagName, int indexPrefixMappings) -> System.Xml.XmlQualifiedName!
+Xsl3.Runtime.XmlQueryRuntime.ParseTagName(string! tagName, string! ns) -> System.Xml.XmlQualifiedName!
+Xsl3.Runtime.XmlQueryRuntime.SendMessage(string! message) -> void
+Xsl3.Runtime.XmlQueryRuntime.SetGlobalValue(int index, object! value) -> void
+Xsl3.Runtime.XmlQueryRuntime.StartRtfConstruction(string! baseUri, out Xsl3.Runtime.XmlQueryOutput! output) -> void
+Xsl3.Runtime.XmlQueryRuntime.StartSequenceConstruction(out Xsl3.Runtime.XmlQueryOutput! output) -> void
+Xsl3.Runtime.XmlQueryRuntime.TextRtfConstruction(string! text, string! baseUri) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XmlQueryRuntime.ThrowException(string! text) -> void
+Xsl3.Runtime.XmlQueryRuntime.XsltFunctions.get -> Xsl3.Runtime.XsltLibrary!
+Xsl3.Runtime.XmlQuerySequence<T>
+Xsl3.Runtime.XmlQuerySequence<T>.Add(T value) -> void
+Xsl3.Runtime.XmlQuerySequence<T>.Clear() -> void
+Xsl3.Runtime.XmlQuerySequence<T>.Contains(T value) -> bool
+Xsl3.Runtime.XmlQuerySequence<T>.CopyTo(T[]! array, int index) -> void
+Xsl3.Runtime.XmlQuerySequence<T>.Count.get -> int
+Xsl3.Runtime.XmlQuerySequence<T>.GetEnumerator() -> System.Collections.Generic.IEnumerator<T>!
+Xsl3.Runtime.XmlQuerySequence<T>.IndexOf(T value) -> int
+Xsl3.Runtime.XmlQuerySequence<T>.SortByKeys(System.Array! keys) -> void
+Xsl3.Runtime.XmlQuerySequence<T>.this[int index].get -> T
+Xsl3.Runtime.XmlQuerySequence<T>.this[int index].set -> void
+Xsl3.Runtime.XmlQuerySequence<T>.XmlQuerySequence() -> void
+Xsl3.Runtime.XmlQuerySequence<T>.XmlQuerySequence(int capacity) -> void
+Xsl3.Runtime.XmlQuerySequence<T>.XmlQuerySequence(T value) -> void
+Xsl3.Runtime.XmlQuerySequence<T>.XmlQuerySequence(T[]! array, int size) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator
+Xsl3.Runtime.XmlSortKeyAccumulator.AddDateTimeSortKey(Xsl3.Runtime.XmlCollation! collation, System.DateTime value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddDecimalSortKey(Xsl3.Runtime.XmlCollation! collation, decimal value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddDoubleSortKey(Xsl3.Runtime.XmlCollation! collation, double value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddEmptySortKey(Xsl3.Runtime.XmlCollation! collation) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddIntegerSortKey(Xsl3.Runtime.XmlCollation! collation, long value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddIntSortKey(Xsl3.Runtime.XmlCollation! collation, int value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.AddStringSortKey(Xsl3.Runtime.XmlCollation! collation, string! value) -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.Create() -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.FinishSortKeys() -> void
+Xsl3.Runtime.XmlSortKeyAccumulator.Keys.get -> System.Array!
+Xsl3.Runtime.XmlSortKeyAccumulator.XmlSortKeyAccumulator() -> void
+Xsl3.Runtime.XPathFollowingIterator
+Xsl3.Runtime.XPathFollowingIterator.Create(System.Xml.XPath.XPathNavigator! input, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.XPathFollowingIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XPathFollowingIterator.MoveNext() -> bool
+Xsl3.Runtime.XPathFollowingIterator.XPathFollowingIterator() -> void
+Xsl3.Runtime.XPathFollowingMergeIterator
+Xsl3.Runtime.XPathFollowingMergeIterator.Create(Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.XPathFollowingMergeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XPathFollowingMergeIterator.MoveNext(System.Xml.XPath.XPathNavigator! input) -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.XPathFollowingMergeIterator.XPathFollowingMergeIterator() -> void
+Xsl3.Runtime.XPathPrecedingDocOrderIterator
+Xsl3.Runtime.XPathPrecedingDocOrderIterator.Create(System.Xml.XPath.XPathNavigator! input, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.XPathPrecedingDocOrderIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XPathPrecedingDocOrderIterator.MoveNext() -> bool
+Xsl3.Runtime.XPathPrecedingDocOrderIterator.XPathPrecedingDocOrderIterator() -> void
+Xsl3.Runtime.XPathPrecedingIterator
+Xsl3.Runtime.XPathPrecedingIterator.Create(System.Xml.XPath.XPathNavigator! context, Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.XPathPrecedingIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XPathPrecedingIterator.MoveNext() -> bool
+Xsl3.Runtime.XPathPrecedingIterator.XPathPrecedingIterator() -> void
+Xsl3.Runtime.XPathPrecedingMergeIterator
+Xsl3.Runtime.XPathPrecedingMergeIterator.Create(Xsl3.Runtime.XmlNavigatorFilter! filter) -> void
+Xsl3.Runtime.XPathPrecedingMergeIterator.Current.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XPathPrecedingMergeIterator.MoveNext(System.Xml.XPath.XPathNavigator! input) -> Xsl3.Runtime.IteratorResult
+Xsl3.Runtime.XPathPrecedingMergeIterator.XPathPrecedingMergeIterator() -> void
+Xsl3.Runtime.XsltConvert
+Xsl3.Runtime.XsltFunctions
+Xsl3.Runtime.XsltLibrary
+Xsl3.Runtime.XsltLibrary.CheckScriptNamespace(string! nsUri) -> int
+Xsl3.Runtime.XsltLibrary.ElementAvailable(System.Xml.XmlQualifiedName! name) -> bool
+Xsl3.Runtime.XsltLibrary.EqualityOperator(double opCode, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right) -> bool
+Xsl3.Runtime.XsltLibrary.FormatMessage(string! res, System.Collections.Generic.IList<string!>! args) -> string!
+Xsl3.Runtime.XsltLibrary.FormatNumberDynamic(double value, string! formatPicture, System.Xml.XmlQualifiedName! decimalFormatName, string! errorMessageName) -> string!
+Xsl3.Runtime.XsltLibrary.FormatNumberStatic(double value, double decimalFormatterIndex) -> string!
+Xsl3.Runtime.XsltLibrary.FunctionAvailable(System.Xml.XmlQualifiedName! name) -> bool
+Xsl3.Runtime.XsltLibrary.IsSameNodeSort(System.Xml.XPath.XPathNavigator! nav1, System.Xml.XPath.XPathNavigator! nav2) -> bool
+Xsl3.Runtime.XsltLibrary.LangToLcid(string! lang, bool forwardCompatibility) -> int
+Xsl3.Runtime.XsltLibrary.NumberFormat(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, string! formatString, double lang, string! letterValue, string! groupingSeparator, double groupingSize) -> string!
+Xsl3.Runtime.XsltLibrary.RegisterDecimalFormat(System.Xml.XmlQualifiedName! name, string! infinitySymbol, string! nanSymbol, string! characters) -> int
+Xsl3.Runtime.XsltLibrary.RegisterDecimalFormatter(string! formatPicture, string! infinitySymbol, string! nanSymbol, string! characters) -> double
+Xsl3.Runtime.XsltLibrary.RelationalOperator(double opCode, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right) -> bool
+Xsl3.Runtime.XsltLibrary.X31AbsentFocus() -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31AccumulatorValue(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, double tableId, string! name, double nameContext, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! context, bool after, double package) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31AnalyzeString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! input, string! regex, string! flags, bool emptyMatches) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31AnnotationScope(double op) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ApplyCall(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! arguments) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Arithmetic(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ArityIs(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, double arity) -> bool
+Xsl3.Runtime.XsltLibrary.X31ArrayDone(System.Xml.XPath.XPathItem! builder) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ArrayMember(System.Xml.XPath.XPathItem! builder, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! member) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ArrayMembers(System.Xml.XPath.XPathItem! item) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ArrayMembersWrapped(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! array) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ArrayNew() -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ArrayOfItems(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ArrayOfWrapped(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! wrapped) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31AvtString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> string!
+Xsl3.Runtime.XsltLibrary.X31BooleanItem(bool value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31BooleanResult(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> bool
+Xsl3.Runtime.XsltLibrary.X31Call0(double id, double sc) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Call1(double id, double sc, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! a) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Call2(double id, double sc, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! a, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! b) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Call3(double id, double sc, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! a, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! b, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! c) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Call4(double id, double sc, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! a, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! b, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! c, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! d) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Call5(double id, double sc, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! a, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! b, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! c, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! d, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! e) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CallArg(System.Xml.XPath.XPathItem! call, double index) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CallArgument(System.Xml.XPath.XPathItem! call, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31CallCaptured(System.Xml.XPath.XPathItem! call, double index) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CallNew(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, double arity) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31CallRuntime(System.Xml.XPath.XPathItem! call) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CallTarget(System.Xml.XPath.XPathItem! call) -> double
+Xsl3.Runtime.XsltLibrary.X31CapturedNumber(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> double
+Xsl3.Runtime.XsltLibrary.X31Cast(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, double targetId, bool allowEmpty) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Castable(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, double targetId, bool allowEmpty) -> bool
+Xsl3.Runtime.XsltLibrary.X31CastToError(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Coerce(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, double typeId, string! errorCode) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CompatArgument(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! argument, double kind) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CompatGeneralCompare(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op, double sc) -> bool
+Xsl3.Runtime.XsltLibrary.X31CompatNumberFormat(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! format, string! groupingSeparator, string! groupingSize, string! ordinal, string! lang, string! startAt) -> string!
+Xsl3.Runtime.XsltLibrary.X31CompatNumeric(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! operand) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CompatStrings(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Constant(double id) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Contains(string! s, string! t) -> bool
+Xsl3.Runtime.XsltLibrary.X31ContentItems(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ContextItem() -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ContextItemOrEmpty() -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CopyPreserving(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, bool copyNamespaces) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CopyStripping(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, bool copyNamespaces) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CopyWithAccumulators(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31CopyWithoutNamespaces(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Count(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> double
+Xsl3.Runtime.XsltLibrary.X31CurrentOutputUri(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Deferred(bool onEmpty, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Discard(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31DoubleAsInteger(double value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Ebv(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq) -> bool
+Xsl3.Runtime.XsltLibrary.X31ElementAvailable(string! name, double context) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31EndsWith(string! s, string! t) -> bool
+Xsl3.Runtime.XsltLibrary.X31EntityContext(System.Xml.XPath.XPathItem! item) -> bool
+Xsl3.Runtime.XsltLibrary.X31Evaluate(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! xpath, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! contextItem, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! namespaceContext, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! namespaceGiven, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! baseUri, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! withParams, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! withParamValues, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! functions, double contextId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ExtensionArgument(System.Xml.XPath.XPathItem! call, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31ExtensionCall(System.Xml.XPath.XPathItem! call) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ExtensionStart(double functionId) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31FirstItem(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Focus(System.Xml.XPath.XPathItem! item) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Fold(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! zero, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, bool left, bool wrapped) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31FormatNumber(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, string! picture, double sc) -> string!
+Xsl3.Runtime.XsltLibrary.X31FunctionArity(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31FunctionAvailable(string! name, double arity, double context) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31FunctionCapture(System.Xml.XPath.XPathItem! function, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31FunctionLookup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! name, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! arity, double sc) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31FunctionName(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31FunctionNew(double id, double signature) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31GeneralCompare(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op, double sc) -> bool
+Xsl3.Runtime.XsltLibrary.X31GlobalContextItem(System.Xml.XPath.XPathNavigator! root, bool absentDeclared) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31GroupFirst(System.Xml.XPath.XPathItem! group) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31GroupKey(System.Xml.XPath.XPathItem! group) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31GroupMemberNodes(System.Xml.XPath.XPathItem! group) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+Xsl3.Runtime.XsltLibrary.X31GroupMembers(System.Xml.XPath.XPathItem! group) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Groups(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! tuples, double kind, string! collation, bool composite) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31GroupTuple(System.Xml.XPath.XPathItem! item, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! key) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31IndexAdd(System.Xml.XPath.XPathNavigator! node, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! keys) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31IndexFilter(double state, System.Xml.XPath.XPathNavigator! node, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! keys, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, double sc) -> bool
+Xsl3.Runtime.XsltLibrary.X31IndexGet(double site, System.Xml.XPath.XPathNavigator! context, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+Xsl3.Runtime.XsltLibrary.X31IndexState(double site, System.Xml.XPath.XPathNavigator! context, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values) -> double
+Xsl3.Runtime.XsltLibrary.X31InitialFocus(System.Xml.XPath.XPathItem! item) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31InRange(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! lo, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! hi, double sc) -> bool
+Xsl3.Runtime.XsltLibrary.X31InstanceCheck(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, double typeId, string! errorCode) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31InstanceOf(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, double typeId) -> bool
+Xsl3.Runtime.XsltLibrary.X31Integer(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> double
+Xsl3.Runtime.XsltLibrary.X31IntegerItem(double value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31IsAbsent(System.Xml.XPath.XPathItem! item) -> bool
+Xsl3.Runtime.XsltLibrary.X31IsArray(System.Xml.XPath.XPathItem! item) -> bool
+Xsl3.Runtime.XsltLibrary.X31IsMap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function) -> bool
+Xsl3.Runtime.XsltLibrary.X31ItemAt(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, double position) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ItemString(System.Xml.XPath.XPathItem! item) -> string!
+Xsl3.Runtime.XsltLibrary.X31ItemText(System.Xml.XPath.XPathItem! item) -> string!
+Xsl3.Runtime.XsltLibrary.X31Iterate(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! body, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! completion, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! initial) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31IterationAdd(System.Xml.XPath.XPathItem! control, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31IterationNew(bool isBreak) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31KeyValues(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! collation, bool composite) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Lookup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! bases, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! keys, bool wildcard) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31LowerCase(string! s) -> string!
+Xsl3.Runtime.XsltLibrary.X31MapDone(System.Xml.XPath.XPathItem! builder) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MapEntry(System.Xml.XPath.XPathItem! builder, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! key, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MapGet(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! map, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! key) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MapKeys(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! map) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MapLookup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! key) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MapLookupString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, string! key) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MapMerge(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! maps) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MapNew() -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MapSingleton(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! key, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MemoGet(System.Xml.XPath.XPathItem! key) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MemoHas(System.Xml.XPath.XPathItem! key) -> bool
+Xsl3.Runtime.XsltLibrary.X31MemoKey(double function) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MemoKeyAdd(System.Xml.XPath.XPathItem! key, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! argument) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31MemoPut(System.Xml.XPath.XPathItem! key, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Merge(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! sources, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! keyFunctions, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! action, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! orders, double specId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MergeSourceGroup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! sources, double index) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MergeSourceGroupNamed(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! sources, string! name, double namesId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31MessageText(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! body) -> string!
+Xsl3.Runtime.XsltLibrary.X31NamespaceName(string! name, string! value) -> string!
+Xsl3.Runtime.XsltLibrary.X31Node(System.Xml.XPath.XPathItem! item) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XsltLibrary.X31NodeCompare(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31NodeItem(System.Xml.XPath.XPathItem! item, string! code) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XsltLibrary.X31Nodes(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, string! code) -> System.Collections.Generic.IList<System.Xml.XPath.XPathNavigator!>!
+Xsl3.Runtime.XsltLibrary.X31NormalizeSpace(string! s) -> string!
+Xsl3.Runtime.XsltLibrary.X31NumberFormat(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! format, string! groupingSeparator, string! groupingSize, string! ordinal, string! lang, string! startAt) -> string!
+Xsl3.Runtime.XsltLibrary.X31NumberOfString(string! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31NumberSortKey(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! number) -> double
+Xsl3.Runtime.XsltLibrary.X31OnEmpty(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31OptionalNodeString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! nodes) -> string!
+Xsl3.Runtime.XsltLibrary.X31OutputUri(string! href, string! staticBaseUri) -> string!
+Xsl3.Runtime.XsltLibrary.X31PartialTarget(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! function, double arity) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31PathResult(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31PatternTry(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! test) -> bool
+Xsl3.Runtime.XsltLibrary.X31Populated(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Predicate(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value, double position) -> bool
+Xsl3.Runtime.XsltLibrary.X31PreserveAnnotations() -> int
+Xsl3.Runtime.XsltLibrary.X31Raise(string! code, string! message) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31RaiseDouble(string! code, string! message) -> double
+Xsl3.Runtime.XsltLibrary.X31RaiseItem(string! code, string! message) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31RaiseWithValue(string! code, string! message, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Range(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31RangeCompare(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! lo, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! hi, double op, double sc) -> bool
+Xsl3.Runtime.XsltLibrary.X31RequireFocus(System.Xml.XPath.XPathItem! item) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31RequireGlobalContextItem(System.Xml.XPath.XPathItem! item) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ResultDocument(string! href, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! document, string! baseUri, double formatId, string! formatName, double formatsId, string! parameters, double namesId, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! callerFrame) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31SchemaAware() -> int
+Xsl3.Runtime.XsltLibrary.X31SegmentGroup(System.Xml.XPath.XPathItem! segment, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! n) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31SegmentIsMatch(System.Xml.XPath.XPathItem! segment) -> bool
+Xsl3.Runtime.XsltLibrary.X31SegmentString(System.Xml.XPath.XPathItem! segment) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31SetOp(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31SiblingNumber(System.Xml.XPath.XPathNavigator! node, int site) -> int
+Xsl3.Runtime.XsltLibrary.X31SimpleContent(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, string! separator) -> string!
+Xsl3.Runtime.XsltLibrary.X31SingleItemOf(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31SingleNode(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, string! code) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XsltLibrary.X31Snapshot(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31SortByKeys(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! wrappedKeys, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! collation, double sc) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31SortKey(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, string! dataType, string! collation, string! lang, double site, double position) -> string!
+Xsl3.Runtime.XsltLibrary.X31SourceDocuments(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! documents, string! names) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31StartsWith(string! s, string! t) -> bool
+Xsl3.Runtime.XsltLibrary.X31StaticValue(double id) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31String(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> string!
+Xsl3.Runtime.XsltLibrary.X31StringConcat(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31StringItem(string! s) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31StringLength(string! s) -> double
+Xsl3.Runtime.XsltLibrary.X31StringValues(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31StripInputAnnotations() -> int
+Xsl3.Runtime.XsltLibrary.X31Subscript(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! predicate) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31SubstringAfter(string! s, string! t) -> string!
+Xsl3.Runtime.XsltLibrary.X31SubstringBefore(string! s, string! t) -> string!
+Xsl3.Runtime.XsltLibrary.X31SumDoubles(System.Collections.Generic.IList<double>! values) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31SumNodes(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! nodes) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31SystemProperty(string! name, double context) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31TokenizeLiteral(string! input, string! pattern) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TopLevelFocus() -> double
+Xsl3.Runtime.XsltLibrary.X31TraceEnter(double frameId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TraceLeave(double frameId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Translate(string! s, string! map, string! trans) -> string!
+Xsl3.Runtime.XsltLibrary.X31Treat(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! seq, double typeId) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Try(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! tryFunction, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! catchFunctions, double errorsId, string! module) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TryEnter(double line) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TryExit() -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelAdd(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, string! ns, string! local, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelClearMatch(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelCurrentGroup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelCurrentGroupingKey(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelGet(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, string! ns, string! local) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelGroup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! n) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31TunnelHas(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, string! ns, string! local) -> bool
+Xsl3.Runtime.XsltLibrary.X31TunnelMode(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> string!
+Xsl3.Runtime.XsltLibrary.X31TunnelRule(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame) -> double
+Xsl3.Runtime.XsltLibrary.X31TunnelSetGroup(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, System.Xml.XPath.XPathItem! group, bool noKey) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelSetMatch(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, System.Xml.XPath.XPathItem! segment) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelSetMode(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, string! mode) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelSetOutput(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, string! uri) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TunnelSetRule(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! frame, double rule) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31TypeAvailable(string! name, double context) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Unary(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! operand, bool minus) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31UnparsedEntity(string! name, System.Xml.XPath.XPathNavigator! node, bool publicId) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Untyped(System.Xml.XPath.XPathNavigator! node) -> bool
+Xsl3.Runtime.XsltLibrary.X31UntypedDouble(string! value) -> double
+Xsl3.Runtime.XsltLibrary.X31Unwrap(System.Xml.XPath.XPathItem! wrapped) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31UpperCase(string! s) -> string!
+Xsl3.Runtime.XsltLibrary.X31Vacuous(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> bool
+Xsl3.Runtime.XsltLibrary.X31Validate(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, double schemasId, string! validation, string! type) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ValueCompare(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! left, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! right, double op, double sc) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Variable(string! localName, string! namespaceUri) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Wrap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31YesNo(string! value, string! attribute) -> bool
+Xsl3.Tree.CompactDocument
+Xsl3.Tree.CompactDocument.CreateNavigator() -> System.Xml.XPath.XPathNavigator!
+Xsl3.Tree.CompactDocument.NodeCount.get -> int
+Xsl3.Xdm.QName
+Xsl3.Xdm.QName.EQName.get -> string!
+Xsl3.Xdm.QName.Equals(Xsl3.Xdm.QName? other) -> bool
+Xsl3.Xdm.QName.LocalName.get -> string!
+Xsl3.Xdm.QName.NamespaceUri.get -> string!
+Xsl3.Xdm.QName.Prefix.get -> string!
+Xsl3.Xdm.QName.QName(string! localName) -> void
+Xsl3.Xdm.QName.QName(string! namespaceUri, string! localName) -> void
+Xsl3.Xdm.QName.QName(string! namespaceUri, string! localName, string! prefix) -> void
+Xsl3.Xdm.XdmArray
+Xsl3.Xdm.XdmArray.AddMember(Xsl3.Xdm.XdmValue! member) -> Xsl3.Xdm.XdmArray!
+Xsl3.Xdm.XdmArray.Get(int index) -> Xsl3.Xdm.XdmValue!
+Xsl3.Xdm.XdmArray.Members.get -> System.Collections.Generic.IEnumerable<Xsl3.Xdm.XdmValue!>!
+Xsl3.Xdm.XdmArray.Size.get -> int
+Xsl3.Xdm.XdmArray.XdmArray(System.Collections.Generic.IEnumerable<Xsl3.Xdm.XdmValue!>! members) -> void
+Xsl3.Xdm.XdmAtomicValue
+Xsl3.Xdm.XdmAtomicValue.TypeName.get -> Xsl3.Xdm.QName!
+Xsl3.Xdm.XdmAtomicValue.Value.get -> object!
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(bool value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(decimal value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(double value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(float value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(long value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(string! lexical, Xsl3.Xdm.QName! type) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(string! value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(System.Numerics.BigInteger value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(System.Uri! value) -> void
+Xsl3.Xdm.XdmAtomicValue.XdmAtomicValue(Xsl3.Xdm.QName! value) -> void
+Xsl3.Xdm.XdmEmptySequence
+Xsl3.Xdm.XdmFunctionItem
+Xsl3.Xdm.XdmFunctionItem.Arity.get -> int
+Xsl3.Xdm.XdmFunctionItem.Name.get -> Xsl3.Xdm.QName?
+Xsl3.Xdm.XdmItem
+Xsl3.Xdm.XdmMap
+Xsl3.Xdm.XdmMap.ContainsKey(Xsl3.Xdm.XdmAtomicValue! key) -> bool
+Xsl3.Xdm.XdmMap.Entries.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Xsl3.Xdm.XdmAtomicValue!, Xsl3.Xdm.XdmValue!>>!
+Xsl3.Xdm.XdmMap.Get(string! key) -> Xsl3.Xdm.XdmValue?
+Xsl3.Xdm.XdmMap.Get(Xsl3.Xdm.XdmAtomicValue! key) -> Xsl3.Xdm.XdmValue?
+Xsl3.Xdm.XdmMap.Keys.get -> System.Collections.Generic.IEnumerable<Xsl3.Xdm.XdmAtomicValue!>!
+Xsl3.Xdm.XdmMap.Put(Xsl3.Xdm.XdmAtomicValue! key, Xsl3.Xdm.XdmValue! value) -> Xsl3.Xdm.XdmMap!
+Xsl3.Xdm.XdmMap.Remove(Xsl3.Xdm.XdmAtomicValue! key) -> Xsl3.Xdm.XdmMap!
+Xsl3.Xdm.XdmMap.Size.get -> int
+Xsl3.Xdm.XdmMap.XdmMap(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Xsl3.Xdm.XdmAtomicValue!, Xsl3.Xdm.XdmValue!>>! entries) -> void
+Xsl3.Xdm.XdmNode
+Xsl3.Xdm.XdmNode.BaseUri.get -> System.Uri?
+Xsl3.Xdm.XdmNode.Navigator.get -> System.Xml.XPath.XPathNavigator!
+Xsl3.Xdm.XdmNode.NodeKind.get -> System.Xml.XPath.XPathNodeType
+Xsl3.Xdm.XdmNode.NodeName.get -> Xsl3.Xdm.QName?
+Xsl3.Xdm.XdmNode.OuterXml.get -> string!
+Xsl3.Xdm.XdmNode.XdmNode(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Xdm.XdmValue
+Xsl3.Xdm.XdmValue.Append(Xsl3.Xdm.XdmValue! other) -> Xsl3.Xdm.XdmValue!
+Xsl3.Xdm.XdmValue.Count.get -> int
+Xsl3.Xdm.XdmValue.GetEnumerator() -> System.Collections.Generic.IEnumerator<Xsl3.Xdm.XdmItem!>!
+Xsl3.Xdm.XdmValue.this[int index].get -> Xsl3.Xdm.XdmItem!
+Xsl3.Xdm.XdmValue.XdmValue(System.Collections.Generic.IEnumerable<Xsl3.Xdm.XdmItem!>! items) -> void
+Xsl3.XslCompiledTransform
+Xsl3.XslCompiledTransform.BaseOutputUri.get -> System.Uri?
+Xsl3.XslCompiledTransform.BaseOutputUri.set -> void
+Xsl3.XslCompiledTransform.Load(string! stylesheetUri) -> void
+Xsl3.XslCompiledTransform.Load(string! stylesheetUri, Xsl3.XsltSettings? settings, System.Xml.XmlResolver? stylesheetResolver) -> void
+Xsl3.XslCompiledTransform.Load(System.Reflection.MethodInfo! executeMethod, byte[]! queryData, System.Type![]? earlyBoundTypes) -> void
+Xsl3.XslCompiledTransform.Load(System.Type! compiledStylesheet) -> void
+Xsl3.XslCompiledTransform.Load(System.Type! compiledStylesheet, Xsl3.XsltSettings? settings) -> void
+Xsl3.XslCompiledTransform.Load(System.Xml.XmlReader! stylesheet) -> void
+Xsl3.XslCompiledTransform.Load(System.Xml.XmlReader! stylesheet, Xsl3.XsltSettings? settings, System.Xml.XmlResolver? stylesheetResolver) -> void
+Xsl3.XslCompiledTransform.Load(System.Xml.XPath.IXPathNavigable! stylesheet) -> void
+Xsl3.XslCompiledTransform.Load(System.Xml.XPath.IXPathNavigable! stylesheet, Xsl3.XsltSettings? settings, System.Xml.XmlResolver? stylesheetResolver) -> void
+Xsl3.XslCompiledTransform.OutputSettings.get -> System.Xml.XmlWriterSettings?
+Xsl3.XslCompiledTransform.Transform(string! inputUri, string! resultsFile) -> void
+Xsl3.XslCompiledTransform.Transform(string! inputUri, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(string! inputUri, Xsl3.XsltArgumentList? arguments, System.IO.Stream! results) -> void
+Xsl3.XslCompiledTransform.Transform(string! inputUri, Xsl3.XsltArgumentList? arguments, System.IO.TextWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(string! inputUri, Xsl3.XsltArgumentList? arguments, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.IO.Stream! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.IO.Stream! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.IO.TextWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.IO.TextWriter! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XmlReader! input, Xsl3.XsltArgumentList? arguments, System.Xml.XmlWriter! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.IO.Stream! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.IO.Stream! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.IO.TextWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.IO.TextWriter! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.Xml.XmlWriter! results) -> void
+Xsl3.XslCompiledTransform.Transform(System.Xml.XPath.IXPathNavigable! input, Xsl3.XsltArgumentList? arguments, System.Xml.XmlWriter! results, System.Xml.XmlResolver? documentResolver) -> void
+Xsl3.XslCompiledTransform.UseCompactTree.get -> bool
+Xsl3.XslCompiledTransform.UseCompactTree.set -> void
+Xsl3.XslCompiledTransform.XslCompiledTransform() -> void
+Xsl3.XslCompiledTransform.XslCompiledTransform(bool enableDebug) -> void
+Xsl3.Xslt30Transformer
+Xsl3.Xslt30Transformer.ApplyTemplates(Xsl3.Xdm.XdmValue! selection, System.IO.Stream! destination, Xsl3.Xdm.QName? mode = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.ApplyTemplates(Xsl3.Xdm.XdmValue! selection, System.IO.TextWriter! destination, Xsl3.Xdm.QName? mode = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.ApplyTemplates(Xsl3.Xdm.XdmValue! selection, System.Xml.XmlWriter! destination, Xsl3.Xdm.QName? mode = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.ApplyTemplates(Xsl3.Xdm.XdmValue! selection, Xsl3.Xdm.QName? mode = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> Xsl3.Xdm.XdmValue!
+Xsl3.Xslt30Transformer.BaseOutputUri.get -> System.Uri?
+Xsl3.Xslt30Transformer.BaseOutputUri.set -> void
+Xsl3.Xslt30Transformer.CallFunction(Xsl3.Xdm.QName! name, params Xsl3.Xdm.XdmValue![]! arguments) -> Xsl3.Xdm.XdmValue!
+Xsl3.Xslt30Transformer.CallTemplate(Xsl3.Xdm.QName? name, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> Xsl3.Xdm.XdmValue!
+Xsl3.Xslt30Transformer.CallTemplate(Xsl3.Xdm.QName? name, System.IO.Stream! destination, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.CallTemplate(Xsl3.Xdm.QName? name, System.IO.TextWriter! destination, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.CallTemplate(Xsl3.Xdm.QName? name, System.Xml.XmlWriter! destination, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? parameters = null, System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>? tunnelParameters = null) -> void
+Xsl3.Xslt30Transformer.CancellationToken.get -> System.Threading.CancellationToken
+Xsl3.Xslt30Transformer.CancellationToken.set -> void
+Xsl3.Xslt30Transformer.DocumentResolver.get -> System.Xml.XmlResolver?
+Xsl3.Xslt30Transformer.DocumentResolver.set -> void
+Xsl3.Xslt30Transformer.GlobalContextItem.get -> Xsl3.Xdm.XdmNode?
+Xsl3.Xslt30Transformer.GlobalContextItem.set -> void
+Xsl3.Xslt30Transformer.MessageHandler.get -> System.Action<string!>?
+Xsl3.Xslt30Transformer.MessageHandler.set -> void
+Xsl3.Xslt30Transformer.ResultDocumentHandler.get -> System.Func<System.Uri!, System.IO.TextWriter!>?
+Xsl3.Xslt30Transformer.ResultDocumentHandler.set -> void
+Xsl3.Xslt30Transformer.SetStylesheetParameters(System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>! parameters) -> void
+Xsl3.Xslt30Transformer.StylesheetParameters.get -> System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>!
+Xsl3.Xslt30Transformer.TraceHandler.get -> System.Action<string!, string!>?
+Xsl3.Xslt30Transformer.TraceHandler.set -> void
+Xsl3.Xslt30Transformer.TraceListener.get -> Xsl3.IXsltTraceListener?
+Xsl3.Xslt30Transformer.TraceListener.set -> void
+Xsl3.XsltArgumentList
+Xsl3.XsltArgumentList.AddExtensionObject(string! namespaceUri, object! extension) -> void
+Xsl3.XsltArgumentList.AddParam(string! name, string! namespaceUri, object! parameter) -> void
+Xsl3.XsltArgumentList.CancellationToken.get -> System.Threading.CancellationToken
+Xsl3.XsltArgumentList.CancellationToken.set -> void
+Xsl3.XsltArgumentList.Clear() -> void
+Xsl3.XsltArgumentList.GetExtensionObject(string! namespaceUri) -> object?
+Xsl3.XsltArgumentList.GetParam(string! name, string! namespaceUri) -> object?
+Xsl3.XsltArgumentList.RemoveExtensionObject(string! namespaceUri) -> object?
+Xsl3.XsltArgumentList.RemoveParam(string! name, string! namespaceUri) -> object?
+Xsl3.XsltArgumentList.TraceHandler.get -> System.Action<string!, string!>?
+Xsl3.XsltArgumentList.TraceHandler.set -> void
+Xsl3.XsltArgumentList.TraceListener.get -> Xsl3.IXsltTraceListener?
+Xsl3.XsltArgumentList.TraceListener.set -> void
+Xsl3.XsltArgumentList.XsltArgumentList() -> void
+Xsl3.XsltArgumentList.XsltMessageEncountered -> Xsl3.XsltMessageEncounteredEventHandler!
+Xsl3.XsltCompileException
+Xsl3.XsltCompileException.XsltCompileException() -> void
+Xsl3.XsltCompileException.XsltCompileException(string! message) -> void
+Xsl3.XsltCompileException.XsltCompileException(string! message, System.Exception! innerException) -> void
+Xsl3.XsltCompileException.XsltCompileException(System.Exception! inner, string! sourceUri, int lineNumber, int linePosition) -> void
+Xsl3.XsltCompileException.XsltCompileException(System.Runtime.Serialization.SerializationInfo! info, System.Runtime.Serialization.StreamingContext context) -> void
+Xsl3.XsltCompiler
+Xsl3.XsltCompiler.Compile(System.IO.TextReader! stylesheet, System.Uri? baseUri = null) -> Xsl3.XsltExecutable!
+Xsl3.XsltCompiler.Compile(System.Uri! stylesheet) -> Xsl3.XsltExecutable!
+Xsl3.XsltCompiler.Compile(System.Xml.XmlReader! stylesheet) -> Xsl3.XsltExecutable!
+Xsl3.XsltCompiler.CompileAssociatedStylesheet(Xsl3.Xdm.XdmNode! document) -> Xsl3.XsltExecutable!
+Xsl3.XsltCompiler.Packages.get -> Xsl3.XsltPackageLibrary!
+Xsl3.XsltCompiler.RegisterExtensionFunction(Xsl3.Xdm.QName! name, int arity, System.Func<Xsl3.Xdm.XdmValue![]!, Xsl3.Xdm.XdmValue!>! implementation) -> void
+Xsl3.XsltCompiler.Settings.get -> Xsl3.XsltSettings!
+Xsl3.XsltCompiler.Settings.set -> void
+Xsl3.XsltCompiler.StaticParameters.get -> System.Collections.Generic.IDictionary<Xsl3.Xdm.QName!, Xsl3.Xdm.XdmValue!>!
+Xsl3.XsltCompiler.StylesheetResolver.get -> System.Xml.XmlResolver?
+Xsl3.XsltCompiler.StylesheetResolver.set -> void
+Xsl3.XsltCompiler.XsltCompiler() -> void
+Xsl3.XsltDynamicException
+Xsl3.XsltDynamicException.Code.get -> Xsl3.Xdm.QName!
+Xsl3.XsltDynamicException.Description.get -> string!
+Xsl3.XsltDynamicException.ErrorObject.get -> Xsl3.Xdm.XdmValue!
+Xsl3.XsltDynamicException.StylesheetStack.get -> System.Collections.Generic.IReadOnlyList<Xsl3.XsltFrame!>!
+Xsl3.XsltDynamicException.XsltDynamicException(Xsl3.Xdm.QName! code, string! description, Xsl3.Xdm.XdmValue? errorObject = null, System.Exception? innerException = null) -> void
+Xsl3.XsltException
+Xsl3.XsltException.XsltException() -> void
+Xsl3.XsltException.XsltException(string! message) -> void
+Xsl3.XsltException.XsltException(string! message, System.Exception? innerException) -> void
+Xsl3.XsltException.XsltException(System.Runtime.Serialization.SerializationInfo! info, System.Runtime.Serialization.StreamingContext context) -> void
+Xsl3.XsltExecutable
+Xsl3.XsltExecutable.CreateTransformer() -> Xsl3.Xslt30Transformer!
+Xsl3.XsltExecutable.Explain(System.IO.TextWriter! output, bool optimized = true) -> void
+Xsl3.XsltExecutable.OutputSettings.get -> System.Xml.XmlWriterSettings?
+Xsl3.XsltFrame
+Xsl3.XsltFrame.ColumnNumber.get -> int
+Xsl3.XsltFrame.Kind.get -> string!
+Xsl3.XsltFrame.LineNumber.get -> int
+Xsl3.XsltFrame.Match.get -> string?
+Xsl3.XsltFrame.Mode.get -> Xsl3.Xdm.QName?
+Xsl3.XsltFrame.ModuleUri.get -> string?
+Xsl3.XsltFrame.Name.get -> Xsl3.Xdm.QName?
+Xsl3.XsltMessageEncounteredEventArgs
+Xsl3.XsltMessageEncounteredEventArgs.XsltMessageEncounteredEventArgs() -> void
+Xsl3.XsltMessageEncounteredEventHandler
+Xsl3.XsltPackageLibrary
+Xsl3.XsltPackageLibrary.Add(string! name, string! version, System.Uri! location) -> void
+Xsl3.XsltPackageLibrary.Add(System.Uri! location) -> void
+Xsl3.XsltPackageLibrary.XsltPackageLibrary() -> void
+Xsl3.XsltSettings
+Xsl3.XsltSettings.DedicatedThreadStackSize.get -> int
+Xsl3.XsltSettings.DedicatedThreadStackSize.set -> void
+Xsl3.XsltSettings.EnableAssertions.get -> bool
+Xsl3.XsltSettings.EnableAssertions.set -> void
+Xsl3.XsltSettings.EnableDocumentFunction.get -> bool
+Xsl3.XsltSettings.EnableDocumentFunction.set -> void
+Xsl3.XsltSettings.EnableEnvironmentVariables.get -> bool
+Xsl3.XsltSettings.EnableEnvironmentVariables.set -> void
+Xsl3.XsltSettings.EnableEvaluate.get -> bool
+Xsl3.XsltSettings.EnableEvaluate.set -> void
+Xsl3.XsltSettings.EnableExtensionFunctions.get -> bool
+Xsl3.XsltSettings.EnableExtensionFunctions.set -> void
+Xsl3.XsltSettings.EnableResultDocument.get -> bool
+Xsl3.XsltSettings.EnableResultDocument.set -> void
+Xsl3.XsltSettings.EnableScript.get -> bool
+Xsl3.XsltSettings.EnableScript.set -> void
+Xsl3.XsltSettings.EnableTracing.get -> bool
+Xsl3.XsltSettings.EnableTracing.set -> void
+Xsl3.XsltSettings.MaxOutputBytes.get -> long?
+Xsl3.XsltSettings.MaxOutputBytes.set -> void
+Xsl3.XsltSettings.MaxRecursionDepth.get -> int
+Xsl3.XsltSettings.MaxRecursionDepth.set -> void
+Xsl3.XsltSettings.SchemaAware.get -> bool
+Xsl3.XsltSettings.SchemaAware.set -> void
+Xsl3.XsltSettings.Schemas.get -> System.Xml.Schema.XmlSchemaSet?
+Xsl3.XsltSettings.Schemas.set -> void
+Xsl3.XsltSettings.Timeout.get -> System.TimeSpan?
+Xsl3.XsltSettings.Timeout.set -> void
+Xsl3.XsltSettings.UseDedicatedThread.get -> bool
+Xsl3.XsltSettings.UseDedicatedThread.set -> void
+Xsl3.XsltSettings.VersionMode.get -> Xsl3.XsltVersionMode
+Xsl3.XsltSettings.VersionMode.set -> void
+Xsl3.XsltSettings.XsltSettings() -> void
+Xsl3.XsltSettings.XsltSettings(bool enableDocumentFunction, bool enableScript) -> void
+Xsl3.XsltStaticError
+Xsl3.XsltStaticError.Code.get -> Xsl3.Xdm.QName?
+Xsl3.XsltStaticError.ColumnNumber.get -> int
+Xsl3.XsltStaticError.IsWarning.get -> bool
+Xsl3.XsltStaticError.LineNumber.get -> int
+Xsl3.XsltStaticError.Message.get -> string!
+Xsl3.XsltStaticError.ModuleUri.get -> string?
+Xsl3.XsltStaticException
+Xsl3.XsltStaticException.Errors.get -> System.Collections.Generic.IReadOnlyList<Xsl3.XsltStaticError!>!
+Xsl3.XsltVersionMode
+Xsl3.XsltVersionMode.BackwardsCompatible = 1 -> Xsl3.XsltVersionMode
+Xsl3.XsltVersionMode.Legacy = 0 -> Xsl3.XsltVersionMode

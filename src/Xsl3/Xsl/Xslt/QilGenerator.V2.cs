@@ -2938,6 +2938,23 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Compiling the pattern of a template rule of a mode with typed="strict" (Xsl3, P6).
+        private bool _strictPattern31;
+
+        /// <summary>
+        /// Xsl3 (P6): a pattern of a mode with typed="strict" (XSLT 3.0 §3.5.4.1): the element name test of its first
+        /// step means schema-element(N).
+        /// </summary>
+        private static XPath31.Expr StrictPattern31(XPath31.Expr e) => e switch
+        {
+            XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u => u with { Left = StrictPattern31(u.Left), Right = StrictPattern31(u.Right) },
+            XPath31.PathExpr { Left: XPath31.RootExpr } path => path with { Right = StrictPattern31(path.Right) },
+            XPath31.PathExpr path => path with { Left = StrictPattern31(path.Left) },
+            XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name } step =>
+                step with { Test = new XPath31.KindNodeTest(new XPath31.SchemaElementTest(new LexicalQName(name.Prefix, local, name.BracedUri))) },
+            _ => e,
+        };
+
         private static IEnumerable<XPath31.Expr> Alternatives31(XPath31.Expr e) =>
             e is XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u ? Alternatives31(u.Left).Concat(Alternatives31(u.Right)) : new[] { e };
 
@@ -2990,6 +3007,10 @@ namespace Xsl3.Xslt
             try
             {
                 XPath31.Expr ast = Parser.ParseXPath(pattern);
+                if (_strictPattern31)
+                {
+                    ast = StrictPattern31(ast);
+                }
                 if (XPath31Compiler.IsPredicatePattern(ast) && WithoutComments31(pattern).TrimStart().StartsWith('('))
                 {
                     return PatternError("XTSE0340", "A predicate pattern can't be parenthesized");

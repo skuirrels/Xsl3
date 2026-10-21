@@ -1,0 +1,2 @@
+#nullable enable
+Xsl3.XslCompiledTransform.CompileToAssembly(System.Xml.XmlReader! stylesheet, Xsl3.XsltSettings? settings, System.Xml.XmlResolver? stylesheetResolver, string! assemblyName, string! typeName, System.IO.Stream! output) -> void

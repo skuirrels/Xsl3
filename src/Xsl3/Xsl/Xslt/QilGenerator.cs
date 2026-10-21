@@ -2536,8 +2536,11 @@ namespace Xsl3.Xslt
                     foreach (QilName? mode in modes)
                     {
                         _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
+                        // Xsl3 (P6): in a mode with typed="strict", an element name test is schema-element(N).
+                        _strictPattern31 = IsV2 && _compiler.Settings.SchemaAware && _compiler.ModeDecls.TryGetValue(mode ?? template.Mode, out ModeDecl? patternMode) && patternMode.Typed == "strict";
                         QilNode result = CompileMatchPattern(template.Match);
                         _templatePattern31 = false;
+                        _strictPattern31 = false;
                         if (result.NodeType == QilNodeType.Sequence)
                         {
                             QilList filters = (QilList)result;
