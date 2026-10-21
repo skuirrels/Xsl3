@@ -130,6 +130,11 @@ namespace Xsl3
             {
                 throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}cancelled: the transformation was cancelled");
             }
+            catch (System.Text.RegularExpressions.RegexMatchTimeoutException e)
+            {
+                // Xsl3: a regular expression match ran past XsltSettings.Timeout (XmlQueryRuntime.RegexTimeout).
+                throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}cancelled: the transformation was cancelled (a regular expression ran past the timeout)");
+            }
         }
     }
 }

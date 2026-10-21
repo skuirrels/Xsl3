@@ -149,6 +149,18 @@ public class SettingsTests
         Assert.Contains("cancelled", e.ToString());
     }
 
+    /// <summary>A regular expression that backtracks for ever is stopped at the timeout too, though it enters no template.</summary>
+    [Fact]
+    public void TimeoutStopsARegularExpression()
+    {
+        const string body = """<xsl:template match="/"><out><xsl:value-of select="matches(string-join((1 to 60) ! 'a') || '!', '^(a|aa)+$')"/></out></xsl:template>""";
+        XslCompiledTransform transform = Load(body, new XsltSettings { Timeout = TimeSpan.FromMilliseconds(200) });
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(transform));
+        Assert.Contains("cancelled", e.ToString());
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"took {clock.Elapsed}");
+    }
+
     [Fact]
     public void CancellationToken()
     {

@@ -107,7 +107,8 @@ namespace Xsl3
 
         /// <summary>
         /// Xsl3: how long a transformation may run; it is then stopped at its next template or function entry with
-        /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1). Null: no limit.
+        /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1), and no single regular expression match runs longer.
+        /// Null: no limit.
         /// </summary>
         public TimeSpan? Timeout
         {

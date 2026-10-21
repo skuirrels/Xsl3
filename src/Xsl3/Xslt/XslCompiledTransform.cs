@@ -803,6 +803,7 @@ namespace Xsl3
                 bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
                 bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
                 var savedPackages = XmlQueryRuntime.Packages;
+                TimeSpan? savedRegexTimeout = XmlQueryRuntime.RegexTimeout;
                 Func<string, string, TextWriter>? savedHandler = XmlQueryRuntime.ResultDocumentHandler;
                 try
                 {
@@ -829,6 +830,7 @@ namespace Xsl3
                     XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
                     XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
                     XmlQueryRuntime.Packages = Packages ?? savedPackages;
+                    XmlQueryRuntime.RegexTimeout = settings.Timeout;
                     transform();
                 }
                 finally
@@ -842,6 +844,7 @@ namespace Xsl3
                     XmlQueryRuntime.ExtensionFunctions = savedExtensions;
                     XmlQueryRuntime.DynamicTransforms = savedDynamic;
                     XmlQueryRuntime.Packages = savedPackages;
+                    XmlQueryRuntime.RegexTimeout = savedRegexTimeout;
                     XmlQueryRuntime.ResultDocumentHandler = savedHandler;
                 }
             }

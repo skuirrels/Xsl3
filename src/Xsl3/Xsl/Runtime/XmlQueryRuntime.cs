@@ -59,6 +59,17 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: XsltSettings.Timeout of the running transformation: the match timeout of its regular expressions, which
+        // the checks at template and function entry don't reach (a match that runs this long ends the run as cancelled).
+        [System.ThreadStatic]
+        private static System.TimeSpan? t_regexTimeout;
+
+        internal static System.TimeSpan? RegexTimeout
+        {
+            get => t_regexTimeout;
+            set => t_regexTimeout = value;
+        }
+
         // Xsl3: the package library of the running transformation (XslCompiledTransform.Packages), for fn:transform.
         [System.ThreadStatic]
         private static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? t_packages;
