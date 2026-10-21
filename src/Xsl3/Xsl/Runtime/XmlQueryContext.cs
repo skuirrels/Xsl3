@@ -216,11 +216,11 @@ namespace Xsl3.Runtime
         /// document()): the compact tree for 2.0+ stylesheets, XPathDocument's (as stock builds) for 1.0 unless the
         /// compact tree is asked for. XSL3_COMPACT_TREE=1 or 0 overrides the choice (for testing).
         /// </summary>
-        private XPathNavigator BuildTree(XmlReader reader)
+        private XPathNavigator BuildTree(XmlReader reader, bool typed = false)
         {
             bool compact = Xsl3.Tree.CompactDocument.Override ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
-            return compact
-                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator()
+            return compact || typed
+                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed).CreateNavigator()
                 : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
         }
 
@@ -260,7 +260,8 @@ namespace Xsl3.Runtime
                     {
                         // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
                         using XmlReader copy = loaded.ReadSubtree();
-                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        // (A typed tree's copy keeps its annotations: P6.)
+                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules), typed: loaded is Xsl3.Tree.CompactNavigator { Typed: true });
                         if (tree is Xsl3.Tree.CompactNavigator compact)
                         {
                             compact.Document.SetIdSource(loaded); // its DTD's IDs, which the copy can't read

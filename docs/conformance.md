@@ -71,6 +71,11 @@ and XPath 3.1 claimed (`XSL3_XSLT30_PROFILE=2.0` still runs the 2.0 one). Styles
 no longer compiled in forwards-compatible mode. Packages and initial functions run; tests that need collections,
 a schema or streaming don't (the report's "Not run" line counts them by reason).
 
+P6 adds a third profile while schema-awareness is being built: `XSL3_XSLT30_PROFILE=sa` runs the tests that need
+`schema_aware` with `XsltSettings.SchemaAware` on, loads the environments' schemas and validates their sources
+(report: `xslt30-run-sa.md`; no baseline until the feature is claimed). On 2026-10-21: 707 passed, 137 failed, 2 not
+run (83.8%); docs/plan/p6-schema.md has the history.
+
 | Date | Passed | Failed | Not run | Pass rate | Notes |
 |---|---:|---:|---:|---:|---|
 | 2026-10-19 | 4,881 | 1,077 | 2,067 | 81.9% | XSLT 3.0 profile, first run |

@@ -1,6 +1,8 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Linq;
+using System.Xml;
+using System.Xml.Schema;
 using System.Xml.XPath;
 using Xsl3.Xdm;
 
@@ -14,10 +16,33 @@ namespace Xsl3.XPath31
     {
         private readonly System.Func<string, string?> _resolvePrefix;
 
-        public StaticTypeResolver(System.Func<string, string?> resolvePrefix, string defaultElementNamespace = "")
+        // Xsl3 (P6): the imported schemas (compiled), whose types and declarations sequence types can name; or null.
+        private readonly XmlSchemaSet? _schemas;
+
+        public StaticTypeResolver(System.Func<string, string?> resolvePrefix, string defaultElementNamespace = "", XmlSchemaSet? schemas = null)
         {
             _resolvePrefix = resolvePrefix;
             DefaultElementNamespace = defaultElementNamespace;
+            _schemas = schemas;
+        }
+
+        /// <summary>Xsl3 (P6): a type an imported schema defines (not a built-in one), or null.</summary>
+        public XmlSchemaType? FindSchemaType(QName q) =>
+            _schemas != null && q.NamespaceUri != QName.Ns.Xs && _schemas.IsCompiled ? _schemas.GlobalTypes[new XmlQualifiedName(q.LocalName, q.NamespaceUri)] as XmlSchemaType : null;
+
+        /// <summary>
+        /// Xsl3 (P6): the target of a cast to, or constructor function of, a simple type an imported schema defines;
+        /// null if no schema defines one by that name.
+        /// </summary>
+        public CastTarget? FindSchemaCastTarget(QName q, IXmlNamespaceResolver? namespaces)
+        {
+            if (FindSchemaType(q) is not XmlSchemaSimpleType simple)
+            {
+                return null;
+            }
+            return Xsl3.Schema.SchemaTypes.AtomicTypeOf(simple) is { } atomic
+                ? new CastTarget(atomic, namespaces)
+                : new CastTarget(AtomicTypes.String, namespaces, CastKind.Schema) { Schema = simple };
         }
 
         public string DefaultElementNamespace { get; }
@@ -103,6 +128,19 @@ namespace Xsl3.XPath31
                         return NumericTest.Instance;
                     }
                     AtomicType? t = AtomicTypes.Find(q.NamespaceUri, q.LocalName);
+                    if (t == null && FindSchemaType(q) is XmlSchemaSimpleType simple)
+                    {
+                        // Xsl3 (P6): an atomic or union type an imported schema defines.
+                        if (Xsl3.Schema.SchemaTypes.AtomicTypeOf(simple) is { } atomic)
+                        {
+                            return new AtomicTypeTest(atomic);
+                        }
+                        if (simple.Datatype?.Variety == XmlSchemaDatatypeVariety.Union)
+                        {
+                            return new UnionTypeTest(simple);
+                        }
+                        throw new XPathStaticException("XPST0051", $"{a.Name} is a list type, not an atomic or union type", -1);
+                    }
                     if (t == null)
                     {
                         // A known non-atomic type (xs:untyped, xs:anyType, list types) is a type error, anything else unknown.
@@ -156,6 +194,7 @@ namespace Xsl3.XPath31
                     {
                         TypeName = e.TypeName == null ? null : Expand(e.TypeName, DefaultElementNamespace).LocalName,
                         Nillable = e.TypeName == null || e.Nillable,
+                        SchemaType = e.TypeName == null ? null : NamedSchemaType(Expand(e.TypeName, DefaultElementNamespace)),
                     };
                 }
                 case AttributeTest a:
@@ -164,14 +203,77 @@ namespace Xsl3.XPath31
                     return new NodeKindTest(XPathNodeType.Attribute, name?.NamespaceUri, name?.LocalName, anyType: AdmitsUntyped(a.TypeName, element: false))
                     {
                         TypeName = a.TypeName == null ? null : Expand(a.TypeName, DefaultElementNamespace).LocalName,
+                        SchemaType = a.TypeName == null ? null : NamedSchemaType(Expand(a.TypeName, DefaultElementNamespace)),
                     };
                 }
                 case SchemaElementTest s:
-                    throw new XPathStaticException("XPST0008", $"schema-element({s.Name}): no schema is imported", -1);
+                {
+                    QName name = Expand(s.Name, DefaultElementNamespace);
+                    if (FindDeclaration(name, element: true) is not XmlSchemaElement declaration)
+                    {
+                        throw new XPathStaticException("XPST0008", $"schema-element({s.Name}): no element {name} is declared in the imported schemas", -1);
+                    }
+                    var names = new System.Collections.Generic.HashSet<(string, string)> { (name.NamespaceUri, name.LocalName) };
+                    foreach (XmlSchemaElement member in _schemas!.GlobalElements.Values)
+                    {
+                        // The elements in its substitution group, directly or through others.
+                        for (XmlSchemaElement? e = member; e != null && !e.SubstitutionGroup.IsEmpty; e = _schemas.GlobalElements[e.SubstitutionGroup] as XmlSchemaElement)
+                        {
+                            if (e.SubstitutionGroup.Name == name.LocalName && e.SubstitutionGroup.Namespace == name.NamespaceUri)
+                            {
+                                names.Add((member.QualifiedName.Namespace, member.QualifiedName.Name));
+                                break;
+                            }
+                        }
+                    }
+                    return new NodeKindTest(XPathNodeType.Element, anyType: ReferenceEquals(declaration.ElementSchemaType, Xsl3.Schema.SchemaTypes.AnyType))
+                    {
+                        TypeName = "schema-element(" + name.EQName + ")",
+                        SchemaType = declaration.ElementSchemaType,
+                        Names = names,
+                        Nillable = declaration.IsNillable,
+                    };
+                }
                 case SchemaAttributeTest s:
-                    throw new XPathStaticException("XPST0008", $"schema-attribute({s.Name}): no schema is imported", -1);
+                {
+                    QName name = Expand(s.Name, "");
+                    if (FindDeclaration(name, element: false) is not XmlSchemaAttribute declaration)
+                    {
+                        throw new XPathStaticException("XPST0008", $"schema-attribute({s.Name}): no attribute {name} is declared in the imported schemas", -1);
+                    }
+                    return new NodeKindTest(XPathNodeType.Attribute, name.NamespaceUri, name.LocalName, anyType: false)
+                    {
+                        TypeName = "schema-attribute(" + name.EQName + ")",
+                        SchemaType = declaration.AttributeSchemaType,
+                    };
+                }
             }
             throw new System.InvalidOperationException("Unknown kind test " + kind);
+        }
+
+        // Xsl3 (P6): a global element or attribute declaration of the imported schemas.
+        private XmlSchemaObject? FindDeclaration(QName name, bool element)
+        {
+            if (_schemas == null || !_schemas.IsCompiled)
+            {
+                return null;
+            }
+            var q = new XmlQualifiedName(name.LocalName, name.NamespaceUri);
+            return element ? _schemas.GlobalElements[q] : _schemas.GlobalAttributes[q];
+        }
+
+        // Xsl3 (P6): the type a name in element(N, T) / attribute(N, T) stands for, built-in or the schemas'; null for
+        // xs:untyped and xs:untypedAtomic, which only untyped nodes have.
+        private XmlSchemaType? NamedSchemaType(QName q)
+        {
+            if (q.NamespaceUri == QName.Ns.Xs)
+            {
+                var xq = new XmlQualifiedName(q.LocalName, XmlSchema.Namespace);
+                return q.LocalName is "untyped" or "untypedAtomic" ? null
+                    : q.LocalName == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
+                    : XmlSchemaType.GetBuiltInSimpleType(xq);
+            }
+            return FindSchemaType(q);
         }
 
         // Without schema-awareness elements are annotated xs:untyped and attributes xs:untypedAtomic, so a type
@@ -189,10 +291,14 @@ namespace Xsl3.XPath31
                 {
                     return true;
                 }
-                if (AtomicTypes.Find(q.NamespaceUri, q.LocalName) != null || q.LocalName is "anyType" or "untyped" or "anySimpleType")
+                if (AtomicTypes.Find(q.NamespaceUri, q.LocalName) != null || q.LocalName is "anyType" or "untyped" or "anySimpleType" or "NMTOKENS" or "IDREFS" or "ENTITIES")
                 {
                     return false;
                 }
+            }
+            else if (FindSchemaType(q) != null)
+            {
+                return false; // (a type an imported schema defines: untyped nodes aren't of it)
             }
             throw new XPathStaticException("XPST0008", $"Type {typeName} is not defined", -1);
         }

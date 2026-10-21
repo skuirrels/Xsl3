@@ -234,6 +234,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_mergeKeyAttributes);
             AtomizeAttributes(_accumulatorRuleAttributes);
             AtomizeAttributes(_catchAttributes);
+            AtomizeAttributes(_importSchemaAttributes);
 
         }
 
@@ -528,7 +529,10 @@ namespace Xsl3.Xslt
             bool isPackage = _input.LocalName == "package"; // (before the attributes are read)
             ContextInfo ctxInfo = _input.GetAttributes(_stylesheetAttributes);
 
-            ParseValidationAttribute(2, /*defVal:*/true);
+            if (ParseValidationAttribute(2, /*defVal:*/true) is string defaultValidation && _compiler.DefaultValidation == null)
+            {
+                _compiler.DefaultValidation = defaultValidation; // Xsl3 (P6): the principal module's, read first
+            }
             ParseInputTypeAnnotationsAttribute(3);
             // Xsl3: xsl:use-package is only allowed in the top-level module of a package and the modules it
             // includes, not those it imports (XTSE3008).
@@ -700,6 +704,10 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {
                                     LoadFunction(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName == "import-schema" && _compiler.Settings.SchemaAware)
+                                {
+                                    LoadImportSchema();
                                 }
                                 else if (V2 && _input.LocalName == "import-schema")
                                 {
@@ -2219,14 +2227,15 @@ namespace Xsl3.Xslt
                 AddUseAttributeSets(content);
             }
 
-            ParseTypeAttribute(3);
-            ParseValidationAttribute(4, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(3);
+            string? validation = ParseValidationAttribute(4, /*defVal:*/false);
 
             string? select = V2 ? ParseStringAttribute(5, "select") : null;
             XslNode copy = SetInfo(F.Copy(), LoadEndTag(LoadInstructions(content)), ctxInfo);
             if (V2)
             {
                 copy.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, InheritNamespaces = inheritNamespacesAtt };
+                WithValidation(copy, validation, type);
             }
             if (select != null)
             {
@@ -2253,14 +2262,15 @@ namespace Xsl3.Xslt
             TriState copyNamespacesAtt = ParseYesNoAttribute(1, "copy-namespaces");
             if (V1 && copyNamespacesAtt == TriState.False) ReportNYI("xsl:copy-of[@copy-namespaces    = 'no']");
 
-            ParseTypeAttribute(2);
-            ParseValidationAttribute(3, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(2);
+            string? validation = ParseValidationAttribute(3, /*defVal:*/false);
 
             CheckNoContent();
             XslNode copyOf = SetInfo(F.CopyOf(select, _input.XslVersion), null, ctxInfo);
             if (V2)
             {
                 copyOf.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, CopyAccumulators = _input.CopyAccumulators is "yes" or "true" or "1" };
+                WithValidation(copyOf, validation, type);
                 if (_input.CopyAccumulators is not (null or "yes" or "true" or "1" or "no" or "false" or "0"))
                 {
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "copy-accumulators", _input.CopyAccumulators);
@@ -2784,8 +2794,8 @@ namespace Xsl3.Xslt
             bool inheritNamespaces = ParseYesNoAttribute(2, "inherit-namespaces") != TriState.False;
             if (V1 && !inheritNamespaces) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
 
-            ParseTypeAttribute(4);
-            ParseValidationAttribute(5, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string? validation = ParseValidationAttribute(5, /*defVal:*/false);
 
             List<XslNode> content = new List<XslNode>();
             if (_input.MoveToXsltAttribute(3, "use-attribute-sets"))
@@ -2799,7 +2809,7 @@ namespace Xsl3.Xslt
             {
                 element.V2 = new XslNodeV2 { InheritNamespaces = TriState.False };
             }
-            return element;
+            return WithValidation(element, validation, type);
         }
 
         // http://www.w3.org/TR/xslt#creating-attributes
@@ -2825,15 +2835,15 @@ namespace Xsl3.Xslt
             string? separator = ParseStringAttribute(3, "separator");
             if (V1 && separator != null) ReportNYI("xsl:attribute/@separator");
 
-            ParseTypeAttribute(4);
-            ParseValidationAttribute(5, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string? validation = ParseValidationAttribute(5, /*defVal:*/false);
 
             XslNode attribute = SetInfo(F.Attribute(name, ns, _input.XslVersion), LoadContent(select != null), ctxInfo);
             if (V2)
             {
                 attribute.V2 = new XslNodeV2 { Select = select, Separator = separator };
             }
-            return attribute;
+            return WithValidation(attribute, validation, type);
         }
 
         // http://www.w3.org/TR/xslt#sorting
@@ -2916,6 +2926,8 @@ namespace Xsl3.Xslt
             }
 
             List<XslNode> content = new List<XslNode>();
+            string? literalValidation = null;
+            XmlQualifiedName? literalType = null;
 
             for (int i = 1; _input.MoveToLiteralAttribute(i); i++)
             {
@@ -2932,6 +2944,14 @@ namespace Xsl3.Xslt
                     XslNode att = F.LiteralAttribute(F.QName(_input.LocalName, _input.NamespaceUri, _input.Prefix), _input.Value, _input.XslVersion);
                     // QilGenerator takes care of AVTs, and needs line info
                     AddInstruction(content, SetLineInfo(att, ctxInfo.lineInfo));
+                }
+                else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "type")
+                {
+                    literalType = ResolveQName(/*ignoreDefaultNs:*/true, _input.Value); // Xsl3 (P6)
+                }
+                else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax" or "preserve" or "strip")
+                {
+                    literalValidation = _input.Value.Trim();
                 }
                 else if (V2 && (_input.LocalName == "type" || _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax"))
                 {
@@ -2952,7 +2972,7 @@ namespace Xsl3.Xslt
             // Xsl3: xsl:version below 2.0 asks for backwards-compatible behaviour (XSLT 3.0 §3.9): the scope manager marks
             // the region, and its nodes carry XslVersion.BackwardsCompatible.
             content = LoadEndTag(LoadInstructions(content));
-            return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
+            return WithValidation(SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo), literalValidation, literalType);
         }
 
         // Xsl3: conflicting xsl:output values at the same import precedence are an error in 2.0 (XTSE1560).
@@ -3676,11 +3696,15 @@ namespace Xsl3.Xslt
             return TriState.Unknown;
         }
 
-        private void ParseTypeAttribute(int attNum)
+        private XmlQualifiedName? ParseTypeAttribute(int attNum)
         {
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All 'type' attributes are optional.");
             if (_input.MoveToXsltAttribute(attNum, "type"))
             {
+                if (V2 && _compiler.Settings.SchemaAware)
+                {
+                    return ResolveQName(/*ignoreDefaultNs:*/true, _input.Value);
+                }
                 if (V2)
                 {
                     ReportError(SR.Xml_UserException, "XTSE1660: the type attribute needs a schema-aware processor");
@@ -3690,15 +3714,20 @@ namespace Xsl3.Xslt
                     CheckError(true, /*[???]*/SR.Xslt_SchemaAttribute, "type");
                 }
             }
+            return null;
         }
 
-        private void ParseValidationAttribute(int attNum, bool defVal)
+        private string? ParseValidationAttribute(int attNum, bool defVal)
         {
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All 'validation' attributes are optional.");
             string attributeName = defVal ? _atoms.DefaultValidation : "validation";
             if (_input.MoveToXsltAttribute(attNum, attributeName))
             {
                 string value = V2 ? _input.Value.Trim() : _input.Value;
+                if (V2 && _compiler.Settings.SchemaAware && (value is "strip" or "preserve" || !defVal && value is "strict" or "lax"))
+                {
+                    return value; // Xsl3 (P6)
+                }
                 if (value == "strip" || V2 && value == "preserve")
                 {
                     // no error: a basic XSLT 3.0 processor has no type annotations to preserve
@@ -3720,6 +3749,23 @@ namespace Xsl3.Xslt
                     ReportError(/*[???]*/SR.Xslt_InvalidAttrValue, attributeName, value);
                 }
             }
+            return null;
+        }
+
+        // Xsl3 (P6): the validation and type attributes of an instruction that constructs or copies nodes.
+        private T WithValidation<T>(T node, string? validation, XmlQualifiedName? type) where T : XslNode
+        {
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: an instruction can't have both a validation and a type attribute");
+            }
+            else if (validation != null || type != null)
+            {
+                node.V2 ??= new XslNodeV2();
+                node.V2.Validation = validation;
+                node.V2.ValidationType = type;
+            }
+            return node;
         }
 
         private void ParseInputTypeAnnotationsAttribute(int attNum)

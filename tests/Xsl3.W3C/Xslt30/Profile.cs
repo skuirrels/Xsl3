@@ -41,6 +41,16 @@ public sealed class Profile
         },
     };
 
+    /// <summary>
+    /// P6 in progress (docs/plan/p6-schema.md): the 3.0 profile with schema-awareness, for measuring the tests that need
+    /// it (XSL3_XSLT30_PROFILE=sa runs only those). Not claimed until they pass.
+    /// </summary>
+    public static Profile SchemaAware { get; } = new()
+    {
+        Specs = Xslt30.Specs,
+        Features = new HashSet<string>(Xslt30.Features.Append("schema_aware"), StringComparer.Ordinal),
+    };
+
     public bool Applies(TestCase test) => test.EffectiveDependencies.All(Meets);
 
     private bool Meets(Dependency d)

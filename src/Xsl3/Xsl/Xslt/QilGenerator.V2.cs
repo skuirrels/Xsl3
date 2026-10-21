@@ -269,7 +269,7 @@ namespace Xsl3.Xslt
             try
             {
                 XPathStaticContext sc = StaticContext31();
-                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
                 SequenceTypeTest Type(string? asType) => asType == null ? SequenceTypeTest.AnySequence : resolver.Resolve(Parser.ParseSequenceType(asType));
                 var parameters = entry.Function.Content.Where(n => n.NodeType == XslNodeType.Param).Select(p => Type(p.V2?.As)).ToList();
                 return parameters.Count == arity ? (parameters, Type(entry.Function.V2?.As)) : null;
@@ -312,6 +312,11 @@ namespace Xsl3.Xslt
             {
                 // exsl:node-set and msxsl:node-set: the identity, temporary trees being nodes already.
                 return compile(args[0]);
+            }
+            if (name.NamespaceUri == SourceDocuments.Namespace && name.LocalName == "validate" && args is [_, XPath31.StringLiteral mode, XPath31.StringLiteral type])
+            {
+                // Xsl3 (P6): xsl:source-document validation="strict|lax" or type="T": the document, validated.
+                return X31(nameof(XsltLibrary.X31Validate), T.NodeNotRtfS, Box(compile(args[0])), _f.Double(SchemasId31()), _f.String(mode.Value), _f.String(type.Value));
             }
             if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])
             {
@@ -471,6 +476,7 @@ namespace Xsl3.Xslt
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
                 BackwardsCompatible = _xslVersion == XslVersion.BackwardsCompatible,
+                Schemas = _compiler.Schemas,
             };
             // In XSLT the statically known namespaces are the stylesheet's namespaces in scope, and xml (XSLT 3.0 §5.4.1).
             sc.Namespaces.Clear();
@@ -499,6 +505,47 @@ namespace Xsl3.Xslt
             return sc;
         }
 
+
+        // Xsl3 (P6): the imported schemas, as a constant the run time reads (ConstantPool id); -1 until first needed.
+        private int _schemasId31 = -1;
+
+        /// <summary>
+        /// Xsl3 (P6): the nodes an instruction constructs or copies, validated (XSLT 3.0 §25.4): strictly or laxly
+        /// against the imported schemas' declarations, or against the type its type attribute names.
+        /// </summary>
+        private QilNode Validate31(QilNode nodes, XslNodeV2 v2)
+        {
+            string type = "";
+            if (v2.ValidationType is { } name)
+            {
+                if (ValidationType31(name) == null)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE1520: the type Q{{{name.Namespace}}}{name.Name} is not defined by an imported schema");
+                    return nodes;
+                }
+                type = $"Q{{{name.Namespace}}}{name.Name}";
+            }
+            return X31(nameof(XsltLibrary.X31Validate), T.NodeNotRtfS, Box(nodes), _f.Double(SchemasId31()), _f.String(v2.Validation ?? ""), _f.String(type));
+        }
+
+        // The imported schemas as a run-time constant; with no schema imported, an empty set: the built-in types, and no
+        // declarations.
+        private int SchemasId31()
+        {
+            if (_schemasId31 < 0)
+            {
+                System.Xml.Schema.XmlSchemaSet schemas = _compiler.Schemas ?? new System.Xml.Schema.XmlSchemaSet();
+                schemas.Compile();
+                _schemasId31 = ConstantPool.Add(schemas);
+            }
+            return _schemasId31;
+        }
+
+        // A type a type attribute names: built-in, or an imported schema's.
+        private System.Xml.Schema.XmlSchemaType? ValidationType31(XmlQualifiedName name) =>
+            name.Namespace == XmlReservedNs.NsXs
+                ? (name.Name == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(name))
+                : _compiler.Schemas?.GlobalTypes[name] as System.Xml.Schema.XmlSchemaType;
 
         // The static base URI: the module's URI, or the effective xml:base (XsltInput.XmlBasePrefix).
         private string? StaticBaseUri31() => _scope.LookupNamespace(XsltInput.XmlBasePrefix) ?? _lastScope?.SourceLine?.Uri;
@@ -822,6 +869,10 @@ namespace Xsl3.Xslt
                     QilNode doc = raw
                         ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
                         : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
+                    if (!raw && (v2.Validation is "strict" or "lax" || v2.ValidationType != null))
+                    {
+                        doc = Validate31(doc, v2); // Xsl3 (P6): the result tree, validated before it is serialized
+                    }
                     _currentTunnel = savedTunnel;
                     if (raw)
                     {
@@ -1342,6 +1393,11 @@ namespace Xsl3.Xslt
                 // accumulator values; in a sequence they are the items themselves (copied again only into content).
                 return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(select));
             }
+            if (node.V2?.Validation == "preserve")
+            {
+                // Xsl3 (P6): validation="preserve" (XSLT 3.0 §25.4.2): the copies keep their type annotations.
+                return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(select), _f.Boolean(node.V2.CopyNamespaces != TriState.False));
+            }
             if (node.V2?.CopyNamespaces == TriState.False)
             {
                 // copy-namespaces="no": copies with only the namespaces their names need, then copied as usual.
@@ -1577,7 +1633,7 @@ namespace Xsl3.Xslt
             try
             {
                 XPathStaticContext sc = StaticContext31();
-                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
                 SequenceTypeTest test = resolver.Resolve(Parser.ParseSequenceType(asType));
                 return X31(nameof(XsltLibrary.X31InstanceCheck), T.ItemS, Box(value), _f.Double(ConstantPool.Add(test)), _f.String(errorCode));
             }
@@ -1593,7 +1649,7 @@ namespace Xsl3.Xslt
             {
                 SequenceType type = Parser.ParseSequenceType(asType);
                 XPathStaticContext sc = StaticContext31();
-                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+                var resolver = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
                 SequenceTypeTest test = resolver.Resolve(type);
                 return X31(nameof(XsltLibrary.X31Coerce), T.ItemS, Box(value), _f.Double(ConstantPool.Add(test)), _f.String(errorCode));
             }
@@ -1917,7 +1973,7 @@ namespace Xsl3.Xslt
                     try
                     {
                         XPathStaticContext sc = StaticContext31();
-                        type = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace)
+                        type = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas)
                             .Resolve(Parser.ParseSequenceType(asType));
                     }
                     catch (XPathStaticException e)
@@ -3174,7 +3230,12 @@ namespace Xsl3.Xslt
                     _stylesheetFunctions31.UnionWith(_compiler.RegisteredFunctions?.Keys ?? Enumerable.Empty<(string, string, int)>());
                 }
             }
-            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31) { EvaluateEnabled = _compiler.Settings.EnableEvaluate });
+            return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31)
+            {
+                EvaluateEnabled = _compiler.Settings.EnableEvaluate,
+                SchemaAware = _compiler.Settings.SchemaAware,
+                Schemas = _compiler.Schemas,
+            });
         }
 
         // ------------------------------------------------------------ grouping, regex, sorting

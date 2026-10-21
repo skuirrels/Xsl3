@@ -144,6 +144,9 @@ namespace Xsl3.Runtime
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
 
+        /// <summary>Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.</summary>
+        internal bool PreserveAnnotations { get; set; }
+
         // Xsl3: the constants compiled code refers to by number (ConstantPool); null for the process-wide table.
         internal Xsl3.XPath31.ConstantTable? Constants { get; }
 
@@ -1072,7 +1075,8 @@ namespace Xsl3.Runtime
                         if (nav.XmlType == null)
                             return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), XmlSchemaComplexType.UntypedAnyType, false);
 
-                        return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), nav.XmlType, nav.SchemaInfo!.SchemaElement!.IsNillable);
+                        // Xsl3 (P6): a compact tree's validated node has a type but no declaration.
+                        return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), nav.XmlType, nav.SchemaInfo?.SchemaElement?.IsNillable ?? false);
 
                     case XPathNodeType.Attribute:
                         if (nav.XmlType == null)

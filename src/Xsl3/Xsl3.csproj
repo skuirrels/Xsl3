@@ -35,6 +35,8 @@
     <EmbeddedResource Update="Resources\Strings.resx">
       <LogicalName>Xsl3.Resources.Strings.resources</LogicalName>
     </EmbeddedResource>
+    <!-- P6: the schemas a schema-aware processor knows for the XML and fn namespaces. -->
+    <EmbeddedResource Include="Schema\BuiltIn\*.xsd" LogicalName="Xsl3.Schema.%(Filename).xsd" />
   </ItemGroup>
 
   <ItemGroup>

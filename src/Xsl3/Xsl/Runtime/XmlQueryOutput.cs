@@ -1282,6 +1282,15 @@ namespace Xsl3.Runtime
             XPathNodeType nodeType;
             int depthStart = _depth;
             Debug.Assert(navigator != null);
+            // Xsl3 (P6): a typed node added to a temporary tree's document node keeps its type annotations (XSLT 3.0
+            // §9.4, the temporary tree is built with validation="preserve"); not a copy xsl:copy-of makes, which strips them.
+            // With default-validation="preserve", every copy into a constructed tree keeps them.
+            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
+                ? Xsl3.Schema.AnnotatingWriters.Of(Writer) : null;
+            if (typedCopy != null && navigator.NodeType == XPathNodeType.Attribute && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } copiedType)
+            {
+                typedCopy.AnnotateAttribute(navigator.NamespaceURI, navigator.LocalName, copiedType);
+            }
 
             while (true)
             {
@@ -1294,12 +1303,20 @@ namespace Xsl3.Runtime
                         // Xsl3: a copied element keeps its original's base URI (its descendants inherit it).
                         KeepBaseUri31(navigator, deep: true);
                     }
+                    if (typedCopy != null && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } elementType)
+                    {
+                        typedCopy.AnnotateElement(elementType, Xsl3.Schema.SchemaTypes.IsNilled(navigator));
+                    }
 
                     // Copy attributes
                     if (navigator.MoveToFirstAttribute())
                     {
                         do
                         {
+                            if (typedCopy != null && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } attributeType)
+                            {
+                                typedCopy.AnnotateAttribute(navigator.NamespaceURI, navigator.LocalName, attributeType);
+                            }
                             StartCopy(navigator, false);
                         }
                         while (navigator.MoveToNextAttribute());

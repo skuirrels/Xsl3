@@ -106,7 +106,7 @@ namespace Xsl3.Runtime
         /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
         public string X31AvtString(IList<XPathItem> items)
         {
-            if (items.Count == 1 && items[0] is not ArrayItem)
+            if (items.Count == 1 && items[0] is not ArrayItem && !(items[0] is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null))
             {
                 return Sequences.Atomize(items[0]).Value;
             }
@@ -168,10 +168,11 @@ namespace Xsl3.Runtime
                     {
                         run.Append(' ');
                     }
-                    if (item is ArrayItem array)
+                    if (item is ArrayItem || item is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null)
                     {
-                        // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2).
-                        run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(array)).Select(a => a.Value)));
+                        // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2); a node of a list type
+                        // to its items (P6).
+                        run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(item)).Select(a => a.Value)));
                     }
                     else
                     {
@@ -234,9 +235,10 @@ namespace Xsl3.Runtime
                 {
                     parts.Add(container.Value);
                 }
-                else if (item is ArrayItem array)
+                else if (item is ArrayItem || item is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null)
                 {
-                    foreach (XPathItem atom in Sequences.Atomize(Sequences.One(array)))
+                    // (An array, or a node of a list type (P6), atomizes to any number of values.)
+                    foreach (XPathItem atom in Sequences.Atomize(Sequences.One(item)))
                     {
                         parts.Add(atom.Value);
                     }

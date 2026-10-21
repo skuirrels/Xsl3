@@ -59,6 +59,21 @@ namespace Xsl3.Tree
 
         internal CompactDocument Document => _doc;
 
+        /// <summary>Xsl3 (P6): the node's type annotation from validation; null when it is untyped.</summary>
+        internal System.Xml.Schema.XmlSchemaType? SchemaType =>
+            _ns != None || !_doc.HasAnnotations ? null
+            : _attr != None ? (_doc._attrTypes != null && _doc._attrTypes.TryGetValue(_attr, out var a) ? a : null)
+            : _doc._types != null && _doc._types.TryGetValue(_node, out var e) ? e : null;
+
+        /// <summary>Xsl3 (P6): whether the tree has type annotations (a schema validated it).</summary>
+        internal bool Typed => _doc.HasAnnotations;
+
+        /// <summary>Xsl3 (P6): whether the node is an element validated as nilled (xsi:nil="true").</summary>
+        internal bool IsNilled => _doc._nilled != null && OnContent && _doc.HasAnnotations && _doc._nilled.Contains(_node);
+
+        public override System.Xml.Schema.IXmlSchemaInfo? SchemaInfo =>
+            SchemaType is { } type ? new Xsl3.Schema.NodeSchemaInfo(type, IsNilled) : null;
+
         private bool OnContent => _attr == None && _ns == None;
 
         public override XPathNavigator Clone() => new CompactNavigator(this);

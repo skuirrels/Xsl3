@@ -305,6 +305,17 @@ namespace Xsl3.Xslt
                 }
             }
 
+            // Xsl3 (P6): input-type-annotations="strip": the source documents' type annotations are ignored (XSLT 3.0 §4.4.1).
+            if (IsV2 && _compiler.inputTypeAnnotations == "strip" && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31StripInputAnnotations), T.IntX));
+            }
+            // Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.
+            if (IsV2 && _compiler.DefaultValidation == "preserve" && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31PreserveAnnotations), T.IntX));
+            }
+
             // Register all script namespaces
 #pragma warning disable SYSLIB0062 // Scripts field is obsolete
             foreach (string scriptNs in _compiler.Scripts.ScriptClasses.Keys)
@@ -986,6 +997,10 @@ namespace Xsl3.Xslt
 
                 ExitScope();
                 Debug.Assert(result != null, "Result of compilation should not be null");
+                if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
+                {
+                    result = Validate31(result, validated);
+                }
                 if (result.NodeType == QilNodeType.Sequence && result.Count == 0)
                 {
                     continue;
@@ -3228,9 +3243,14 @@ namespace Xsl3.Xslt
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
                 if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? typedMode) && typedMode.Typed is "yes" or "true" or "1" or "strict")
                 {
-                    // Xsl3: typed="yes" or "strict" (XSLT 3.0 §3.5.4.1): without schema validation every element and
-                    // attribute is untyped, so processing one in the mode is XTTE3100.
-                    applyFunction.Definition = _f.Conditional(_f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute)),
+                    // Xsl3: typed="yes" or "strict" (XSLT 3.0 §3.5.4.1): processing an untyped element or attribute in
+                    // the mode is XTTE3100. (Without schemas every one is untyped; with them, P6, it is asked at run time.)
+                    QilNode elementOrAttribute = _f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute));
+                    if (_compiler.Schemas != null || _compiler.Settings.SchemaAware)
+                    {
+                        elementOrAttribute = _f.And(elementOrAttribute, X31(nameof(XsltLibrary.X31Untyped), T.BooleanX, current));
+                    }
+                    applyFunction.Definition = _f.Conditional(elementOrAttribute,
                         _f.Error(_f.String("XTTE3100: a mode with typed=\"" + typedMode.Typed + "\" processes an untyped element or attribute")),
                         applyFunction.Definition);
                 }

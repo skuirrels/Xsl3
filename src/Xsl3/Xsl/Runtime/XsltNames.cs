@@ -19,6 +19,11 @@ namespace Xsl3.Runtime
         /// <summary>Whether xsl:evaluate is enabled (XsltSettings.EnableEvaluate); otherwise it is statically disabled.</summary>
         public bool EvaluateEnabled { get; init; }
 
+        /// <summary>Xsl3 (P6): whether the processor is schema-aware (XsltSettings.SchemaAware), and the schemas imported.</summary>
+        public bool SchemaAware { get; init; }
+
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
+
         /// <summary>
         /// A static expression's names (use-when, static variables): of the XSLT functions, only those that need no
         /// dynamic context are available (XSLT 3.0 §3.13.1).
@@ -110,7 +115,8 @@ namespace Xsl3.Runtime
                 "product-version" => typeof(XsltNameContext).Assembly.GetName().Version?.ToString() ?? "0",
                 "supports-serialization" or "supports-backwards-compatibility" or "supports-namespace-axis" or "supports-higher-order-functions" => "yes",
                 "supports-dynamic-evaluation" => EvaluateEnabled ? "yes" : "no",
-                "is-schema-aware" or "supports-streaming" => "no",
+                "is-schema-aware" => SchemaAware ? "yes" : "no",
+                "supports-streaming" => "no",
                 "xpath-version" => "3.1",
                 "xsd-version" => "1.0",
                 _ => "",
@@ -146,6 +152,11 @@ namespace Xsl3.Runtime
                 return true;
             }
             // xs:T#1 constructor functions, the list types and xs:error among them
+            if (ns != QName.Ns.Xs && arity is null or 1 && Schemas is { IsCompiled: true } schemas &&
+                schemas.GlobalTypes[new System.Xml.XmlQualifiedName(local, ns)] is System.Xml.Schema.XmlSchemaSimpleType)
+            {
+                return true; // Xsl3 (P6): the constructor function of a schema's simple type
+            }
             return ns == QName.Ns.Xs && arity is null or 1 && (local == "error"
                 || XPath31.StaticTypeResolver.FindCastTarget(new QName(ns, local, "xs")) is var (type, _) && !type.IsAbstract);
         }
@@ -161,7 +172,13 @@ namespace Xsl3.Runtime
         {
             var (ns, local) = Resolve(name, "", "XTDE1428");
             // xs:dateTimeStamp is XSD 1.1's; the xsd-version property is 1.0.
-            return ns == QName.Ns.Xs && local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
+            if (ns != QName.Ns.Xs)
+            {
+                // Xsl3 (P6): a type an imported schema defines.
+                return Schemas is { IsCompiled: true } schemas && schemas.GlobalTypes.Contains(new System.Xml.XmlQualifiedName(local, ns));
+            }
+            return local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped"
+                || SchemaAware && local is "NMTOKENS" or "IDREFS" or "ENTITIES");
         }
     }
 

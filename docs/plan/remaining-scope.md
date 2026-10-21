@@ -410,11 +410,17 @@ docs/divergences.md is complete.
 
 ### 6. Phase 6: schema-awareness (§18; 3–5 person-months)
 
-**State.** Not started. 933 xslt30-test cases need `schema_aware`. What happens today:
-- `xsl:import-schema` is rejected as an unexpected element (`Xslt_UnexpectedElement`, XsltLoader.cs), not
-  with the error a non-schema-aware processor should raise. Fix this first: it's small.
-- `validation="strict|lax"` and `type=` raise XTSE1660 in 2.0+ stylesheets; `strip` and `preserve` are accepted.
-- `schema-element()` and `schema-attribute()` parse, then raise XPST0008 ("no schema is imported").
+**State.** In progress since 2026-10-21 (owner's choice; docs/plan/p6-schema.md). `XsltSettings.SchemaAware` turns it
+on; off, nothing changes (`xsl:import-schema` is XTSE1650). With it, `XSL3_XSLT30_PROFILE=sa` measures the tests that
+need `schema_aware`: 707 passed, 137 failed (83.8%), from 79 passed and 697 not run. Done: `xsl:import-schema`
+(location, inline, by namespace, built-in xml and fn schemas, XSD 1.1 conditional inclusion); schema atomic, list and
+union types in sequence types, casts and constructor functions; `schema-element()`, `schema-attribute()`,
+`element(N, T)` and `attribute(N, T)` in expressions and patterns; type annotations in the compact tree from a
+validating reader, typed values, schema-normalized values; validation of constructed nodes (`validation`, `type` on
+the constructors, `xsl:copy-of`, `xsl:document`, `xsl:result-document`, `xsl:source-document`), default attributes,
+XTTE1510/1540/1550/1555/0950; `validation="preserve"` on `xsl:copy-of`; temporary trees keep their children's
+annotations; `xsl:mode typed`; `input-type-annotations="strip"`. `default-validation="preserve"`. Open: validating `doc()`, json-to-xml
+`validate`, per-package schemas, the remaining failures.
 
 6.1 **Plan** (S): `docs/plan/p6-schema.md`.
    - Decide XSD 1.1 (§18 options a/b/c; open question 3). XSD 1.0 only is conformant.
@@ -577,6 +583,6 @@ A sensible sequence:
 | 1.3 Real stylesheets: DocBook xslTNG | `eng/fetch-bench.sh` fetches the 2.7.1 release (owner's approval, 2026-10-21); `DocBookStylesheetTests` (CI) converts the sample article and a test book; `-- docbook` benchmarks it. It found five faults, all fixed: static variables of imported modules after the `xsl:import` (static-021, static-027 pass), next-match from a union rule passing on a parameter, namespace nodes after attributes, the current group in called templates, and an `xsl:evaluate` cache too small for DocBook's 151 localization patterns (15 s to 2.3 s for a 301 KB book; docs/performance.md). Open: allocation (3 GB for that book) |
 | Publishing Xsl3.Build and Xsl3.Cli (owner's decision, 2026-10-21) | The release workflow packs both at the tag's version beside Xsl3 (symbols for Xsl3 only; the tool packages keep their PDBs). Checked locally: packed at 0.9.0-test, the `xsl3` tool installs from the package and transforms, and a project with `Xsl3` and `Xsl3.Build` package references compiles an `XsltStylesheet` item at build time and loads it with `Load(Type)`. Xsl3.Build carries the compiler without a native app host. Publishing stays with the owner: the next tag and the `nuget` environment approval; nuget.org's trusted-publishing policy must allow the two new package ids |
 | 5.5 Divergences | Done: the W3C list in docs/divergences.md |
-| 6 `xsl:import-schema` | Raises XTSE1650 |
+| 6 `xsl:import-schema` | Raises XTSE1650 without `XsltSettings.SchemaAware`; with it, P6 is in progress (83.8% of the schema-aware tests; section 6) |
 | 8.4 Memory test | Fixed: it runs in a child process |
 | 8.6 DNS flake | Fixed: network failures are compared by type |

@@ -46,8 +46,8 @@ namespace Xsl3.Xdm
     internal enum StringConstraint { None, NormalizedString, Token, Language, NmToken, Name, NCName }
 
     /// <summary>
-    /// A built-in atomic type (XPath 3.1 §2.7.2). Instances are singletons in <see cref="AtomicTypes"/> and
-    /// compare by reference.
+    /// An atomic type (XPath 3.1 §2.7.2): a built-in one, a singleton in <see cref="AtomicTypes"/>, or one an imported
+    /// schema defines (P6), one instance per schema type (Schema/SchemaTypes.cs). They compare by reference.
     /// </summary>
     internal sealed class AtomicType
     {
@@ -68,7 +68,29 @@ namespace Xsl3.Xdm
             }
         }
 
+        /// <summary>
+        /// Xsl3 (P6): an atomic type a schema defines, derived by restriction from <paramref name="baseType"/>. Its own
+        /// facets are checked by <paramref name="schemaType"/>; the inherited ones by the base type.
+        /// </summary>
+        internal AtomicType(QName name, AtomicType baseType, XmlSchemaSimpleType schemaType, WhitespaceFacet? whitespace)
+            : this(baseType.Name.LocalName, baseType, baseType.Primitive, baseType.TypeCode)
+        {
+            Name = name;
+            UserSchemaType = schemaType;
+            RequiresTimezone = baseType.RequiresTimezone;
+            if (whitespace is WhitespaceFacet ws)
+            {
+                Whitespace = ws;
+            }
+        }
+
         public QName Name { get; }
+
+        /// <summary>Xsl3 (P6): the schema's definition of a type it defines; null for the built-in types.</summary>
+        public XmlSchemaSimpleType? UserSchemaType { get; }
+
+        /// <summary>Whether a schema defines this type (or one of its ancestors).</summary>
+        public bool IsUserDefined => UserSchemaType != null;
 
         public AtomicType? Base { get; }
 
@@ -87,7 +109,7 @@ namespace Xsl3.Xdm
         public BigInteger? MaxInclusive { get; internal set; }
 
         /// <summary>xs:anyAtomicType and xs:NOTATION can't be cast to or constructed (XPST0080).</summary>
-        public bool IsAbstract => Primitive is Primitive.AnyAtomic or Primitive.Notation;
+        public bool IsAbstract => Primitive is Primitive.AnyAtomic or Primitive.Notation && !IsUserDefined;
 
         /// <summary>xs:dateTimeStamp requires a timezone.</summary>
         public bool RequiresTimezone { get; internal set; }
@@ -108,7 +130,7 @@ namespace Xsl3.Xdm
         }
 
         /// <summary>The System.Xml schema type, used for <see cref="System.Xml.XPath.XPathItem.XmlType"/>.</summary>
-        public XmlSchemaType? SchemaType => _schemaType ??= TypeCode == XmlTypeCode.None ? XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.AnyAtomicType) : XmlSchemaType.GetBuiltInSimpleType(TypeCode);
+        public XmlSchemaType? SchemaType => _schemaType ??= UserSchemaType ?? (TypeCode == XmlTypeCode.None ? XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.AnyAtomicType) : XmlSchemaType.GetBuiltInSimpleType(TypeCode));
 
         private XmlSchemaType? _schemaType;
 

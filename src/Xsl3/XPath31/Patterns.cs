@@ -572,11 +572,14 @@ namespace Xsl3.XPath31
                         NamespaceNodeTest => XmlNodeKindFlags.Namespace,
                         _ => XmlNodeKindFlags.Any,
                     };
-                    if (!resolved.AnyType)
+                    // Xsl3 (P6): a test that names a type, or schema-element()/schema-attribute(), is decided at run time
+                    // when there are schemas: a node may then be typed.
+                    bool typed = resolved.TypeName != null && _sc.Schemas != null;
+                    if (!resolved.AnyType && !typed)
                     {
                         return (0, null); // element(N, T) where T excludes untyped nodes
                     }
-                    if (resolved.DocumentElement != null)
+                    if (resolved.DocumentElement != null || typed)
                     {
                         int id = ConstantPool.Add(new SequenceTypeTest(resolved, Cardinality.ExactlyOne));
                         condition = it => Call(nameof(XsltLibrary.X31InstanceOf), T.BooleanX, it, _f.Double(id));

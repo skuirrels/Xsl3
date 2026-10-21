@@ -84,14 +84,14 @@ namespace Xsl3.Xdm
                     XsDateTime.TryParse(lexical, target.Primitive, out XsDateTime dt) ? new DateTimeValue(AtomicTypes.Of(target.Primitive), dt) : null,
                 Primitive.HexBinary => Lexical.TryParseHex(lexical, out byte[] hex) ? new BinaryValue(AtomicTypes.HexBinary, hex) : null,
                 Primitive.Base64Binary => Lexical.TryParseBase64(lexical, out byte[] b64) ? new BinaryValue(AtomicTypes.Base64Binary, b64) : null,
-                Primitive.QName => ParseQName(lexical, namespaces),
+                Primitive.QName or Primitive.Notation => ParseQName(lexical, namespaces),
                 _ => null,
             };
             if (result == null)
             {
                 throw Err.FORG0001(s, target);
             }
-            return Restrict(result, target);
+            return Restrict(result, target, lexical, namespaces);
         }
 
         private static QNameValue? ParseQName(string lexical, IXmlNamespaceResolver? namespaces)
@@ -276,11 +276,32 @@ namespace Xsl3.Xdm
         // ------------------------------------------------------------ derived types (§19.3)
 
         /// <summary>Relabels a primitive value as <paramref name="target"/> after checking the target's facets.</summary>
-        private static AtomicValue Restrict(AtomicValue v, AtomicType target)
+        private static AtomicValue Restrict(AtomicValue v, AtomicType target, string? lexical = null, IXmlNamespaceResolver? namespaces = null)
         {
             if (ReferenceEquals(v.Type, target))
             {
                 return v;
+            }
+            if (target.IsUserDefined)
+            {
+                // Xsl3 (P6): a type a schema defines. The built-in type it derives from first; then the schema's facets,
+                // on the lexical form cast from, or else the canonical one (F&O 3.1 §19.3.2).
+                AtomicType builtIn = target.Base!;
+                while (builtIn.IsUserDefined)
+                {
+                    builtIn = builtIn.Base!;
+                }
+                AtomicValue value = Restrict(v, builtIn);
+                string text = Lexical.ApplyWhitespace(lexical ?? value.Value, target.Whitespace);
+                if (!Xsl3.Schema.SchemaTypes.SatisfiesFacets(target, text, namespaces))
+                {
+                    throw Err.FORG0001(lexical ?? value.Value, target);
+                }
+                if (value is StringValue && text != value.Value)
+                {
+                    value = new StringValue(builtIn, text);
+                }
+                return value.WithType(target);
             }
             switch (v)
             {

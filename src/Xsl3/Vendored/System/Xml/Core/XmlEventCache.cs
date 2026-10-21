@@ -12,7 +12,7 @@ namespace System.Xml
     /// <summary>
     /// Caches sequence of XmlEvents so that they can be replayed later.
     /// </summary>
-    internal sealed class XmlEventCache : XmlRawWriter
+    internal sealed class XmlEventCache : XmlRawWriter, Xsl3.Schema.IAnnotatingWriter
     {
         private List<XmlEvent[]>? _pages;     // All event pages
         private XmlEvent[]? _pageCurr;        // Page that is currently being built
@@ -46,6 +46,8 @@ namespace System.Xml
             FullEndElem,
             Nmsp,
             EndBase64,
+            Annotate,       // Xsl3 (P6): the type annotation of the element just started
+            AnnotateAttr,   // Xsl3 (P6): the type annotation of an attribute of it
             Close,
             Flush,
             Dispose,
@@ -228,6 +230,14 @@ namespace System.Xml
                             rawWriter?.WriteEndBase64();
                             break;
 
+                        case XmlEventType.Annotate:
+                            Xsl3.Schema.AnnotatingWriters.Of(writer)?.AnnotateElement((XmlSchemaType)page[idxEvent].Object!, page[idxEvent].String1 != null);
+                            break;
+
+                        case XmlEventType.AnnotateAttr:
+                            Xsl3.Schema.AnnotatingWriters.Of(writer)?.AnnotateAttribute(page[idxEvent].String1!, page[idxEvent].String2!, (XmlSchemaType)page[idxEvent].Object!);
+                            break;
+
                         case XmlEventType.Close:
                             writer.Close();
                             break;
@@ -327,6 +337,11 @@ namespace System.Xml
         {
             AddEvent(XmlEventType.StartElem, prefix, localName, ns);
         }
+
+        /// <summary>Xsl3 (P6): recorded, for the tree the events are replayed into.</summary>
+        public void AnnotateElement(XmlSchemaType type, bool nilled) => AddEvent(XmlEventType.Annotate, nilled ? "nilled" : null, null, null, type);
+
+        public void AnnotateAttribute(string ns, string local, XmlSchemaType type) => AddEvent(XmlEventType.AnnotateAttr, ns, local, null, type);
 
         public override void WriteStartAttribute(string? prefix, string localName, string? ns)
         {

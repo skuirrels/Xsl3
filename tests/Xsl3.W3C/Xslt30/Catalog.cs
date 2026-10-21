@@ -161,6 +161,12 @@ public sealed class TestEnvironment
 
     public sealed record Param(string Name, string? Select, string? As, bool Static, XElement Element);
 
+    /// <summary>A schema the environment supplies (P6): for validating sources, or for xsl:import-schema to find by namespace.</summary>
+    public sealed record Schema(string? File, string? Uri, string? Role, string XsdVersion);
+
+    /// <summary>Whether the runner is schema-aware (the sa profile, XSL3_XSLT30_PROFILE=sa): it then honours schemas and validation.</summary>
+    public static bool SchemaAware { get; } = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") == "sa";
+
     private TestEnvironment(XElement element, string baseDirectory)
     {
         Element = element;
@@ -174,6 +180,11 @@ public sealed class TestEnvironment
             (string?)s.Attribute("defines-stylesheet") is "true" or "yes",
             (string?)s.Attribute("select"))).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();
+        Schemas = element.Elements(Catalog.Ns + "schema").Select(s => new Schema(
+            (string?)s.Attribute("file") is string f ? Path.Combine(baseDirectory, f) : null,
+            (string?)s.Attribute("uri"),
+            (string?)s.Attribute("role"),
+            ((string?)s.Attribute("xsd-version") ?? "1.0").Trim())).ToList();
         Stylesheets = element.Elements(Catalog.Ns + "stylesheet").Concat(element.Elements(Catalog.Ns + "package").Where(p => (string?)p.Attribute("role") == "principal"))
             .Where(s => (string?)s.Attribute("role") is null or "principal" && s.Attribute("file") != null)
             .Select(s => Path.Combine(baseDirectory, (string)s.Attribute("file")!)).ToList();
@@ -229,9 +240,12 @@ public sealed class TestEnvironment
 
     /// <summary>Parts of the environment the runner can't honour yet; tests that use them aren't run.</summary>
     public IEnumerable<string> UnsupportedParts =>
-        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema")
-            .Concat(Sources.Where(s => s.Validation is "strict" or "lax").Select(_ => "validation"))
+        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" || n == "schema" && !SchemaAware)
+            .Concat(Schemas.Where(s => SchemaAware && (s.XsdVersion != "1.0" || s.File == null)).Select(s => s.File == null ? "schema without a file" : "schema: XSD " + s.XsdVersion))
+            .Concat(Sources.Where(s => !SchemaAware && s.Validation is "strict" or "lax").Select(_ => "validation"))
             .Distinct();
+
+    public IReadOnlyList<Schema> Schemas { get; }
 
     public static TestEnvironment Read(XElement element, string baseDirectory) => new(element, baseDirectory);
 }

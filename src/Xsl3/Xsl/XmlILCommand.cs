@@ -107,6 +107,7 @@ namespace Xsl3
             dataSources ??= XmlResolver.ThrowingResolver;
 
             XmlQueryRuntime? runtime = null;
+            bool stripping = Xsl3.Tree.CompactDocument.StripInputAnnotations;
             try
             {
                 runtime = new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results);
@@ -134,6 +135,11 @@ namespace Xsl3
             {
                 // Xsl3: a regular expression match ran past XsltSettings.Timeout (XmlQueryRuntime.RegexTimeout).
                 throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}cancelled: the transformation was cancelled (a regular expression ran past the timeout)");
+            }
+            finally
+            {
+                // Xsl3 (P6): input-type-annotations="strip" lasts as long as the transformation (an enclosing one's stays).
+                Xsl3.Tree.CompactDocument.StripInputAnnotations = stripping;
             }
         }
     }

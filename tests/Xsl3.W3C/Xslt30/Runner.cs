@@ -80,6 +80,8 @@ public sealed class Runner
                 EnableEvaluate = true,
                 VersionMode = XsltVersionMode.BackwardsCompatible,
                 EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+                SchemaAware = TestEnvironment.SchemaAware,
+                Schemas = SchemaSet(test.Environments.OfType<TestEnvironment>()),
             },
             StylesheetResolver = resolver,
         };
@@ -373,7 +375,7 @@ public sealed class Runner
                         continue; // available by URI only
                     }
                     // An inline document's base URI is the test set's; a source with only select is that expression's value.
-                    XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File);
+                    XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File, SchemaSet(envs));
                     if (source.Role == ".")
                     {
                         // select: the initial context node within the document (the global context item).
@@ -460,6 +462,8 @@ public sealed class Runner
                     EnableEvaluate = true,
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+                    SchemaAware = TestEnvironment.SchemaAware,
+                    Schemas = SchemaSet(envs),
                 };
                 if (Saved(test.Id))
                 {
@@ -505,7 +509,10 @@ public sealed class Runner
                 sw = new StringWriter();
                 messages.Clear();
                 secondary.Clear();
-                var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+                // (Validated again, when the source is to be: P6.)
+                var settings = SchemaSet(envs) is { } schemas && inputSource.Validation is "strict" or "lax"
+                    ? ValidatingSettings(schemas, inputSource.Validation == "strict")
+                    : new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
                 using XmlReader reader = inputSource.Content != null
                     ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? new Uri(test.Set.File).AbsoluteUri)
                     : XmlReader.Create(inputSource.File!, settings);
@@ -624,15 +631,69 @@ public sealed class Runner
     // it loads (it keeps the DTD's IDREF types, for fn:idref).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Xsl3.Tree.CompactDocument> s_documents = new(StringComparer.Ordinal);
 
-    private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile)
+    private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile, System.Xml.Schema.XmlSchemaSet? schemas)
     {
+        bool validate = schemas != null && source.Validation is "strict" or "lax";
         if (source.Content == null)
         {
-            return s_documents.GetOrAdd(Path.GetFullPath(source.File!), Parse).CreateNavigator();
+            string path = Path.GetFullPath(source.File!);
+            return validate
+                ? s_documents.GetOrAdd(path + "|" + source.Validation + "|" + (s_schemaKeys.TryGetValue(schemas!, out string? schemaKey) ? schemaKey : ""), _ => Parse(path, schemas!, source.Validation == "strict")).CreateNavigator()
+                : s_documents.GetOrAdd(path, Parse).CreateNavigator();
         }
-        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+        var settings = validate ? ValidatingSettings(schemas!, source.Validation == "strict") : new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(testSetFile).AbsoluteUri);
         return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
+    }
+
+    // P6: the schemas of a test's environments, compiled once per combination; null when there are none.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Xml.Schema.XmlSchemaSet> s_schemaSets = new(StringComparer.Ordinal);
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<System.Xml.Schema.XmlSchemaSet, string> s_schemaKeys = new();
+
+    private static System.Xml.Schema.XmlSchemaSet? SchemaSet(IEnumerable<TestEnvironment> envs)
+    {
+        if (!TestEnvironment.SchemaAware)
+        {
+            return null;
+        }
+        var files = envs.SelectMany(e => e.Schemas).Where(s => s.File != null).Select(s => (Path.GetFullPath(s.File!), s.Uri)).Distinct().ToList();
+        if (files.Count == 0)
+        {
+            return null;
+        }
+        string key = string.Join("|", files.Select(f => f.Item1));
+        return s_schemaSets.GetOrAdd(key, _ =>
+        {
+            // (Read as the processor reads imported schemas: without what they mark for XSD 1.1.)
+            System.Xml.Schema.XmlSchemaSet set = Xsl3.Schema.SchemaDocuments.CreateSet(new XmlUrlResolver());
+            foreach (var (file, _) in files)
+            {
+                string uri = new Uri(file).AbsoluteUri;
+                bool known = false;
+                foreach (System.Xml.Schema.XmlSchema existing in set.Schemas())
+                {
+                    known |= existing.SourceUri == uri;
+                }
+                if (!known)
+                {
+                    set.Add(null, uri);
+                }
+            }
+            set.Compile();
+            s_schemaKeys.AddOrUpdate(set, key);
+            return set;
+        });
+    }
+
+    // A reader that validates against the schemas: strictly (an undeclared element is an error) or laxly.
+    private static XmlReaderSettings ValidatingSettings(System.Xml.Schema.XmlSchemaSet schemas, bool strict) =>
+        Xsl3.Schema.Validation.ReaderSettings(schemas, strict, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() },
+            message => new XsltDynamicException(new Xsl3.Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTTE0590", "err"), "Source validation failed: " + message, null));
+
+    private static Xsl3.Tree.CompactDocument Parse(string file, System.Xml.Schema.XmlSchemaSet schemas, bool strict)
+    {
+        using XmlReader reader = XmlReader.Create(file, ValidatingSettings(schemas, strict));
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
     }
 
     private static Xsl3.Tree.CompactDocument Parse(string file)

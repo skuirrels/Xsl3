@@ -31,7 +31,7 @@ namespace Xsl3.Xslt
         }
     }
 
-    internal sealed class Compiler
+    internal sealed partial class Compiler
     {
         public XsltSettings Settings;
         public bool IsDebug;

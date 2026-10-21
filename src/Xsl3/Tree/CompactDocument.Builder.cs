@@ -125,7 +125,8 @@ namespace Xsl3.Tree
             /// <summary>Whether an element is open (so attributes and namespaces are its, not top-level nodes).</summary>
             internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
-            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false)
+            /// <param name="typed">Xsl3 (P6): keep the reader's type annotations even if it has none before it is read (a copy of a typed tree).</param>
+            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false)
             {
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
@@ -133,6 +134,8 @@ namespace Xsl3.Tree
                 HashSet<(string, string)>? elementOnly = null;
                 bool[] inElementOnly = System.Array.Empty<bool>();
                 int initialDepth = reader.Depth;
+                // Xsl3 (P6): a validating reader's type annotations are kept.
+                typed |= reader.SchemaInfo != null;
                 if (topLevelReader && !reader.Read())
                 {
                     return;
@@ -158,12 +161,27 @@ namespace Xsl3.Tree
                                 inElementOnly[reader.Depth] = elementOnly.Contains((reader.LocalName, reader.Prefix));
                             }
                             StartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI, reader.BaseURI);
+                            if (typed && reader.SchemaInfo is { } elementInfo)
+                            {
+                                AnnotateElement(elementInfo.SchemaType, elementInfo.IsNil);
+                                if (elementInfo.SchemaType is { } elementType && Xsl3.Schema.SchemaTypes.Normalization(elementType) is { } facet)
+                                {
+                                    NormalizeText(facet);
+                                }
+                            }
                             while (reader.MoveToNextAttribute())
                             {
                                 string ns = reader.NamespaceURI;
                                 if ((object)ns == (object?)xmlnsUri)
                                 {
                                     NamespaceDeclaration(reader.Prefix.Length == 0 ? string.Empty : reader.LocalName, reader.Value);
+                                }
+                                else if (typed && reader.SchemaInfo?.SchemaType is { } attributeType)
+                                {
+                                    // (Its schema normalized value, XDM 3.1 §6.3.4.)
+                                    string value = Xsl3.Schema.SchemaTypes.Normalization(attributeType) is { } facet ? Xsl3.Xdm.Lexical.ApplyWhitespace(reader.Value, facet) : reader.Value;
+                                    Attribute(reader.Prefix, reader.LocalName, ns, value);
+                                    AnnotateAttribute(attributeType, value);
                                 }
                                 else
                                 {
@@ -474,6 +492,35 @@ namespace Xsl3.Tree
                 }
             }
 
+            // Xsl3 (P6): the elements read from a validating reader whose text is whitespace-normalized by their type.
+            private Dictionary<int, Xsl3.Xdm.WhitespaceFacet>? _normalize;
+
+            /// <summary>Xsl3 (P6): the element just started has its text normalized as its type's whiteSpace facet says.</summary>
+            internal void NormalizeText(Xsl3.Xdm.WhitespaceFacet facet) => (_normalize ??= new Dictionary<int, Xsl3.Xdm.WhitespaceFacet>())[_open[_depth - 1]] = facet;
+
+            /// <summary>Xsl3 (P6): the type annotation of the element just started (null: xs:anyType), and whether it is nilled.</summary>
+            internal void AnnotateElement(System.Xml.Schema.XmlSchemaType? type, bool nilled)
+            {
+                int element = _open[_depth - 1];
+                (_doc._types ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[element] = type ?? Xsl3.Schema.SchemaTypes.AnyType;
+                if (nilled)
+                {
+                    (_doc._nilled ??= new HashSet<int>()).Add(element);
+                }
+            }
+
+            /// <summary>Xsl3 (P6): the type annotation of the attribute just added; one of type xs:ID makes its element an ID.</summary>
+            internal void AnnotateAttribute(System.Xml.Schema.XmlSchemaType type, string value)
+            {
+                int attribute = _doc._attrCount - 1;
+                (_doc._attrTypes ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[attribute] = type;
+                if (type.TypeCode == System.Xml.Schema.XmlTypeCode.Id && _doc._attrOwner[attribute] is int element and not None)
+                {
+                    _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                    _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);
+                }
+            }
+
             private bool IsXmlId(int name) => _pool != null
                 ? _pool.Local[name] == "id" && (object)_pool.Uri[name] == (object)_doc._xmlUri
                 : _local![name] == "id" && (object)_uri![name] == (object)_doc._xmlUri;
@@ -559,6 +606,16 @@ namespace Xsl3.Tree
                 string value = _textMore is { Length: > 0 } more ? _text + more.ToString() : _text;
                 _textMore?.Clear();
                 _text = null;
+                if (_normalize != null && _depth > 0 && _normalize.TryGetValue(_open[_depth - 1], out Xsl3.Xdm.WhitespaceFacet facet))
+                {
+                    // Xsl3 (P6): a typed element's simple content is its schema normalized value (XDM 3.1 §6.2.4).
+                    value = Xsl3.Xdm.Lexical.ApplyWhitespace(value, facet);
+                    if (value.Length == 0)
+                    {
+                        _textRaw = null;
+                        return;
+                    }
+                }
                 int node = Child(_textType, None, Value(value));
                 if (_textRaw != null)
                 {

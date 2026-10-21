@@ -539,10 +539,22 @@ namespace Xsl3.Xslt
             string href = ParseStringAttribute(0, "href") ?? "";
             ParseYesNoAttribute(1, "streamable");
             string? accumulators = ParseStringAttribute(2, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
+            string? validation = ParseValidationAttribute(3, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string documents = $"doc({AvtAsXPath31(href)})";
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: xsl:source-document can't have both a validation and a type attribute");
+            }
+            else if (validation is "strict" or "lax" || type != null)
+            {
+                // Xsl3 (P6): the document, validated.
+                documents = $"Q{{{Runtime.SourceDocuments.Namespace}}}validate({documents}, '{validation ?? ""}', '{(type == null ? "" : $"Q{{{type.Namespace}}}{type.Name}")}')";
+            }
             _input.CanHaveApplyImports = false;
             List<XslNode> content = LoadInstructions();
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ForEach(ApplicableAccumulators31($"doc({AvtAsXPath31(href)})", accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
+            return SetInfo(F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
         }
 
         // XSLT 3.0 §10.4
@@ -1104,9 +1116,9 @@ namespace Xsl3.Xslt
         private XslNode XslDocument()
         {
             ContextInfo ctxInfo = _input.GetAttributes(_documentAttributes);
-            ParseTypeAttribute(0);
-            ParseValidationAttribute(1, /*defVal:*/false);
-            return SetInfo(F.XslNode(XslNodeType.Document, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
+            XmlQualifiedName? type = ParseTypeAttribute(0);
+            string? validation = ParseValidationAttribute(1, /*defVal:*/false);
+            return WithValidation(SetInfo(F.XslNode(XslNodeType.Document, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo), validation, type);
         }
 
         // http://www.w3.org/TR/xslt20/#element-next-match
@@ -1182,10 +1194,12 @@ namespace Xsl3.Xslt
                     }
                 }
             }
+            XmlQualifiedName? type = ParseTypeAttribute(3);
+            string? validation = ParseValidationAttribute(2, /*defVal:*/false);
             _input.CanHaveApplyImports = false;
             XslNode result = SetInfo(F.XslNode(XslNodeType.ResultDocument, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
             result.V2 = v2;
-            return result;
+            return WithValidation(result, validation, type);
         }
 
         // http://www.w3.org/TR/xslt20/#stylesheet-functions

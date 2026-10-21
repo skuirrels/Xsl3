@@ -40,7 +40,7 @@ namespace Xsl3.Tree
         /// fragment (a tree without a document node) has its one top-level node, even a parentless attribute or
         /// namespace node, as its root.
         /// </summary>
-        internal sealed class Writer : XmlRawWriter
+        internal sealed class Writer : XmlRawWriter, Xsl3.Schema.IAnnotatingWriter
         {
             private readonly Builder _builder;
             private CompactDocument? _result;
@@ -63,8 +63,11 @@ namespace Xsl3.Tree
             {
             }
 
-            public override void WriteStartElement(string? prefix, string localName, string? ns) =>
+            public override void WriteStartElement(string? prefix, string localName, string? ns)
+            {
+                _attributeTypes?.Clear(); // (an annotation not taken by its attribute doesn't carry over)
                 _builder.StartElement(prefix ?? string.Empty, localName, ns ?? string.Empty, null);
+            }
 
             /// <summary>Xsl3: the base URI of the element just started, a copy's (XSLT 3.0 §11.9.1, §11.9.2).</summary>
             internal void SetElementBaseUri(string baseUri) => _builder.SetElementBaseUri(baseUri);
@@ -92,6 +95,10 @@ namespace Xsl3.Tree
             {
                 string value = _attrMore is { Length: > 0 } more ? (_attrValue ?? string.Empty) + more.ToString() : _attrValue ?? string.Empty;
                 _builder.Attribute(_attrPrefix!, _attrLocal!, _attrNs!, value);
+                if (_attributeTypes != null && _attributeTypes.Remove((_attrNs!, _attrLocal!), out System.Xml.Schema.XmlSchemaType? type))
+                {
+                    _builder.AnnotateAttribute(type, value);
+                }
                 _attrLocal = null;
                 _attrValue = null;
                 _attrMore?.Clear();
@@ -106,6 +113,16 @@ namespace Xsl3.Tree
                 }
                 _builder.NamespaceDeclaration(prefix, namespaceName);
             }
+
+            // Xsl3 (P6): the type annotations of the attributes of the element being copied, until they are written.
+            private System.Collections.Generic.Dictionary<(string, string), System.Xml.Schema.XmlSchemaType>? _attributeTypes;
+
+            /// <summary>Xsl3 (P6): the type annotation of the element just started (a copy that keeps its original's).</summary>
+            public void AnnotateElement(System.Xml.Schema.XmlSchemaType type, bool nilled) => _builder.AnnotateElement(type, nilled);
+
+            /// <summary>Xsl3 (P6): the type annotation of an attribute of the element just started, when it is written.</summary>
+            public void AnnotateAttribute(string ns, string local, System.Xml.Schema.XmlSchemaType type) =>
+                (_attributeTypes ??= new System.Collections.Generic.Dictionary<(string, string), System.Xml.Schema.XmlSchemaType>())[(ns, local)] = type;
 
             /// <summary>Xsl3: inherit-namespaces="no" on the open element: its children don't inherit its namespaces.</summary>
             internal void NoInherit() => _builder.NoInherit();

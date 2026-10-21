@@ -35,6 +35,9 @@ namespace Xsl3.XPath31
 
         public string DefaultElementNamespace { get; set; } = "";
 
+        /// <summary>Xsl3 (P6): the in-scope schema definitions (XPath 3.1 §2.1.1): the imported schemas, compiled; or null.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; set; }
+
         public string DefaultFunctionNamespace { get; set; } = QName.Ns.Fn;
 
         /// <summary>The static base URI (XPath 3.1 §2.1.1), or null if absent.</summary>
@@ -145,7 +148,7 @@ namespace Xsl3.XPath31
             _qf = _f.BaseFactory;
             _env = env;
             _sc = sc;
-            _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+            _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
             _namespaces = sc.CreateResolver();
             _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
                 new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
@@ -900,11 +903,14 @@ namespace Xsl3.XPath31
                         NamespaceNodeTest => XmlNodeKindFlags.Namespace,
                         _ => XmlNodeKindFlags.Any,
                     };
-                    if (!resolved.AnyType)
+                    // Xsl3 (P6): a test that names a type, or schema-element()/schema-attribute(), is decided at run time
+                    // when there are schemas: a node may then be typed.
+                    bool typed = resolved.TypeName != null && _sc.Schemas != null;
+                    if (!resolved.AnyType && !typed)
                     {
                         return _f.Sequence(); // element(N, T) where T excludes untyped nodes
                     }
-                    if (resolved.DocumentElement != null)
+                    if (resolved.DocumentElement != null || typed)
                     {
                         int id = ConstantPool.Add(new SequenceTypeTest(resolved, Cardinality.ExactlyOne));
                         condition = it => Call(nameof(XsltLibrary.X31InstanceOf), T.BooleanX, it, _f.Double(id));
@@ -943,6 +949,11 @@ namespace Xsl3.XPath31
 
         private QilNode CastTargetId(SingleType type)
         {
+            QName typeName = _types.Expand(type.TypeName, _sc.DefaultElementNamespace);
+            if (StaticTypeResolver.FindCastTarget(typeName) == null && _types.FindSchemaCastTarget(typeName, _namespaces) is { } schemaTarget)
+            {
+                return _f.Double(ConstantPool.Add(schemaTarget)); // Xsl3 (P6): a simple type an imported schema defines
+            }
             var (target, kind) = _types.ResolveCastTarget(type.TypeName);
             if (target.IsAbstract)
             {
@@ -1028,6 +1039,11 @@ namespace Xsl3.XPath31
                 return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(target), _f.True());
             }
 
+            if (args.Count == 1 && _types.FindSchemaCastTarget(name, _namespaces) is { } schemaConstructor)
+            {
+                // Xsl3 (P6): the constructor function of a simple type an imported schema defines.
+                return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(ConstantPool.Add(schemaConstructor)), _f.True());
+            }
             if (_env?.ResolveFunction(name, args, a => Items(Build(a))) is QilNode hostCall)
             {
                 return hostCall;

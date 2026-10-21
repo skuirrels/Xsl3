@@ -5,7 +5,8 @@
 //                                                                       transform to stdout (a number value is a double)
 //   Xsl3.Dev qil  <stylesheet>                                            the QIL the compiler produces
 //   Xsl3.Dev qilopt <stylesheet>                                          the QIL after the optimizer, as code generation sees it
-// Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path; XSL3_DEV_TIME=n times n runs of `run` instead.
+// Set XSL3_XSLT2=1 to compile 2.0+ stylesheets with the 2.0 path; XSL3_DEV_TIME=n times n runs of `run` instead;
+// XSL3_DEV_SA=1 to make the processor schema-aware.
 
 using System;
 using System.IO;
@@ -50,6 +51,8 @@ var settings = new XsltSettings(enableDocumentFunction: true, enableScript: fals
     // XSL3_DEV_W3C=1: the W3C runner's settings.
     EnableEvaluate = Environment.GetEnvironmentVariable("XSL3_DEV_W3C") == "1",
     VersionMode = Environment.GetEnvironmentVariable("XSL3_DEV_W3C") == "1" ? XsltVersionMode.BackwardsCompatible : XsltVersionMode.Legacy,
+    // XSL3_DEV_SA=1: schema-aware (P6).
+    SchemaAware = Environment.GetEnvironmentVariable("XSL3_DEV_SA") == "1",
 };
 if (command == "compile")
 {
@@ -152,9 +155,20 @@ if (int.TryParse(Environment.GetEnvironmentVariable("XSL3_DEV_TIME"), out int ru
     Console.WriteLine($"{Path.GetFileName(stylesheet)}: median {times[runs / 2]:F2} ms, min {times[0]:F2} ms");
     return 0;
 }
-// An XmlReader, so that xsl:strip-space applies to the input.
+// An XmlReader, so that xsl:strip-space applies to the input. XSL3_DEV_XSD=schema.xsd validates it (P6).
+var readerSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse };
+if (Environment.GetEnvironmentVariable("XSL3_DEV_XSD") is { Length: > 0 } xsd)
+{
+    var schemas = new System.Xml.Schema.XmlSchemaSet();
+    foreach (string file in xsd.Split(','))
+    {
+        schemas.Add(null, Path.GetFullPath(file));
+    }
+    readerSettings.ValidationType = ValidationType.Schema;
+    readerSettings.Schemas = schemas;
+}
 using XmlReader source = input != null
-    ? XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse })
+    ? XmlReader.Create(input, readerSettings)
     : XmlReader.Create(new StringReader("<empty/>"));
 // The TextWriter overload serializes as the stylesheet's output definition says (xhtml, html5, json, …).
 transform.Transform(source, arguments, Console.Out, new XmlUrlResolver());
