@@ -478,6 +478,7 @@ namespace Xsl3.Xslt
     {
         public string OnNoMatch = "text-only-copy";
         public string OnMultipleMatch = "use-last";
+        public string Typed = "unspecified"; // Xsl3: typed="yes"/"strict" makes untyped nodes XTTE3100
         public Dictionary<string, string> Attributes = new(); // the attributes given, for XTSE0545
         public int ImportPrecedence;
         public ModeDeclNode? Declaration; // Xsl3: for packages: the declaration's line, package and visibility

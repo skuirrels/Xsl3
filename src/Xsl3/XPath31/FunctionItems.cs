@@ -217,6 +217,16 @@ namespace Xsl3.XPath31
 
         // f#n (XPath 3.1 §3.1.6): a function that calls f with its arguments. Focus-dependent functions capture
         // the focus.
+        // A function name written as a literal: fn:QName('uri', 'p:local') or xs:QName('p:local') (its prefix in scope).
+        private static LexicalQName? LiteralFunctionName(Expr e) => e switch
+        {
+            XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "QName" }, Arguments: [StringLiteral ns, StringLiteral lexical] } =>
+                new LexicalQName(null, lexical.Value.Contains(':') ? lexical.Value[(lexical.Value.IndexOf(':') + 1)..] : lexical.Value, ns.Value),
+            XPath31.FunctionCall { Name: { Prefix: "xs", LocalName: "QName" }, Arguments: [StringLiteral lexical] } when lexical.Value.Trim() is var name =>
+                name.Contains(':') ? new LexicalQName(name[..name.IndexOf(':')], name[(name.IndexOf(':') + 1)..]) : new LexicalQName(null, name),
+            _ => null,
+        };
+
         private QilNode NamedFunctionReference(NamedFunctionRef r)
         {
             int arity = (int)r.Arity;
@@ -418,6 +428,25 @@ namespace Xsl3.XPath31
                         {
                             return _f.Sequence();
                         }
+                    }
+                    if (LiteralFunctionName(args[0]) is LexicalQName known && !(known is { BracedUri: "http://www.w3.org/1999/XSL/Transform", LocalName: "original" }))
+                    {
+                        // Xsl3: a literal name with an arity computed at run time (system-property-024): a reference for
+                        // each arity that resolves (the host's functions too), else the run-time lookup.
+                        QilIterator lookupArity = _f.Let(Items(Build(args[1])));
+                        QilNode result = Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), lookupArity, _f.Double(_staticId));
+                        for (int candidate = 4; candidate >= 0; candidate--)
+                        {
+                            try
+                            {
+                                QilNode reference = NamedFunctionReference(new NamedFunctionRef(known, candidate) { Span = args[0].Span });
+                                result = _f.Conditional(Call(nameof(XsltLibrary.X31ArityIs), T.BooleanX, lookupArity, _f.Double(candidate)), Items(reference), result);
+                            }
+                            catch (XPathStaticException e) when (e.Code == "XPST0017")
+                            {
+                            }
+                        }
+                        return _f.Loop(lookupArity, result);
                     }
                     return Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), Items(Build(args[1])), _f.Double(_staticId));
                 case "map:for-each#2":

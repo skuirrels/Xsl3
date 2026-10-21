@@ -25,8 +25,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1654 / 1654 on .NET 8 and .NET 10 (of 1661: 7 platform-specific or known upstream issues are filtered) |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,862 passed, 22 failed (99.9%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,571 passed, 26 failed (99.4%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,978 passed, 58 failed, 49 not run (99.3%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,572 passed, 25 failed (99.5%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,981 passed, 55 failed, 49 not run (99.3%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -302,7 +302,7 @@ From [SPEC.md §22](SPEC.md):
 |---|---|---|
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
-| P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% at exit, 99.4% now ([plan](docs/plan/p2-xslt20.md)) |
+| P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% at exit, 99.5% now ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% at exit; 99.9% and 99.3% now ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.71–0.96× of stock's time (target ≤ 1× met); automatic indexing; a micro suite and a performance gate in CI; Sink B (saved assemblies, `Xsl3.Build`) and NativeAOT done; the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |

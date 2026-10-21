@@ -420,6 +420,9 @@ namespace Xsl3.Runtime
 
         public XPathItem X31FunctionArity(IList<XPathItem> function) => AtomicValue.OfInteger(((FunctionItem)function[0]).Arity);
 
+        /// <summary>Whether a function-lookup arity (an xs:integer, unchecked here) is <paramref name="arity"/>.</summary>
+        public bool X31ArityIs(IList<XPathItem> value, double arity) => value.Count == 1 && value[0] is IntegerValue i && i.Integer == (int)arity;
+
         /// <summary>fn:function-lookup for a built-in function (user functions are found when the name is a literal).</summary>
         public IList<XPathItem> X31FunctionLookup(IList<XPathItem> name, IList<XPathItem> arity, double sc)
         {

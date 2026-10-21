@@ -3219,6 +3219,14 @@ namespace Xsl3.Xslt
                 _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? typedMode) && typedMode.Typed is "yes" or "true" or "1" or "strict")
+                {
+                    // Xsl3: typed="yes" or "strict" (XSLT 3.0 §3.5.4.1): without schema validation every element and
+                    // attribute is untyped, so processing one in the mode is XTTE3100.
+                    applyFunction.Definition = _f.Conditional(_f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute)),
+                        _f.Error(_f.String("XTTE3100: a mode with typed=\"" + typedMode.Typed + "\" processes an untyped element or attribute")),
+                        applyFunction.Definition);
+                }
                 if (modeFrame != null)
                 {
                     applyFunction.Definition = _f.Loop(modeFrame, applyFunction.Definition);

@@ -1054,4 +1054,12 @@ public class Xslt30Tests
         Assert.Contains("SESU0007", Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(
             $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output encoding='no-such-encoding'/><xsl:template match='/'/></xsl:stylesheet>")))).Message);
     }
+
+    /// <summary>Number words in German (format-integer and xsl:number with lang="de"), cardinal and ordinal.</summary>
+    [Fact]
+    public void GermanNumberWords() =>
+        Assert.Equal("<o>eins|Einundzwanzig|ZWEIHUNDERTDREI|dritte|einhunderterste|eintausendzwölf|zwei Millionen fünf|Siebte</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="format-integer(1, 'w', 'de'), format-integer(21, 'Ww', 'de'), format-integer(203, 'W', 'de'),
+              format-integer(3, 'w;o', 'de'), format-integer(101, 'w;o', 'de'), format-integer(1012, 'w', 'de'), format-integer(2000005, 'w', 'de')" separator="|"/>|<xsl:number value="7" format="Ww" lang="de" ordinal="yes"/></o></xsl:template>
+            """));
 }

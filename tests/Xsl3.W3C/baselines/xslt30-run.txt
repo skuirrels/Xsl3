@@ -23,14 +23,12 @@ id/id-001
 import/import-1201
 merge/merge-019
 merge/merge-097
-mode/mode-1439
 namespace-alias/namespace-alias-1903
 namespace/namespace-2001
 namespace/namespace-2608
 namespace/namespace-2611
 namespace/namespace-2614
 namespace/namespace-2615
-number/number-2506
 number/number-4501
 output/output-0285
 output/output-0311
@@ -46,7 +44,6 @@ static/static-013c
 static/static-021
 static/static-027
 streamable/streamable-141
-system-property/system-property-024
 try/try-034
 unparsed-entity-uri/unparsed-entity-05
 unparsed-entity-uri/unparsed-entity-06

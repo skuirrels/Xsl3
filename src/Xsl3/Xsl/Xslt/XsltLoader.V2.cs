@@ -1353,6 +1353,10 @@ namespace Xsl3.Xslt
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", decl.Declaration.Visibility);
                 }
             }
+            if (_input.MoveToXsltAttribute(5, "typed"))
+            {
+                decl.Typed = _input.Value.Trim();
+            }
             if (_input.MoveToXsltAttribute(5, "typed") && _input.Value.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0" or "strict" or "lax" or "unspecified"))
             {
                 ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "typed", _input.Value);
@@ -1405,6 +1409,10 @@ namespace Xsl3.Xslt
                         else if (attribute == "on-multiple-match")
                         {
                             existing.OnMultipleMatch = decl.OnMultipleMatch;
+                        }
+                        else if (attribute == "typed")
+                        {
+                            existing.Typed = decl.Typed;
                         }
                     }
                 }
