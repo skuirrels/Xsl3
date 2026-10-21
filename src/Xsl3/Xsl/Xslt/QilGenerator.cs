@@ -310,6 +310,10 @@ namespace Xsl3.Xslt
             {
                 init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31StripInputAnnotations), T.IntX));
             }
+            if (IsV2 && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31SchemaAware), T.IntX));
+            }
             // Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.
             if (IsV2 && _compiler.DefaultValidation == "preserve" && _compiler.Settings.SchemaAware)
             {
@@ -3241,7 +3245,16 @@ namespace Xsl3.Xslt
                 _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
-                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? typedMode) && typedMode.Typed is "yes" or "true" or "1" or "strict")
+                bool schemaAware = _compiler.Settings.SchemaAware;
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? untypedMode) && schemaAware && untypedMode.Typed is "no" or "false" or "0")
+                {
+                    // Xsl3 (P6): typed="no": processing a typed element or attribute in the mode is XTTE3110.
+                    applyFunction.Definition = _f.Conditional(
+                        _f.And(_f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute)), _f.Not(X31(nameof(XsltLibrary.X31Untyped), T.BooleanX, current))),
+                        _f.Error(_f.String("XTTE3110: a mode with typed=\"" + untypedMode.Typed + "\" processes a typed element or attribute")),
+                        applyFunction.Definition);
+                }
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? typedMode) && (typedMode.Typed is "yes" or "true" or "1" or "strict" || schemaAware && typedMode.Typed == "lax"))
                 {
                     // Xsl3: typed="yes" or "strict" (XSLT 3.0 §3.5.4.1): processing an untyped element or attribute in
                     // the mode is XTTE3100. (Without schemas every one is untyped; with them, P6, it is asked at run time.)

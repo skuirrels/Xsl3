@@ -42,6 +42,20 @@ namespace Xsl3.Schema
             }
         }
 
+        /// <summary>The fn namespace's built-in schemas, compiled once (json-to-xml's validate option).</summary>
+        public static XmlSchemaSet FunctionsSchemas => s_functionsSchemas.Value;
+
+        private static readonly Lazy<XmlSchemaSet> s_functionsSchemas = new(() =>
+        {
+            var set = new XmlSchemaSet();
+            foreach (XmlSchema schema in BuiltInSchemas("http://www.w3.org/2005/xpath-functions"))
+            {
+                set.Add(schema);
+            }
+            set.Compile();
+            return set;
+        });
+
         /// <summary>The namespace of the names given to anonymous types.</summary>
         public const string AnonymousNamespace = "http://xsl3/anonymous-type";
 
@@ -277,6 +291,27 @@ namespace Xsl3.Schema
                 return null; // (each member normalizes its own)
             }
             return AtomicTypeOf(simple)?.Whitespace is WhitespaceFacet facet and not WhitespaceFacet.Preserve ? facet : null;
+        }
+
+        /// <summary>Whether a type is xs:ID or derived from it (an element of simple content counts its content type).</summary>
+        public static bool IsId(XmlSchemaType type) =>
+            (type as XmlSchemaSimpleType ?? (type is XmlSchemaComplexType { ContentType: XmlSchemaContentType.TextOnly } complex ? SimpleContent(complex) : null))
+                is { } simple && AtomicTypeOf(simple)?.DerivesFrom(AtomicTypes.ID) == true;
+
+        /// <summary>Whether a type's values are IDREFs (xs:IDREF, xs:IDREFS, or a type derived from or a list of them).</summary>
+        public static bool IsIdref(XmlSchemaType type)
+        {
+            if (type is XmlSchemaComplexType complex)
+            {
+                return complex.ContentType == XmlSchemaContentType.TextOnly && SimpleContent(complex) is { } content && IsIdref(content);
+            }
+            var simple = (XmlSchemaSimpleType)type;
+            return simple.Datatype?.Variety switch
+            {
+                XmlSchemaDatatypeVariety.List => IsIdref(ListItemType(simple)),
+                XmlSchemaDatatypeVariety.Union => false,
+                _ => AtomicTypeOf(simple)?.DerivesFrom(AtomicTypes.IDREF) == true,
+            };
         }
 
         /// <summary>Whether values of a type hold QNames or NOTATIONs (namespace-sensitive content, XSLT 3.0 §11.9.2).</summary>

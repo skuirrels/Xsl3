@@ -147,6 +147,9 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.</summary>
         internal bool PreserveAnnotations { get; set; }
 
+        /// <summary>Xsl3 (P6): the stylesheet was compiled by a schema-aware processor (XsltSettings.SchemaAware).</summary>
+        internal bool SchemaAware { get; set; }
+
         // Xsl3: the constants compiled code refers to by number (ConstantPool); null for the process-wide table.
         internal Xsl3.XPath31.ConstantTable? Constants { get; }
 

@@ -965,6 +965,9 @@ namespace Xsl3.Xslt
                         else
                         if (localName == "copy-accumulators" && V2 && _records[0].localName == "copy-of") { CopyAccumulators = Value.Trim(); }
                         else
+                        // Xsl3 (P6): default-validation is a standard attribute of every XSLT element in a schema-aware processor.
+                        if (localName == "default-validation" && V2 && _compiler.Settings.SchemaAware && Value.Trim() is "preserve" or "strip") { }
+                        else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);
                         }

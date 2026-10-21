@@ -303,6 +303,15 @@ namespace Xsl3.Tree
                     Array.Resize(ref _values, _valueCount);
                 }
                 _doc._values = _values;
+                if (_doc._idContent != null)
+                {
+                    // Xsl3 (P6): an element typed xs:ID is an ID by its content.
+                    foreach (int element in _doc._idContent)
+                    {
+                        _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                        _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(_doc.StringValue(element)), element);
+                    }
+                }
                 _doc.BuildScopes();
                 if (_pool == null)
                 {
@@ -499,9 +508,20 @@ namespace Xsl3.Tree
             internal void NormalizeText(Xsl3.Xdm.WhitespaceFacet facet) => (_normalize ??= new Dictionary<int, Xsl3.Xdm.WhitespaceFacet>())[_open[_depth - 1]] = facet;
 
             /// <summary>Xsl3 (P6): the type annotation of the element just started (null: xs:anyType), and whether it is nilled.</summary>
+            // Xsl3 (P6): the elements whose type gives them element-only content.
+            private HashSet<int>? _elementOnly;
+
             internal void AnnotateElement(System.Xml.Schema.XmlSchemaType? type, bool nilled)
             {
                 int element = _open[_depth - 1];
+                if (type is System.Xml.Schema.XmlSchemaComplexType { ContentType: System.Xml.Schema.XmlSchemaContentType.ElementOnly })
+                {
+                    (_elementOnly ??= new HashSet<int>()).Add(element);
+                }
+                if (type != null && Xsl3.Schema.SchemaTypes.IsId(type))
+                {
+                    (_doc._idContent ??= new HashSet<int>()).Add(element); // (its ID is registered when the tree is finished)
+                }
                 (_doc._types ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[element] = type ?? Xsl3.Schema.SchemaTypes.AnyType;
                 if (nilled)
                 {
@@ -514,6 +534,10 @@ namespace Xsl3.Tree
             {
                 int attribute = _doc._attrCount - 1;
                 (_doc._attrTypes ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[attribute] = type;
+                if (_doc._attrOwner[attribute] != None && Xsl3.Schema.SchemaTypes.IsIdref(type))
+                {
+                    (_doc._idrefAttributes ??= new List<int>()).Add(attribute);
+                }
                 if (type.TypeCode == System.Xml.Schema.XmlTypeCode.Id && _doc._attrOwner[attribute] is int element and not None)
                 {
                     _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
@@ -606,6 +630,12 @@ namespace Xsl3.Tree
                 string value = _textMore is { Length: > 0 } more ? _text + more.ToString() : _text;
                 _textMore?.Clear();
                 _text = null;
+                if (_elementOnly != null && _depth > 0 && _elementOnly.Contains(_open[_depth - 1]) && string.IsNullOrWhiteSpace(value))
+                {
+                    // Xsl3 (P6): whitespace in element-only content isn't in the data model (XDM 3.1 §6.2.4).
+                    _textRaw = null;
+                    return;
+                }
                 if (_normalize != null && _depth > 0 && _normalize.TryGetValue(_open[_depth - 1], out Xsl3.Xdm.WhitespaceFacet facet))
                 {
                     // Xsl3 (P6): a typed element's simple content is its schema normalized value (XDM 3.1 §6.2.4).

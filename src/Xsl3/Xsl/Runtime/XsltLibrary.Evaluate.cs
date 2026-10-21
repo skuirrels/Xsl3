@@ -60,6 +60,9 @@ namespace Xsl3.Runtime
 
         public string? BaseUri { get; } = baseUri;
 
+        /// <summary>Xsl3 (P6): the stylesheet's imported schemas, in scope for target expressions.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
+
         // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
         internal string DefaultCollation => defaultCollation;
 
@@ -115,6 +118,7 @@ namespace Xsl3.Runtime
                 DefaultElementNamespace = defaultElementNamespace,
                 DefaultCollation = defaultCollation,
                 DefaultDecimalFormat = defaultDecimalFormat,
+                Schemas = Schemas,
             };
             sc.Namespaces.Clear();
             foreach (var (prefix, uri) in namespaces)

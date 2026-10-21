@@ -72,6 +72,8 @@ namespace Xsl3.Xslt
         // An xs:schema child of xsl:import-schema: its subtree, written out with the namespaces in scope, read as a schema.
         private XmlSchema? ReadInlineSchema(ISourceLineInfo lineInfo)
         {
+            // (Its includes and imports are relative to its own base URI, xml:base included.)
+            string baseUri = _input.StaticBaseUri ?? _input.BaseUri ?? "";
             var text = new StringBuilder();
             using (XmlWriter writer = XmlWriter.Create(text, new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment }))
             {
@@ -79,7 +81,7 @@ namespace Xsl3.Xslt
             }
             try
             {
-                using XmlReader reader = XmlReader.Create(new StringReader(text.ToString()), new XmlReaderSettings(), _input.BaseUri ?? "");
+                using XmlReader reader = XmlReader.Create(new StringReader(text.ToString()), new XmlReaderSettings(), baseUri);
                 return XmlSchema.Read(reader, null);
             }
             catch (Exception e) when (e is XmlSchemaException or XmlException)

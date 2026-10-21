@@ -226,6 +226,16 @@ namespace Xsl3.Xdm
                     {
                         return v;
                     }
+                    if (v is QNameValue n && from == Primitive.Notation)
+                    {
+                        return new QNameValue(AtomicTypes.QName, n.QName); // (XPath 3.1: NOTATION to QName)
+                    }
+                    break;
+                case Primitive.Notation:
+                    if (v is QNameValue qn && from is Primitive.QName or Primitive.Notation)
+                    {
+                        return new QNameValue(AtomicTypes.Notation, qn.QName); // (QName to a NOTATION type)
+                    }
                     break;
             }
             throw Err.XPTY0004Cast(v.Type, AtomicTypes.Of(to));
@@ -293,6 +303,20 @@ namespace Xsl3.Xdm
                 }
                 AtomicValue value = Restrict(v, builtIn);
                 string text = Lexical.ApplyWhitespace(lexical ?? value.Value, target.Whitespace);
+                if (value is QNameValue { QName: var qname } && lexical == null)
+                {
+                    // (A QName's own prefix binding resolves its lexical form.)
+                    var own = new XmlNamespaceManager(new NameTable());
+                    if (qname.Prefix.Length > 0)
+                    {
+                        own.AddNamespace(qname.Prefix, qname.NamespaceUri);
+                    }
+                    else if (qname.NamespaceUri.Length > 0)
+                    {
+                        own.AddNamespace("", qname.NamespaceUri);
+                    }
+                    namespaces = own;
+                }
                 if (!Xsl3.Schema.SchemaTypes.SatisfiesFacets(target, text, namespaces))
                 {
                     throw Err.FORG0001(lexical ?? value.Value, target);

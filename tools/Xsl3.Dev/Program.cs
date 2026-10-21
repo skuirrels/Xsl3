@@ -159,10 +159,10 @@ if (int.TryParse(Environment.GetEnvironmentVariable("XSL3_DEV_TIME"), out int ru
 var readerSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse };
 if (Environment.GetEnvironmentVariable("XSL3_DEV_XSD") is { Length: > 0 } xsd)
 {
-    var schemas = new System.Xml.Schema.XmlSchemaSet();
+    System.Xml.Schema.XmlSchemaSet schemas = Xsl3.Schema.SchemaDocuments.CreateSet(new XmlUrlResolver());
     foreach (string file in xsd.Split(','))
     {
-        schemas.Add(null, Path.GetFullPath(file));
+        schemas.Add(null, new Uri(Path.GetFullPath(file)).AbsoluteUri);
     }
     readerSettings.ValidationType = ValidationType.Schema;
     readerSettings.Schemas = schemas;

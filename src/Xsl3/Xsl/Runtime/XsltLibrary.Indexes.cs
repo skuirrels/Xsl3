@@ -34,14 +34,14 @@ namespace Xsl3.Runtime
         /// </summary>
         public double X31IndexState(double site, XPathNavigator context, IList<XPathItem> values)
         {
-            if (Root(context) is not { NodeType: XPathNodeType.Root })
+            if (Root(context) is not { NodeType: XPathNodeType.Root } || context is Xsl3.Tree.CompactNavigator { Typed: true })
             {
-                return 0; // the path as written raises XPDY0050
+                return 0; // the path as written raises XPDY0050; a typed document's keys (P6) compare by type
             }
             for (int i = 0; i < values.Count; i++)
             {
                 // Strings and nodes compare with the keys (untyped) as strings; anything else as its own type.
-                if (values[i] is not (XPathNavigator or StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic }))
+                if (values[i] is XPathNavigator node ? Xsl3.Schema.SchemaTypes.TypeOf(node) != null : values[i] is not StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic })
                 {
                     return 0;
                 }

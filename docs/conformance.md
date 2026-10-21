@@ -73,8 +73,8 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 
 P6 adds a third profile while schema-awareness is being built: `XSL3_XSLT30_PROFILE=sa` runs the tests that need
 `schema_aware` with `XsltSettings.SchemaAware` on, loads the environments' schemas and validates their sources
-(report: `xslt30-run-sa.md`; no baseline until the feature is claimed). On 2026-10-21: 707 passed, 137 failed, 2 not
-run (83.8%); docs/plan/p6-schema.md has the history.
+(report: `xslt30-run-sa.md`; no baseline until the feature is claimed). On 2026-10-21: 802 passed, 42 failed, 2 not
+run (95.0%); docs/plan/p6-schema.md has the history.
 
 | Date | Passed | Failed | Not run | Pass rate | Notes |
 |---|---:|---:|---:|---:|---|

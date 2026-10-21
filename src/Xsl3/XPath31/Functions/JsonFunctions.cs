@@ -113,10 +113,6 @@ namespace Xsl3.XPath31.Functions
                 o.HasFallback = true;
                 o.Fallback = (FunctionItem)f[0];
             }
-            if (o.Validate && toXml)
-            {
-                throw new XdmException("FOJS0004", "json-to-xml: validation needs a schema-aware processor");
-            }
             return o;
         }
 
@@ -496,6 +492,10 @@ namespace Xsl3.XPath31.Functions
         private static IList<XPathItem> JsonToXml(string text, MapItem? options, FunctionContext c)
         {
             JsonOptions o = Options(options, toXml: true);
+            if (o.Validate && c.Runtime?.SchemaAware != true)
+            {
+                throw new XdmException("FOJS0004", "json-to-xml: validation needs a schema-aware processor");
+            }
             JsonValue value = new JsonParser(text, o.Liberal, o.FallbackFor(c)).Parse();
             var sb = new StringBuilder();
             // (Carriage returns as references, so that reading the markup back keeps them.)
@@ -505,6 +505,11 @@ namespace Xsl3.XPath31.Functions
             }
             // The result's base URI is the static base URI (F&O 3.1 §17.5.3).
             var doc = new InternalXPathDocument(new XmlTextReader(c.StaticBaseUri ?? "", new StringReader(sb.ToString())), XmlSpace.Preserve) { NoDocumentUri = true };
+            if (o.Validate)
+            {
+                // Xsl3 (P6): validated against the schema for the XML representation of JSON (F&O 3.1 §17.5.3).
+                return One(Xsl3.Schema.NodeValidator.Validate(doc.CreateNavigator(), Xsl3.Schema.SchemaTypes.FunctionsSchemas, strict: true, null));
+            }
             return One(doc.CreateNavigator());
         }
 

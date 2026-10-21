@@ -176,6 +176,9 @@ namespace Xsl3.XPath31
                         WriteNullable(w, s);
                     }
                     break;
+                case EvaluateContext e when e.Schemas != null:
+                    NoSchema(true);
+                    break;
                 case EvaluateContext e:
                     w.Write((byte)Kind.EvaluateContext);
                     WriteStringMap(w, e.Namespaces);

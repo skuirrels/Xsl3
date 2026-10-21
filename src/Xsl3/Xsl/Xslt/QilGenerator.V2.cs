@@ -419,6 +419,10 @@ namespace Xsl3.Xslt
                     return X31(nameof(XsltLibrary.X31AccumulatorValue), T.ItemS, AccumulatorItems31(), _f.Double(_accumulatorTable31),
                         String31(compile(args[0])), _f.Double(NameContext31()), Box(compile(new XPath31.ContextItemExpr())),
                         _f.Boolean(name.LocalName == "accumulator-after"), _f.Double(_package31));
+                case ("copy-of", 0) when _compiler.Schemas != null:
+                case ("copy-of", 1) when _compiler.Schemas != null:
+                    // Xsl3 (P6): with schemas, the copies keep their type annotations (as validation="preserve").
+                    return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])), _f.True());
                 case ("copy-of", 0):
                 case ("copy-of", 1):
                     // The copies keep the originals' accumulator values (XSLT 3.0 §20.3.1).
@@ -544,7 +548,9 @@ namespace Xsl3.Xslt
         // A type a type attribute names: built-in, or an imported schema's.
         private System.Xml.Schema.XmlSchemaType? ValidationType31(XmlQualifiedName name) =>
             name.Namespace == XmlReservedNs.NsXs
-                ? (name.Name == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(name))
+                ? (name.Name == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
+                    : name.Name == "untypedAtomic" ? System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(System.Xml.Schema.XmlTypeCode.String) // (checked as simple content)
+                    : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(name))
                 : _compiler.Schemas?.GlobalTypes[name] as System.Xml.Schema.XmlSchemaType;
 
         // The static base URI: the module's URI, or the effective xml:base (XsltInput.XmlBasePrefix).
@@ -1392,6 +1398,11 @@ namespace Xsl3.Xslt
                 // copy-accumulators="yes" (XSLT 3.0 §18.2.6): the copies are made now and keep the originals'
                 // accumulator values; in a sequence they are the items themselves (copied again only into content).
                 return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(select));
+            }
+            if (node.V2?.Validation == "strip" && _compiler.DefaultValidation == "preserve")
+            {
+                // Xsl3 (P6): validation="strip" where the default preserves: untyped copies.
+                return X31(nameof(XsltLibrary.X31CopyStripping), T.ItemS, Box(select), _f.Boolean(node.V2.CopyNamespaces != TriState.False));
             }
             if (node.V2?.Validation == "preserve")
             {
@@ -2676,6 +2687,9 @@ namespace Xsl3.Xslt
                 case "fail":
                     return _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0555"),
                         _f.String($"No template rule matches the node in mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.QualifiedName)}")), ModeType31(mode));
+                case "deep-copy" when _compiler.Schemas != null:
+                    // Xsl3 (P6): the copy keeps its type annotations (as xsl:copy-of validation="preserve").
+                    return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(current), _f.True());
                 case "deep-copy":
                     return _f.XsltCopyOf(current);
             }

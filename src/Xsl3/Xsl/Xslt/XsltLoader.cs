@@ -2947,7 +2947,7 @@ namespace Xsl3.Xslt
                 }
                 else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "type")
                 {
-                    literalType = ResolveQName(/*ignoreDefaultNs:*/true, _input.Value); // Xsl3 (P6)
+                    literalType = ResolveTypeName(_input.Value); // Xsl3 (P6)
                 }
                 else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax" or "preserve" or "strip")
                 {
@@ -3703,7 +3703,7 @@ namespace Xsl3.Xslt
             {
                 if (V2 && _compiler.Settings.SchemaAware)
                 {
-                    return ResolveQName(/*ignoreDefaultNs:*/true, _input.Value);
+                    return ResolveTypeName(_input.Value);
                 }
                 if (V2)
                 {
@@ -3752,12 +3752,25 @@ namespace Xsl3.Xslt
             return null;
         }
 
+        // Xsl3 (P6): a type attribute's name; an unprefixed one is in the xpath-default-namespace (XSLT 3.0 §5.1.2).
+        private XmlQualifiedName ResolveTypeName(string value)
+        {
+            XmlQualifiedName name = ResolveQName(/*ignoreDefaultNs:*/true, value);
+            return name.Namespace.Length == 0 && !value.TrimStart().StartsWith("Q{", StringComparison.Ordinal) && _input.XPathDefaultNamespace.Length > 0
+                ? new XmlQualifiedName(name.Name, _input.XPathDefaultNamespace)
+                : name;
+        }
+
         // Xsl3 (P6): the validation and type attributes of an instruction that constructs or copies nodes.
         private T WithValidation<T>(T node, string? validation, XmlQualifiedName? type) where T : XslNode
         {
             if (validation != null && type != null)
             {
                 ReportError(SR.Xml_UserException, "XTSE1505: an instruction can't have both a validation and a type attribute");
+            }
+            else if (type is { Name: "untyped", Namespace: XmlReservedNs.NsXs } || type is { Name: "untypedAtomic", Namespace: XmlReservedNs.NsXs } && node.NodeType == XslNodeType.Attribute)
+            {
+                // type="xs:untyped" (xs:untypedAtomic for attributes) is validation="strip" (XSLT 3.0 §25.4.1).
             }
             else if (validation != null || type != null)
             {

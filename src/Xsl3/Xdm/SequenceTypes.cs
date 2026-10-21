@@ -125,6 +125,9 @@ namespace Xsl3.Xdm
 
         public System.Xml.Schema.XmlSchemaSimpleType Type { get; }
 
+        /// <summary>The atomic member types, unions flattened, in order.</summary>
+        public IReadOnlyList<AtomicType> Members => _members;
+
         public override bool Matches(XPathItem item)
         {
             AtomicValue? value = item as AtomicValue ?? (!item.IsNode && item is not FunctionItem ? Sequences.Atomize(item) : null);

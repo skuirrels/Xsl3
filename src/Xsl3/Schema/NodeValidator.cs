@@ -67,6 +67,12 @@ namespace Xsl3.Schema
                 default:
                     return node; // (text, comments and processing instructions are untouched)
             }
+            if (type == null && node.NodeType == XPathNodeType.Element && node.GetAttribute("type", XmlSchema.InstanceNamespace).Length == 0 &&
+                schemas.GlobalElements[new XmlQualifiedName(node.LocalName, node.NamespaceURI)] == null)
+            {
+                // No declaration for it (XSLT 3.0 §25.4.3): strict is XTTE1512; lax leaves it unvalidated.
+                return strict ? throw new XdmException("XTTE1512", $"No element declaration for {node.Name} is in the imported schemas (validation=\"strict\")") : node;
+            }
             var v = new NodeValidator(schemas, node, strict, type, fragment: node.NodeType != XPathNodeType.Root);
             string code = type != null ? "XTTE1540" : "XTTE1510";
             if (node.NodeType == XPathNodeType.Root)
@@ -263,7 +269,7 @@ namespace Xsl3.Schema
                 {
                     if (strict)
                     {
-                        throw new XdmException("XTTE1510", $"No attribute declaration for {attribute.Name} is in the imported schemas (validation=\"strict\")");
+                        throw new XdmException("XTTE1512", $"No attribute declaration for {attribute.Name} is in the imported schemas (validation=\"strict\")");
                     }
                     return attribute; // (lax: no declaration, no validation)
                 }
@@ -294,14 +300,14 @@ namespace Xsl3.Schema
         /// <paramref name="copyNamespaces"/> false, an element or attribute whose typed value holds a QName or NOTATION
         /// (namespace-sensitive content) can't be copied (XTTE0950): its namespaces wouldn't come with it.
         /// </summary>
-        public static XPathNavigator Preserve(XPathNavigator node, bool copyNamespaces)
+        public static XPathNavigator Preserve(XPathNavigator node, bool copyNamespaces, bool keepTypes = true)
         {
             switch (node.NodeType)
             {
                 case XPathNodeType.Attribute:
                 {
-                    XmlSchemaType? type = SchemaTypes.TypeOf(node);
-                    if (type != null && !copyNamespaces && SchemaTypes.IsNamespaceSensitive(type))
+                    XmlSchemaType? type = keepTypes ? SchemaTypes.TypeOf(node) : null;
+                    if (type != null && SchemaTypes.IsNamespaceSensitive(type))
                     {
                         throw new XdmException("XTTE0950", $"The attribute {node.Name} has namespace-sensitive content, so it can't be copied with validation=\"preserve\" without its element");
                     }
@@ -320,13 +326,13 @@ namespace Xsl3.Schema
                     XPathNavigator copy = node.Clone();
                     if (node.NodeType == XPathNodeType.Element)
                     {
-                        CopyElement(builder, copy, copyNamespaces, top: true);
+                        CopyElement(builder, copy, copyNamespaces, top: true, keepTypes);
                     }
                     else if (copy.MoveToFirstChild())
                     {
                         do
                         {
-                            CopyChild(builder, copy, copyNamespaces);
+                            CopyChild(builder, copy, copyNamespaces, keepTypes);
                         }
                         while (copy.MoveToNext());
                     }
@@ -337,12 +343,12 @@ namespace Xsl3.Schema
             }
         }
 
-        private static void CopyChild(CompactDocument.Builder builder, XPathNavigator node, bool copyNamespaces)
+        private static void CopyChild(CompactDocument.Builder builder, XPathNavigator node, bool copyNamespaces, bool keepTypes)
         {
             switch (node.NodeType)
             {
                 case XPathNodeType.Element:
-                    CopyElement(builder, node.Clone(), copyNamespaces, top: false);
+                    CopyElement(builder, node.Clone(), copyNamespaces, top: false, keepTypes);
                     break;
                 case XPathNodeType.Text:
                 case XPathNodeType.Whitespace:
@@ -358,9 +364,9 @@ namespace Xsl3.Schema
             }
         }
 
-        private static void CopyElement(CompactDocument.Builder builder, XPathNavigator element, bool copyNamespaces, bool top)
+        private static void CopyElement(CompactDocument.Builder builder, XPathNavigator element, bool copyNamespaces, bool top, bool keepTypes)
         {
-            XmlSchemaType? type = SchemaTypes.TypeOf(element);
+            XmlSchemaType? type = keepTypes ? SchemaTypes.TypeOf(element) : null;
             builder.StartElement(element.Prefix, element.LocalName, element.NamespaceURI, element.BaseURI);
             if (copyNamespaces)
             {
@@ -408,7 +414,7 @@ namespace Xsl3.Schema
                 do
                 {
                     builder.Attribute(element.Prefix, element.LocalName, element.NamespaceURI, element.Value);
-                    if (SchemaTypes.TypeOf(element) is { } attributeType)
+                    if (keepTypes && SchemaTypes.TypeOf(element) is { } attributeType)
                     {
                         if (!copyNamespaces && SchemaTypes.IsNamespaceSensitive(attributeType))
                         {
@@ -426,7 +432,7 @@ namespace Xsl3.Schema
                 do
                 {
                     empty = false;
-                    CopyChild(builder, element, copyNamespaces);
+                    CopyChild(builder, element, copyNamespaces, keepTypes);
                 }
                 while (element.MoveToNext());
                 element.MoveToParent();

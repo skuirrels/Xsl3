@@ -23,10 +23,10 @@ namespace Xsl3.XPath31.Functions
             Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: not XPathNodeType.Namespace } n ? Uri(BaseUri(n)) : Empty);
             Define("fn:generate-id($arg as node()?) as xs:string", (c, a) =>
                 Str(Node(a[0]) is XPathNavigator n ? (c.Runtime?.GenerateId(n) ?? "id" + n.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture)) : ""));
-            Define("fn:nilled($arg as node()?) as xs:boolean?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: XPathNodeType.Element } ? Bool(false) : Empty);
+            Define("fn:nilled($arg as node()?) as xs:boolean?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: XPathNodeType.Element } e ? Bool(Xsl3.Schema.SchemaTypes.IsNilled(e)) : Empty);
             Define("fn:lang($testlang as xs:string?, $node as node()) as xs:boolean", (c, a) => Bool(Lang(S(a[0]), (XPathNavigator)a[1][0])));
             Define("fn:id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
-            Define("fn:element-with-id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
+            Define("fn:element-with-id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c, withId: true));
             Define("fn:idref($arg as xs:string*, $node as node()) as node()*", (c, a) => Idref(a[0], (XPathNavigator)a[1][0]));
             Define("fn:outermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: true));
             Define("fn:innermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: false));
@@ -209,7 +209,8 @@ namespace Xsl3.XPath31.Functions
             return false;
         }
 
-        private static IList<XPathItem> Id(IList<XPathItem> ids, XPathNavigator node, FunctionContext c)
+        /// <param name="withId">fn:element-with-id: an element whose content is the ID (typed xs:ID, P6) gives its parent.</param>
+        private static IList<XPathItem> Id(IList<XPathItem> ids, XPathNavigator node, FunctionContext c, bool withId = false)
         {
             if (!RootIsDocument(node))
             {
@@ -228,6 +229,10 @@ namespace Xsl3.XPath31.Functions
                     XPathNavigator nav = node.Clone();
                     if (nav.MoveToId(id))
                     {
+                        if (withId && nav is Xsl3.Tree.CompactNavigator { IsIdContent: true })
+                        {
+                            nav.MoveToParent();
+                        }
                         found.Add(nav);
                     }
                     else if ((xmlIds ??= XmlIds(node)).TryGetValue(id, out XPathNavigator? element))

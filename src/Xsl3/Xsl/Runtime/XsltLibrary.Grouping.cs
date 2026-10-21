@@ -258,7 +258,8 @@ namespace Xsl3.Runtime
         // (XmlQueryItemSequence.CreateOrReuse): anything kept must be copied.
         public XPathItem X31GroupTuple(XPathItem item, IList<XPathItem> key) =>
             // Xsl3 (P4): one node, the usual key, as its string value; one atomic value straight into its own array.
-            key.Count == 1 && key[0] is XPathNavigator { NodeType: not (XPathNodeType.Namespace or XPathNodeType.ProcessingInstruction or XPathNodeType.Comment) } node
+            // (Not a typed node, P6: its typed value is the key.)
+            key.Count == 1 && key[0] is XPathNavigator { NodeType: not (XPathNodeType.Namespace or XPathNodeType.ProcessingInstruction or XPathNodeType.Comment) } node && Xsl3.Schema.SchemaTypes.TypeOf(node) == null
                 ? new GroupTuple(item is XPathNavigator n ? n.Clone() : item, node.Value)
                 : new GroupTuple(item is XPathNavigator m ? m.Clone() : item,
                     key.Count == 1 && key[0] is AtomicValue ? new[] { Sequences.Atomize(key[0]) } : new List<XPathItem>(Sequences.Atomize(key)));

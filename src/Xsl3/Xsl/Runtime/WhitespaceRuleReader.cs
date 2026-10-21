@@ -87,7 +87,9 @@ namespace Xsl3.Runtime
                             _stkStrip.PushBit(_shouldStrip);
 
                             // Strip if rules say we should and we're not within the scope of xml:space="preserve"
-                            _shouldStrip = _wsRules.ShouldStripSpace(base.LocalName, base.NamespaceURI) && (base.XmlSpace != XmlSpace.Preserve);
+                            _shouldStrip = _wsRules.ShouldStripSpace(base.LocalName, base.NamespaceURI) && (base.XmlSpace != XmlSpace.Preserve)
+                                // Xsl3 (P6): not in an element whose type gives it simple content (XSLT 3.0 §4.3).
+                                && !(base.SchemaInfo?.SchemaType is System.Xml.Schema.XmlSchemaSimpleType or System.Xml.Schema.XmlSchemaComplexType { ContentType: System.Xml.Schema.XmlSchemaContentType.TextOnly });
                         }
                         break;
 

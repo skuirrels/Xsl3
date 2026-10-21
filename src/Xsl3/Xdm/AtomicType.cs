@@ -121,7 +121,10 @@ namespace Xsl3.Xdm
         {
             for (AtomicType? t = this; t != null; t = t.Base)
             {
-                if (ReferenceEquals(t, other))
+                // (Xsl3, P6: a schema's type may be met through two schema sets, the stylesheet's and the input's: the
+                // same named type then has two instances.)
+                if (ReferenceEquals(t, other) || t.IsUserDefined && other.IsUserDefined && t.Name.Equals(other.Name) &&
+                    t.Name.NamespaceUri != Xsl3.Schema.SchemaTypes.AnonymousNamespace)
                 {
                     return true;
                 }

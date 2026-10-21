@@ -176,7 +176,8 @@ public sealed class TestEnvironment
             (string?)s.Attribute("file") is string f ? Path.Combine(baseDirectory, f) : null,
             s.Element(Catalog.Ns + "content")?.Value,
             (string?)s.Attribute("uri"),
-            (string?)s.Attribute("validation"),
+            // (In the sa profile, a source of an environment whose schema the sources reference is validated laxly.)
+            (string?)s.Attribute("validation") ?? (SchemaAware && element.Elements(Catalog.Ns + "schema").Any(x => (string?)x.Attribute("role") == "source-reference") ? "lax" : null),
             (string?)s.Attribute("defines-stylesheet") is "true" or "yes",
             (string?)s.Attribute("select"))).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();

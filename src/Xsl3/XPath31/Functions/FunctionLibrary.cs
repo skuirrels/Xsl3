@@ -75,7 +75,7 @@ namespace Xsl3.XPath31.Functions
                 // Xsl3 (P4): item()* accepts anything as it is.
                 return value;
             }
-            if (itemTest is AtomicTypeTest or NumericTest)
+            if (itemTest is AtomicTypeTest or NumericTest or UnionTypeTest)
             {
                 value = Sequences.Atomize(value);
                 XPathItem[]? converted = null;
@@ -114,6 +114,28 @@ namespace Xsl3.XPath31.Functions
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
         {
+            if (test is UnionTypeTest union)
+            {
+                // Xsl3 (P6): a union type: untyped values cast to it (its first member that accepts them); others
+                // promoted to the first member they promote to.
+                if (union.Matches(a))
+                {
+                    return a;
+                }
+                if (a.Type.Primitive == Primitive.UntypedAtomic)
+                {
+                    return (AtomicValue)Xsl3.Schema.SchemaTypes.Simple(union.Type, a.Value, null)[0];
+                }
+                foreach (AtomicType member in union.Members)
+                {
+                    AtomicValue promoted = Convert(a, new AtomicTypeTest(member));
+                    if (promoted.Type.DerivesFrom(member))
+                    {
+                        return promoted;
+                    }
+                }
+                return a;
+            }
             AtomicType target = test is AtomicTypeTest t ? t.Type : AtomicTypes.Double;
             if (a.Type.DerivesFrom(target) || (test is NumericTest && a.Type.IsNumeric))
             {

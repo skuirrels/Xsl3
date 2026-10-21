@@ -657,7 +657,16 @@ namespace Xsl3.Xslt
                 content.Add(v);
                 entries.Add($"QName({Literal(p.Name!.NamespaceUri)}, {Literal(p.Name.LocalName)}): $Q{{{Runtime.DynamicEvaluation.Namespace}}}{variable.LocalName}");
             }
-            string call = $"Q{{{Runtime.DynamicEvaluation.Namespace}}}evaluate(({xpath}), ({contextItem ?? "()"}), ({namespaceContext ?? "()"}), {(namespaceContext != null ? "true()" : "false()")}, " +
+            // Xsl3 (P6): only with schema-aware="yes" does the target expression see the imported schemas (XSLT 3.0 §10.4.1).
+            string function = schemaAware?.Trim() is "yes" or "true" or "1" ? "evaluate" : "evaluate-without-schemas";
+            if (schemaAware != null && schemaAware.Contains('{'))
+            {
+                // A computed value: checked when the instruction is evaluated (XTDE0030); the schemas are then in scope.
+                function = "evaluate";
+                xpath = $"(if (normalize-space({AvtAsXPath31(schemaAware)}) = ('yes', 'no', 'true', 'false', '1', '0')) then ({xpath}) " +
+                    $"else error(QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTDE0030'), 'schema-aware must be yes or no'))";
+            }
+            string call = $"Q{{{Runtime.DynamicEvaluation.Namespace}}}{function}(({xpath}), ({contextItem ?? "()"}), ({namespaceContext ?? "()"}), {(namespaceContext != null ? "true()" : "false()")}, " +
                 $"{(baseUri != null ? AvtAsXPath31(baseUri) : "()")}, ({withParams ?? "map{}"}), map{{{string.Join(", ", entries)}}})";
             if (asType == null)
             {

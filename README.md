@@ -99,7 +99,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   - Sink B (`Xsl3.Build`, saved assemblies) and NativeAOT are in; still to do: the SaxonCS-HE comparison, and
     template dispatch tables if a stylesheet with hundreds of rules shows the need (measured: 17 ns per element for
     200 extra rules).
-- **Schema-awareness (P6)**: in progress behind `XsltSettings.SchemaAware` (off by default). With it, 84% of the
+- **Schema-awareness (P6)**: in progress behind `XsltSettings.SchemaAware` (off by default). With it, 95% of the
   xslt30-test cases that need a schema-aware processor pass: `xsl:import-schema`, schema types, typed input from a
   validating reader, and validation of constructed nodes (docs/plan/p6-schema.md).
 - **Later phases**: streaming (P7) hasn't started.

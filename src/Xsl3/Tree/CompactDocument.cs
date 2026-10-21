@@ -82,6 +82,9 @@ namespace Xsl3.Tree
         internal Dictionary<int, System.Xml.Schema.XmlSchemaType>? _types, _attrTypes;
         internal HashSet<int>? _nilled;
 
+        /// <summary>Xsl3 (P6): the elements whose content, typed xs:ID, is their ID (fn:element-with-id gives their parents).</summary>
+        internal HashSet<int>? _idContent;
+
         /// <summary>Xsl3 (P6): a tree the transformation built (a temporary tree, or a validated copy), not an input document.</summary>
         internal bool _constructed;
 

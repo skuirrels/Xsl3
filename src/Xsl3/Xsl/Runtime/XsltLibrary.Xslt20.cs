@@ -231,7 +231,7 @@ namespace Xsl3.Runtime
                     if (text.Length > 0) parts.Add(text.ToString());
                     text = null;
                 }
-                if (item is XPathNavigator { NodeType: XPathNodeType.Root or XPathNodeType.Element } container)
+                if (item is XPathNavigator { NodeType: XPathNodeType.Root or XPathNodeType.Element } container && Xsl3.Schema.SchemaTypes.TypeOf(container) == null)
                 {
                     parts.Add(container.Value);
                 }

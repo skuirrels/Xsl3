@@ -242,7 +242,8 @@ namespace Xsl3.Runtime
         {
             for (int i = 0; i < items.Count; i++)
             {
-                if (items[i] is not (XPathNavigator or StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic }))
+                // (A typed node, P6, compares by its typed value.)
+                if (items[i] is XPathNavigator node ? Xsl3.Schema.SchemaTypes.TypeOf(node) != null : items[i] is not StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic })
                 {
                     return false;
                 }

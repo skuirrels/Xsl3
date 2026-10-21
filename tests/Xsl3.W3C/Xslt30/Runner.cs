@@ -656,7 +656,7 @@ public sealed class Runner
         {
             return null;
         }
-        var files = envs.SelectMany(e => e.Schemas).Where(s => s.File != null).Select(s => (Path.GetFullPath(s.File!), s.Uri)).Distinct().ToList();
+        var files = envs.SelectMany(e => e.Schemas).Where(s => s.File != null).Select(s => (Path.GetFullPath(s.File!), s.Uri, s.Role)).Distinct().ToList();
         if (files.Count == 0)
         {
             return null;
@@ -666,7 +666,7 @@ public sealed class Runner
         {
             // (Read as the processor reads imported schemas: without what they mark for XSD 1.1.)
             System.Xml.Schema.XmlSchemaSet set = Xsl3.Schema.SchemaDocuments.CreateSet(new XmlUrlResolver());
-            foreach (var (file, _) in files)
+            foreach (var (file, _, role) in files)
             {
                 string uri = new Uri(file).AbsoluteUri;
                 bool known = false;
@@ -679,7 +679,22 @@ public sealed class Runner
                     set.Add(null, uri);
                 }
             }
-            set.Compile();
+            try
+            {
+                set.Compile();
+            }
+            catch (System.Xml.Schema.XmlSchemaException)
+            {
+                // Schemas that clash (a secondary one, for a stylesheet module to import): the others alone.
+                foreach (var (file, _, role) in files.Where(f => f.Role == "secondary"))
+                {
+                    foreach (System.Xml.Schema.XmlSchema schema in set.Schemas().Cast<System.Xml.Schema.XmlSchema>().Where(x => x.SourceUri == new Uri(file).AbsoluteUri).ToList())
+                    {
+                        set.Remove(schema);
+                    }
+                }
+                set.Compile();
+            }
             s_schemaKeys.AddOrUpdate(set, key);
             return set;
         });
@@ -947,6 +962,14 @@ public sealed class Runner
                 {
                     if (s.Uri != null && (absoluteUri.OriginalString == s.Uri || absoluteUri.AbsoluteUri == s.Uri || absoluteUri.AbsoluteUri.EndsWith("/" + s.Uri, StringComparison.Ordinal)))
                     {
+                        if (s.Validation is "strict" or "lax" && SchemaSet(envs) is { } schemas)
+                        {
+                            // P6: a document the environment validates is read validated (a typed tree).
+                            using XmlReader reader = s.Content != null
+                                ? XmlReader.Create(new StringReader(s.Content), ValidatingSettings(schemas, s.Validation == "strict"), absoluteUri.AbsoluteUri)
+                                : XmlReader.Create(s.File!, ValidatingSettings(schemas, s.Validation == "strict"));
+                            return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
+                        }
                         return s.Content != null ? new MemoryStream(Encoding.UTF8.GetBytes(s.Content)) : File.OpenRead(s.File!);
                     }
                 }
