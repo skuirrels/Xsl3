@@ -49,8 +49,6 @@ number/number-2506
 number/number-4501
 output/output-0285
 output/output-0311
-override/override-v-008
-override/override-v-009
 package-version/package-version-011
 package/package-909
 package/package-910
@@ -63,7 +61,6 @@ static/static-013c
 static/static-021
 static/static-027
 streamable/streamable-141
-strip-space/strip-space-023
 system-property/system-property-024
 try/try-034
 unparsed-entity-uri/unparsed-entity-05

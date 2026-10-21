@@ -48,6 +48,123 @@ public sealed class Runner
         System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     // A stylesheet module and the modules it includes or imports, by their hrefs (for the initial template's search).
+    // Tests run through the public 3.0 API (XsltCompiler, Xslt30Transformer); XSL3_W3C_API=0 runs them through
+    // XslCompiledTransform's internal entry points instead, as the saved-assembly round trip (XSL3_W3C_SAVED) does.
+    private static readonly bool s_api = Environment.GetEnvironmentVariable("XSL3_W3C_API") != "0";
+
+    /// <summary>A test's values as the public API takes them.</summary>
+    private sealed class ApiRun
+    {
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> Parameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> StaticParameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> TemplateParameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> TunnelParameters { get; } = new();
+
+        public List<Xsl3.Xdm.XdmValue> FunctionArguments { get; } = new();
+    }
+
+    /// <summary>
+    /// The test through the public API: compiled by XsltCompiler, run by an Xslt30Transformer from the entry point the
+    /// test names (the settings <paramref name="entry"/> was given say which).
+    /// </summary>
+    private RunResult ExecuteApi(TestCase test, string stylesheet, XmlResolver resolver, XPathNavigator? input, XslCompiledTransform entry, ApiRun api,
+        List<(string Name, string Version, Uri Location)> packages, List<string> messages, Dictionary<string, StringWriter> secondary)
+    {
+        var compiler = new XsltCompiler
+        {
+            Settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
+            {
+                EnableEvaluate = true,
+                VersionMode = XsltVersionMode.BackwardsCompatible,
+                EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+            },
+            StylesheetResolver = resolver,
+        };
+        foreach (var (name, value) in api.StaticParameters)
+        {
+            compiler.StaticParameters[name] = value;
+        }
+        foreach (var (name, version, location) in packages)
+        {
+            compiler.Packages.Add(name, version, location);
+        }
+        XsltExecutable executable = stylesheet.Contains('#')
+            ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
+            : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
+        Xslt30Transformer transformer = executable.CreateTransformer();
+        transformer.SetStylesheetParameters(api.Parameters);
+        transformer.MessageHandler = messages.Add;
+        transformer.ResultDocumentHandler = uri => secondary[uri.OriginalString] = new Utf8StringWriter();
+        transformer.DocumentResolver = resolver;
+        if (Xsl3.Runtime.XmlQueryRuntime.BaseOutputUri is string baseOutput)
+        {
+            transformer.BaseOutputUri = new Uri(baseOutput);
+        }
+        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = null; // the transformer's handler, per run
+        Xsl3.Xdm.XdmNode? node = input == null ? null : new Xsl3.Xdm.XdmNode(input);
+        transformer.GlobalContextItem = node;
+        Xsl3.Xdm.QName? Name(XmlQualifiedName? name) => name == null ? null : new Xsl3.Xdm.QName(name.Namespace, name.Name);
+        Xsl3.Xdm.QName? mode = entry.InitialMode is not { } m ? null : m.Name.Length > 0 ? Name(m) : Xslt30Transformer.UnnamedMode;
+        var templateParameters = api.TemplateParameters.Count > 0 ? api.TemplateParameters : null;
+        var tunnelParameters = api.TunnelParameters.Count > 0 ? api.TunnelParameters : null;
+
+        // Templates are applied to the source document; with none, the API has no initial match selection to give.
+        Xsl3.Xdm.XdmValue Selection() => node ?? throw new XsltDynamicException(new Xsl3.Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTDE0044", "err"),
+            "The transformation applies templates, but there is no initial match selection");
+        try
+        {
+            if (entry.RawResult)
+            {
+                Xsl3.Xdm.XdmValue result = entry.InitialFunction is { } function ? transformer.CallFunction(Name(function)!, api.FunctionArguments.ToArray())
+                    : entry.InitialTemplate is { } template ? transformer.CallTemplate(Name(template), templateParameters, tunnelParameters)
+                    : transformer.ApplyTemplates(Selection(), mode, templateParameters, tunnelParameters);
+                IList<XPathItem> items = result.Items;
+                string text = string.Join(" ", items.Select(i => i is XPathNavigator n ? n.OuterXml : i.Value));
+                return new RunResult(text, null, messages) { SecondaryResults = secondary, Raw = items };
+            }
+            void Run(object destination)
+            {
+                switch (destination)
+                {
+                    case Stream s when entry.InitialTemplate is { } t:
+                        transformer.CallTemplate(Name(t), s, templateParameters, tunnelParameters);
+                        break;
+                    case Stream s:
+                        transformer.ApplyTemplates(Selection(), s, mode, templateParameters, tunnelParameters);
+                        break;
+                    case XmlWriter w when entry.InitialTemplate is { } t:
+                        transformer.CallTemplate(Name(t), w, templateParameters, tunnelParameters);
+                        break;
+                    case XmlWriter w:
+                        transformer.ApplyTemplates(Selection(), w, mode, templateParameters, tunnelParameters);
+                        break;
+                }
+            }
+            var bytes = new MemoryStream();
+            Run(bytes);
+            return new RunResult(Decode(bytes.ToArray()), null, messages)
+            {
+                SecondaryResults = secondary,
+                AsXml = () =>
+                {
+                    var xml = new StringWriter();
+                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
+                    {
+                        Run(writer);
+                    }
+                    return xml.ToString();
+                },
+            };
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return new RunResult(null, e, messages);
+        }
+    }
+
     // XSL3_W3C_SAVED=n: about one test in n is compiled into a saved assembly, loaded from it, and run (Sink B, B4).
     private static readonly uint s_savedEvery = uint.TryParse(Environment.GetEnvironmentVariable("XSL3_W3C_SAVED"), out uint every) ? every : 0;
 
@@ -237,6 +354,8 @@ public sealed class Runner
             TestEnvironment.Source? inputSource = null;
             var args = new XsltArgumentList();
             args.XsltMessageEncountered += (_, e) => messages.Add(e.Message);
+            // The same values for the public API (XSL3_W3C_API).
+            var api = new ApiRun();
             foreach (TestEnvironment env in envs)
             {
                 foreach (TestEnvironment.Source source in env.Sources)
@@ -256,6 +375,7 @@ public sealed class Runner
                     else if (source.Role.StartsWith('$'))
                     {
                         args.AddParam(source.Role[1..], "", doc);
+                        api.Parameters[new Xsl3.Xdm.QName(source.Role[1..])] = new Xsl3.Xdm.XdmNode(doc);
                     }
                 }
             }
@@ -267,10 +387,12 @@ public sealed class Runner
                 if (p.Static)
                 {
                     staticParameters[new XmlQualifiedName(local, ns)] = value;
+                    api.StaticParameters[new Xsl3.Xdm.QName(ns, local)] = Xsl3.Xdm.XdmValue.MakeValue(value);
                 }
                 else
                 {
                     args.AddParam(local, ns, ToArgument(value));
+                    api.Parameters[new Xsl3.Xdm.QName(ns, local)] = Xsl3.Xdm.XdmValue.MakeValue(value);
                 }
             }
 
@@ -285,13 +407,19 @@ public sealed class Runner
             foreach (XElement p in (test.TestElement.Element(Catalog.Ns + "initial-template") ?? test.TestElement.Element(Catalog.Ns + "initial-mode"))?.Elements(Catalog.Ns + "param") ?? [])
             {
                 XmlQualifiedName name = XslCompiledTransform.InitialParameter(initialParameters.Count + 1);
-                args.AddParam(name.Name, name.Namespace, Evaluate((string?)p.Attribute("select") ?? "()", p, input));
-                initialParameters.Add((ResolveQName(p, "name")!, (string?)p.Attribute("tunnel") is "yes" or "true" or "1"));
+                IList<XPathItem> value = Evaluate((string?)p.Attribute("select") ?? "()", p, input);
+                args.AddParam(name.Name, name.Namespace, value);
+                XmlQualifiedName parameter = ResolveQName(p, "name")!;
+                bool tunnel = (string?)p.Attribute("tunnel") is "yes" or "true" or "1";
+                initialParameters.Add((parameter, tunnel));
+                (tunnel ? api.TunnelParameters : api.TemplateParameters)[new Xsl3.Xdm.QName(parameter.Namespace, parameter.Name)] = Xsl3.Xdm.XdmValue.MakeValue(value);
             }
             for (int i = 0; i < functionArguments.Count; i++)
             {
                 XmlQualifiedName name = XslCompiledTransform.InitialFunctionArgument(i + 1);
-                args.AddParam(name.Name, name.Namespace, Evaluate((string?)functionArguments[i].Attribute("select") ?? "()", functionArguments[i], input));
+                IList<XPathItem> argument = Evaluate((string?)functionArguments[i].Attribute("select") ?? "()", functionArguments[i], input);
+                args.AddParam(name.Name, name.Namespace, argument);
+                api.FunctionArguments.Add(Xsl3.Xdm.XdmValue.MakeValue(argument));
             }
             if (initialFunction == null && initialTemplate == null && initialMode == null && input == null &&
                 Modules(stylesheet).Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
@@ -308,6 +436,10 @@ public sealed class Runner
                 RawResult = (initialFunction != null || test.TestElement.Element(Catalog.Ns + "output")?.Attribute("tree") is { Value: "no" }) &&
                     test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
+            if (s_api && !(s_savedEvery > 0 && StableHash(test.Id) % s_savedEvery == 0))
+            {
+                return ExecuteApi(test, stylesheet, resolver, input, transform, api, packages, messages, secondary);
+            }
             // Some stylesheets declare entities in an internal DTD subset.
             // (An embedded stylesheet, named with a fragment identifier, is compiled through a module that includes it.)
             using (XmlReader stylesheetReader = stylesheet.Contains('#')

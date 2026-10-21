@@ -384,6 +384,12 @@ namespace Xsl3
         // ------------------------------------------------------------ apply-templates
 
         /// <summary>
+        /// The unnamed mode, as the <c>mode</c> of <see cref="ApplyTemplates(XdmValue, QName?, IDictionary{QName, XdmValue}?, IDictionary{QName, XdmValue}?)"/>
+        /// (<c>#unnamed</c>); null there means the stylesheet's default mode, which <c>default-mode</c> may name.
+        /// </summary>
+        public static QName UnnamedMode { get; } = new("http://www.w3.org/1999/XSL/Transform", "#unnamed");
+
+        /// <summary>
         /// Applies templates to <paramref name="selection"/> in <paramref name="mode"/> (the default mode if null) and
         /// returns the result sequence (raw delivery, XSLT 3.0 §2.3.6).
         /// </summary>
@@ -417,7 +423,7 @@ namespace Xsl3
             string key = $"apply|{mode?.EQName ?? "#default"}|{byParameter}|{Signature(initialParameters)}";
             XslCompiledTransform unit = _executable.Unit(key, t =>
             {
-                t.InitialMode = mode == null ? null : new XmlQualifiedName(mode.LocalName, mode.NamespaceUri);
+                t.InitialMode = mode == null ? null : mode == UnnamedMode ? XmlQualifiedName.Empty : new XmlQualifiedName(mode.LocalName, mode.NamespaceUri);
                 t.InitialMatchSelection = byParameter;
                 t.InitialParameters = initialParameters;
             }, raw);

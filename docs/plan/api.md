@@ -160,7 +160,11 @@ Step 7 is done too: `XsltCompiler.RegisterExtensionFunction(name, arity, impleme
 exception it throws is `Q{http://xsl3/err}extension-error`; `EnableExtensionFunctions = false` turns it off. A
 stylesheet that calls one can't be saved as an assembly (the delegate isn't serializable).
 
-Left: step 6 (the W3C runner on the public API).
+Step 6 is done: the W3C runner compiles with `XsltCompiler` and runs each xslt30-test case through an
+`Xslt30Transformer` (apply-templates, call-template, call-function, raw or serialized, with stylesheet, static,
+template and tunnel parameters, handlers and the base output URI). It measures three more passes than the internal
+entry points did (7,962 against 7,959). `Xslt30Transformer.UnnamedMode` was added for `#unnamed` initial modes.
+Internal access is left for diagnostics and for the saved-assembly round trip (`XSL3_W3C_SAVED`).
 
 ## Open questions for the owner
 
