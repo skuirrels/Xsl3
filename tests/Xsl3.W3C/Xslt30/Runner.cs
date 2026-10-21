@@ -22,7 +22,7 @@ namespace Xsl3.W3C.Xslt30;
 /// says; tree assertions parse that serialization back. XPath assertions are evaluated with Xsl3's XPath 3.1
 /// engine, with the result document as the context item.
 /// </summary>
-public sealed class Runner
+public sealed partial class Runner
 {
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(30);
 
@@ -35,6 +35,15 @@ public sealed class Runner
 
         /// <summary>The URI of a secondary result: the base URI of its tree when it is parsed back.</summary>
         public string? BaseUri { get; init; }
+
+        /// <summary>
+        /// P6: the principal result tree as the engine builds it (the transformation run again into a compact tree), with
+        /// the type annotations it keeps; for the assertions of schema-aware tests.
+        /// </summary>
+        public Func<XPathNavigator>? Tree { get; init; }
+
+        /// <summary>P6: the schemas of the test's environments, for its assertions.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
 
         /// <summary>
         /// The principal result written as XML (the transformation run again into an XmlWriter), for tree assertions
@@ -80,6 +89,8 @@ public sealed class Runner
                 EnableEvaluate = true,
                 VersionMode = XsltVersionMode.BackwardsCompatible,
                 EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+                SchemaAware = TestEnvironment.SchemaAware,
+                Schemas = SchemaSet(test.Environments.OfType<TestEnvironment>()),
             },
             StylesheetResolver = resolver,
         };
@@ -157,6 +168,14 @@ public sealed class Runner
                     }
                     return xml.ToString();
                 },
+                Tree = TestEnvironment.SchemaAware ? () =>
+                {
+                    var (writer, root) = Xsl3.Tree.CompactDocument.TemporaryTree(new NameTable(), "", fragment: false, noDocumentUri: true, compact: true);
+                    Run(writer);
+                    writer.Close();
+                    return root();
+                } : null,
+                Schemas = SchemaSet(test.Environments.OfType<TestEnvironment>()),
             };
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -373,7 +392,7 @@ public sealed class Runner
                         continue; // available by URI only
                     }
                     // An inline document's base URI is the test set's; a source with only select is that expression's value.
-                    XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File);
+                    XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File, SchemaSet(envs));
                     if (source.Role == ".")
                     {
                         // select: the initial context node within the document (the global context item).
@@ -460,6 +479,8 @@ public sealed class Runner
                     EnableEvaluate = true,
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+                    SchemaAware = TestEnvironment.SchemaAware,
+                    Schemas = SchemaSet(envs),
                 };
                 if (Saved(test.Id))
                 {
@@ -505,7 +526,10 @@ public sealed class Runner
                 sw = new StringWriter();
                 messages.Clear();
                 secondary.Clear();
-                var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+                // (Validated again, when the source is to be: P6.)
+                var settings = SchemaSet(envs) is { } schemas && inputSource.Validation is "strict" or "lax"
+                    ? ValidatingSettings(schemas, inputSource.Validation == "strict")
+                    : new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
                 using XmlReader reader = inputSource.Content != null
                     ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? new Uri(test.Set.File).AbsoluteUri)
                     : XmlReader.Create(inputSource.File!, settings);
@@ -598,9 +622,12 @@ public sealed class Runner
         return string.Join(" ", value.Select(i => i.Value));
     }
 
-    private static IList<XPathItem> Evaluate(string expression, XElement scope, XPathItem? context, IList<XPathItem>? result = null)
+    [System.Text.RegularExpressions.GeneratedRegex(@"instance\s+of|schema-element|schema-attribute|element\s*\(\s*\*\s*,|attribute\s*\(\s*\*\s*,|treat\s+as|nilled|data\s*\(")]
+    private static partial System.Text.RegularExpressions.Regex TypeAssertion();
+
+    private static IList<XPathItem> Evaluate(string expression, XElement scope, XPathItem? context, IList<XPathItem>? result = null, System.Xml.Schema.XmlSchemaSet? schemas = null)
     {
-        var sc = new XPathStaticContext();
+        var sc = new XPathStaticContext { Schemas = schemas };
         foreach (XAttribute ns in scope.AncestorsAndSelf().SelectMany(e => e.Attributes()).Where(a => a.IsNamespaceDeclaration).Reverse())
         {
             string prefix = ns.Name.NamespaceName.Length == 0 ? "" : ns.Name.LocalName;
@@ -624,15 +651,84 @@ public sealed class Runner
     // it loads (it keeps the DTD's IDREF types, for fn:idref).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Xsl3.Tree.CompactDocument> s_documents = new(StringComparer.Ordinal);
 
-    private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile)
+    private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile, System.Xml.Schema.XmlSchemaSet? schemas)
     {
+        bool validate = schemas != null && source.Validation is "strict" or "lax";
         if (source.Content == null)
         {
-            return s_documents.GetOrAdd(Path.GetFullPath(source.File!), Parse).CreateNavigator();
+            string path = Path.GetFullPath(source.File!);
+            return validate
+                ? s_documents.GetOrAdd(path + "|" + source.Validation + "|" + (s_schemaKeys.TryGetValue(schemas!, out string? schemaKey) ? schemaKey : ""), _ => Parse(path, schemas!, source.Validation == "strict")).CreateNavigator()
+                : s_documents.GetOrAdd(path, Parse).CreateNavigator();
         }
-        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+        var settings = validate ? ValidatingSettings(schemas!, source.Validation == "strict") : new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(testSetFile).AbsoluteUri);
         return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
+    }
+
+    // P6: the schemas of a test's environments, compiled once per combination; null when there are none.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Xml.Schema.XmlSchemaSet> s_schemaSets = new(StringComparer.Ordinal);
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<System.Xml.Schema.XmlSchemaSet, string> s_schemaKeys = new();
+
+    private static System.Xml.Schema.XmlSchemaSet? SchemaSet(IEnumerable<TestEnvironment> envs)
+    {
+        if (!TestEnvironment.SchemaAware)
+        {
+            return null;
+        }
+        var files = envs.SelectMany(e => e.Schemas).Where(s => s.File != null).Select(s => (Path.GetFullPath(s.File!), s.Uri, s.Role)).Distinct().ToList();
+        if (files.Count == 0)
+        {
+            return null;
+        }
+        string key = string.Join("|", files.Select(f => f.Item1));
+        return s_schemaSets.GetOrAdd(key, _ =>
+        {
+            // (Read as the processor reads imported schemas: without what they mark for XSD 1.1.)
+            System.Xml.Schema.XmlSchemaSet set = Xsl3.Schema.SchemaDocuments.CreateSet(new XmlUrlResolver());
+            foreach (var (file, _, role) in files)
+            {
+                string uri = new Uri(file).AbsoluteUri;
+                bool known = false;
+                foreach (System.Xml.Schema.XmlSchema existing in set.Schemas())
+                {
+                    known |= existing.SourceUri == uri;
+                }
+                if (!known)
+                {
+                    set.Add(null, uri);
+                }
+            }
+            try
+            {
+                set.Compile();
+            }
+            catch (System.Xml.Schema.XmlSchemaException)
+            {
+                // Schemas that clash (a secondary one, for a stylesheet module to import): the others alone.
+                foreach (var (file, _, role) in files.Where(f => f.Role == "secondary"))
+                {
+                    foreach (System.Xml.Schema.XmlSchema schema in set.Schemas().Cast<System.Xml.Schema.XmlSchema>().Where(x => x.SourceUri == new Uri(file).AbsoluteUri).ToList())
+                    {
+                        set.Remove(schema);
+                    }
+                }
+                set.Compile();
+            }
+            s_schemaKeys.AddOrUpdate(set, key);
+            return set;
+        });
+    }
+
+    // A reader that validates against the schemas: strictly (an undeclared element is an error) or laxly.
+    private static XmlReaderSettings ValidatingSettings(System.Xml.Schema.XmlSchemaSet schemas, bool strict) =>
+        Xsl3.Schema.Validation.ReaderSettings(schemas, strict, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() },
+            message => new XsltDynamicException(new Xsl3.Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTTE0590", "err"), "Source validation failed: " + message, null));
+
+    private static Xsl3.Tree.CompactDocument Parse(string file, System.Xml.Schema.XmlSchemaSet schemas, bool strict)
+    {
+        using XmlReader reader = XmlReader.Create(file, ValidatingSettings(schemas, strict));
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
     }
 
     private static Xsl3.Tree.CompactDocument Parse(string file)
@@ -659,13 +755,20 @@ public sealed class Runner
             case "any-of":
             {
                 var details = new List<string>();
+                Outcome? otherCode = null;
                 foreach (XElement a in assertion.Elements())
                 {
                     Outcome o = Check(test, a, run);
+                    if (o.Kind == OutcomeKind.Pass && o.Detail.StartsWith("error code", StringComparison.Ordinal))
+                    {
+                        // An error that another alternative names exactly (XTDE1350 or FOFD1350) matches that one.
+                        otherCode ??= o;
+                        continue;
+                    }
                     if (o.Kind == OutcomeKind.Pass) return o;
                     details.Add(o.Detail);
                 }
-                return Outcome.Fail(string.Join(" | ", details));
+                return otherCode ?? Outcome.Fail(string.Join(" | ", details));
             }
             case "not":
                 return Check(test, assertion.Elements().Single(), run).Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
@@ -673,7 +776,13 @@ public sealed class Runner
             case "assert-serialization-error":
             {
                 string code = (string?)assertion.Attribute("code") ?? "*";
-                return run.Error != null ? Outcome.Pass($"error code {code} expected; got {Describe(run.Error)}") : Outcome.Fail($"expected error {code}, got a result");
+                if (run.Error == null)
+                {
+                    return Outcome.Fail($"expected error {code}, got a result");
+                }
+                // Any error passes, as the suite allows; one that doesn't name the expected code is recorded.
+                string described = Describe(run.Error);
+                return code == "*" || described.Contains(code, StringComparison.Ordinal) ? Outcome.Pass() : Outcome.Pass($"error code {code} expected; got {described}");
             }
         }
         if (run.Error != null)
@@ -695,8 +804,10 @@ public sealed class Runner
                 }
                 case "assert":
                 {
-                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
-                    bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }));
+                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument()
+                        // P6: an assertion about types is made on the result tree the engine built, with its annotations.
+                        : run.Tree != null && TypeAssertion().IsMatch(assertion.Value) ? run.Tree() : ResultTree(run, serialized);
+                    bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }, run.Schemas));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
                 case "assert-string-value":
@@ -717,7 +828,11 @@ public sealed class Runner
                 case "assert-serialization":
                 {
                     string? file = (string?)assertion.Attribute("file");
-                    string expected = file != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file)) : assertion.Value;
+                    // The file is in the encoding the assertion names (select-6101: ISO-8859-1).
+                    string? encoding = (string?)assertion.Attribute("encoding");
+                    string expected = file == null ? assertion.Value
+                        : encoding != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file), System.Text.Encoding.GetEncoding(encoding))
+                        : File.ReadAllText(Path.Combine(test.Set.Directory, file));
                     bool same = serialized.ReplaceLineEndings("\n") == expected.ReplaceLineEndings("\n") || XmlEquals(serialized, expected);
                     return same ? Outcome.Pass() : Outcome.Fail($"assert-serialization mismatch: got {Trim(serialized)}");
                 }
@@ -794,9 +909,21 @@ public sealed class Runner
     {
         string text = StripDeclaration(serialized);
         var settings = new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment, DtdProcessing = DtdProcessing.Ignore };
-        using XmlReader reader = XmlReader.Create(new StringReader(text), settings, baseUri ?? "");
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        try
+        {
+            using XmlReader reader = XmlReader.Create(new StringReader(text), settings, baseUri ?? "");
+            return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        }
+        catch (XmlException) when (HtmlVoid().IsMatch(text))
+        {
+            // An html serialization (a secondary result's, which can't be run again as XML): its void elements closed.
+            using XmlReader reader = XmlReader.Create(new StringReader(HtmlVoid().Replace(text, "<$1$2/>")), settings, baseUri ?? "");
+            return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        }
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"<((?i:meta|br|hr|img|input|link|area|base|col|param|source|track|wbr|embed))(\s[^<>]*?)?(?<!/)>")]
+    private static partial System.Text.RegularExpressions.Regex HtmlVoid();
 
     private static string StripDeclaration(string s)
     {
@@ -869,6 +996,14 @@ public sealed class Runner
                 {
                     if (s.Uri != null && (absoluteUri.OriginalString == s.Uri || absoluteUri.AbsoluteUri == s.Uri || absoluteUri.AbsoluteUri.EndsWith("/" + s.Uri, StringComparison.Ordinal)))
                     {
+                        if (s.Validation is "strict" or "lax" && SchemaSet(envs) is { } schemas)
+                        {
+                            // P6: a document the environment validates is read validated (a typed tree).
+                            using XmlReader reader = s.Content != null
+                                ? XmlReader.Create(new StringReader(s.Content), ValidatingSettings(schemas, s.Validation == "strict"), absoluteUri.AbsoluteUri)
+                                : XmlReader.Create(s.File!, ValidatingSettings(schemas, s.Validation == "strict"));
+                            return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
+                        }
                         return s.Content != null ? new MemoryStream(Encoding.UTF8.GetBytes(s.Content)) : File.OpenRead(s.File!);
                     }
                 }

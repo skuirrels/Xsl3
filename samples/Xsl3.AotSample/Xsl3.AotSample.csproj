@@ -10,13 +10,17 @@
     <IsPackable>false</IsPackable>
     <!-- From source: the compiler is this repository's Xsl3.Cli build. -->
     <Xsl3CompilerCommand>dotnet "$(MSBuildThisFileDirectory)../../src/Xsl3.Cli/bin/$(Configuration)/net10.0/Xsl3.Cli.dll"</Xsl3CompilerCommand>
+    <!-- Compiled again whenever the compiler is rebuilt. -->
+    <Xsl3CompilerInputs>$(MSBuildThisFileDirectory)../../src/Xsl3.Cli/bin/$(Configuration)/net10.0/Xsl3.dll</Xsl3CompilerInputs>
   </PropertyGroup>
 
   <Import Project="..\..\src\Xsl3.Build\build\Xsl3.Build.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
-    <ProjectReference Include="..\..\src\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" />
+    <!-- The compiler runs on the build machine: built for no runtime identifier, whatever this project is published for. -->
+    <ProjectReference Include="..\..\src\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
     <XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />
   </ItemGroup>
 

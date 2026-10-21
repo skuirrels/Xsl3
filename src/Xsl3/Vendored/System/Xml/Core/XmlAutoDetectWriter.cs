@@ -18,6 +18,9 @@ namespace System.Xml
     internal sealed class XmlAutoDetectWriter : XmlRawWriter, IRemovableWriter
     {
         private XmlRawWriter? _wrapped;
+
+        // Xsl3: the writer it created, once it has (XmlQueryOutput.WriteRawUnchecked).
+        internal XmlRawWriter? Wrapped => _wrapped;
         private OnRemoveWriter? _onRemove;
         private readonly XmlWriterSettings _writerSettings;
         private readonly XmlEventCache _eventCache;           // Cache up events until first StartElement is encountered
@@ -410,9 +413,9 @@ namespace System.Xml
 
             // Xsl3: upstream creates a stock XmlWellFormedWriter and takes its RawWriter; build the same raw chain directly.
             if (_textWriter != null)
-                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _textWriter);
+                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _textWriter, CompactEmptyTags && outMethod == XmlOutputMethod.Xml);
             else
-                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _strm!);
+                _wrapped = XmlWriterSettingsInternals.CreateRawWriter(_writerSettings, _strm!, CompactEmptyTags && outMethod == XmlOutputMethod.Xml);
 
             // Send cached events to the new writer
             _eventCache.EndEvents();

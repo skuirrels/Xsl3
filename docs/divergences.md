@@ -64,7 +64,7 @@ choices for the W3C suites.
 | Collations | the codepoint collation, the HTML ASCII case-insensitive collation, and UCA collations (`http://www.w3.org/2013/collation/UCA?…`) mapped onto .NET's culture-aware comparison; other URIs raise FOCH0002 |
 | Regular expression character classes | .NET's Unicode tables, newer than the versions the suite's `regex-classes` (Unicode 6.0) and `unicode-90` (Unicode 9.0) sets expect |
 | Unicode normalization forms | NFC, NFD, NFKC, NFKD, `fully-normalized` (as NFC, with SERE0012 for text starting with a combining character), `none` |
-| Empty elements, xml and xhtml methods | written `<a />` (.NET's writer), not `<a/>` |
+| Empty elements | 2.0+ results: `<a/>` with the xml method, `<br />` with the xhtml method (XHTML's compatibility guidelines); 1.0 results: `<a />`, as stock writes them. Results in encodings that aren't ASCII-compatible (UTF-16) keep `<a />` |
 | Quotation marks in xhtml attribute values | `&#34;` |
 | Adaptive method | each node with an XML declaration unless `omit-xml-declaration="yes"` (Serialization 3.1 §10.1.6); `fn:serialize` defaults to `yes` |
 | Default output method | `html` for a first element `html` in no namespace; `xhtml` for XHTML's `html` element; otherwise `xml` |

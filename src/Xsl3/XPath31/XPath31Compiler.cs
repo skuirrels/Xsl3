@@ -35,6 +35,9 @@ namespace Xsl3.XPath31
 
         public string DefaultElementNamespace { get; set; } = "";
 
+        /// <summary>Xsl3 (P6): the in-scope schema definitions (XPath 3.1 §2.1.1): the imported schemas, compiled; or null.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; set; }
+
         public string DefaultFunctionNamespace { get; set; } = QName.Ns.Fn;
 
         /// <summary>The static base URI (XPath 3.1 §2.1.1), or null if absent.</summary>
@@ -114,6 +117,12 @@ namespace Xsl3.XPath31
 
         /// <summary>The declared parameter and result types of a host function, for a named reference to it; null if unknown.</summary>
         (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? FunctionSignature(QName name, int arity) => null;
+
+        /// <summary>
+        /// Until disposed, host functions resolve to the components their package declares, not to their overrides,
+        /// and abstract ones not at all (function-lookup in a used package); null if the host has no such components.
+        /// </summary>
+        System.IDisposable? DeclaredComponents() => null;
     }
 
     internal sealed partial class XPath31Compiler
@@ -139,7 +148,7 @@ namespace Xsl3.XPath31
             _qf = _f.BaseFactory;
             _env = env;
             _sc = sc;
-            _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
+            _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace, sc.Schemas);
             _namespaces = sc.CreateResolver();
             _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
                 new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
@@ -368,6 +377,10 @@ namespace Xsl3.XPath31
         private static bool UsesLast(Expr e) => e switch
         {
             FunctionCall { Name: { Prefix: null or "fn", LocalName: "last" }, Arguments.Count: 0 } => true,
+            // last#0 keeps the focus it is made in; function-lookup may make it.
+            NamedFunctionRef { Name: { LocalName: "last" } name, Arity: var arity } when arity.IsZero && (name.Prefix is null or "fn" || name.BracedUri == QName.Ns.Fn) => true,
+            FunctionCall { Name: { Prefix: null or "fn", LocalName: "function-lookup" } } => true,
+            DynamicFunctionCall d => UsesLast(d.Function) || d.Arguments.Any(UsesLast),
             // last() inside a nested path step or predicate refers to that inner focus
             PathExpr p => UsesLast(p.Left),
             SimpleMapExpr m => UsesLast(m.Left),
@@ -603,6 +616,14 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
                 case BinaryOp.GeneralEq when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
+                case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
+                case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
+                {
+                    // (a to b) < $x is $x > (a to b).
+                    BinaryOp mirrored = b.Op switch { BinaryOp.GeneralLt => BinaryOp.GeneralGt, BinaryOp.GeneralLe => BinaryOp.GeneralGe, BinaryOp.GeneralGt => BinaryOp.GeneralLt, _ => BinaryOp.GeneralLe };
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(mirrored - BinaryOp.GeneralEq), StaticId());
+                }
                 case BinaryOp.GeneralEq: case BinaryOp.GeneralNe: case BinaryOp.GeneralLt:
                 case BinaryOp.GeneralLe: case BinaryOp.GeneralGt: case BinaryOp.GeneralGe:
                     return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
@@ -882,11 +903,14 @@ namespace Xsl3.XPath31
                         NamespaceNodeTest => XmlNodeKindFlags.Namespace,
                         _ => XmlNodeKindFlags.Any,
                     };
-                    if (!resolved.AnyType)
+                    // Xsl3 (P6): a test that names a type, or schema-element()/schema-attribute(), is decided at run time
+                    // when there are schemas: a node may then be typed.
+                    bool typed = resolved.TypeName != null && _sc.Schemas != null;
+                    if (!resolved.AnyType && !typed)
                     {
                         return _f.Sequence(); // element(N, T) where T excludes untyped nodes
                     }
-                    if (resolved.DocumentElement != null)
+                    if (resolved.DocumentElement != null || typed)
                     {
                         int id = ConstantPool.Add(new SequenceTypeTest(resolved, Cardinality.ExactlyOne));
                         condition = it => Call(nameof(XsltLibrary.X31InstanceOf), T.BooleanX, it, _f.Double(id));
@@ -925,6 +949,11 @@ namespace Xsl3.XPath31
 
         private QilNode CastTargetId(SingleType type)
         {
+            QName typeName = _types.Expand(type.TypeName, _sc.DefaultElementNamespace);
+            if (StaticTypeResolver.FindCastTarget(typeName) == null && _types.FindSchemaCastTarget(typeName, _namespaces) is { } schemaTarget)
+            {
+                return _f.Double(ConstantPool.Add(schemaTarget)); // Xsl3 (P6): a simple type an imported schema defines
+            }
             var (target, kind) = _types.ResolveCastTarget(type.TypeName);
             if (target.IsAbstract)
             {
@@ -1010,6 +1039,11 @@ namespace Xsl3.XPath31
                 return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(target), _f.True());
             }
 
+            if (args.Count == 1 && _types.FindSchemaCastTarget(name, _namespaces) is { } schemaConstructor)
+            {
+                // Xsl3 (P6): the constructor function of a simple type an imported schema defines.
+                return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(ConstantPool.Add(schemaConstructor)), _f.True());
+            }
             if (_env?.ResolveFunction(name, args, a => Items(Build(a))) is QilNode hostCall)
             {
                 return hostCall;
@@ -1035,6 +1069,9 @@ namespace Xsl3.XPath31
                         return _f.IsEmpty(Items(Build(args[0])));
                     case ("exists", 1):
                         return _f.Not(_f.IsEmpty(Items(Build(args[0]))));
+                    case ("string-length" or "normalize-space", 0) when _sc.Schemas != null:
+                        // Xsl3 (P6): of the context item's string value, not its typed value (F&O 3.1 §5.4.4, §5.4.5).
+                        return FunctionCall(call, lexicalName, new List<Expr> { new FunctionCall(new LexicalQName(null, "string", QName.Ns.Fn), new List<Expr> { new ContextItemExpr() }) { Span = call.Span } });
                     case (var local, 0) when s_contextFunctions.Contains(local):
                         return CallLibrary(call, name, new List<QilNode> { FocusItem() });
                     case ("lang" or "id" or "element-with-id" or "idref", 1):
@@ -1083,9 +1120,9 @@ namespace Xsl3.XPath31
             {
                 return n;
             }
-            if (n.XmlType.IsSubtypeOf(T.NodeNotRtf))
+            if (n.XmlType.IsSubtypeOf(T.NodeNotRtf) && _sc.Schemas == null)
             {
-                return _f.XPathNodeValue(n);
+                return _f.XPathNodeValue(n); // (with schemas, P6, a node may be typed: it is atomized instead)
             }
             if (s_literalStrings.TryGetValue(n, out string? literal))
             {
@@ -1108,6 +1145,10 @@ namespace Xsl3.XPath31
             if (NativeString(n) is QilNode s)
             {
                 return s;
+            }
+            if (_sc.Schemas != null)
+            {
+                return null; // Xsl3 (P6): a node may be typed, and is then atomized to its typed value
             }
             if (n.XmlType!.IsSubtypeOf(T.NodeNotRtfQ))
             {

@@ -300,6 +300,12 @@ namespace Xsl3.Xslt
                 // Xsl3: [xsl:]default-mode (XSLT 3.0 §6.6.1), scoped like a namespace declaration.
                 _scopeManager.AddNsDeclaration(DefaultModePrefix, _atoms.NameTable.Add(_reader.Value.Trim()));
             }
+            else if (rec.localName == "default-validation" && _compiler.Version != 1 &&
+                (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
+            {
+                // Xsl3 (P6): [xsl:]default-validation, scoped like a namespace declaration (XSLT 3.0 §25.4).
+                _scopeManager.AddNsDeclaration(DefaultValidationPrefix, _atoms.NameTable.Add(_reader.Value.Trim()));
+            }
             else if (rec.localName == "xpath-default-namespace" && _compiler.Version != 1 &&
                 (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
             {
@@ -544,7 +550,11 @@ namespace Xsl3.Xslt
         }
 
         /// <summary>Xsl3: the static base URI at the current element (xml:base applied).</summary>
-        public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _reader.BaseURI;
+        // The element's own base URI: the reader may have read past the end of an external entity by now.
+        // Xsl3: the error code for an undeclared prefix while a prefix list attribute is read (2.0+).
+        private string? _prefixListCode;
+
+        public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _records[0].baseUri ?? _reader.BaseURI;
 
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
         public string XPathDefaultNamespace => _scopeManager.LookupNamespace(XPathDefaultNamespacePrefix) ?? "";
@@ -603,6 +613,13 @@ namespace Xsl3.Xslt
                     try
                     {
                         return !UseWhen.Evaluate(rec.value, StaticNamespaces(), XPathDefaultNamespace, rec.baseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
+                    }
+                    catch (System.Exception e) when (e is Xsl3.XPath31.XPathStaticException or Xsl3.Xdm.XdmException && xslt && _scopeManager.ForwardCompatibility &&
+                        !Xsl3.Runtime.XsltNameContext.Instructions.Contains(_records[0].localName) && _records[0].localName != "evaluate")
+                    {
+                        // An XSLT element this processor doesn't know is ignored in forwards compatible mode, with
+                        // whatever its use-when says (forwards-008).
+                        return false;
                     }
                     catch (Xsl3.XPath31.XPathStaticException e)
                     {
@@ -817,6 +834,7 @@ namespace Xsl3.Xslt
             {
                 // Xsl3: the principal module's version picks the processor (SPEC §4.3).
                 _compiler.Version = version < 2.0 && _compiler.Settings.VersionMode == XsltVersionMode.Legacy || !Compiler.Xslt2Enabled ? 1 : 2;
+                _compiler.PrincipalVersion = version;
             }
 
             if (_compiler.Version == 1)
@@ -952,6 +970,9 @@ namespace Xsl3.Xslt
                         if (localName == "visibility" && V2 && _records[0].localName is "template" or "function" or "attribute-set" or "mode" or "variable") { Visibility = Value.Trim(); }
                         else
                         if (localName == "copy-accumulators" && V2 && _records[0].localName == "copy-of") { CopyAccumulators = Value.Trim(); }
+                        else
+                        // Xsl3 (P6): default-validation is a standard attribute of every XSLT element in a schema-aware processor.
+                        if (localName == "default-validation" && V2 && _compiler.Settings.SchemaAware && Value.Trim() is "preserve" or "strip") { }
                         else
                         {
                             ReportError(/*[XT0090]*/SR.Xslt_InvalidAttribute, QualifiedName, _records[0].QualifiedName);
@@ -1137,6 +1158,7 @@ namespace Xsl3.Xslt
                     {
                         _compiler.EnterForwardsCompatible();
                         string[] list = XmlConvert.SplitString(value);
+                        _prefixListCode = _compiler.Version == 2 ? (extensions ? "XTSE1430" : "XTSE0808") : null;
                         for (int idx = 0; idx < list.Length; idx++)
                         {
                             if (list[idx] == "#default")
@@ -1152,6 +1174,7 @@ namespace Xsl3.Xslt
                                 list[idx] = this.LookupXmlNamespace(list[idx])!;
                             }
                         }
+                        _prefixListCode = null;
                         if (!_compiler.ExitForwardsCompatible(this.ForwardCompatibility))
                         {
                             // There were errors in the list, ignore the whole list
@@ -1191,6 +1214,11 @@ namespace Xsl3.Xslt
 
         /// <summary>Xsl3: the [xsl:]default-mode in scope at the current element (a lexical QName or #unnamed), if any.</summary>
         public string? DefaultMode => _scopeManager.LookupNamespace(DefaultModePrefix);
+
+        public const string DefaultValidationPrefix = "#default-validation";
+
+        /// <summary>Xsl3 (P6): the [xsl:]default-validation in scope ("preserve" or "strip"), or null.</summary>
+        public string? DefaultValidation => _scopeManager.LookupNamespace(DefaultValidationPrefix);
 
         // Xsl3: [xsl:]expand-text (XSLT 3.0 §5.6.2): text in the sequence constructors in scope are text value templates.
         private void SetExpandText(int attExpandText, ContextInfo ctxInfo)
@@ -1341,7 +1369,15 @@ namespace Xsl3.Xslt
             {
                 return string.Empty;
             }
-            ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+            if (_prefixListCode != null)
+            {
+                // Xsl3: a prefix of [xsl:]exclude-result-prefixes (XTSE0808) or extension-element-prefixes (XTSE1430).
+                ReportError(SR.Xml_UserException, $"{_prefixListCode}: the prefix '{prefix}' is not declared");
+            }
+            else
+            {
+                ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+            }
             return null;
         }
 

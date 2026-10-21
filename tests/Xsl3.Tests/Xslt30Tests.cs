@@ -345,7 +345,7 @@ public class Xslt30Tests
         transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
         string xml = System.Text.Encoding.UTF8.GetString(bytes.ToArray());
         Assert.StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", xml);
-        Assert.Contains("<a>" + System.Environment.NewLine + "  <b />", xml);
+        Assert.Contains("<a>" + System.Environment.NewLine + "  <b/>", xml);
     }
 
     /// <summary>
@@ -479,6 +479,18 @@ public class Xslt30Tests
         Assert.Equal("<o>2|3.0</o>", sw.ToString());
         Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(stylesheet))));
     }
+
+    /// <summary>
+    /// A key with a definition in backwards compatible mode compares its values as strings, whatever the version of its
+    /// other definitions (XSLT 3.0 §20.2.2): use="1" in either version finds key('k', 1).
+    /// </summary>
+    [Fact]
+    public void BackwardsCompatibleKeysCompareStrings() =>
+        Assert.Equal("<o>a b</o>", Run("""
+            <xsl:key name="k" match="*[@m = 'a']" use="1" version="1.0"/>
+            <xsl:key name="k" match="*[@m = 'b']" use="1"/>
+            <xsl:template match="/"><o><xsl:value-of select="key('k', 1)/@m"/></o></xsl:template>
+            """, "<r><x m='a'/><x m='b'/><x m='c'/></r>"));
 
     /// <summary>
     /// format-number rounds a double's shortest digits half to even: values whose scaled form sits next to a half
@@ -924,6 +936,31 @@ public class Xslt30Tests
             """));
     }
 
+    /// <summary>xsl:call-template keeps the current group and grouping key (XSLT 3.0 §14.2.1), even inside xsl:for-each.</summary>
+    [Fact]
+    public void CalledTemplatesSeeTheCurrentGroup() =>
+        Assert.Equal("<out><g n=\"2\" k=\"a\" /><g n=\"2\" k=\"a\" /><g n=\"1\" k=\"b\" /></out>", Run("""
+            <xsl:template match="/"><out><xsl:for-each-group select="//i" group-by="@k"><xsl:call-template name="t"><xsl:with-param name="nodes" select="current-group()"/></xsl:call-template></xsl:for-each-group></out></xsl:template>
+            <xsl:template name="t"><xsl:param name="nodes"/><xsl:for-each select="$nodes"><g n="{count(current-group())}" k="{current-grouping-key()}"/></xsl:for-each></xsl:template>
+            """, "<r><i k='a'/><i k='b'/><i k='a'/></r>"));
+
+    /// <summary>xsl:next-match from a union pattern's rule passes on a parameter of the rule (DocBook's gentext templates).</summary>
+    [Fact]
+    public void NextMatchFromAUnionPassesTheRulesParameter() =>
+        Assert.Equal("<out><n g=\"1\" /><n g=\"1\" /></out>", Run("""
+            <xsl:template match="/"><out><xsl:apply-templates select="//(q|a)" mode="m"/></out></xsl:template>
+            <xsl:template match="q|a" mode="m"><xsl:param name="g" select="1"/><xsl:next-match><xsl:with-param name="g" select="$g"/></xsl:next-match></xsl:template>
+            <xsl:template match="*" mode="m" priority="-1"><xsl:param name="g"/><n g="{$g}"/></xsl:template>
+            """, "<r><q/><a/></r>"));
+
+    /// <summary>Namespace nodes may follow attributes in an element's content (2.0+): xsl:copy-of of @*, namespace-node().</summary>
+    [Fact]
+    public void NamespacesAfterAttributes() =>
+        Assert.Equal("<out xmlns:p=\"urn:p\" a=\"1\" />", Run("""
+            <xsl:template match="/"><xsl:variable name="e" as="element()"><e xmlns:p="urn:p" a="1"/></xsl:variable>
+              <out><xsl:copy-of select="$e/@*, $e/namespace-node()[name() = 'p']"/></out></xsl:template>
+            """));
+
     /// <summary>fn:idref finds the attributes a DTD declares IDREF or IDREFS that refer to an ID, in document order.</summary>
     [Fact]
     public void IdrefFindsDtdIdrefAttributes()
@@ -942,6 +979,44 @@ public class Xslt30Tests
         var text = new StringWriter();
         transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
         Assert.Equal("<o>ref refs|refs|</o>", text.ToString());
+    }
+
+    /// <summary>
+    /// Whitespace in an element the DTD gives element-only content is element content whitespace, which the data
+    /// model leaves out; in mixed content it stays.
+    /// </summary>
+    [Fact]
+    public void ElementContentWhitespaceIsLeftOut()
+    {
+        string input = """
+            <!DOCTYPE r [
+              <!ELEMENT r (a*)>
+              <!ELEMENT a (#PCDATA)>
+            ]>
+            <r>
+              <a>x</a>
+              <a> </a>
+            </r>
+            """;
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select='count(r/text()), count(r/a/text())'/></o></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
+        Assert.Equal("<o>0 2</o>", text.ToString());
+    }
+
+    /// <summary>Text with disable-output-escaping in a cdata-section element is written as it is, not as CDATA.</summary>
+    [Fact]
+    public void DisabledEscapingIsNotCData()
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>" +
+            "<xsl:output omit-xml-declaration='yes' cdata-section-elements='c'/><xsl:template match='/'>" +
+            "<c>a&lt;<xsl:text disable-output-escaping='yes'>&lt;b/></xsl:text>c&lt;</c></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, text);
+        Assert.Equal("<c><![CDATA[a<]]><b/><![CDATA[c<]]></c>", text.ToString());
     }
 
     /// <summary>
@@ -1001,4 +1076,65 @@ public class Xslt30Tests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    /// <summary>
+    /// A union pattern without a priority attribute is one template rule per alternative (XSLT 3.0 §6.5): xsl:next-match
+    /// from the alternative that matched reaches the template's other alternatives below it.
+    /// </summary>
+    [Fact]
+    public void NextMatchReachesTheOtherAlternativesOfAUnion()
+    {
+        Assert.Equal("<out><a /><a /><b /></out>", Run("""
+            <xsl:template match="/doc"><out><xsl:apply-templates select="x"/></out></xsl:template>
+            <xsl:template match="*:x | element(x)"><a/><xsl:next-match/></xsl:template>
+            <xsl:template match="node()"><b/></xsl:template>
+            """, "<doc><x/></doc>"));
+        // With a priority attribute the union is one rule.
+        Assert.Equal("<out><a /><b /></out>", Run("""
+            <xsl:template match="/doc"><out><xsl:apply-templates select="x"/></out></xsl:template>
+            <xsl:template match="*:x | element(x)" priority="1"><a/><xsl:next-match/></xsl:template>
+            <xsl:template match="node()"><b/></xsl:template>
+            """, "<doc><x/></doc>"));
+    }
+
+    /// <summary>xsl:global-context-item use="absent": a global variable that uses the context item is XPDY0002.</summary>
+    [Fact]
+    public void AnAbsentGlobalContextItemCantBeUsed()
+    {
+        Assert.Contains("XPDY0002", Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:global-context-item use="absent"/>
+            <xsl:variable name="g" select="/doc"/>
+            <xsl:template match="/"><out><xsl:copy-of select="$g"/></out></xsl:template>
+            """)).ToString());
+        Assert.Equal("<out>1</out>", Run("""
+            <xsl:global-context-item use="absent"/>
+            <xsl:variable name="g" select="1"/>
+            <xsl:template match="/"><out><xsl:value-of select="$g"/></out></xsl:template>
+            """));
+    }
+
+    /// <summary>
+    /// 2.0+ stylesheets accept the common encoding aliases .NET doesn't know (utf8, as TEI's LaTeX stylesheet writes
+    /// it), in xsl:output and xsl:result-document; an unknown name is still SESU0007.
+    /// </summary>
+    [Fact]
+    public void CommonEncodingAliasesAreAccepted()
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output method='text' encoding='utf8'/>" +
+            "<xsl:template match='/'>é</xsl:template></xsl:stylesheet>")));
+        var bytes = new MemoryStream();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
+        Assert.Equal("é", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+        Assert.Contains("SESU0007", Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(
+            $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output encoding='no-such-encoding'/><xsl:template match='/'/></xsl:stylesheet>")))).Message);
+    }
+
+    /// <summary>Number words in German (format-integer and xsl:number with lang="de"), cardinal and ordinal.</summary>
+    [Fact]
+    public void GermanNumberWords() =>
+        Assert.Equal("<o>eins|Einundzwanzig|ZWEIHUNDERTDREI|dritte|einhunderterste|eintausendzwölf|zwei Millionen fünf|Siebte</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="format-integer(1, 'w', 'de'), format-integer(21, 'Ww', 'de'), format-integer(203, 'W', 'de'),
+              format-integer(3, 'w;o', 'de'), format-integer(101, 'w;o', 'de'), format-integer(1012, 'w', 'de'), format-integer(2000005, 'w', 'de')" separator="|"/>|<xsl:number value="7" format="Ww" lang="de" ordinal="yes"/></o></xsl:template>
+            """));
 }

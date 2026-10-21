@@ -199,6 +199,11 @@ namespace Xsl3.Runtime
             return X31CallRuntime(call);
         }
 
+        /// <summary>The function of a partial application, f(a, ?): a single function item of the call's arity (XPTY0004).</summary>
+        public IList<XPathItem> X31PartialTarget(IList<XPathItem> function, double arity) =>
+            function.Count == 1 && function[0] is FunctionItem f && f.Arity == (int)arity ? function
+                : throw Err.XPTY0004($"A partial application with {arity} arguments needs a function of arity {arity}, not {Coercion.Describe(function)}");
+
         /// <summary>fn:fold-left and fn:fold-right (and the array: ones, whose members arrive wrapped).</summary>
         public IList<XPathItem> X31Fold(IList<XPathItem> items, IList<XPathItem> zero, IList<XPathItem> function, bool left, bool wrapped)
         {
@@ -419,6 +424,9 @@ namespace Xsl3.Runtime
             ((FunctionItem)function[0]).Name is QName n ? Sequences.One(new QNameValue(AtomicTypes.QName, n)) : Sequences.Empty;
 
         public XPathItem X31FunctionArity(IList<XPathItem> function) => AtomicValue.OfInteger(((FunctionItem)function[0]).Arity);
+
+        /// <summary>Whether a function-lookup arity (an xs:integer, unchecked here) is <paramref name="arity"/>.</summary>
+        public bool X31ArityIs(IList<XPathItem> value, double arity) => value.Count == 1 && value[0] is IntegerValue i && i.Integer == (int)arity;
 
         /// <summary>fn:function-lookup for a built-in function (user functions are found when the name is a literal).</summary>
         public IList<XPathItem> X31FunctionLookup(IList<XPathItem> name, IList<XPathItem> arity, double sc)

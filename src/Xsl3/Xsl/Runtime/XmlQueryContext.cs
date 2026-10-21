@@ -165,6 +165,12 @@ namespace Xsl3.Runtime
                 if (uriResolved != null)
                     nav = _dataSourceCache[uriResolved] as XPathNavigator;
 
+                // Xsl3: a resource the transformation has written as a final result can't be read back (XSLT 3.0 §25.2).
+                if (nav == null && uriResolved != null && _runtime.IsXslt2 && _runtime.ResultDocumentUris.Contains(uriResolved.OriginalString))
+                {
+                    throw new Xsl3.Xdm.XdmException("XTDE1500", $"'{uriResolved.OriginalString}' is written by xsl:result-document and can't be read in the same transformation");
+                }
+
                 if (nav == null)
                 {
                     // Get the entity from the resolver and ensure it is cached as a document
@@ -183,6 +189,10 @@ namespace Xsl3.Runtime
                 // Don't need to wrap XslTransformException
                 throw;
             }
+            catch (Xsl3.Xdm.XdmException e) when (e.Code == "XTDE1500")
+            {
+                throw;
+            }
             catch (Exception e)
             {
                 if (!XmlException.IsCatchableException(e))
@@ -195,6 +205,9 @@ namespace Xsl3.Runtime
             return nav;
         }
 
+        /// <summary>Xsl3: whether the transformation has read the document at this absolute URI (XTDE1500).</summary>
+        internal bool HasRead(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out Uri? absolute) && _dataSourceCache.ContainsKey(absolute);
+
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.
         /// </summary>
@@ -203,11 +216,11 @@ namespace Xsl3.Runtime
         /// document()): the compact tree for 2.0+ stylesheets, XPathDocument's (as stock builds) for 1.0 unless the
         /// compact tree is asked for. XSL3_COMPACT_TREE=1 or 0 overrides the choice (for testing).
         /// </summary>
-        private XPathNavigator BuildTree(XmlReader reader)
+        private XPathNavigator BuildTree(XmlReader reader, bool typed = false)
         {
             bool compact = Xsl3.Tree.CompactDocument.Override ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
-            return compact
-                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator()
+            return compact || typed
+                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed).CreateNavigator()
                 : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
         }
 
@@ -247,7 +260,8 @@ namespace Xsl3.Runtime
                     {
                         // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
                         using XmlReader copy = loaded.ReadSubtree();
-                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        // (A typed tree's copy keeps its annotations: P6.)
+                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules), typed: loaded is Xsl3.Tree.CompactNavigator { Typed: true });
                         if (tree is Xsl3.Tree.CompactNavigator compact)
                         {
                             compact.Document.SetIdSource(loaded); // its DTD's IDs, which the copy can't read

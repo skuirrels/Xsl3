@@ -107,7 +107,8 @@ namespace Xsl3
 
         /// <summary>
         /// Xsl3: how long a transformation may run; it is then stopped at its next template or function entry with
-        /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1). Null: no limit.
+        /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1), and no single regular expression match runs longer.
+        /// Null: no limit.
         /// </summary>
         public TimeSpan? Timeout
         {
@@ -146,6 +147,19 @@ namespace Xsl3
         /// §21.1). On by default, as stock; off, their functions are unknown, as if none had been added.
         /// </summary>
         public bool EnableExtensionFunctions { get; set; } = true;
+
+        /// <summary>
+        /// Xsl3 (P6; docs/plan/p6-schema.md): whether the processor is schema-aware (XSLT 3.0 §3.14):
+        /// <c>xsl:import-schema</c> imports a schema's types and declarations, and nodes a schema validated keep their
+        /// type annotations. Off by default: <c>xsl:import-schema</c> is then XTSE1650, as for a basic processor.
+        /// </summary>
+        public bool SchemaAware { get; set; }
+
+        /// <summary>
+        /// Xsl3 (P6): schemas known to the processor. An <c>xsl:import-schema</c> that names only a namespace imports the
+        /// schema for it from here. Used when <see cref="SchemaAware"/> is on.
+        /// </summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; set; }
 
         /// <summary>
         /// Xsl3: the deepest nesting of template and function calls a transformation may reach (SPEC §21.2); beyond

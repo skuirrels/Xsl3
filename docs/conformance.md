@@ -42,6 +42,9 @@ raised a different code are counted separately.
 | 2026-10-21 | 21,824 | 60 | 99 | 99.7% | `fn:idref` over the DTD's IDREF and IDREFS attributes; the harness gives the XPath engine Xsl3's own tree for sources, as the 2.0+ processor builds |
 | 2026-10-21 | 21,843 | 41 | 99 | 99.8% | The `fallback` option of `fn:parse-json`, `fn:json-doc` and `fn:json-to-xml`; a leading byte order mark; `json-to-xml`'s result has the static base URI and keeps carriage returns; the harness compares XML results with carriage returns kept |
 | 2026-10-21 | 21,862 | 22 | 99 | 99.9% | Map keys by `op:same-key` (a double equals a decimal only when exactly equal, QNames by namespace and local name, `use-last` keeps the last key); an empty array atomizes to no value in a value comparison; the harness maps the suite's case-blind collation to UCA at secondary strength |
+| 2026-10-21 | 21,866 | 18 | 99 | 99.9% | `fn:serialize` with a map of parameters writes through the engine's serializer (the html method's doctype and meta element, `cdata-section-elements` as QNames, unencodable characters escaped in JSON); QName keys in no namespace are ignored |
+| 2026-10-21 | 21,883 | 1 | 99 | 99.99% | `position#0` and `last#0` keep the focus they are made in; comparisons with a range use its bounds; partial application checks the function's arity; signatures for the compiled higher-order functions; `fn:load-xquery-module` (FOQM0006); German ordinal endings; FOAR0002 for huge arities; the harness maps relative resource URIs to their files (the JSON use cases). The one failure is `<f />` for an empty element (docs/divergences.md) |
+| 2026-10-21 | 21,884 | 0 | 99 | 100% | Empty elements as `<a/>` in 2.0+ xml-method results |
 
 The remaining failures are mostly `fn:serialize` details (html doctype, CDATA, character maps), `fn:function-lookup`
 and named function reference corner cases.
@@ -67,6 +70,11 @@ From P3 the harness runs the XSLT 3.0 profile: tests for "XSLT 3.0 or later" too
 and XPath 3.1 claimed (`XSL3_XSLT30_PROFILE=2.0` still runs the 2.0 one). Stylesheets with `version="3.0"` are
 no longer compiled in forwards-compatible mode. Packages and initial functions run; tests that need collections,
 a schema or streaming don't (the report's "Not run" line counts them by reason).
+
+P6 claims `schema_aware` in the 3.0 profile: the runner turns on `XsltSettings.SchemaAware`, loads each environment's
+schemas and validates its sources (the 2.0 profile stays without it). `XSL3_XSLT30_PROFILE=sa` runs only the tests that
+need it (report: `xslt30-run-sa.md`): on 2026-10-21, 827 passed, 17 failed, 2 not run (98.0%); docs/plan/p6-schema.md
+has the history.
 
 | Date | Passed | Failed | Not run | Pass rate | Notes |
 |---|---:|---:|---:|---:|---|
@@ -104,6 +112,17 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,962 | 74 | 49 | 99.1% | The runner on the public 3.0 API (`XsltCompiler`, `Xslt30Transformer`): `override-v-008`, `override-v-009` and `strip-space-023` pass that the internal entry points failed; the 2.0 profile is at 99.2% (4,561 passed, 36 failed) |
 | 2026-10-21 | 7,967 | 69 | 49 | 99.1% | `fn:idref` (id-039, -040, -042, -043); the harness loads sources as Xsl3's own tree; the 2.0 profile is at 99.3% (4,566 passed, 31 failed) |
 | 2026-10-21 | 7,970 | 66 | 49 | 99.2% | XTDE3086 for `xsl:global-context-item use="required"` without a global context item; XTSE3450 for a static variable whose value differs from one declared earlier at a lower import precedence (tree order of declarations across imports) |
+| 2026-10-21 | 7,978 | 58 | 49 | 99.3% | The global context item of 2.0+ stylesheets: absent without an input or with `xsl:global-context-item use="absent"` (XPDY0002 where global variables use it, XTTE0945 for `xsl:copy`); `xsl:next-match` from an alternative of a union pattern without a priority goes on to the template's other alternatives; the 2.0 profile is at 99.4% (4,571 passed, 26 failed) |
+| 2026-10-21 | 7,981 | 55 | 49 | 99.3% | `xsl:mode typed="yes"` raises XTTE3100 for untyped elements and attributes; German number words for `format-integer` and `xsl:number lang="de"`; `function-lookup` with a literal name and a computed arity finds the XSLT functions; the 2.0 profile is at 99.5% (4,572 passed, 25 failed) |
+| 2026-10-21 | 7,982 | 54 | 49 | 99.3% | `xsl:copy` of an element keeps its original's base URI; the 2.0 profile is at 99.5% (4,573 passed, 24 failed) |
+| 2026-10-21 | 7,996 | 40 | 49 | 99.5% | Shadowed variables in split templates, `function-lookup` in used packages, use-when `function-available`, entity base URIs, element content whitespace, XTDE1500, `xsl:merge-key data-type`, disable-output-escaping in CDATA elements, base URIs of copies, XTSE3020 for function names without arity; the 2.0 profile is at 99.6% (4,580 passed, 17 failed) |
+| 2026-10-21 | 8,001 | 35 | 49 | 99.6% | `document('')` resolves against the static base URI that xml:base sets; a key with a definition in backwards compatible mode compares strings; a version="1.0" principal module's implicit result defaults to the xml method for XHTML's `html`; the harness reads an expected serialization in the encoding the assertion names. The 2.0 profile is at 99.7% (4,584 passed, 13 failed) |
+| 2026-10-21 | 8,008 | 28 | 49 | 99.7% | XTSE0165 for an imported or included `xsl:package`, XTSE0020 for `xsl:mode name="#unnamed"`, no global context item for a used package's variables (XPDY0002), character maps local to their package, `doc()` in static expressions through the stylesheet's resolver, XTDE2210 for merge keys that disagree, use-when errors ignored on unknown elements in forwards compatible mode. The runner now checks error codes: 573 expected-error tests pass with an error that doesn't name the expected code (343 in the 2.0 profile) |
+| 2026-10-21 | 8,012 | 24 | 49 | 99.7% | 2.0+ results of the xml method write empty elements as `<a/>` (owner's decision); the 2.0 profile is at 99.8% (4,584 → 4,588 passed, 9 failed) |
+| 2026-10-21 | 8,014 | 22 | 49 | 99.7% | Static variables of an imported module are in scope after the `xsl:import` (static-021, static-027), and a variable and a parameter of one name are inconsistent (XTSE3450); found by running DocBook xslTNG |
+| 2026-10-21 | 8,805 | 62 | 42 | 99.3% | P6: `schema_aware` claimed (the runner turns on `XsltSettings.SchemaAware`, loads each environment's schemas and validates its sources); the schema-aware tests are at 95.0% (802 passed, 42 failed), and tests of a processor that isn't schema-aware no longer apply |
+| 2026-10-21 | 8,824 | 43 | 42 | 99.5% | Scoped `default-validation`, is-id kept on stripped copies, `schema-element()` never matching untyped elements, anonymous types matched across schema sets, assertions on the engine's result tree in the runner (schema-aware tests 822 passed, 22 failed) |
+| 2026-10-21 | 8,829 | 38 | 42 | 99.6% | XTSE3105 for `typed="strict"` modes; string functions atomize typed nodes, and `string-length()` and `normalize-space()` take the string value (schema-aware tests 827 passed, 17 failed); `CompileToAssembly` refuses a stylesheet that imports schemas |
 
 ### P5 exit sets
 

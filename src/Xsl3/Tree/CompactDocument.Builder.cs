@@ -30,7 +30,7 @@ namespace Xsl3.Tree
             private readonly NamePool? _pool;
 
             // Values: each distinct short one once.
-            private string[] _values = new string[256];
+            private string[] _values;
             private int _valueCount;
             private readonly Dictionary<string, int>? _shared;
             private const int ShortValue = 32;
@@ -87,16 +87,24 @@ namespace Xsl3.Tree
                 d._end = new int[capacity];
                 d._name = new int[capacity];
                 d._data = new int[capacity];
-                d._attrOwner = new int[attributes];
-                d._attrName = new int[attributes];
-                d._attrValue = new int[attributes];
-                d._nsOwner = new int[4];
-                d._nsPrefix = new string[4];
-                d._nsUri = new string[4];
                 if (small)
                 {
-                    _values = new string[8];
+                    // Most temporary trees have no attributes or namespace nodes: their arrays come with the first.
+                    d._attrOwner = d._attrName = d._attrValue = Array.Empty<int>();
+                    d._nsOwner = Array.Empty<int>();
+                    d._nsPrefix = d._nsUri = Array.Empty<string>();
                 }
+                else
+                {
+                    d._attrOwner = new int[attributes];
+                    d._attrName = new int[attributes];
+                    d._attrValue = new int[attributes];
+                    d._nsOwner = new int[4];
+                    d._nsPrefix = new string[4];
+                    d._nsUri = new string[4];
+                }
+                // (Sized here, not by an initializer: a temporary tree would allocate the large array only to drop it.)
+                _values = small ? new string[8] : new string[256];
                 if (fragment)
                 {
                     // Top-level nodes have no parent.
@@ -117,11 +125,17 @@ namespace Xsl3.Tree
             /// <summary>Whether an element is open (so attributes and namespaces are its, not top-level nodes).</summary>
             internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
-            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false)
+            /// <param name="typed">Xsl3 (P6): keep the reader's type annotations even if it has none before it is read (a copy of a typed tree).</param>
+            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false)
             {
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
+                // Xsl3: the elements the DTD declares with element-only content, and whether each open one is such.
+                HashSet<(string, string)>? elementOnly = null;
+                bool[] inElementOnly = System.Array.Empty<bool>();
                 int initialDepth = reader.Depth;
+                // Xsl3 (P6): a validating reader's type annotations are kept.
+                typed |= reader.SchemaInfo != null;
                 if (topLevelReader && !reader.Read())
                 {
                     return;
@@ -137,13 +151,37 @@ namespace Xsl3.Tree
                         case XmlNodeType.Element:
                         {
                             bool empty = reader.IsEmptyElement;
+                            if (elementOnly != null)
+                            {
+                                // Xsl3: whether the DTD gives this element element-only content (its whitespace is left out).
+                                if (reader.Depth >= inElementOnly.Length)
+                                {
+                                    System.Array.Resize(ref inElementOnly, reader.Depth * 2 + 2);
+                                }
+                                inElementOnly[reader.Depth] = elementOnly.Contains((reader.LocalName, reader.Prefix));
+                            }
                             StartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI, reader.BaseURI);
+                            if (typed && reader.SchemaInfo is { } elementInfo)
+                            {
+                                AnnotateElement(elementInfo.SchemaType, elementInfo.IsNil);
+                                if (elementInfo.SchemaType is { } elementType && Xsl3.Schema.SchemaTypes.Normalization(elementType) is { } facet)
+                                {
+                                    NormalizeText(facet);
+                                }
+                            }
                             while (reader.MoveToNextAttribute())
                             {
                                 string ns = reader.NamespaceURI;
                                 if ((object)ns == (object?)xmlnsUri)
                                 {
                                     NamespaceDeclaration(reader.Prefix.Length == 0 ? string.Empty : reader.LocalName, reader.Value);
+                                }
+                                else if (typed && reader.SchemaInfo?.SchemaType is { } attributeType)
+                                {
+                                    // (Its schema normalized value, XDM 3.1 §6.3.4.)
+                                    string value = Xsl3.Schema.SchemaTypes.Normalization(attributeType) is { } facet ? Xsl3.Xdm.Lexical.ApplyWhitespace(reader.Value, facet) : reader.Value;
+                                    Attribute(reader.Prefix, reader.LocalName, ns, value);
+                                    AnnotateAttribute(attributeType, value);
                                 }
                                 else
                                 {
@@ -164,6 +202,10 @@ namespace Xsl3.Tree
                             Text(reader.Value, XPathNodeType.Text);
                             break;
                         case XmlNodeType.SignificantWhitespace:
+                            if (elementOnly != null && reader.Depth > 0 && reader.Depth - 1 < inElementOnly.Length && inElementOnly[reader.Depth - 1])
+                            {
+                                break; // element content whitespace
+                            }
                             if (reader.XmlSpace == XmlSpace.Preserve)
                             {
                                 Text(reader.Value, XPathNodeType.SignificantWhitespace);
@@ -174,6 +216,10 @@ namespace Xsl3.Tree
                             }
                             break;
                         case XmlNodeType.Whitespace:
+                            if (elementOnly != null && reader.Depth > 0 && reader.Depth - 1 < inElementOnly.Length && inElementOnly[reader.Depth - 1])
+                            {
+                                break; // element content whitespace
+                            }
                             if (space == XmlSpace.Preserve && (keepTopLevelWhitespace || !topLevelReader || reader.Depth != 0))
                             {
                                 Text(reader.Value, XPathNodeType.Whitespace);
@@ -198,6 +244,11 @@ namespace Xsl3.Tree
                             reader.ResolveEntity();
                             break;
                         case XmlNodeType.DocumentType:
+                            if (DtdInfoBridge.GetElementOnlyElements(reader) is { Count: > 0 } declared)
+                            {
+                                elementOnly = declared;
+                                inElementOnly = new bool[16];
+                            }
                             foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdAttributes(reader))
                             {
                                 (_idAttributes ??= new())[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
@@ -252,6 +303,15 @@ namespace Xsl3.Tree
                     Array.Resize(ref _values, _valueCount);
                 }
                 _doc._values = _values;
+                if (_doc._idContent != null)
+                {
+                    // Xsl3 (P6): an element typed xs:ID is an ID by its content.
+                    foreach (int element in _doc._idContent)
+                    {
+                        _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                        _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(_doc.StringValue(element)), element);
+                    }
+                }
                 _doc.BuildScopes();
                 if (_pool == null)
                 {
@@ -365,6 +425,33 @@ namespace Xsl3.Tree
                 _idrefs = _idrefAttributes != null && _idrefAttributes.TryGetValue((local, prefix), out var idrefs) ? idrefs : null;
             }
 
+            /// <summary>Xsl3: gives the document node a base URI of its own (a copy of a document node keeps its original's).</summary>
+            internal void SetDocumentBaseUri(string baseUri)
+            {
+                if (_depth != 1 || InElement || baseUri.Length == 0)
+                {
+                    return;
+                }
+                _doc._baseUri = baseUri;
+                _openBase[0] = baseUri;
+            }
+
+            /// <summary>Xsl3: gives the innermost open element a base URI of its own (a copy keeps its original's).</summary>
+            internal void SetElementBaseUri(string baseUri)
+            {
+                if (_depth == 0 || !InElement || baseUri.Length == 0)
+                {
+                    return;
+                }
+                int element = _open[_depth - 1];
+                string parentBase = _depth > 1 ? _openBase[_depth - 2] : _doc._baseUri;
+                if (baseUri != parentBase)
+                {
+                    (_doc._baseUris ??= new Dictionary<int, string>())[element] = baseUri;
+                }
+                _openBase[_depth - 1] = baseUri;
+            }
+
             internal void EndElement(bool emptyTag)
             {
                 FlushText();
@@ -385,9 +472,9 @@ namespace Xsl3.Tree
                 int i = d._attrCount;
                 if (i == d._attrOwner.Length)
                 {
-                    Array.Resize(ref d._attrOwner, i * 2);
-                    Array.Resize(ref d._attrName, i * 2);
-                    Array.Resize(ref d._attrValue, i * 2);
+                    Array.Resize(ref d._attrOwner, Math.Max(4, i * 2));
+                    Array.Resize(ref d._attrName, Math.Max(4, i * 2));
+                    Array.Resize(ref d._attrValue, Math.Max(4, i * 2));
                 }
                 int name = Name(prefix, local, ns);
                 if (IsXmlId(name))
@@ -411,6 +498,65 @@ namespace Xsl3.Tree
                 {
                     d._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
                     d._ids.TryAdd(value, element);
+                }
+            }
+
+            // Xsl3 (P6): the elements read from a validating reader whose text is whitespace-normalized by their type.
+            private Dictionary<int, Xsl3.Xdm.WhitespaceFacet>? _normalize;
+
+            /// <summary>Xsl3 (P6): the element just started has its text normalized as its type's whiteSpace facet says.</summary>
+            internal void NormalizeText(Xsl3.Xdm.WhitespaceFacet facet) => (_normalize ??= new Dictionary<int, Xsl3.Xdm.WhitespaceFacet>())[_open[_depth - 1]] = facet;
+
+            /// <summary>Xsl3 (P6): the type annotation of the element just started (null: xs:anyType), and whether it is nilled.</summary>
+            // Xsl3 (P6): the elements whose type gives them element-only content.
+            private HashSet<int>? _elementOnly;
+
+            internal void AnnotateElement(System.Xml.Schema.XmlSchemaType? type, bool nilled)
+            {
+                int element = _open[_depth - 1];
+                if (type is System.Xml.Schema.XmlSchemaComplexType { ContentType: System.Xml.Schema.XmlSchemaContentType.ElementOnly })
+                {
+                    (_elementOnly ??= new HashSet<int>()).Add(element);
+                }
+                if (type != null && Xsl3.Schema.SchemaTypes.IsId(type))
+                {
+                    (_doc._idContent ??= new HashSet<int>()).Add(element); // (its ID is registered when the tree is finished)
+                }
+                (_doc._types ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[element] = type ?? Xsl3.Schema.SchemaTypes.AnyType;
+                if (nilled)
+                {
+                    (_doc._nilled ??= new HashSet<int>()).Add(element);
+                }
+            }
+
+            /// <summary>Xsl3 (P6): the type annotation of the attribute just added; one of type xs:ID makes its element an ID.</summary>
+            internal void AnnotateAttribute(System.Xml.Schema.XmlSchemaType type, string value)
+            {
+                int attribute = _doc._attrCount - 1;
+                (_doc._attrTypes ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[attribute] = type;
+                if (_doc._attrOwner[attribute] != None && Xsl3.Schema.SchemaTypes.IsIdref(type))
+                {
+                    (_doc._idrefAttributes ??= new List<int>()).Add(attribute);
+                }
+                if (Xsl3.Schema.SchemaTypes.IsId(type))
+                {
+                    (_doc._idAttrs ??= new HashSet<int>()).Add(attribute); // (a parentless one too: a copy of it is an ID)
+                }
+                if (Xsl3.Schema.SchemaTypes.IsId(type) && _doc._attrOwner[attribute] is int element and not None)
+                {
+                    _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                    _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);
+                }
+            }
+
+            /// <summary>Xsl3 (P6): the attribute just added is an ID (its element can be found by its value), though untyped.</summary>
+            internal void MarkAttributeId(string value)
+            {
+                (_doc._idAttrs ??= new HashSet<int>()).Add(_doc._attrCount - 1);
+                if (_doc._attrOwner[_doc._attrCount - 1] is int element and not None)
+                {
+                    _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                    _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);
                 }
             }
 
@@ -440,9 +586,9 @@ namespace Xsl3.Tree
                 int i = d._nsCount;
                 if (i == d._nsOwner.Length)
                 {
-                    Array.Resize(ref d._nsOwner, i * 2);
-                    Array.Resize(ref d._nsPrefix, i * 2);
-                    Array.Resize(ref d._nsUri, i * 2);
+                    Array.Resize(ref d._nsOwner, Math.Max(4, i * 2));
+                    Array.Resize(ref d._nsPrefix, Math.Max(4, i * 2));
+                    Array.Resize(ref d._nsUri, Math.Max(4, i * 2));
                 }
                 d._nsOwner[i] = element;
                 d._nsPrefix[i] = _nameTable.Add(prefix);
@@ -499,6 +645,22 @@ namespace Xsl3.Tree
                 string value = _textMore is { Length: > 0 } more ? _text + more.ToString() : _text;
                 _textMore?.Clear();
                 _text = null;
+                if (_elementOnly != null && _depth > 0 && _elementOnly.Contains(_open[_depth - 1]) && string.IsNullOrWhiteSpace(value))
+                {
+                    // Xsl3 (P6): whitespace in element-only content isn't in the data model (XDM 3.1 §6.2.4).
+                    _textRaw = null;
+                    return;
+                }
+                if (_normalize != null && _depth > 0 && _normalize.TryGetValue(_open[_depth - 1], out Xsl3.Xdm.WhitespaceFacet facet))
+                {
+                    // Xsl3 (P6): a typed element's simple content is its schema normalized value (XDM 3.1 §6.2.4).
+                    value = Xsl3.Xdm.Lexical.ApplyWhitespace(value, facet);
+                    if (value.Length == 0)
+                    {
+                        _textRaw = null;
+                        return;
+                    }
+                }
                 int node = Child(_textType, None, Value(value));
                 if (_textRaw != null)
                 {

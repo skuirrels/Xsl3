@@ -249,6 +249,6 @@ public class Xslt20Tests
         transform.Load(XmlReader.Create(new StringReader(stylesheet)));
         var bytes = new MemoryStream();
         transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
-        Assert.Equal("<?xml version=\"1.0\" encoding=\"UTF-8\"?><out />", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+        Assert.Equal("<?xml version=\"1.0\" encoding=\"UTF-8\"?><out/>", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
     }
 }

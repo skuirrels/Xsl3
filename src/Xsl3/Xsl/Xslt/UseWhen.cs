@@ -19,6 +19,27 @@ namespace Xsl3.Xslt
     /// </summary>
     internal static class UseWhen
     {
+        // The resolver static expressions read documents with while a stylesheet loads (XsltLoader.Load); null: none.
+        [System.ThreadStatic]
+        private static System.Xml.XmlResolver? t_resolver;
+
+        // Xsl3 (P6): whether the stylesheet being loaded is compiled schema-aware (element-available('xsl:import-schema'),
+        // system-property('xsl:is-schema-aware')).
+        [System.ThreadStatic]
+        private static bool t_schemaAware;
+
+        internal static bool SchemaAware
+        {
+            get => t_schemaAware;
+            set => t_schemaAware = value;
+        }
+
+        internal static System.Xml.XmlResolver? Resolver
+        {
+            get => t_resolver;
+            set => t_resolver = value;
+        }
+
         public static bool Evaluate(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
             IReadOnlyDictionary<QName, int>? staticValues = null, bool evaluateEnabled = false) =>
             Sequences.EffectiveBooleanValue(EvaluateValue(expression, namespaces, defaultElementNamespace, baseUri, staticValues, evaluateEnabled));
@@ -36,9 +57,9 @@ namespace Xsl3.Xslt
                 sc.Namespaces[prefix] = uri;
             }
             sc.Namespaces["xml"] = XmlReservedNs.NsXml;
-            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()) { EvaluateEnabled = evaluateEnabled });
+            int names = ConstantPool.Add(new XsltNameContext(namespaces, new HashSet<(string, string, int)>()) { EvaluateEnabled = evaluateEnabled, Static = true, SchemaAware = t_schemaAware });
             XPath31Executable executable = XPath31Compiler.CompileHosted(Parser.ParseXPath(expression), sc, f => new Environment(f, names, staticValues));
-            return executable.Evaluate();
+            return executable.Evaluate(resolver: t_resolver);
         }
 
         /// <summary>A static attribute value template (a shadow attribute, XSLT 3.0 §3.13.2).</summary>

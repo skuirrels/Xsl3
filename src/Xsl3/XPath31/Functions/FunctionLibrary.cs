@@ -75,7 +75,7 @@ namespace Xsl3.XPath31.Functions
                 // Xsl3 (P4): item()* accepts anything as it is.
                 return value;
             }
-            if (itemTest is AtomicTypeTest or NumericTest)
+            if (itemTest is AtomicTypeTest or NumericTest or UnionTypeTest)
             {
                 value = Sequences.Atomize(value);
                 XPathItem[]? converted = null;
@@ -114,6 +114,28 @@ namespace Xsl3.XPath31.Functions
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
         {
+            if (test is UnionTypeTest union)
+            {
+                // Xsl3 (P6): a union type: untyped values cast to it (its first member that accepts them); others
+                // promoted to the first member they promote to.
+                if (union.Matches(a))
+                {
+                    return a;
+                }
+                if (a.Type.Primitive == Primitive.UntypedAtomic)
+                {
+                    return (AtomicValue)Xsl3.Schema.SchemaTypes.Simple(union.Type, a.Value, null)[0];
+                }
+                foreach (AtomicType member in union.Members)
+                {
+                    AtomicValue promoted = Convert(a, new AtomicTypeTest(member));
+                    if (promoted.Type.DerivesFrom(member))
+                    {
+                        return promoted;
+                    }
+                }
+                return a;
+            }
             AtomicType target = test is AtomicTypeTest t ? t.Type : AtomicTypes.Double;
             if (a.Type.DerivesFrom(target) || (test is NumericTest && a.Type.IsNumeric))
             {
@@ -169,6 +191,27 @@ namespace Xsl3.XPath31.Functions
         }
 
         public static FunctionDefinition ById(int id) => s_byId[id];
+
+        private static int? s_fingerprint;
+
+        /// <summary>
+        /// Xsl3: a hash of the functions in id order. Compiled code calls functions by id, so a stylesheet saved as an
+        /// assembly records it and runs only where it is the same (XmlQueryStaticData).
+        /// </summary>
+        public static int Fingerprint => s_fingerprint ??= ComputeFingerprint();
+
+        private static int ComputeFingerprint()
+        {
+            uint hash = 2166136261; // FNV-1a over "ns local arity;" for each function
+            foreach (FunctionDefinition f in s_byId)
+            {
+                foreach (char c in $"{f.Name.NamespaceUri} {f.Name.LocalName} {f.Arity};")
+                {
+                    hash = (hash ^ c) * 16777619;
+                }
+            }
+            return unchecked((int)hash);
+        }
 
         /// <summary>The function with this name and arity, or null. Variadic functions accept any arity from their declared one.</summary>
         public static FunctionDefinition? Find(string namespaceUri, string localName, int arity)

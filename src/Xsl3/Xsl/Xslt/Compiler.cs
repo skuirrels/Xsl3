@@ -31,7 +31,7 @@ namespace Xsl3.Xslt
         }
     }
 
-    internal sealed class Compiler
+    internal sealed partial class Compiler
     {
         public XsltSettings Settings;
         public bool IsDebug;
@@ -79,6 +79,7 @@ namespace Xsl3.Xslt
         public Dictionary<QilName, CharacterMap> CharacterMaps = new Dictionary<QilName, CharacterMap>();
         public Dictionary<QilName, Output> NamedOutputs = new Dictionary<QilName, Output>();
         public bool XhtmlHtmlLiteral; // Xsl3: a 2.0+ literal result element is XHTML's html element
+        public double PrincipalVersion; // Xsl3: the [xsl:]version of the principal module's outermost element
         public Dictionary<QilName, ModeDecl> ModeDecls = new Dictionary<QilName, ModeDecl>();
         public QilName? DefaultInitialMode; // Xsl3: the principal stylesheet module's default-mode
         public (string Use, string? As)? GlobalContextItem; // Xsl3: the principal package's xsl:global-context-item
@@ -279,7 +280,11 @@ namespace Xsl3.Xslt
             }
             catch (XmlException e)
             {
-                errorHelper.ReportError(/*[XT_042]*/e.Message, null);
+                // Xsl3: in 2.0+ an attribute value that isn't a QName is XTSE0020.
+                if (Version == 2)
+                    errorHelper.ReportError(SR.Xml_UserException, "XTSE0020: " + e.Message);
+                else
+                    errorHelper.ReportError(/*[XT_042]*/e.Message, null);
                 prefix = PhantomNCName;
                 localName = PhantomNCName;
                 return false;
@@ -382,10 +387,76 @@ namespace Xsl3.Xslt
         public CompilerError CreateError(ISourceLineInfo lineInfo, string res, params string?[]? args)
         {
             AddModule(lineInfo.Uri!);
+            string text = XslTransformException.CreateMessage(res, args);
+            if (Version == 2 && ErrorCode31(res, args) is string code)
+            {
+                // Xsl3: in 2.0+ the messages inherited from the 1.0 compiler start with their XSLT error code (as the
+                // 3.0 ones do); 1.0 keeps stock's text.
+                text = code + ": " + text;
+            }
             return new CompilerError(
                 lineInfo.Uri!, lineInfo.Start.Line, lineInfo.Start.Pos, /*errorNumber:*/string.Empty,
-                /*errorText:*/XslTransformException.CreateMessage(res, args)
+                /*errorText:*/text
             );
+        }
+
+        // Xsl3: the XSLT 3.0 error code of an inherited static error message (by its resource), null if it has none.
+        private static string? ErrorCode31(string res, string?[]? args)
+        {
+            string Local(int i) => args is { Length: > 0 } && args[i] is string a ? a[(a.IndexOf(':') + 1)..] : "";
+            if (ReferenceEquals(res, SR.Xslt_ElementCntSel) || res == SR.Xslt_ElementCntSel)
+            {
+                return Local(0) switch
+                {
+                    "variable" or "param" or "with-param" => "XTSE0620",
+                    "attribute" => "XTSE0840",
+                    "value-of" => "XTSE0870",
+                    "processing-instruction" => "XTSE0880",
+                    "namespace" => "XTSE0910",
+                    "comment" => "XTSE0940",
+                    "sort" => "XTSE1015",
+                    "break" or "on-completion" => "XTSE3125",
+                    "try" => "XTSE3140",
+                    "catch" => "XTSE3150",
+                    "sequence" => "XTSE3185",
+                    "merge-key" => "XTSE3200",
+                    "map-entry" => "XTSE3280",
+                    _ => null,
+                };
+            }
+            if (res == SR.Xslt_NotAtTop)
+            {
+                return Local(0) == "import" ? "XTSE0200" : "XTSE0010";
+            }
+            if (res == SR.Xslt_TextNodesNotAllowed)
+            {
+                return Local(0) is "stylesheet" or "transform" or "package" ? "XTSE0120" : "XTSE0010";
+            }
+            return res switch
+            {
+                _ when res == SR.Xslt_UnexpectedElement || res == SR.Xslt_MissingAttribute || res == SR.Xslt_RequiredAndSelect => "XTSE0010",
+                _ when res == SR.Xslt_InvalidAttribute => "XTSE0090",
+                _ when res == SR.Xslt_BistateAttribute || res == SR.Xslt_InvalidAttrValue => "XTSE0020",
+                _ when res == SR.Xslt_InvalidPrefix => "XTSE0280",
+                _ when res == SR.Xslt_CircularInclude => "XTSE0180",
+                _ when res == SR.Xslt_DupTemplateName => "XTSE0660",
+                _ when res == SR.Xslt_NotEmptyContents => "XTSE0260",
+                _ when res == SR.Xslt_InvalidCallTemplate => "XTSE0650",
+                _ when res == SR.Xslt_WrongStylesheetElement => "XTSE0150",
+                _ when res == SR.Xslt_NoAttributeSet => "XTSE0710",
+                _ when res == SR.Xslt_CircularAttributeSet => "XTSE0720",
+                _ when res == SR.Xslt_DuplicateWithParam => "XTSE0670",
+                _ when res == SR.Xslt_DupGlobalVariable => "XTSE0630",
+                _ when res == SR.Xslt_DupLocalVariable => "XTSE0580", // (2.0+ reports only parameters: variables may shadow)
+                _ when res == SR.Xslt_ModeListDup || res == SR.Xslt_ModeListAll || res == SR.Xslt_ModeListEmpty => "XTSE0550",
+                _ when res == SR.Xslt_DecimalFormatRedefined => "XTSE1290",
+                _ when res == SR.Xslt_AnalyzeStringEmpty => "XTSE1130",
+                _ when res == SR.Xslt_SortStable => "XTSE1017",
+                _ when res == SR.Xslt_ModeWithoutMatch || res == SR.Xslt_PriorityWithoutMatch || res == SR.Xslt_BothMatchNameAbsent => "XTSE0500",
+                _ when res == SR.Xslt_KeyCntUse => "XTSE1205",
+                _ when res == SR.Xslt_NullNsAtTopLevel => "XTSE0130",
+                _ => null,
+            };
         }
 
         public void ReportError(ISourceLineInfo lineInfo, string res, params string?[]? args)
@@ -478,6 +549,7 @@ namespace Xsl3.Xslt
     {
         public string OnNoMatch = "text-only-copy";
         public string OnMultipleMatch = "use-last";
+        public string Typed = "unspecified"; // Xsl3: typed="yes"/"strict" makes untyped nodes XTTE3100
         public Dictionary<string, string> Attributes = new(); // the attributes given, for XTSE0545
         public int ImportPrecedence;
         public ModeDeclNode? Declaration; // Xsl3: for packages: the declaration's line, package and visibility

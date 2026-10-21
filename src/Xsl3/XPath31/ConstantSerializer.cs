@@ -20,6 +20,15 @@ namespace Xsl3.XPath31
     /// </summary>
     internal static class ConstantSerializer
     {
+        // Xsl3 (P6): a schema-aware stylesheet's constants refer to its imported schemas, which aren't saved.
+        private static void NoSchema(bool usesSchemas)
+        {
+            if (usesSchemas)
+            {
+                throw new System.NotSupportedException("A schema-aware stylesheet can't be saved: its imported schemas aren't saved with it");
+            }
+        }
+
         private const int FormatVersion = 1;
 
         private enum Kind : byte
@@ -94,6 +103,7 @@ namespace Xsl3.XPath31
                     WriteResolver(w, s.Namespaces);
                     break;
                 case CastTarget c:
+                    NoSchema(c.Kind == CastKind.Schema || c.Type.IsUserDefined);
                     w.Write((byte)Kind.CastTarget);
                     WriteName(w, c.Type.Name);
                     WriteResolver(w, c.Namespaces);
@@ -104,6 +114,7 @@ namespace Xsl3.XPath31
                     WriteSequenceType(w, t);
                     break;
                 case XsltNameContext n:
+                    NoSchema(n.Schemas != null);
                     w.Write((byte)Kind.NameContext);
                     WriteStringMap(w, n.Namespaces);
                     w.Write(n.StylesheetFunctions.Count);
@@ -164,6 +175,9 @@ namespace Xsl3.XPath31
                     {
                         WriteNullable(w, s);
                     }
+                    break;
+                case EvaluateContext e when e.Schemas != null:
+                    NoSchema(true);
                     break;
                 case EvaluateContext e:
                     w.Write((byte)Kind.EvaluateContext);
@@ -733,6 +747,7 @@ namespace Xsl3.XPath31
                     w.Write((byte)TestKind.Any);
                     break;
                 case AtomicTypeTest a:
+                    NoSchema(a.Type.IsUserDefined);
                     w.Write((byte)TestKind.Atomic);
                     WriteName(w, a.Type.Name);
                     break;
@@ -740,6 +755,7 @@ namespace Xsl3.XPath31
                     w.Write((byte)TestKind.Numeric);
                     break;
                 case NodeKindTest n:
+                    NoSchema(n.Names != null || n.SchemaType != null && !Xsl3.Schema.SchemaTypes.IsBuiltIn(n.SchemaType));
                     w.Write((byte)TestKind.Node);
                     w.Write(n.Kind is XPathNodeType kind ? (int)kind : -1);
                     WriteNullable(w, n.NamespaceUri);
@@ -806,10 +822,14 @@ namespace Xsl3.XPath31
                     string? ns = ReadNullable(r), local = ReadNullable(r);
                     bool anyType = r.ReadBoolean();
                     var documentElement = (NodeKindTest?)ReadItemTest(r);
+                    string? typeName = ReadNullable(r);
                     return new NodeKindTest(kind < 0 ? null : (XPathNodeType)kind, ns, local, anyType, documentElement)
                     {
-                        TypeName = ReadNullable(r),
+                        TypeName = typeName,
                         Nillable = r.ReadBoolean(),
+                        // (Only a built-in type is saved: P6.)
+                        SchemaType = typeName == null ? null : typeName == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
+                            : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(new System.Xml.XmlQualifiedName(typeName, QName.Ns.Xs)),
                     };
                 }
                 case TestKind.Function:

@@ -96,6 +96,13 @@ namespace Xsl3.XPath31.Functions
                 Xsl3.Runtime.XmlQueryRuntime.EnvironmentVariables
                     ? System.Environment.GetEnvironmentVariables().Keys.Cast<string>().Order(System.StringComparer.Ordinal).Select(k => (XPathItem)AtomicValue.OfString(k)).ToList()
                     : Empty);
+
+            // ---------------------------------------------------------- fn:load-xquery-module (F&O §17.4)
+            // Xsl3 has no XQuery processor: FOQM0006, as the function allows.
+            Define("fn:load-xquery-module($module-uri as xs:string) as map(*)", (c, a) =>
+                throw new XdmException("FOQM0006", "There is no XQuery processor to load a module with"));
+            Define("fn:load-xquery-module($module-uri as xs:string, $options as map(*)) as map(*)", (c, a) =>
+                throw new XdmException("FOQM0006", "There is no XQuery processor to load a module with"));
         }
 
         private static bool ContainsToken(IList<XPathItem> input, string token, Collation collation)

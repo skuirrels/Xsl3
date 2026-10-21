@@ -46,7 +46,8 @@ jobs:
       - name: Differential tests
         run: dotnet test tests/Xsl3.Differential -c Release --no-build --logger trx --results-directory artifacts/test-results
 
-      # W3C QT3 (XPath 3.1 / F&O 3.1), tracked against tests/Xsl3.W3C/baselines.
+      # W3C QT3 (XPath 3.1 / F&O 3.1), tracked against tests/Xsl3.W3C/baselines; the TEI Stylesheets against their
+      # expected results.
       # About one xslt30-test case in ten compiles into a saved assembly and runs from it (Sink B round trip).
       - name: W3C tests
         if: matrix.os == 'ubuntu-latest'
@@ -54,6 +55,7 @@ jobs:
           XSL3_W3C_SAVED: "10"
         run: |
           eng/fetch-w3c.sh
+          eng/fetch-bench.sh
           dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
 
       # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is

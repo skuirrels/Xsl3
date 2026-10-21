@@ -74,6 +74,33 @@ namespace Xsl3.Tree
         /// </summary>
         internal Dictionary<int, List<(int Start, int Length)>>? _rawText;
 
+        /// <summary>
+        /// Xsl3 (P6): the type annotations of a tree built by a validating reader: each element's type (xs:anyType for
+        /// one validated laxly that the schema doesn't declare), each attribute's that the schema declares, and the
+        /// nilled elements. Null in an untyped tree, where elements are xs:untyped and attributes xs:untypedAtomic.
+        /// </summary>
+        internal Dictionary<int, System.Xml.Schema.XmlSchemaType>? _types, _attrTypes;
+        internal HashSet<int>? _nilled;
+
+        /// <summary>Xsl3 (P6): the elements whose content, typed xs:ID, is their ID (fn:element-with-id gives their parents).</summary>
+        internal HashSet<int>? _idContent;
+
+        /// <summary>Xsl3 (P6): the attributes that are IDs by their schema type (typed, or copied untyped from one that was).</summary>
+        internal HashSet<int>? _idAttrs;
+
+        /// <summary>Xsl3 (P6): a tree the transformation built (a temporary tree, or a validated copy), not an input document.</summary>
+        internal bool _constructed;
+
+        /// <summary>
+        /// Xsl3 (P6): input-type-annotations="strip" is in force on this thread: the type annotations of trees the
+        /// transformation didn't build are ignored.
+        /// </summary>
+        [ThreadStatic]
+        internal static bool StripInputAnnotations;
+
+        /// <summary>Xsl3 (P6): the type annotations as this transformation sees them (none when input annotations are stripped).</summary>
+        internal bool HasAnnotations => (_types != null || _attrTypes != null) && !(StripInputAnnotations && !_constructed && !_writerBuilt);
+
         /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
         internal bool NoDocumentUri { get; set; }
 
@@ -90,11 +117,14 @@ namespace Xsl3.Tree
         }
 
         /// <summary>Builds a tree from a reader, as <c>new XPathDocument(reader, space)</c> would.</summary>
-        public static CompactDocument Load(XmlReader reader, XmlSpace space = XmlSpace.Default)
+        public static CompactDocument Load(XmlReader reader, XmlSpace space = XmlSpace.Default) => Load(reader, space, typed: false);
+
+        /// <summary>Xsl3 (P6): <paramref name="typed"/>: the reader reads a typed tree, whose annotations the new tree keeps.</summary>
+        internal static CompactDocument Load(XmlReader reader, XmlSpace space, bool typed)
         {
             ArgumentNullException.ThrowIfNull(reader);
             var builder = new Builder(reader.NameTable, reader.BaseURI);
-            builder.Read(reader, space);
+            builder.Read(reader, space, typed: typed);
             return builder.Finish();
         }
 
@@ -188,6 +218,8 @@ namespace Xsl3.Tree
                     switch (Kind(n))
                     {
                         case (int)XPathNodeType.Element:
+                            // Xsl3: unless it is xsl:copy's copy, which keeps its original's (XmlQueryOutput, 2.0+).
+                            return _baseUris != null && _baseUris.TryGetValue(n, out string? copied) ? copied : string.Empty;
                         case (int)XPathNodeType.ProcessingInstruction:
                             return string.Empty;
                         case (int)XPathNodeType.Root:

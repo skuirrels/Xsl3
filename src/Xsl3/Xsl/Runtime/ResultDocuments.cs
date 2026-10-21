@@ -18,6 +18,32 @@ namespace Xsl3.Runtime
     /// </summary>
     internal static class SerializationParameters
     {
+        /// <summary>
+        /// Xsl3: an encoding by its name, or by a common alias .NET doesn't know (utf8, utf16, utf32, usascii, written
+        /// without the hyphen), as Java's charsets and so other processors accept them. ArgumentException otherwise.
+        /// </summary>
+        internal static Encoding EncodingByName(string name)
+        {
+            try
+            {
+                return Encoding.GetEncoding(name);
+            }
+            catch (System.ArgumentException)
+            {
+                string alias = name.Trim().ToLowerInvariant() switch
+                {
+                    "utf8" or "utf_8" => "utf-8",
+                    "utf16" or "utf_16" => "utf-16",
+                    "utf16le" or "utf_16le" => "utf-16LE",
+                    "utf16be" or "utf_16be" => "utf-16BE",
+                    "utf32" or "utf_32" => "utf-32",
+                    "usascii" or "us_ascii" or "ascii" => "us-ascii",
+                    _ => throw new System.ArgumentException($"The encoding '{name}' is not supported", nameof(name)),
+                };
+                return Encoding.GetEncoding(alias);
+            }
+        }
+
         public const char NameEnd = '\u0001', ValueEnd = '\u0002';
 
         /// <param name="open">Opens a parameter-document (its URI as given); null if there can be none.</param>
@@ -80,7 +106,7 @@ namespace Xsl3.Runtime
                     case "encoding":
                         try
                         {
-                            settings.Encoding = Encoding.GetEncoding(value);
+                            settings.Encoding = EncodingByName(value);
                             Extras().Encoding = value;
                             // As for xsl:output: UTF-8 has no byte order mark unless byte-order-mark="yes".
                             byteOrderMark ??= settings.Encoding is UTF8Encoding ? false : null;
@@ -316,6 +342,8 @@ namespace Xsl3.Runtime
                 settings = settings.Clone();
                 settings.CDataSectionElements.Clear();
             }
+            // (The factory sees only the settings: an xhtml result keeps "<a />", EmptyTagFilter.)
+            using System.IDisposable? xhtml = EmptyTagFilter.Xhtml(extras?.Xhtml == true);
             XmlWriter w;
             if (declaration)
             {

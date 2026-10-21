@@ -52,6 +52,9 @@ namespace Xsl3.Xdm
 
         internal bool AsBoolean() => ((BooleanValue)this).Boolean;
 
+        /// <summary>Xsl3 (P6): the same value labelled with a type derived from its own (facets already checked).</summary>
+        internal virtual AtomicValue WithType(AtomicType type) => throw new InvalidOperationException($"{Type.Name} can't be relabelled");
+
         // Convenience constructors.
         public static StringValue OfString(string s) => new(AtomicTypes.String, s);
         public static StringValue OfUntyped(string s) => new(AtomicTypes.UntypedAtomic, s);
@@ -65,6 +68,8 @@ namespace Xsl3.Xdm
     /// <summary>xs:string and its subtypes, xs:untypedAtomic and xs:anyURI.</summary>
     internal sealed class StringValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new StringValue(type, String);
+
         public StringValue(AtomicType type, string value) : base(type)
         {
             String = value;
@@ -78,6 +83,13 @@ namespace Xsl3.Xdm
 
     internal sealed class BooleanValue : AtomicValue
     {
+        internal BooleanValue(AtomicType type, bool value) : base(type)
+        {
+            Boolean = value;
+        }
+
+        internal override AtomicValue WithType(AtomicType type) => new BooleanValue(type, Boolean);
+
         public static readonly BooleanValue True = new(true);
         public static readonly BooleanValue False = new(false);
 
@@ -96,6 +108,8 @@ namespace Xsl3.Xdm
     /// <summary>xs:integer and its subtypes. Unbounded (SPEC §8.2 allows a long fast path; that is a P4 concern).</summary>
     internal sealed class IntegerValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new IntegerValue(type, Integer);
+
         public IntegerValue(AtomicType type, BigInteger value) : base(type)
         {
             Integer = value;
@@ -111,6 +125,8 @@ namespace Xsl3.Xdm
 
     internal sealed class DecimalValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new DecimalValue(type, Decimal);
+
         public DecimalValue(AtomicType type, decimal value) : base(type)
         {
             Decimal = value;
@@ -125,6 +141,13 @@ namespace Xsl3.Xdm
 
     internal sealed class DoubleValue : AtomicValue
     {
+        internal DoubleValue(AtomicType type, double value) : base(type)
+        {
+            Double = value;
+        }
+
+        internal override AtomicValue WithType(AtomicType type) => new DoubleValue(type, Double);
+
         public DoubleValue(double value) : base(AtomicTypes.Double)
         {
             Double = value;
@@ -139,6 +162,13 @@ namespace Xsl3.Xdm
 
     internal sealed class FloatValue : AtomicValue
     {
+        internal FloatValue(AtomicType type, float value) : base(type)
+        {
+            Float = value;
+        }
+
+        internal override AtomicValue WithType(AtomicType type) => new FloatValue(type, Float);
+
         public FloatValue(float value) : base(AtomicTypes.Float)
         {
             Float = value;
@@ -154,6 +184,8 @@ namespace Xsl3.Xdm
     /// <summary>xs:duration, xs:yearMonthDuration, xs:dayTimeDuration.</summary>
     internal sealed class DurationValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new DurationValue(type, Duration);
+
         public DurationValue(AtomicType type, XsDuration value) : base(type)
         {
             Duration = value;
@@ -168,6 +200,8 @@ namespace Xsl3.Xdm
     /// <summary>The eight date/time types and xs:dateTimeStamp.</summary>
     internal sealed class DateTimeValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new DateTimeValue(type, DateTime);
+
         public DateTimeValue(AtomicType type, XsDateTime value) : base(type)
         {
             DateTime = value;
@@ -182,6 +216,8 @@ namespace Xsl3.Xdm
     /// <summary>xs:hexBinary and xs:base64Binary.</summary>
     internal sealed class BinaryValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new BinaryValue(type, _bytes);
+
         private readonly byte[] _bytes;
 
         public BinaryValue(AtomicType type, byte[] bytes) : base(type)
@@ -198,6 +234,8 @@ namespace Xsl3.Xdm
     /// <summary>xs:QName and xs:NOTATION.</summary>
     internal sealed class QNameValue : AtomicValue
     {
+        internal override AtomicValue WithType(AtomicType type) => new QNameValue(type, QName);
+
         public QNameValue(AtomicType type, QName value) : base(type)
         {
             QName = value;

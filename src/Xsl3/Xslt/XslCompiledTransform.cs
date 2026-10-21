@@ -189,7 +189,11 @@ namespace Xsl3
                 _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             }
             _qil.CompactTree = UseCompactTree;
+            _importsSchemas = compiler.Schemas != null;
         }
+
+        // Xsl3 (P6): whether the stylesheet last compiled imports schemas (it then can't be saved: CompileToAssembly).
+        private bool _importsSchemas;
 
         /// <summary>
         /// Xsl3: whether an XSLT 1.0 stylesheet builds the documents it parses itself (an input given as a URI or
@@ -379,6 +383,11 @@ namespace Xsl3
             {
                 throw new XslLoadException(error);
             }
+            if (_importsSchemas)
+            {
+                _qil = null;
+                throw new NotSupportedException("A schema-aware stylesheet can't be saved: its imported schemas aren't saved with it");
+            }
             var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
             ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
             TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
@@ -515,20 +524,21 @@ namespace Xsl3
 
         private XmlWriter CreateResultWriter(TextWriter results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedTextWriter(results, max) : results);
 
+        // (2.0+ xml-method results write empty elements as <a/>: Runtime.EmptyTagFilter.)
         private XmlWriter CreateLimitedWriter(Stream results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
-                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
-                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results, compactEmptyTags: EmptyTagFilter.Compact(direct, _command.StaticData.OutputExtras))
+                    : new PrincipalResult(s => XmlWriter.Create(EmptyTagFilter.Wrap(results, s, _command.StaticData.OutputExtras), s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         private XmlWriter CreateLimitedWriter(TextWriter results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
-                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results)
-                    : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
+                    ? XmlWriterSettingsInternals.CreateRawWriter(direct, results, compactEmptyTags: EmptyTagFilter.Applies(direct, _command.StaticData.OutputExtras))
+                    : new PrincipalResult(s => XmlWriter.Create(EmptyTagFilter.Wrap(results, s, _command.StaticData.OutputExtras), s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
         /// <summary>
@@ -803,6 +813,7 @@ namespace Xsl3
                 bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
                 bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
                 var savedPackages = XmlQueryRuntime.Packages;
+                TimeSpan? savedRegexTimeout = XmlQueryRuntime.RegexTimeout;
                 Func<string, string, TextWriter>? savedHandler = XmlQueryRuntime.ResultDocumentHandler;
                 try
                 {
@@ -829,6 +840,7 @@ namespace Xsl3
                     XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
                     XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
                     XmlQueryRuntime.Packages = Packages ?? savedPackages;
+                    XmlQueryRuntime.RegexTimeout = settings.Timeout;
                     transform();
                 }
                 finally
@@ -842,6 +854,7 @@ namespace Xsl3
                     XmlQueryRuntime.ExtensionFunctions = savedExtensions;
                     XmlQueryRuntime.DynamicTransforms = savedDynamic;
                     XmlQueryRuntime.Packages = savedPackages;
+                    XmlQueryRuntime.RegexTimeout = savedRegexTimeout;
                     XmlQueryRuntime.ResultDocumentHandler = savedHandler;
                 }
             }

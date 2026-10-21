@@ -96,6 +96,58 @@ namespace Xsl3.Xdm
         public override string ToString() => Type.Name.ToString();
     }
 
+    /// <summary>Xsl3 (P6): a union type a schema defines: a value matches if its type derives from one of the member types.</summary>
+    internal sealed class UnionTypeTest : ItemTest
+    {
+        private readonly AtomicType[] _members;
+
+        public UnionTypeTest(System.Xml.Schema.XmlSchemaSimpleType type)
+        {
+            Type = type;
+            var members = new List<AtomicType>();
+            void Add(System.Xml.Schema.XmlSchemaSimpleType t)
+            {
+                foreach (System.Xml.Schema.XmlSchemaSimpleType member in Xsl3.Schema.SchemaTypes.UnionMemberTypes(t))
+                {
+                    if (Xsl3.Schema.SchemaTypes.AtomicTypeOf(member) is { } atomic)
+                    {
+                        members.Add(atomic);
+                    }
+                    else if (member.Datatype?.Variety == System.Xml.Schema.XmlSchemaDatatypeVariety.Union)
+                    {
+                        Add(member);
+                    }
+                }
+            }
+            Add(type);
+            _members = members.ToArray();
+        }
+
+        public System.Xml.Schema.XmlSchemaSimpleType Type { get; }
+
+        /// <summary>The atomic member types, unions flattened, in order.</summary>
+        public IReadOnlyList<AtomicType> Members => _members;
+
+        public override bool Matches(XPathItem item)
+        {
+            AtomicValue? value = item as AtomicValue ?? (!item.IsNode && item is not FunctionItem ? Sequences.Atomize(item) : null);
+            if (value == null)
+            {
+                return false;
+            }
+            foreach (AtomicType member in _members)
+            {
+                if (value.Type.DerivesFrom(member))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public override string ToString() => Type.QualifiedName.ToString();
+    }
+
     /// <summary>xs:numeric, the union of xs:double, xs:float and xs:decimal (XPath 3.1 §2.7.2).</summary>
     internal sealed class NumericTest : ItemTest
     {
@@ -140,6 +192,16 @@ namespace Xsl3.Xdm
         /// <summary>Whether the test admits nilled elements: element(N) and element(N, T?).</summary>
         public bool Nillable { get; init; } = true;
 
+        /// <summary>
+        /// Xsl3 (P6): the type named in element(N, T) or attribute(N, T), or declared for schema-element(N) and
+        /// schema-attribute(N): a node a schema validated matches if its type annotation derives from it. Null for a
+        /// type that only untyped nodes have (xs:untyped, xs:untypedAtomic).
+        /// </summary>
+        public System.Xml.Schema.XmlSchemaType? SchemaType { get; init; }
+
+        /// <summary>Xsl3 (P6): for schema-element(N), N and the names of the elements in its substitution group.</summary>
+        public HashSet<(string Ns, string Local)>? Names { get; init; }
+
         public override bool Matches(XPathItem item)
         {
             if (item is not XPathNavigator nav)
@@ -165,7 +227,25 @@ namespace Xsl3.Xdm
             {
                 return false;
             }
-            if (!AnyType)
+            if (Names != null && !Names.Contains((nav.NamespaceURI, nav.LocalName)))
+            {
+                return false;
+            }
+            if (TypeName != null)
+            {
+                // Untyped nodes match if the type admits xs:untyped (xs:untypedAtomic); typed ones if their annotation
+                // derives from it (Xsl3, P6).
+                System.Xml.Schema.XmlSchemaType? annotation = Xsl3.Schema.SchemaTypes.TypeOf(nav);
+                if (annotation == null ? !AnyType : SchemaType == null || !Xsl3.Schema.SchemaTypes.DerivesFrom(annotation, SchemaType))
+                {
+                    return false;
+                }
+                if (!Nillable && annotation != null && Xsl3.Schema.SchemaTypes.IsNilled(nav))
+                {
+                    return false;
+                }
+            }
+            else if (!AnyType)
             {
                 return false;
             }

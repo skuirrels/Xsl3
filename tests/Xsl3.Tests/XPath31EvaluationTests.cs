@@ -89,6 +89,9 @@ public class XPath31EvaluationTests
     [InlineData("exists(()), empty(())", "false true")]
     [InlineData("not(()), boolean('a')", "true true")]
     [InlineData("year-from-date(xs:date('2024-05-06'))", "2024")]
+    [InlineData("(2, 4, 6) ! position#0(), (2, 4, 6) ! last#0()", "1 2 3 3 3 3")] // the focus the reference is made in
+    [InlineData("10 < (1 to 1000000000000000000000), (1 to 5) >= 6, 3 > (4 to 2)", "true false false")] // not materialised
+    [InlineData("format-integer(1, 'Ww;o(-er)', 'de'), format-integer(3, 'w;o(-en)', 'de')", "Erster dritten")]
     public void EvaluatesWithoutContext(string expression, string expected)
     {
         Assert.Equal(expected, Render(expression));

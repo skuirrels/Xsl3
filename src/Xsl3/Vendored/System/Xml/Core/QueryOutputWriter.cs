@@ -343,6 +343,19 @@ namespace System.Xml
         }
 
 
+        /// <summary>
+        /// Xsl3: text with disable-output-escaping in a cdata-section element is written as it is, outside the CDATA
+        /// section (XSLT and XQuery Serialization 3.1 §5.1.4, 2.0+ only; stock writes it as CDATA).
+        /// </summary>
+        internal void WriteRawOutsideCData(string data)
+        {
+            if (_inCDataSection)
+            {
+                EndCDataSection();
+            }
+            _wrapped.WriteRaw(data);
+        }
+
         //-----------------------------------------------
         // Helper methods
         //-----------------------------------------------

@@ -113,6 +113,45 @@ namespace System.Xml
             return result;
         }
 
+        // Xsl3: the DTD's element declarations (SchemaInfo.ElementDecls) and an element's content model.
+        private static readonly PropertyInfo? s_elementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?.GetProperty("ElementDecls", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo? s_contentValidator = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("ContentValidator", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo? s_contentType = Type.GetType("System.Xml.Schema.ContentValidator, System.Private.Xml")?.GetProperty("ContentType", BindingFlags.Instance | BindingFlags.Public);
+
+        /// <summary>
+        /// Xsl3: the elements the reader's DTD declares with element-only content, as (local name, prefix): their
+        /// whitespace children are element content whitespace, which the data model leaves out (XDM 3.1 §6.7.3).
+        /// Empty when the DTD's internals can't be reached.
+        /// </summary>
+        [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+        [DynamicDependency("get_ElementDecls", "System.Xml.Schema.SchemaInfo", Asm)]
+        [DynamicDependency("get_ContentValidator", "System.Xml.Schema.SchemaElementDecl", Asm)]
+        [DynamicDependency("get_ContentType", "System.Xml.Schema.ContentValidator", Asm)]
+        public static HashSet<(string, string)> GetElementOnlyElements(XmlReader reader)
+        {
+            var result = new HashSet<(string, string)>();
+            while (reader is XmlWrappingReader wrapping)
+            {
+                reader = wrapping.InnerReader;
+            }
+            object? dtdInfo = s_dtdInfo?.GetValue(reader);
+            if (dtdInfo == null || s_elementDecls == null || s_contentValidator == null || s_contentType == null ||
+                s_elementDecls.GetValue(dtdInfo) is not System.Collections.IDictionary decls)
+            {
+                return result;
+            }
+            foreach (System.Collections.DictionaryEntry decl in decls)
+            {
+                // A DTD's names have no namespace: the qualified name's namespace slot holds the prefix.
+                if (decl.Key is XmlQualifiedName name && decl.Value != null && s_contentValidator.GetValue(decl.Value) is object validator &&
+                    s_contentType.GetValue(validator) is Schema.XmlSchemaContentType.ElementOnly)
+                {
+                    result.Add((name.Name, name.Namespace));
+                }
+            }
+            return result;
+        }
+
         /// <summary>Xsl3: whether the bridge to the DTD's attribute types binds on this runtime (BridgeTests).</summary>
         internal static bool IdrefBridgeBinds => s_attDefs != null && s_tokenizedType != null;
 

@@ -1,5 +1,6 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace Xsl3.XPath31.Functions
 
         private readonly Kind _kind;
         private readonly bool _ordinal;
+        private readonly string? _ordinalVariant; // o(-er): the ending a language's ordinal takes
         private readonly int _zero;            // the zero digit of the digit family (decimal)
         private readonly int _mandatory;       // number of mandatory digits (decimal)
         private readonly List<(int Position, string Separator)> _grouping = new(); // positions from the right
@@ -59,6 +61,7 @@ namespace Xsl3.XPath31.Functions
                     {
                         int close = modifier.IndexOf(')', i);
                         if (close < 0 || close == i + 1) throw new XdmException(error, $"Invalid format modifier '{modifier}'");
+                        _ordinalVariant = modifier[(i + 1)..close];
                         i = close + 1;
                     }
                 }
@@ -188,6 +191,12 @@ namespace Xsl3.XPath31.Functions
                 Kind.OtherAlpha => abs.IsZero ? FormatDecimalPlain(abs) : Alphabetic(abs, _alphaStart, AlphabetLength(_alphaStart)),
                 Kind.RomanLower => Roman(abs)?.ToLowerInvariant() ?? FormatDecimalPlain(abs),
                 Kind.RomanUpper => Roman(abs) ?? FormatDecimalPlain(abs),
+                Kind.WordsLower or Kind.WordsUpper or Kind.WordsTitle when GermanWords.Applies(language) => _kind switch
+                {
+                    Kind.WordsLower => GermanWords.ToWords(abs, _ordinal, _ordinalVariant),
+                    Kind.WordsUpper => GermanWords.ToWords(abs, _ordinal, _ordinalVariant).ToUpperInvariant(),
+                    _ => GermanWords.TitleCase(GermanWords.ToWords(abs, _ordinal, _ordinalVariant)),
+                },
                 Kind.WordsLower => Words.ToWords(abs, _ordinal),
                 Kind.WordsUpper => Words.ToWords(abs, _ordinal).ToUpperInvariant(),
                 _ => Words.TitleCase(Words.ToWords(abs, _ordinal)),
@@ -366,5 +375,72 @@ namespace Xsl3.XPath31.Functions
 
         public static string TitleCase(string s) =>
             string.Join(" ", s.Split(' ').Select(w => w == "and" ? w : char.ToUpperInvariant(w[0]) + w[1..]));
+    }
+
+    /// <summary>
+    /// German number words (lang="de", "de-…"), cardinal and ordinal: written as one word below a million
+    /// (einundzwanzig, zweihundertdrei), with Million and Milliarde as words of their own.
+    /// </summary>
+    internal static class GermanWords
+    {
+        private static readonly string[] s_units =
+            { "null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf",
+              "dreizehn", "vierzehn", "fünfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn" };
+        private static readonly string[] s_tens = { "", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig" };
+
+        public static bool Applies(string? language) =>
+            language != null && (language.Equals("de", StringComparison.OrdinalIgnoreCase) || language.StartsWith("de-", StringComparison.OrdinalIgnoreCase));
+
+        public static string ToWords(BigInteger n, bool ordinal, string? variant = null)
+        {
+            string words = Cardinal(n, alone: true);
+            if (!ordinal)
+            {
+                return words;
+            }
+            int last = (int)(n % 100);
+            // Up to nineteen the ordinal adds -te (erste, dritte, siebte, achte); from twenty, -ste.
+            string ordinalWords = n.IsZero || last is 0 or >= 20
+                ? words + "ste"
+                : words[..^s_units[last].Length] + (last switch { 1 => "erste", 3 => "dritte", 7 => "siebte", 8 => "achte", _ => s_units[last] + "te" });
+            // o(-er), o(-en), o(-es): the inflected ending in place of -e (erster, ersten, erstes).
+            return variant is ['-', _, ..] ? ordinalWords[..^1] + variant[1..] : ordinalWords;
+        }
+
+        // alone: "eins" for one standing alone; "ein" inside a word (einundzwanzig, einhundert).
+        private static string Cardinal(BigInteger n, bool alone)
+        {
+            if (n < 20)
+            {
+                return n == 1 && !alone ? "ein" : s_units[(int)n];
+            }
+            if (n < 100)
+            {
+                int t = (int)(n / 10), u = (int)(n % 10);
+                return u == 0 ? s_tens[t] : (u == 1 ? "ein" : s_units[u]) + "und" + s_tens[t];
+            }
+            if (n < 1000)
+            {
+                BigInteger rest = n % 100;
+                return Cardinal(n / 100, alone: false) + "hundert" + (rest.IsZero ? "" : Cardinal(rest, alone));
+            }
+            if (n < 1_000_000)
+            {
+                BigInteger rest = n % 1000;
+                return Cardinal(n / 1000, alone: false) + "tausend" + (rest.IsZero ? "" : Cardinal(rest, alone));
+            }
+            foreach (var (value, one, many) in new[] { (BigInteger.Pow(10, 9), "Milliarde", "Milliarden"), (BigInteger.Pow(10, 6), "Million", "Millionen") })
+            {
+                if (n >= value)
+                {
+                    BigInteger high = n / value, rest = n % value;
+                    string head = high == 1 ? "eine " + one : Cardinal(high, alone: true) + " " + many;
+                    return rest.IsZero ? head : head + " " + Cardinal(rest, alone);
+                }
+            }
+            return n.ToString(CultureInfo.InvariantCulture);
+        }
+
+        public static string TitleCase(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
     }
 }

@@ -166,7 +166,7 @@ public class Xslt30ApiTests
         transformer.ResultDocumentHandler = uri => parts[uri] = new StringWriter();
         var text = new StringWriter();
         transformer.CallTemplate(null, text);
-        Assert.Equal("<main />", text.ToString());
+        Assert.Equal("<main/>", text.ToString());
         Assert.Contains("<part", parts[new Uri("file:///out/part.xml")].ToString());
     }
 

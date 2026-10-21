@@ -290,7 +290,10 @@ namespace System.Xml
             {
                 // Use shortcut syntax; overwrite the already output '>' character
                 _bufPos--;
-                _bufBytes[_bufPos++] = (byte)' ';
+                if (!CompactEmptyTags) // Xsl3: 2.0+ results write <a/> (EmptyTagFilter)
+                {
+                    _bufBytes[_bufPos++] = (byte)' ';
+                }
                 _bufBytes[_bufPos++] = (byte)'/';
                 _bufBytes[_bufPos++] = (byte)'>';
             }

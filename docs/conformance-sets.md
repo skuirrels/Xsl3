@@ -6,57 +6,58 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 7970 passed, 66 failed, 49 not run; 99.2% of those run (1634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8830 passed, 37 failed, 42 not run; 99.6% of those run (218 expected errors passed without a matching code)**
 
-Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
+Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | feature XPath_3.1 | 96 | 1 | 1 | 99.0% |
-| feature backwards_compatibility | 114 | 3 | 0 | 97.4% |
-| feature disabling_output_escaping | 29 | 1 | 0 | 96.7% |
-| feature dtd | 74 | 5 | 0 | 93.7% |
+| feature backwards_compatibility | 115 | 2 | 0 | 98.3% |
+| feature disabling_output_escaping | 30 | 0 | 0 | 100.0% |
+| feature dtd | 79 | 1 | 0 | 98.8% |
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
-| feature higher_order_functions | 217 | 3 | 0 | 98.6% |
+| feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature serialization | 364 | 6 | 0 | 98.4% |
+| feature schema_aware | 828 | 16 | 2 | 98.1% |
+| feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
-| spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2676 | 25 | 11 | 99.1% |
-| spec XSLT30+ | 3403 | 35 | 38 | 99.0% |
+| spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
+| spec XSLT20+ | 3253 | 16 | 7 | 99.5% |
+| spec XSLT30+ | 3680 | 18 | 35 | 99.5% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | accept | 50 | 0 | 0 | 100.0% |
 | accessor | 52 | 0 | 0 | 100.0% |
-| accumulator | 67 | 0 | 0 | 100.0% |
+| accumulator | 70 | 1 | 0 | 98.6% |
 | analyze-string | 53 | 0 | 0 | 100.0% |
 | apply-imports | 1 | 0 | 0 | 100.0% |
-| apply-templates | 37 | 0 | 0 | 100.0% |
+| apply-templates | 38 | 0 | 0 | 100.0% |
 | arrays | 62 | 0 | 0 | 100.0% |
-| as | 100 | 0 | 0 | 100.0% |
+| as | 187 | 0 | 0 | 100.0% |
 | assert | 10 | 0 | 0 | 100.0% |
-| attribute | 22 | 1 | 0 | 95.7% |
+| attribute | 30 | 0 | 0 | 100.0% |
 | attribute-set | 49 | 0 | 0 | 100.0% |
 | available-system-properties | 29 | 0 | 0 | 100.0% |
 | avt | 35 | 0 | 0 | 100.0% |
 | axes | 202 | 0 | 0 | 100.0% |
-| backwards | 45 | 2 | 0 | 95.7% |
-| base-uri | 50 | 5 | 0 | 90.9% |
+| backwards | 47 | 0 | 0 | 100.0% |
+| base-uri | 53 | 2 | 0 | 96.4% |
 | boolean | 112 | 0 | 0 | 100.0% |
-| bug | 81 | 1 | 1 | 98.8% |
+| bug | 82 | 0 | 1 | 100.0% |
 | built-in-templates | 5 | 0 | 0 | 100.0% |
 | call-template | 41 | 0 | 0 | 100.0% |
-| castable | 7 | 0 | 0 | 100.0% |
-| catalog | 5 | 0 | 0 | 100.0% |
+| castable | 9 | 0 | 0 | 100.0% |
+| catalog | 6 | 0 | 2 | 100.0% |
 | character-map | 29 | 0 | 0 | 100.0% |
 | choose | 55 | 0 | 0 | 100.0% |
 | collations | 43 | 0 | 0 | 100.0% |
 | collection | 0 | 0 | 6 |  |
 | construct-node | 34 | 0 | 0 | 100.0% |
 | context-item | 31 | 0 | 0 | 100.0% |
-| copy | 130 | 2 | 0 | 98.5% |
-| copy-of | 10 | 0 | 0 | 100.0% |
+| copy | 146 | 2 | 0 | 98.6% |
+| copy-of | 13 | 0 | 0 | 100.0% |
 | core-function | 90 | 0 | 0 | 100.0% |
 | current | 1 | 0 | 0 | 100.0% |
 | current-output-uri | 17 | 0 | 0 | 100.0% |
@@ -66,13 +67,13 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | deep-equal | 2 | 0 | 0 | 100.0% |
 | disable-output-escaping | 25 | 0 | 0 | 100.0% |
 | docbook | 1 | 2 | 0 | 33.3% |
-| document | 61 | 3 | 0 | 95.3% |
+| document | 62 | 2 | 0 | 96.9% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 509 | 2 | 0 | 99.6% |
-| evaluate | 42 | 0 | 0 | 100.0% |
-| expand-text | 59 | 0 | 0 | 100.0% |
-| expose | 41 | 1 | 0 | 97.6% |
+| error | 531 | 0 | 0 | 100.0% |
+| evaluate | 56 | 0 | 0 | 100.0% |
+| expand-text | 62 | 0 | 0 | 100.0% |
+| expose | 42 | 0 | 0 | 100.0% |
 | expression | 105 | 0 | 0 | 100.0% |
 | extension-functions | 7 | 0 | 0 | 100.0% |
 | for | 4 | 0 | 0 | 100.0% |
@@ -80,107 +81,126 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | format-date | 37 | 0 | 0 | 100.0% |
 | format-date-en | 33 | 0 | 0 | 100.0% |
 | format-number | 67 | 0 | 0 | 100.0% |
-| forwards | 22 | 1 | 0 | 95.7% |
+| forwards | 23 | 0 | 0 | 100.0% |
 | function | 88 | 0 | 0 | 100.0% |
 | function-available | 10 | 0 | 0 | 100.0% |
-| function-lookup | 7 | 1 | 0 | 87.5% |
-| global-context-item | 12 | 2 | 0 | 85.7% |
-| higher-order-functions | 75 | 0 | 0 | 100.0% |
+| function-lookup | 8 | 0 | 0 | 100.0% |
+| global-context-item | 14 | 0 | 0 | 100.0% |
+| higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 0 | 0 | 1 |  |
+| import-schema | 201 | 2 | 0 | 99.0% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |
 | initial-template | 6 | 0 | 0 | 100.0% |
 | innermost | 2 | 0 | 0 | 100.0% |
 | iterate | 44 | 0 | 0 | 100.0% |
-| json-to-xml | 53 | 0 | 0 | 100.0% |
+| json-to-xml | 59 | 0 | 0 | 100.0% |
 | key | 99 | 0 | 0 | 100.0% |
 | load-xquery-module | 4 | 0 | 0 | 100.0% |
 | lre | 35 | 0 | 0 | 100.0% |
 | maps | 50 | 0 | 0 | 100.0% |
-| match | 183 | 0 | 0 | 100.0% |
-| math | 154 | 0 | 0 | 100.0% |
-| merge | 59 | 2 | 16 | 96.7% |
+| match | 283 | 3 | 0 | 99.0% |
+| math | 155 | 0 | 0 | 100.0% |
+| merge | 66 | 1 | 11 | 98.5% |
 | message | 45 | 0 | 0 | 100.0% |
-| mode | 138 | 1 | 2 | 99.3% |
-| namespace | 202 | 5 | 0 | 97.6% |
+| mode | 139 | 0 | 2 | 100.0% |
+| namespace | 205 | 3 | 0 | 98.6% |
 | namespace-alias | 25 | 1 | 0 | 96.2% |
-| next-match | 35 | 5 | 0 | 87.5% |
+| next-match | 40 | 0 | 0 | 100.0% |
 | node | 32 | 0 | 0 | 100.0% |
-| nodetest | 3 | 0 | 0 | 100.0% |
+| nodetest | 38 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
-| number | 156 | 2 | 0 | 98.7% |
+| notation | 22 | 1 | 0 | 95.7% |
+| number | 158 | 0 | 0 | 100.0% |
 | on-empty | 72 | 0 | 0 | 100.0% |
 | on-non-empty | 14 | 0 | 0 | 100.0% |
 | outermost | 26 | 0 | 0 | 100.0% |
-| output | 219 | 2 | 1 | 99.1% |
-| override | 99 | 0 | 0 | 100.0% |
-| package | 50 | 3 | 19 | 94.3% |
-| package-version | 34 | 1 | 0 | 97.1% |
+| output | 221 | 0 | 1 | 100.0% |
+| override | 100 | 2 | 0 | 98.0% |
+| package | 53 | 0 | 19 | 100.0% |
+| package-version | 35 | 0 | 0 | 100.0% |
 | param | 31 | 0 | 0 | 100.0% |
 | path | 10 | 0 | 0 | 100.0% |
 | position | 211 | 0 | 0 | 100.0% |
 | predicate | 57 | 0 | 0 | 100.0% |
 | regex | 65 | 0 | 0 | 100.0% |
 | regex-syntax | 987 | 0 | 0 | 100.0% |
-| resolve-uri | 23 | 1 | 0 | 95.8% |
+| resolve-uri | 24 | 0 | 0 | 100.0% |
 | result-document | 140 | 0 | 0 | 100.0% |
 | root | 10 | 0 | 0 | 100.0% |
-| select | 156 | 1 | 0 | 99.4% |
+| select | 157 | 0 | 0 | 100.0% |
 | seqtor | 72 | 0 | 0 | 100.0% |
 | sequence | 88 | 0 | 0 | 100.0% |
-| sf-unparsed-entity-uri | 7 | 1 | 0 | 87.5% |
+| sf-avg | 1 | 0 | 0 | 100.0% |
+| sf-unparsed-entity-uri | 8 | 0 | 0 | 100.0% |
 | shadow | 8 | 0 | 0 | 100.0% |
+| si-LRE | 21 | 0 | 0 | 100.0% |
+| si-apply-templates | 2 | 0 | 0 | 100.0% |
+| si-copy | 27 | 0 | 0 | 100.0% |
+| si-copy-of | 25 | 0 | 0 | 100.0% |
+| si-document | 25 | 0 | 0 | 100.0% |
+| si-element | 21 | 0 | 0 | 100.0% |
 | si-iterate | 1 | 0 | 0 | 100.0% |
+| si-result-document | 24 | 1 | 0 | 96.0% |
 | snapshot | 18 | 1 | 0 | 94.7% |
 | sort | 80 | 0 | 0 | 100.0% |
-| static | 47 | 3 | 0 | 94.0% |
+| source-document | 12 | 0 | 0 | 100.0% |
+| static | 49 | 1 | 0 | 98.0% |
 | stream-available | 6 | 0 | 0 | 100.0% |
 | streamable | 0 | 1 | 0 | 0.0% |
 | string | 136 | 0 | 0 | 100.0% |
-| strip-space | 26 | 0 | 0 | 100.0% |
-| strip-type-annotations | 3 | 0 | 0 | 100.0% |
-| system-property | 22 | 1 | 0 | 95.7% |
+| strip-space | 28 | 0 | 0 | 100.0% |
+| strip-type-annotations | 24 | 0 | 0 | 100.0% |
+| sx-GeneralComp-eq | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-ge | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-gt | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-le | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-lt | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-ne | 2 | 0 | 0 | 100.0% |
+| system-property | 23 | 0 | 0 | 100.0% |
 | template | 6 | 0 | 0 | 100.0% |
 | transform | 9 | 0 | 0 | 100.0% |
-| try | 34 | 1 | 0 | 97.1% |
+| treat-as | 4 | 0 | 0 | 100.0% |
+| try | 36 | 1 | 0 | 97.3% |
 | tunnel | 58 | 0 | 0 | 100.0% |
-| type | 58 | 0 | 1 | 100.0% |
-| type-available | 3 | 0 | 0 | 100.0% |
-| unparsed-entity-uri | 9 | 3 | 0 | 75.0% |
+| type | 75 | 0 | 0 | 100.0% |
+| type-available | 5 | 0 | 0 | 100.0% |
+| type-expr | 4 | 0 | 0 | 100.0% |
+| type-functions | 11 | 0 | 0 | 100.0% |
+| unparsed-entity-uri | 11 | 1 | 0 | 91.7% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
-| use-package | 46 | 3 | 0 | 93.9% |
-| use-when | 97 | 2 | 0 | 98.0% |
-| validation | 5 | 1 | 0 | 83.3% |
-| variable | 107 | 0 | 0 | 100.0% |
+| use-package | 47 | 2 | 0 | 95.9% |
+| use-when | 99 | 0 | 0 | 100.0% |
+| validation | 51 | 5 | 0 | 91.1% |
+| variable | 108 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
 | where-populated | 27 | 0 | 0 | 100.0% |
 | whitespace | 28 | 0 | 0 | 100.0% |
 | xml-to-json | 114 | 0 | 0 | 100.0% |
 | xpath-compat | 18 | 0 | 0 | 100.0% |
-| xpath-default-namespace | 20 | 0 | 2 | 100.0% |
+| xpath-default-namespace | 26 | 0 | 0 | 100.0% |
 | xsl-document | 25 | 0 | 0 | 100.0% |
 | xslt-compat | 13 | 0 | 0 | 100.0% |
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4566 passed, 31 failed, 11 not run; 99.3% of those run (634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4588 passed, 9 failed, 11 not run; 99.8% of those run (83 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
-| feature backwards_compatibility | 110 | 2 | 0 | 98.2% |
-| feature disabling_output_escaping | 11 | 1 | 0 | 91.7% |
-| feature dtd | 60 | 5 | 0 | 92.3% |
+| feature backwards_compatibility | 111 | 1 | 0 | 99.1% |
+| feature disabling_output_escaping | 12 | 0 | 0 | 100.0% |
+| feature dtd | 64 | 1 | 0 | 98.5% |
 | feature namespace_axis | 65 | 1 | 0 | 98.5% |
-| feature serialization | 231 | 6 | 0 | 97.5% |
+| feature serialization | 237 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
-| spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2675 | 25 | 11 | 99.1% |
+| spec XSLT10+ | 1889 | 3 | 0 | 99.8% |
+| spec XSLT20+ | 2694 | 6 | 11 | 99.8% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -188,14 +208,14 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | analyze-string | 40 | 0 | 0 | 100.0% |
 | apply-templates | 30 | 0 | 0 | 100.0% |
 | as | 99 | 0 | 0 | 100.0% |
-| attribute | 22 | 1 | 0 | 95.7% |
+| attribute | 23 | 0 | 0 | 100.0% |
 | attribute-set | 45 | 0 | 0 | 100.0% |
 | avt | 32 | 0 | 0 | 100.0% |
 | axes | 202 | 0 | 0 | 100.0% |
-| backwards | 44 | 2 | 0 | 95.7% |
-| base-uri | 46 | 2 | 0 | 95.8% |
+| backwards | 46 | 0 | 0 | 100.0% |
+| base-uri | 47 | 1 | 0 | 97.9% |
 | boolean | 112 | 0 | 0 | 100.0% |
-| bug | 81 | 1 | 1 | 98.8% |
+| bug | 82 | 0 | 1 | 100.0% |
 | built-in-templates | 4 | 0 | 0 | 100.0% |
 | call-template | 34 | 0 | 0 | 100.0% |
 | castable | 4 | 0 | 0 | 100.0% |
@@ -213,7 +233,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | deep-equal | 2 | 0 | 0 | 100.0% |
 | disable-output-escaping | 7 | 0 | 0 | 100.0% |
 | docbook | 1 | 1 | 0 | 50.0% |
-| document | 60 | 1 | 0 | 98.4% |
+| document | 61 | 0 | 0 | 100.0% |
 | element | 19 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
 | error | 366 | 0 | 0 | 100.0% |
@@ -238,25 +258,25 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | math | 149 | 0 | 0 | 100.0% |
 | message | 26 | 0 | 0 | 100.0% |
 | mode | 31 | 0 | 0 | 100.0% |
-| namespace | 200 | 5 | 0 | 97.6% |
+| namespace | 202 | 3 | 0 | 98.5% |
 | namespace-alias | 25 | 1 | 0 | 96.2% |
-| next-match | 23 | 5 | 0 | 82.1% |
+| next-match | 28 | 0 | 0 | 100.0% |
 | node | 32 | 0 | 0 | 100.0% |
 | nodetest | 3 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
-| number | 145 | 2 | 0 | 98.6% |
-| output | 131 | 2 | 0 | 98.5% |
+| number | 147 | 0 | 0 | 100.0% |
+| output | 133 | 0 | 0 | 100.0% |
 | param | 26 | 0 | 0 | 100.0% |
 | path | 10 | 0 | 0 | 100.0% |
 | position | 209 | 0 | 0 | 100.0% |
 | predicate | 55 | 0 | 0 | 100.0% |
 | regex | 49 | 0 | 0 | 100.0% |
-| resolve-uri | 20 | 1 | 0 | 95.2% |
+| resolve-uri | 21 | 0 | 0 | 100.0% |
 | result-document | 68 | 0 | 0 | 100.0% |
 | root | 10 | 0 | 0 | 100.0% |
-| select | 151 | 1 | 0 | 99.3% |
+| select | 152 | 0 | 0 | 100.0% |
 | sequence | 84 | 0 | 0 | 100.0% |
-| sf-unparsed-entity-uri | 3 | 1 | 0 | 75.0% |
+| sf-unparsed-entity-uri | 4 | 0 | 0 | 100.0% |
 | sort | 74 | 0 | 0 | 100.0% |
 | string | 133 | 0 | 0 | 100.0% |
 | strip-space | 21 | 0 | 0 | 100.0% |
@@ -266,7 +286,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | tunnel | 54 | 0 | 0 | 100.0% |
 | type | 56 | 0 | 1 | 100.0% |
 | type-available | 1 | 0 | 0 | 100.0% |
-| unparsed-entity-uri | 3 | 3 | 0 | 50.0% |
+| unparsed-entity-uri | 5 | 1 | 0 | 83.3% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | use-when | 77 | 0 | 0 | 100.0% |
 | validation | 2 | 0 | 0 | 100.0% |
@@ -280,25 +300,25 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21862 passed, 22 failed, 99 not run; 99.9% of those run (87 passes raised a different error code)**
+**QT3 (XPath 3.1): 21884 passed, 0 failed, 99 not run; 100.0% of those run (67 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
-| feature higherOrderFunctions | 1826 | 14 | 0 | 99.2% |
+| feature higherOrderFunctions | 1840 | 0 | 0 | 100.0% |
 | feature infoset-dtd | 27 | 0 | 0 | 100.0% |
 | feature namespace-axis | 36 | 0 | 0 | 100.0% |
 | spec XP20 | 7 | 0 | 0 | 100.0% |
 | spec XP20+ | 360 | 0 | 1 | 100.0% |
 | spec XP30 | 7 | 0 | 0 | 100.0% |
-| spec XP30+ | 4068 | 10 | 5 | 99.8% |
+| spec XP30+ | 4078 | 0 | 5 | 100.0% |
 | spec XP31 | 91 | 0 | 0 | 100.0% |
-| spec XP31+ | 2519 | 11 | 22 | 99.6% |
+| spec XP31+ | 2530 | 0 | 22 | 100.0% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | app-FunctxFn | 407 | 0 | 0 | 100.0% |
-| app-UseCaseJSON | 1 | 3 | 0 | 25.0% |
-| app-UseCaseNLP | 0 | 1 | 0 | 0.0% |
+| app-UseCaseJSON | 4 | 0 | 0 | 100.0% |
+| app-UseCaseNLP | 1 | 0 | 0 | 100.0% |
 | app-UseCaseSEQ | 1 | 0 | 0 | 100.0% |
 | app-UseCaseSTRING | 1 | 0 | 0 | 100.0% |
 | app-spec-examples | 550 | 0 | 0 | 100.0% |
@@ -374,12 +394,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-for-each-pair | 47 | 0 | 0 | 100.0% |
 | fn-format-date | 130 | 0 | 0 | 100.0% |
 | fn-format-dateTime | 78 | 0 | 0 | 100.0% |
-| fn-format-integer | 70 | 1 | 0 | 98.6% |
+| fn-format-integer | 71 | 0 | 0 | 100.0% |
 | fn-format-number | 248 | 0 | 0 | 100.0% |
 | fn-format-time | 88 | 0 | 0 | 100.0% |
-| fn-function-arity | 18 | 1 | 0 | 94.7% |
-| fn-function-lookup | 654 | 4 | 0 | 99.4% |
-| fn-function-name | 21 | 1 | 0 | 95.5% |
+| fn-function-arity | 19 | 0 | 0 | 100.0% |
+| fn-function-lookup | 658 | 0 | 0 | 100.0% |
+| fn-function-name | 22 | 0 | 0 | 100.0% |
 | fn-generate-id | 18 | 0 | 0 | 100.0% |
 | fn-has-children | 35 | 0 | 0 | 100.0% |
 | fn-head | 8 | 0 | 0 | 100.0% |
@@ -443,7 +463,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-seconds-from-dateTime | 27 | 0 | 0 | 100.0% |
 | fn-seconds-from-duration | 32 | 0 | 0 | 100.0% |
 | fn-seconds-from-time | 27 | 0 | 0 | 100.0% |
-| fn-serialize | 88 | 5 | 26 | 94.6% |
+| fn-serialize | 93 | 0 | 26 | 100.0% |
 | fn-sort | 37 | 0 | 0 | 100.0% |
 | fn-starts-with | 60 | 0 | 0 | 100.0% |
 | fn-static-base-uri | 5 | 0 | 0 | 100.0% |
@@ -504,7 +524,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | misc-AppendixA4 | 9 | 0 | 0 | 100.0% |
 | misc-CombinedErrorCodes | 2 | 0 | 0 | 100.0% |
 | misc-ErrorsAndOptimization | 6 | 0 | 0 | 100.0% |
-| misc-HigherOrderFunctions | 46 | 2 | 0 | 95.8% |
+| misc-HigherOrderFunctions | 48 | 0 | 0 | 100.0% |
 | misc-Surrogates | 17 | 0 | 0 | 100.0% |
 | misc-UCACollation | 73 | 0 | 0 | 100.0% |
 | misc-XMLEdition | 1 | 0 | 0 | 100.0% |
@@ -584,7 +604,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | op-time-equal | 52 | 0 | 0 | 100.0% |
 | op-time-greater-than | 38 | 0 | 0 | 100.0% |
 | op-time-less-than | 38 | 0 | 0 | 100.0% |
-| op-to | 165 | 1 | 0 | 99.4% |
+| op-to | 166 | 0 | 0 | 100.0% |
 | op-union | 20 | 0 | 8 | 100.0% |
 | op-yearMonthDuration-greater-than | 28 | 0 | 0 | 100.0% |
 | op-yearMonthDuration-less-than | 28 | 0 | 0 | 100.0% |
@@ -619,14 +639,14 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | prod-GeneralComp.ne | 89 | 0 | 0 | 100.0% |
 | prod-IfExpr | 29 | 0 | 0 | 100.0% |
 | prod-InlineFunctionExpr | 29 | 0 | 0 | 100.0% |
-| prod-InstanceofExpr | 272 | 1 | 0 | 99.6% |
+| prod-InstanceofExpr | 273 | 0 | 0 | 100.0% |
 | prod-LetClause | 23 | 0 | 0 | 100.0% |
 | prod-Literal | 118 | 0 | 0 | 100.0% |
 | prod-Lookup | 102 | 0 | 0 | 100.0% |
 | prod-MapConstructor | 22 | 0 | 0 | 100.0% |
 | prod-MapTest | 44 | 0 | 0 | 100.0% |
 | prod-NameTest | 51 | 0 | 0 | 100.0% |
-| prod-NamedFunctionRef | 540 | 2 | 0 | 99.6% |
+| prod-NamedFunctionRef | 542 | 0 | 0 | 100.0% |
 | prod-NodeTest | 29 | 0 | 0 | 100.0% |
 | prod-OrExpr | 329 | 0 | 0 | 100.0% |
 | prod-ParenthesizedExpr | 14 | 0 | 0 | 100.0% |

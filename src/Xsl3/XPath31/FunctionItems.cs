@@ -217,10 +217,34 @@ namespace Xsl3.XPath31
 
         // f#n (XPath 3.1 §3.1.6): a function that calls f with its arguments. Focus-dependent functions capture
         // the focus.
+        // A function name written as a literal: fn:QName('uri', 'p:local') or xs:QName('p:local') (its prefix in scope).
+        private static LexicalQName? LiteralFunctionName(Expr e) => e switch
+        {
+            XPath31.FunctionCall { Name: { Prefix: null or "fn", LocalName: "QName" }, Arguments: [StringLiteral ns, StringLiteral lexical] } =>
+                new LexicalQName(null, lexical.Value.Contains(':') ? lexical.Value[(lexical.Value.IndexOf(':') + 1)..] : lexical.Value, ns.Value),
+            XPath31.FunctionCall { Name: { Prefix: "xs", LocalName: "QName" }, Arguments: [StringLiteral lexical] } when lexical.Value.Trim() is var name =>
+                name.Contains(':') ? new LexicalQName(name[..name.IndexOf(':')], name[(name.IndexOf(':') + 1)..]) : new LexicalQName(null, name),
+            _ => null,
+        };
+
         private QilNode NamedFunctionReference(NamedFunctionRef r)
         {
+            if (r.Arity > int.MaxValue)
+            {
+                // concat#340282366920938463463374607431768211456: no function takes that many arguments.
+                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("FOAR0002"), _f.String($"The arity {r.Arity} is too large"));
+            }
             int arity = (int)r.Arity;
             QName name = _types.Expand(r.Name, _sc.DefaultFunctionNamespace);
+            if (arity == 0 && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "position" or "last" && _focus != null &&
+                (name.LocalName == "position" || _focus.Last != null))
+            {
+                // position#0 and last#0 keep the focus they are made in: (2, 4, 6) ! position#0() is 1 2 3.
+                var kept = new LexicalQName(null, "§c1", "");
+                QilNode value = Items(name.LocalName == "position" ? _focus.Position() : _focus.Last!());
+                return LiftFunction(new[] { (new QName("", kept.LocalName), value) }, System.Array.Empty<(QName, SequenceTypeTest)>(),
+                    new SequenceTypeTest(new AtomicTypeTest(AtomicTypes.Integer), Cardinality.ExactlyOne), name, () => Build(new VarRef(kept)));
+            }
             var parameters = new List<(QName, SequenceTypeTest)>();
             Functions.FunctionDefinition? def = name.NamespaceUri is QName.Ns.Fn or QName.Ns.Math or QName.Ns.Map or QName.Ns.Array
                 ? Functions.FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity) : null;
@@ -232,7 +256,7 @@ namespace Xsl3.XPath31
                     Constant(AtomicValue.OfInteger(arity)), StaticId());
             }
             // A stylesheet function's declared types (so local:f#2 instance of function(xs:long) works).
-            var host = def == null ? _env?.FunctionSignature(name, arity) : null;
+            var host = def == null ? _env?.FunctionSignature(name, arity) ?? CompiledSignature(name, arity) : null;
             for (int i = 0; i < arity; i++)
             {
                 parameters.Add((new QName("", s_params[i].LocalName), def?.ParameterType(i) ?? host?.Parameters[i] ?? SequenceTypeTest.AnySequence));
@@ -291,7 +315,8 @@ namespace Xsl3.XPath31
             if (function != null)
             {
                 var fn = new LexicalQName(null, "§f", "");
-                captured.Insert(0, (new QName("", fn.LocalName), Items(Build(function))));
+                // The function must take as many arguments as the call gives it (XPTY0004 otherwise, when it is applied).
+                captured.Insert(0, (new QName("", fn.LocalName), Call(nameof(XsltLibrary.X31PartialTarget), T.ItemS, Items(Build(function)), _f.Double(args.Count))));
                 body = new DynamicFunctionCall(new VarRef(fn), callArgs) { Span = call.Span };
             }
             else
@@ -348,6 +373,29 @@ namespace Xsl3.XPath31
 
         /// <summary>The higher-order functions of F&amp;O 3.1, compiled so their calls go through the dispatcher; null for others.</summary>
         /// <summary>The higher-order functions compiled here rather than in the function library (for function-available).</summary>
+        // The signatures of the higher-order functions compiled here (F&O 3.1), for references to them (instanceof134).
+        private static readonly Dictionary<(string Ns, string Local, int Arity), string[]> s_compiledSignatures = new()
+        {
+            [(QName.Ns.Fn, "for-each", 2)] = new[] { "item()*", "function(item()) as item()*", "item()*" },
+            [(QName.Ns.Fn, "filter", 2)] = new[] { "item()*", "function(item()) as Q{" + QName.Ns.Xs + "}boolean", "item()*" },
+            [(QName.Ns.Fn, "fold-left", 3)] = new[] { "item()*", "item()*", "function(item()*, item()) as item()*", "item()*" },
+            [(QName.Ns.Fn, "fold-right", 3)] = new[] { "item()*", "item()*", "function(item(), item()*) as item()*", "item()*" },
+            [(QName.Ns.Fn, "for-each-pair", 3)] = new[] { "item()*", "item()*", "function(item(), item()) as item()*", "item()*" },
+            [(QName.Ns.Map, "for-each", 2)] = new[] { "map(*)", "function(Q{" + QName.Ns.Xs + "}anyAtomicType, item()*) as item()*", "item()*" },
+            [(QName.Ns.Array, "for-each", 2)] = new[] { "array(*)", "function(item()*) as item()*", "array(*)" },
+            [(QName.Ns.Array, "filter", 2)] = new[] { "array(*)", "function(item()*) as Q{" + QName.Ns.Xs + "}boolean", "array(*)" },
+        };
+
+        private (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? CompiledSignature(QName name, int arity)
+        {
+            if (!s_compiledSignatures.TryGetValue((name.NamespaceUri, name.LocalName, arity), out string[]? types))
+            {
+                return null;
+            }
+            SequenceTypeTest[] tests = types.Select(t => _types.Resolve(Parser.ParseSequenceType(t))).ToArray();
+            return (tests[..^1], tests[^1]);
+        }
+
         public static readonly HashSet<(string Ns, string Local, int Arity)> CompiledHigherOrderFunctions = new()
         {
             (QName.Ns.Fn, "for-each", 2), (QName.Ns.Fn, "filter", 2), (QName.Ns.Fn, "fold-left", 3), (QName.Ns.Fn, "fold-right", 3),
@@ -412,12 +460,33 @@ namespace Xsl3.XPath31
                         }
                         try
                         {
+                            using System.IDisposable? declared = _env?.DeclaredComponents();
                             return NamedFunctionReference(new NamedFunctionRef(new LexicalQName(null, local, ns.Value), arity.Value) { Span = args[0].Span });
                         }
                         catch (XPathStaticException e) when (e.Code == "XPST0017")
                         {
                             return _f.Sequence();
                         }
+                    }
+                    if (LiteralFunctionName(args[0]) is LexicalQName known && !(known is { BracedUri: "http://www.w3.org/1999/XSL/Transform", LocalName: "original" }))
+                    {
+                        // Xsl3: a literal name with an arity computed at run time (system-property-024): a reference for
+                        // each arity that resolves (the host's functions too), else the run-time lookup.
+                        QilIterator lookupArity = _f.Let(Items(Build(args[1])));
+                        QilNode result = Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), lookupArity, _f.Double(_staticId));
+                        for (int candidate = 4; candidate >= 0; candidate--)
+                        {
+                            try
+                            {
+                                using System.IDisposable? declared = _env?.DeclaredComponents();
+                                QilNode reference = NamedFunctionReference(new NamedFunctionRef(known, candidate) { Span = args[0].Span });
+                                result = _f.Conditional(Call(nameof(XsltLibrary.X31ArityIs), T.BooleanX, lookupArity, _f.Double(candidate)), Items(reference), result);
+                            }
+                            catch (XPathStaticException e) when (e.Code == "XPST0017")
+                            {
+                            }
+                        }
+                        return _f.Loop(lookupArity, result);
                     }
                     return Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Items(Build(args[0])), Items(Build(args[1])), _f.Double(_staticId));
                 case "map:for-each#2":

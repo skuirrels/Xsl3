@@ -12,10 +12,12 @@
     <Title>Xsl3: XSLT 3.0, XSLT 2.0 and XPath 3.1 for .NET</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Version>0.0.1-alpha</Version>
-    <Description>XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, compiled to IL. Built on the engine behind System.Xml.Xsl.XslCompiledTransform and keeps its API, so XSLT 1.0 stylesheets run unchanged with identical output. Adds maps, arrays and higher-order functions, xsl:try, xsl:iterate, xsl:merge, accumulators, packages, JSON functions and json/adaptive/HTML5 output. Includes xsl:evaluate and xsl:assert, secure by default: dynamic evaluation, secondary result files and environment variables are opt-in settings. Alpha: schema awareness and streaming aren't supported yet.</Description>
+    <Description>XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, compiled to IL. Built on the engine behind System.Xml.Xsl.XslCompiledTransform and keeps its API, so XSLT 1.0 stylesheets run unchanged with identical output. Adds maps, arrays and higher-order functions, xsl:try, xsl:iterate, xsl:merge, accumulators, packages, JSON functions and json/adaptive/HTML5 output. Includes xsl:evaluate and xsl:assert, secure by default: dynamic evaluation, secondary result files and environment variables are opt-in settings. Schema awareness (XSD 1.0) is opt-in; streaming isn't supported yet.</Description>
     <PackageReleaseNotes>https://github.com/skuirrels/Xsl3/releases</PackageReleaseNotes>
     <!-- Upstream code predates some analyzers; keep the fork's diff against upstream small. -->
     <NoWarn>$(NoWarn);CA1305;CA1307;CA1309;CA1310;CA1311;CA1416;CA1510;CA1512;CA1513;CA1822;CA1825;CA1834;CA1845;CA1846;CA1847;CA1854;CA1859;CA1861;CA1865;CA1866;CA1867;CA2208;CA2249;SYSLIB0050;SYSLIB0051</NoWarn>
+    <!-- Overloads with optional parameters are the API as shipped (XslCompiledTransform's and the 3.0 API's). -->
+    <NoWarn>$(NoWarn);RS0026;RS0027</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +25,17 @@
     <None Include="..\..\docs\nuget\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE.TXT" Pack="true" PackagePath="\" />
     <None Include="..\..\THIRD-PARTY-NOTICES.TXT" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The public API is frozen from 1.0.0-rc.1 (remaining-scope 9.2): a change shows as RS0016/RS0017 until it is
+         recorded in PublicAPI.Unshipped.txt (and moved to PublicAPI.Shipped.txt when released). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <!-- (CompileToAssembly needs .NET 9's PersistedAssemblyBuilder: .NET 10 only.) -->
+    <AdditionalFiles Include="PublicAPI\net10.0\PublicAPI.Shipped.txt" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <AdditionalFiles Include="PublicAPI\net10.0\PublicAPI.Unshipped.txt" Condition="'$(TargetFramework)' == 'net10.0'" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +48,8 @@
     <EmbeddedResource Update="Resources\Strings.resx">
       <LogicalName>Xsl3.Resources.Strings.resources</LogicalName>
     </EmbeddedResource>
+    <!-- P6: the schemas a schema-aware processor knows for the XML and fn namespaces. -->
+    <EmbeddedResource Include="Schema\BuiltIn\*.xsd" LogicalName="Xsl3.Schema.%(Filename).xsd" />
   </ItemGroup>
 
   <ItemGroup>

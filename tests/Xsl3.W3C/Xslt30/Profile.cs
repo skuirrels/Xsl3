@@ -38,8 +38,14 @@ public sealed class Profile
             "backwards_compatibility",
             // P5: xsl:evaluate (the runner enables it with XsltSettings.EnableEvaluate).
             "dynamic_evaluation",
+            // P6: schema-awareness (the runner turns on XsltSettings.SchemaAware, loads the environments' schemas and
+            // validates their sources; docs/plan/p6-schema.md).
+            "schema_aware",
         },
     };
+
+    /// <summary>P6 (docs/plan/p6-schema.md): the 3.0 profile; XSL3_XSLT30_PROFILE=sa runs only the tests that need schema-awareness.</summary>
+    public static Profile SchemaAware => Xslt30;
 
     public bool Applies(TestCase test) => test.EffectiveDependencies.All(Meets);
 

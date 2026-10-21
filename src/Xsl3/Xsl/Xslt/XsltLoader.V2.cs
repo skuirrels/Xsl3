@@ -295,11 +295,22 @@ namespace Xsl3.Xslt
             }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            string? validation = ParseValidationAttribute(7, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(8);
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: xsl:merge-source can't have both a validation and a type attribute");
+            }
             if (forEachSource != null)
             {
-                // The documents, with their applicable accumulators.
+                // The documents, with their applicable accumulators; validated as validation or type asks (Xsl3, P6).
                 string? accumulators = ParseStringAttribute(5, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
-                forEachSource = ApplicableAccumulators31($"({forEachSource}) ! doc(.)", accumulators);
+                string documents = $"({forEachSource}) ! doc(.)";
+                if (validation is "strict" or "lax" || type != null && type is not { Name: "untyped", Namespace: XmlReservedNs.NsXs })
+                {
+                    documents = $"Q{{{Runtime.SourceDocuments.Namespace}}}validate({documents}, '{validation ?? ""}', '{(type == null ? "" : $"Q{{{type.Namespace}}}{type.Name}")}')";
+                }
+                forEachSource = ApplicableAccumulators31(documents, accumulators);
             }
             string? select = ParseStringAttribute(3, "select");
             ParseYesNoAttribute(4, "streamable");
@@ -319,6 +330,9 @@ namespace Xsl3.Xslt
                         string? keySelect = ParseStringAttribute(0, "select");
                         string? order = ParseStringAttribute(2, "order")?.Trim();
                         string? collation = ParseStringAttribute(3, "collation")?.Trim();
+                        string? dataType = ParseStringAttribute(5, "data-type")?.Trim();
+                        string? lang = ParseStringAttribute(1, "lang")?.Trim();
+                        string? caseOrder = ParseStringAttribute(4, "case-order")?.Trim();
                         List<XslNode> keyContent = LoadInstructions();
                         CheckError(keySelect != null && keyContent.Count != 0, /*[XTSE3200]*/SR.Xslt_ElementCntSel, "xsl:merge-key");
                         if (order is not (null or "ascending" or "descending") && !order.Contains('{'))
@@ -326,7 +340,7 @@ namespace Xsl3.Xslt
                             ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "order", order);
                         }
                         XslNode key = F.XslNode(XslNodeType.MergeKey, null, keySelect ?? (keyContent.Count == 0 ? "." : null), _input.XslVersion);
-                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation };
+                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType, Lang = lang, CaseOrder = caseOrder };
                         keys.Add(SetInfo(key, LoadEndTag(keyContent), keyInfo));
                     }
                     else if (_input.NodeType == XmlNodeType.Element)
@@ -536,10 +550,22 @@ namespace Xsl3.Xslt
             string href = ParseStringAttribute(0, "href") ?? "";
             ParseYesNoAttribute(1, "streamable");
             string? accumulators = ParseStringAttribute(2, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
+            string? validation = ParseValidationAttribute(3, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string documents = $"doc({AvtAsXPath31(href)})";
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: xsl:source-document can't have both a validation and a type attribute");
+            }
+            else if (validation is "strict" or "lax" || type != null)
+            {
+                // Xsl3 (P6): the document, validated.
+                documents = $"Q{{{Runtime.SourceDocuments.Namespace}}}validate({documents}, '{validation ?? ""}', '{(type == null ? "" : $"Q{{{type.Namespace}}}{type.Name}")}')";
+            }
             _input.CanHaveApplyImports = false;
             List<XslNode> content = LoadInstructions();
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ForEach(ApplicableAccumulators31($"doc({AvtAsXPath31(href)})", accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
+            return SetInfo(F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
         }
 
         // XSLT 3.0 §10.4
@@ -642,7 +668,16 @@ namespace Xsl3.Xslt
                 content.Add(v);
                 entries.Add($"QName({Literal(p.Name!.NamespaceUri)}, {Literal(p.Name.LocalName)}): $Q{{{Runtime.DynamicEvaluation.Namespace}}}{variable.LocalName}");
             }
-            string call = $"Q{{{Runtime.DynamicEvaluation.Namespace}}}evaluate(({xpath}), ({contextItem ?? "()"}), ({namespaceContext ?? "()"}), {(namespaceContext != null ? "true()" : "false()")}, " +
+            // Xsl3 (P6): only with schema-aware="yes" does the target expression see the imported schemas (XSLT 3.0 §10.4.1).
+            string function = schemaAware?.Trim() is "yes" or "true" or "1" ? "evaluate" : "evaluate-without-schemas";
+            if (schemaAware != null && schemaAware.Contains('{'))
+            {
+                // A computed value: checked when the instruction is evaluated (XTDE0030); the schemas are then in scope.
+                function = "evaluate";
+                xpath = $"(if (normalize-space({AvtAsXPath31(schemaAware)}) = ('yes', 'no', 'true', 'false', '1', '0')) then ({xpath}) " +
+                    $"else error(QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTDE0030'), 'schema-aware must be yes or no'))";
+            }
+            string call = $"Q{{{Runtime.DynamicEvaluation.Namespace}}}{function}(({xpath}), ({contextItem ?? "()"}), ({namespaceContext ?? "()"}), {(namespaceContext != null ? "true()" : "false()")}, " +
                 $"{(baseUri != null ? AvtAsXPath31(baseUri) : "()")}, ({withParams ?? "map{}"}), map{{{string.Join(", ", entries)}}})";
             if (asType == null)
             {
@@ -963,7 +998,10 @@ namespace Xsl3.Xslt
                 Composite = ParseYesNoAttribute(6, "composite") == TriState.True,
             };
             int kinds = (v2.GroupBy != null ? 1 : 0) + (v2.GroupAdjacent != null ? 1 : 0) + (v2.GroupStartingWith != null ? 1 : 0) + (v2.GroupEndingWith != null ? 1 : 0);
-            CheckError(kinds != 1, /*[XTSE1080]*/SR.Xslt_InvalidAttrValue, "group-by", "(exactly one grouping attribute is required)");
+            if (kinds != 1)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1080: xsl:for-each-group needs exactly one of group-by, group-adjacent, group-starting-with and group-ending-with");
+            }
             if (v2.Collation != null && v2.GroupBy == null && v2.GroupAdjacent == null)
             {
                 ReportError(SR.Xml_UserException, "XTSE1090: xsl:for-each-group has a collation only with group-by or group-adjacent");
@@ -1098,9 +1136,9 @@ namespace Xsl3.Xslt
         private XslNode XslDocument()
         {
             ContextInfo ctxInfo = _input.GetAttributes(_documentAttributes);
-            ParseTypeAttribute(0);
-            ParseValidationAttribute(1, /*defVal:*/false);
-            return SetInfo(F.XslNode(XslNodeType.Document, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
+            XmlQualifiedName? type = ParseTypeAttribute(0);
+            string? validation = ParseValidationAttribute(1, /*defVal:*/false);
+            return WithValidation(SetInfo(F.XslNode(XslNodeType.Document, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo), validation, type);
         }
 
         // http://www.w3.org/TR/xslt20/#element-next-match
@@ -1176,10 +1214,12 @@ namespace Xsl3.Xslt
                     }
                 }
             }
+            XmlQualifiedName? type = ParseTypeAttribute(3);
+            string? validation = ParseValidationAttribute(2, /*defVal:*/false);
             _input.CanHaveApplyImports = false;
             XslNode result = SetInfo(F.XslNode(XslNodeType.ResultDocument, null, null, _input.XslVersion), LoadEndTag(LoadInstructions()), ctxInfo);
             result.V2 = v2;
-            return result;
+            return WithValidation(result, validation, type);
         }
 
         // http://www.w3.org/TR/xslt20/#stylesheet-functions
@@ -1224,7 +1264,10 @@ namespace Xsl3.Xslt
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "new-each-time", _input.Value);
                 }
             }
-            CheckError(name != null && name.NamespaceUri.Length == 0, /*[XTSE0740]*/SR.Xslt_InvalidAttrValue, "name", name?.QualifiedName);
+            if (name != null && name.NamespaceUri.Length == 0)
+            {
+                ReportError(SR.Xml_UserException, $"XTSE0740: the stylesheet function {name.QualifiedName} has no namespace prefix");
+            }
 
             // A function is a template without match, name or mode for the loader's purposes: parameters, then the body.
             _input.CanHaveApplyImports = false;
@@ -1267,7 +1310,7 @@ namespace Xsl3.Xslt
                 }
                 if (!_compiler.AddFunction(name, arity, function, _curStylesheet!.ImportPrecedence))
                 {
-                    ReportError(/*[XTSE0770]*/SR.Xslt_DupTemplateName, name.QualifiedName);
+                    ReportError(SR.Xml_UserException, $"XTSE0770: two functions are named {name.QualifiedName} with arity {arity} and the same import precedence");
                 }
             }
         }
@@ -1341,6 +1384,11 @@ namespace Xsl3.Xslt
         private void LoadMode()
         {
             _input.GetAttributes(_modeAttributes);
+            if (_input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() == "#unnamed")
+            {
+                // The name is an EQName; #unnamed is for the attributes that refer to modes (package-909).
+                ReportError(SR.Xml_UserException, "XTSE0020: xsl:mode name=\"#unnamed\" isn't an EQName; an unnamed mode's xsl:mode has no name attribute");
+            }
             QilName mode = PackageMode(_input.MoveToXsltAttribute(0, "name") && _input.Value.Trim() != "#unnamed" ? ParseQNameAttribute(0) ?? nullMode : nullMode);
             var decl = new ModeDecl { ImportPrecedence = _curStylesheet!.ImportPrecedence };
             decl.Declaration = new ModeDeclNode(mode) { PackageId = _packageId, OverrideOf = _overrideTarget, SourceLine = _input.BuildNameLineInfo() };
@@ -1352,6 +1400,10 @@ namespace Xsl3.Xslt
                     // The unnamed mode is always private (XSLT 3.0 §3.5.4.1).
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", decl.Declaration.Visibility);
                 }
+            }
+            if (_input.MoveToXsltAttribute(5, "typed"))
+            {
+                decl.Typed = _input.Value.Trim();
             }
             if (_input.MoveToXsltAttribute(5, "typed") && _input.Value.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0" or "strict" or "lax" or "unspecified"))
             {
@@ -1406,6 +1458,10 @@ namespace Xsl3.Xslt
                         {
                             existing.OnMultipleMatch = decl.OnMultipleMatch;
                         }
+                        else if (attribute == "typed")
+                        {
+                            existing.Typed = decl.Typed;
+                        }
                     }
                 }
             }
@@ -1444,9 +1500,10 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_characterMapAttributes);
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
-            QilName? name = ParseQNameAttribute(0);
+            // Character maps are local to their package: their names are qualified with it (use-package-106).
+            QilName? name = ParseQNameAttribute(0) is QilName declared ? PackageComponents.Mangle(declared, _packageId) : null;
             string? uses = ParseStringAttribute(1, "use-character-maps");
-            var map = new CharacterMap(name, uses == null ? new List<QilName>() : ParseQNameList(uses));
+            var map = new CharacterMap(name, uses == null ? new List<QilName>() : ParseQNameList(uses).ConvertAll(n => PackageComponents.Mangle(n, _packageId)));
 
             QName parentName = _input.ElementName;
             if (_input.MoveToFirstChild())

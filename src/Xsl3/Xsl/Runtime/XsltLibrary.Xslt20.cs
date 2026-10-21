@@ -37,6 +37,18 @@ namespace Xsl3.Runtime
         /// the atomised values, encoded so that equal strings are values that are equal by eq (XSLT 3.0 §20.2.2).
         /// Values that equal nothing (NaN) are dropped.
         /// </summary>
+        /// <summary>The atomized values as xs:string (a key with a definition in backwards compatible mode).</summary>
+        public IList<XPathItem> X31StringValues(IList<XPathItem> values)
+        {
+            IList<XPathItem> atoms = Sequences.Atomize(values);
+            var result = new XPathItem[atoms.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = AtomicValue.OfString(atoms[i].Value);
+            }
+            return result;
+        }
+
         public IList<XPathItem> X31KeyValues(IList<XPathItem> values, string collation, bool composite)
         {
             var result = new List<XPathItem>(values.Count);
@@ -94,7 +106,7 @@ namespace Xsl3.Runtime
         /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
         public string X31AvtString(IList<XPathItem> items)
         {
-            if (items.Count == 1 && items[0] is not ArrayItem)
+            if (items.Count == 1 && items[0] is not ArrayItem && !(items[0] is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null))
             {
                 return Sequences.Atomize(items[0]).Value;
             }
@@ -156,10 +168,11 @@ namespace Xsl3.Runtime
                     {
                         run.Append(' ');
                     }
-                    if (item is ArrayItem array)
+                    if (item is ArrayItem || item is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null)
                     {
-                        // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2).
-                        run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(array)).Select(a => a.Value)));
+                        // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2); a node of a list type
+                        // to its items (P6).
+                        run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(item)).Select(a => a.Value)));
                     }
                     else
                     {
@@ -218,13 +231,14 @@ namespace Xsl3.Runtime
                     if (text.Length > 0) parts.Add(text.ToString());
                     text = null;
                 }
-                if (item is XPathNavigator { NodeType: XPathNodeType.Root or XPathNodeType.Element } container)
+                if (item is XPathNavigator { NodeType: XPathNodeType.Root or XPathNodeType.Element } container && Xsl3.Schema.SchemaTypes.TypeOf(container) == null)
                 {
                     parts.Add(container.Value);
                 }
-                else if (item is ArrayItem array)
+                else if (item is ArrayItem || item is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) != null)
                 {
-                    foreach (XPathItem atom in Sequences.Atomize(Sequences.One(array)))
+                    // (An array, or a node of a list type (P6), atomizes to any number of values.)
+                    foreach (XPathItem atom in Sequences.Atomize(Sequences.One(item)))
                     {
                         parts.Add(atom.Value);
                     }
@@ -493,6 +507,11 @@ namespace Xsl3.Runtime
                 return Sequences.Empty;
             }
             string uri = X31OutputUri(href, baseUri);
+            if (_runtime.ExternalContext.HasRead(uri))
+            {
+                // XSLT 3.0 §25.2: a resource can't be both read and written by the transformation.
+                throw new XdmException("XTDE1500", $"'{uri}' was read by the transformation and can't be written by xsl:result-document");
+            }
             if (!_runtime.ResultDocumentUris.Add(uri))
             {
                 throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");
@@ -519,7 +538,7 @@ namespace Xsl3.Runtime
                     {
                         System.Xml.XmlWriterSettings s = settings.Clone();
                         s.CloseOutput = false;
-                        ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(output, ws));
+                        ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, ws, extras), ws));
                     }
                     output.Dispose();
                     return Sequences.Empty;
@@ -531,7 +550,7 @@ namespace Xsl3.Runtime
                     return Sequences.Empty;
                 }
                 settings.CloseOutput = true;
-                using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(output, s), settings, extras))
+                using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, s, extras), s), settings, extras))
                 {
                     WriteChildren(w, doc);
                     w.Flush();
@@ -826,6 +845,26 @@ namespace Xsl3.Runtime
             frame.Count != 0 && ((TunnelFrame)frame[0]).Find(MatchEntry, "") is { ParamValue.Count: 1 } entry
                 ? X31SegmentGroup(entry.ParamValue[0], n)
                 : AtomicValue.OfString("");
+
+        // The current group and grouping key travel with the tunnel parameters into templates called from
+        // xsl:for-each-group (xsl:call-template keeps them, XSLT 3.0 §14.2.1).
+        private const string GroupEntry = "\u0001xsl3-group";
+
+        /// <summary>The tunnel frame with <paramref name="group"/> as the current group (with no grouping key, for group-starting-with and group-ending-with).</summary>
+        public IList<XPathItem> X31TunnelSetGroup(IList<XPathItem> frame, XPathItem group, bool noKey) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], GroupEntry, "", new XPathItem[] { group, AtomicValue.OfBoolean(noKey) }) };
+
+        /// <summary>current-group() in a template called from xsl:for-each-group: from the tunnel frame (XTDE1061 when there is none).</summary>
+        public IList<XPathItem> X31TunnelCurrentGroup(IList<XPathItem> frame) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(GroupEntry, "") is { ParamValue.Count: 2 } entry
+                ? X31GroupMembers(entry.ParamValue[0])
+                : throw new XdmException("XTDE1061", "current-group() is absent");
+
+        /// <summary>current-grouping-key() in a template called from xsl:for-each-group (XTDE1071 when there is none).</summary>
+        public IList<XPathItem> X31TunnelCurrentGroupingKey(IList<XPathItem> frame) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(GroupEntry, "") is { ParamValue.Count: 2 } entry && entry.ParamValue[1] is AtomicValue { Value: "false" }
+                ? X31GroupKey(entry.ParamValue[0])
+                : throw new XdmException("XTDE1071", "current-grouping-key() is absent");
 
         // The current output URI travels with the tunnel parameters, set by xsl:result-document.
         private const string OutputEntry = "\u0001xsl3-output";

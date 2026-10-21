@@ -40,8 +40,11 @@ namespace Xsl3.Runtime
         /// <summary>The namespace of the internal function the loader lowers xsl:evaluate to, and of its variables.</summary>
         public const string Namespace = "urn:xsl3:evaluate";
 
-        /// <summary>How many compiled target expressions each xsl:evaluate instruction keeps.</summary>
-        public const int CacheSize = 64;
+        /// <summary>
+        /// How many compiled target expressions each xsl:evaluate instruction keeps. DocBook xslTNG evaluates its 151
+        /// localization patterns from one instruction, in turn: with fewer, each one would be compiled again every time.
+        /// </summary>
+        public const int CacheSize = 1024;
     }
 
     /// <summary>
@@ -56,6 +59,9 @@ namespace Xsl3.Runtime
         public string DefaultElementNamespace { get; } = defaultElementNamespace;
 
         public string? BaseUri { get; } = baseUri;
+
+        /// <summary>Xsl3 (P6): the stylesheet's imported schemas, in scope for target expressions.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
 
         // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
         internal string DefaultCollation => defaultCollation;
@@ -112,6 +118,7 @@ namespace Xsl3.Runtime
                 DefaultElementNamespace = defaultElementNamespace,
                 DefaultCollation = defaultCollation,
                 DefaultDecimalFormat = defaultDecimalFormat,
+                Schemas = Schemas,
             };
             sc.Namespaces.Clear();
             foreach (var (prefix, uri) in namespaces)
@@ -204,16 +211,22 @@ namespace Xsl3.Runtime
             Bind(withParamValues, "the xsl:with-param values");
             Bind(withParams, "with-params");
 
-            // The stylesheet functions, each a hidden variable the target expression calls dynamically.
-            var functionTable = new Dictionary<(string, string, int), QName>();
-            for (int i = 0; i < functions.Count; i++)
+            // The stylesheet functions, each a hidden variable the target expression calls dynamically. The list is the
+            // same one each time (a global of the transformation), so its table is made once; only the functions the
+            // expression calls are passed.
+            if (!s_functionTables.TryGetValue(functions, out FunctionTable? functionTable))
             {
-                if (functions[i] is FunctionItem { Name: QName fn } f)
+                functionTable = new FunctionTable();
+                for (int i = 0; i < functions.Count; i++)
                 {
-                    var hidden = new QName(DynamicEvaluation.Namespace, "f" + i);
-                    functionTable[(fn.NamespaceUri, fn.LocalName, f.Arity)] = hidden;
-                    variables[hidden] = Sequences.One(f);
+                    if (functions[i] is FunctionItem { Name: QName fn } f)
+                    {
+                        var hidden = new QName(DynamicEvaluation.Namespace, "f" + i);
+                        functionTable.Names[(fn.NamespaceUri, fn.LocalName, f.Arity)] = hidden;
+                        functionTable.Values[hidden] = Sequences.One(f);
+                    }
                 }
+                s_functionTables.AddOrUpdate(functions, functionTable);
             }
 
             var key = new StringBuilder(target).Append('\u0001').Append(staticBase).Append('\u0001').Append(defaultElementNamespace);
@@ -225,12 +238,14 @@ namespace Xsl3.Runtime
                 }
             }
             key.Append('\u0002');
-            foreach (QName name in variables.Keys.Where(n => n.NamespaceUri != DynamicEvaluation.Namespace).OrderBy(n => n.EQName, System.StringComparer.Ordinal))
+            foreach (QName name in variables.Keys.OrderBy(n => n.EQName, System.StringComparer.Ordinal))
             {
                 key.Append(name.EQName).Append('\u0001');
             }
 
             var names = new HashSet<QName>(variables.Keys);
+            names.UnionWith(functionTable.Values.Keys);
+            var called = new HashSet<QName>();
             XPathStaticContext sc = context.StaticContext(namespaces, defaultElementNamespace, staticBase);
             if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
             {
@@ -243,7 +258,9 @@ namespace Xsl3.Runtime
                     Expr ast = Parser.ParseXPath(target);
                     // In the stylesheet's constant table: the target refers to the stylesheet's constants by number.
                     using var constants = ConstantPool.Use(_runtime.Constants);
-                    return XPath31Compiler.CompileHosted(ast, sc, f => new EvaluateEnvironment(f, names, functionTable));
+                    XPath31Executable compiled = XPath31Compiler.CompileHosted(ast, sc, f => new EvaluateEnvironment(f, names, functionTable.Names, called));
+                    s_calledFunctions.AddOrUpdate(compiled, called);
+                    return compiled;
                 }
                 catch (XPathStaticException e)
                 {
@@ -252,6 +269,13 @@ namespace Xsl3.Runtime
                 }
             });
 
+            if (s_calledFunctions.TryGetValue(executable, out HashSet<QName>? calls))
+            {
+                foreach (QName hidden in calls)
+                {
+                    variables[hidden] = functionTable.Values[hidden];
+                }
+            }
             FunctionContext host = X31Context;
             return Copy(executable.Evaluate(contextItem.Count == 1 ? contextItem[0] : null, variables, host.ImplicitTimezoneMinutes,
                 _runtime.ExternalContext.DataSources, host.CurrentDateTime));
@@ -276,7 +300,20 @@ namespace Xsl3.Runtime
         /// focus (XPDY0002 when absent), the parameters as variables, and the stylesheet functions, called through
         /// the function items that stand for them. XSLT's own functions (current, key, …) aren't available.
         /// </summary>
-        private sealed class EvaluateEnvironment(QilPatternFactory f, IReadOnlySet<QName> variables, IReadOnlyDictionary<(string, string, int), QName> functions)
+        // The stylesheet functions of a list xsl:evaluate is given: hidden variable names and their values.
+        private sealed class FunctionTable
+        {
+            public Dictionary<(string, string, int), QName> Names { get; } = new();
+
+            public Dictionary<QName, IList<XPathItem>> Values { get; } = new();
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IList<XPathItem>, FunctionTable> s_functionTables = new();
+
+        // The hidden function variables each compiled target expression calls.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<XPath31Executable, HashSet<QName>> s_calledFunctions = new();
+
+        private sealed class EvaluateEnvironment(QilPatternFactory f, IReadOnlySet<QName> variables, IReadOnlyDictionary<(string, string, int), QName> functions, HashSet<QName> called)
             : IXPath31Environment
         {
             public FunctionItemRegistry? FunctionItems => null;
@@ -290,10 +327,15 @@ namespace Xsl3.Runtime
             public QilNode? ResolveVariable(QName name) =>
                 variables.Contains(name) ? XPath31Compiler.Invoke(f, nameof(X31Variable), T.ItemS, f.String(name.LocalName), f.String(name.NamespaceUri)) : null;
 
-            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile) =>
-                functions.TryGetValue((name.NamespaceUri, name.LocalName, args.Count), out QName? hidden)
-                    ? compile(new DynamicFunctionCall(new VarRef(new LexicalQName(null, hidden.LocalName, hidden.NamespaceUri)), args))
-                    : null;
+            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile)
+            {
+                if (!functions.TryGetValue((name.NamespaceUri, name.LocalName, args.Count), out QName? hidden))
+                {
+                    return null;
+                }
+                called.Add(hidden);
+                return compile(new DynamicFunctionCall(new VarRef(new LexicalQName(null, hidden.LocalName, hidden.NamespaceUri)), args));
+            }
         }
     }
 }

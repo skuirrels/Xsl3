@@ -19,6 +19,24 @@ namespace Xsl3.Runtime
         /// <summary>Whether xsl:evaluate is enabled (XsltSettings.EnableEvaluate); otherwise it is statically disabled.</summary>
         public bool EvaluateEnabled { get; init; }
 
+        /// <summary>Xsl3 (P6): whether the processor is schema-aware (XsltSettings.SchemaAware), and the schemas imported.</summary>
+        public bool SchemaAware { get; init; }
+
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
+
+        /// <summary>
+        /// A static expression's names (use-when, static variables): of the XSLT functions, only those that need no
+        /// dynamic context are available (XSLT 3.0 §3.13.1).
+        /// </summary>
+        public bool Static { get; init; }
+
+        private static readonly HashSet<string> s_staticXsltFunctions = new(System.StringComparer.Ordinal)
+        {
+            "element-available", "function-available", "type-available", "system-property",
+            // F&O functions this table lists because XSLT compiles them
+            "position", "last", "format-number",
+        };
+
         public static readonly HashSet<string> Instructions = new(System.StringComparer.Ordinal)
         {
             "analyze-string", "apply-imports", "apply-templates", "attribute", "call-template", "choose", "comment", "copy",
@@ -97,7 +115,8 @@ namespace Xsl3.Runtime
                 "product-version" => typeof(XsltNameContext).Assembly.GetName().Version?.ToString() ?? "0",
                 "supports-serialization" or "supports-backwards-compatibility" or "supports-namespace-axis" or "supports-higher-order-functions" => "yes",
                 "supports-dynamic-evaluation" => EvaluateEnabled ? "yes" : "no",
-                "is-schema-aware" or "supports-streaming" => "no",
+                "is-schema-aware" => SchemaAware ? "yes" : "no",
+                "supports-streaming" => "no",
                 "xpath-version" => "3.1",
                 "xsd-version" => "1.0",
                 _ => "",
@@ -118,7 +137,8 @@ namespace Xsl3.Runtime
             // With an arity, just that one (concat takes any number of arguments); without, any up to 10.
             for (int n = arity ?? 0; n <= (arity ?? 10); n++)
             {
-                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) || (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n))) ||
+                if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) ||
+                    (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n)) && (!Static || s_staticXsltFunctions.Contains(local))) ||
                     // The context-item forms (fn:name#0 and the like), compiled rather than in the library.
                     ns == QName.Ns.Fn && n == 0 && XPath31Compiler.s_contextFunctions.Contains(local) ||
                     XPath31Compiler.CompiledHigherOrderFunctions.Contains((ns, local, n)))
@@ -132,6 +152,11 @@ namespace Xsl3.Runtime
                 return true;
             }
             // xs:T#1 constructor functions, the list types and xs:error among them
+            if (ns != QName.Ns.Xs && arity is null or 1 && Schemas is { IsCompiled: true } schemas &&
+                schemas.GlobalTypes[new System.Xml.XmlQualifiedName(local, ns)] is System.Xml.Schema.XmlSchemaSimpleType)
+            {
+                return true; // Xsl3 (P6): the constructor function of a schema's simple type
+            }
             return ns == QName.Ns.Xs && arity is null or 1 && (local == "error"
                 || XPath31.StaticTypeResolver.FindCastTarget(new QName(ns, local, "xs")) is var (type, _) && !type.IsAbstract);
         }
@@ -140,14 +165,20 @@ namespace Xsl3.Runtime
         {
             // An unprefixed name is in the default namespace in scope (XSLT 3.0 §20.4.2).
             var (ns, local) = Resolve(name, Namespaces.TryGetValue("", out string? defaultNs) ? defaultNs : "", "XTDE1440");
-            return ns == XsltNs && (Instructions.Contains(local) || local == "evaluate" && EvaluateEnabled);
+            return ns == XsltNs && (Instructions.Contains(local) || local == "evaluate" && EvaluateEnabled || local == "import-schema" && SchemaAware);
         }
 
         public bool TypeAvailable(string name)
         {
             var (ns, local) = Resolve(name, "", "XTDE1428");
             // xs:dateTimeStamp is XSD 1.1's; the xsd-version property is 1.0.
-            return ns == QName.Ns.Xs && local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
+            if (ns != QName.Ns.Xs)
+            {
+                // Xsl3 (P6): a type an imported schema defines.
+                return Schemas is { IsCompiled: true } schemas && schemas.GlobalTypes.Contains(new System.Xml.XmlQualifiedName(local, ns));
+            }
+            return local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped"
+                || SchemaAware && local is "NMTOKENS" or "IDREFS" or "ENTITIES");
         }
     }
 
@@ -202,6 +233,13 @@ namespace Xsl3.Runtime
             item is AbsentItem ? throw new XdmException("XTTE3090", "The template requires a context item, and there is none") : System.Array.Empty<XPathItem>();
 
         public bool X31IsAbsent(XPathItem item) => item is AbsentItem;
+
+        /// <summary>
+        /// The global context item (XSLT 3.0 §9.7): the input's document node, or absent when the transformation was given
+        /// no input (XslCompiledTransform.AbsentInput) or xsl:global-context-item says use="absent".
+        /// </summary>
+        public XPathItem X31GlobalContextItem(XPathNavigator root, bool absentDeclared) =>
+            absentDeclared ? AbsentItem.Instance : X31InitialFocus(root);
 
         /// <summary>xsl:global-context-item use="required": XTDE3086 when the transformation was given no global context item.</summary>
         public IList<XPathItem> X31RequireGlobalContextItem(XPathItem item) =>

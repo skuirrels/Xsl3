@@ -18,7 +18,7 @@ namespace Xsl3.XPath31.Functions
     /// </summary>
     internal sealed class XPathRegex
     {
-        private static readonly ConcurrentDictionary<(string, string), XPathRegex> s_cache = new();
+        private static readonly ConcurrentDictionary<(string, string, System.TimeSpan?), XPathRegex> s_cache = new();
 
         private XPathRegex(Regex regex, int groupCount, int[] parents)
         {
@@ -40,10 +40,11 @@ namespace Xsl3.XPath31.Functions
             {
                 s_cache.Clear();
             }
-            return s_cache.GetOrAdd((pattern, flags), key => Compile(key.Item1, key.Item2));
+            // Within a transformation with a Timeout, matches stop at it (XmlQueryRuntime.RegexTimeout).
+            return s_cache.GetOrAdd((pattern, flags, Xsl3.Runtime.XmlQueryRuntime.RegexTimeout), key => Compile(key.Item1, key.Item2, key.Item3 ?? Regex.InfiniteMatchTimeout));
         }
 
-        private static XPathRegex Compile(string pattern, string flags)
+        private static XPathRegex Compile(string pattern, string flags, System.TimeSpan timeout)
         {
             var options = RegexOptions.CultureInvariant;
             bool dotAll = false, multiline = false, extended = false, literal = false, ignoreCase = false;
@@ -61,7 +62,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (literal)
             {
-                return new XPathRegex(new Regex(Regex.Escape(pattern), ignoreCase ? options | RegexOptions.IgnoreCase : options), 0, new[] { 0 });
+                return new XPathRegex(new Regex(Regex.Escape(pattern), ignoreCase ? options | RegexOptions.IgnoreCase : options, timeout), 0, new[] { 0 });
             }
             if (extended)
             {
@@ -72,7 +73,7 @@ namespace Xsl3.XPath31.Functions
             string net = translator.Translate();
             try
             {
-                return new XPathRegex(new Regex(net, options), translator.GroupCount, translator.Parents.ToArray());
+                return new XPathRegex(new Regex(net, options, timeout), translator.GroupCount, translator.Parents.ToArray());
             }
             catch (System.ArgumentException e)
             {

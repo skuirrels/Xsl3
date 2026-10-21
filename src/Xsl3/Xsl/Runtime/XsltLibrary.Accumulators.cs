@@ -19,6 +19,9 @@ namespace Xsl3.Runtime
 
     public sealed partial class XsltLibrary
     {
+        // The accumulators whose values over a tree are being computed, by accumulator and root.
+        private HashSet<(string, string)>? _accumulatorsInProgress;
+
         // The values of each accumulator at each node of the trees seen so far, by accumulator and root.
         private Dictionary<(string Accumulator, string Root), Dictionary<string, (IList<XPathItem> Before, IList<XPathItem> After)>>? _accumulatorValues;
 
@@ -70,10 +73,23 @@ namespace Xsl3.Runtime
             _accumulatorValues ??= new();
             if (!_accumulatorValues.TryGetValue((key, _runtime.GenerateId(root)), out var values))
             {
-                values = new Dictionary<string, (IList<XPathItem>, IList<XPathItem>)>();
-                IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset], Sequences.One(root.Clone())), name);
-                AccumulatorVisit(root, initial, items, info, name, values);
-                _accumulatorValues[(key, _runtime.GenerateId(root))] = values;
+                // An accumulator whose rules ask for its own values over the tree being computed: XTDE3400.
+                _accumulatorsInProgress ??= new();
+                if (!_accumulatorsInProgress.Add((key, _runtime.GenerateId(root))))
+                {
+                    throw new XdmException("XTDE3400", $"The accumulator {name} depends on its own value");
+                }
+                try
+                {
+                    values = new Dictionary<string, (IList<XPathItem>, IList<XPathItem>)>();
+                    IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset], Sequences.One(root.Clone())), name);
+                    AccumulatorVisit(root, initial, items, info, name, values);
+                    _accumulatorValues[(key, _runtime.GenerateId(root))] = values;
+                }
+                finally
+                {
+                    _accumulatorsInProgress.Remove((key, _runtime.GenerateId(root)));
+                }
             }
             var (before, afterValue) = values[_runtime.GenerateId(node)];
             return after ? afterValue : before;

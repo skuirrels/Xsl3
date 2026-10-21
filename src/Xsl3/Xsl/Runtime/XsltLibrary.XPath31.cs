@@ -242,7 +242,8 @@ namespace Xsl3.Runtime
         {
             for (int i = 0; i < items.Count; i++)
             {
-                if (items[i] is not (XPathNavigator or StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic }))
+                // (A typed node, P6, compares by its typed value.)
+                if (items[i] is XPathNavigator node ? Xsl3.Schema.SchemaTypes.TypeOf(node) != null : items[i] is not StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic })
                 {
                     return false;
                 }
@@ -451,6 +452,22 @@ namespace Xsl3.Runtime
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// $x &lt; (a to b) and the like: some integer of the range compares so with $x exactly when its last one does
+        /// (for &lt; and &lt;=) or its first one (for &gt; and &gt;=), so the range isn't materialised (RangeExpr-409d).
+        /// </summary>
+        public bool X31RangeCompare(IList<XPathItem> items, IList<XPathItem> lo, IList<XPathItem> hi, double op, double sc)
+        {
+            var start = (IntegerValue?)Coerce(lo, AtomicTypes.Integer, "to");
+            var end = (IntegerValue?)Coerce(hi, AtomicTypes.Integer, "to");
+            if (start == null || end == null || start.Integer > end.Integer)
+            {
+                return false;
+            }
+            BigInteger bound = (ValueComparisonOp)(int)op is ValueComparisonOp.Lt or ValueComparisonOp.Le ? end.Integer : start.Integer;
+            return X31GeneralCompare(items, Sequences.One(AtomicValue.OfInteger(bound)), op, sc);
         }
 
         public IList<XPathItem> X31Range(IList<XPathItem> left, IList<XPathItem> right)

@@ -24,6 +24,33 @@ public class SerializationTests
         return new UTF8Encoding(false).GetString(bytes.ToArray());
     }
 
+    /// <summary>
+    /// 2.0+ results of the xml method write empty elements as &lt;a/&gt;; comments, CDATA sections, processing
+    /// instructions and attribute values keep what they contain.
+    /// </summary>
+    [Fact]
+    public void EmptyElementsHaveNoSpaceBeforeTheSlash() =>
+        Assert.Equal("<out a=\"x /&gt;\"><e/><e b=\"1\"/><!-- c /> --><?p q /> ?><c><![CDATA[ /> ]]></c>é<e/></out>", Run("""
+            <xsl:output omit-xml-declaration="yes" cdata-section-elements="c"/>
+            <xsl:template match="/"><out a="x />"><e/><e b="1"/><xsl:comment> c /> </xsl:comment><xsl:processing-instruction name="p">q /> </xsl:processing-instruction><c> /> </c>é<e/></out></xsl:template>
+            """));
+
+    /// <summary>The xhtml method keeps &lt;br /&gt; (XHTML's compatibility guidelines), and 1.0 stylesheets keep stock's form.</summary>
+    [Fact]
+    public void EmptyElementsKeepTheSpaceInXhtmlAndOneZero()
+    {
+        Assert.Equal("<html xmlns=\"http://www.w3.org/1999/xhtml\"><br /></html>", Run("""
+            <xsl:output method="xhtml" indent="no" omit-xml-declaration="yes"/>
+            <xsl:template match="/"><html xmlns="http://www.w3.org/1999/xhtml"><br/></html></xsl:template>
+            """));
+        string stylesheet = $"<xsl:stylesheet version='1.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/><xsl:template match='/'><out><e/></out></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var bytes = new MemoryStream();
+        transform.Transform(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")), null, bytes, null);
+        Assert.Equal("<out><e /></out>", new UTF8Encoding(false).GetString(bytes.ToArray()).TrimStart('\uFEFF'));
+    }
+
     /// <summary>The characters to map are found before normalization; what they map to isn't normalized (Serialization 3.1 §11).</summary>
     [Fact]
     public void CharacterMapBeforeNormalization() =>
@@ -135,7 +162,7 @@ public class SerializationTests
         Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => written[uri] = new StringWriter();
         try
         {
-            Assert.Equal("<out v=\"r\" />", Run("""
+            Assert.Equal("<out v=\"r\"/>", Run("""
                 <xsl:output omit-xml-declaration="yes"/>
                 <xsl:template match="/"><out><xsl:attribute name="v"><xsl:call-template name="r"/></xsl:attribute></out></xsl:template>
                 <xsl:template name="r"><xsl:result-document href="x.xml"><x/></xsl:result-document>r</xsl:template>

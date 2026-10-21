@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Xml;
 using System.Xml.Schema;
@@ -133,9 +134,21 @@ namespace Xsl3.Runtime
         /// </summary>
         internal override void WriteNamespaceDeclaration(string prefix, string ns)
         {
+            if (_numEntries != 0 && HoldLateNamespaces)
+            {
+                // Xsl3: a namespace node after the attributes (2.0+ allows it, XSLT 3.0 §5.7.1): held, and written before
+                // them, so the attributes stay together for duplicate detection. (1.0 output keeps stock's order.)
+                (_laterNamespaces ??= new List<(string, string)>()).Add((prefix, ns));
+                return;
+            }
             FlushAttributes();
             _wrapped!.WriteNamespaceDeclaration(prefix, ns);
         }
+
+        private List<(string Prefix, string Ns)>? _laterNamespaces;
+
+        // Xsl3: hold namespace declarations that come after attributes (2.0+ results), rather than flush the attributes.
+        internal bool HoldLateNamespaces { get; init; }
 
         /// <summary>
         /// Add a block of text to the cache.  This text block makes up some or all of the untyped string
@@ -224,6 +237,15 @@ namespace Xsl3.Runtime
         {
             int idx = 0, idxNext;
             string? localName;
+
+            if (_laterNamespaces is { Count: > 0 })
+            {
+                foreach (var (prefix, ns) in _laterNamespaces)
+                {
+                    _wrapped!.WriteNamespaceDeclaration(prefix, ns);
+                }
+                _laterNamespaces.Clear();
+            }
 
             while (idx != _numEntries)
             {

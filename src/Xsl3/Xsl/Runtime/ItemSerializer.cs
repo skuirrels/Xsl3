@@ -446,7 +446,8 @@ namespace Xsl3.Runtime
         private static string NodeAsXml(XPathNavigator node, IReadOnlyDictionary<int, string>? characterMap = null)
         {
             var sw = new StringWriter(CultureInfo.InvariantCulture);
-            XmlWriter xml = XmlWriter.Create(sw, new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment });
+            var xmlSettings = new XmlWriterSettings { OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment };
+            XmlWriter xml = XmlWriter.Create(EmptyTagFilter.Wrap(sw, xmlSettings, null), xmlSettings);
             using (XmlWriter w = characterMap is { Count: > 0 } ? new XPath31.Functions.CharacterMapWriter(xml, characterMap) : xml)
             {
                 if (node.NodeType == XPathNodeType.Root)

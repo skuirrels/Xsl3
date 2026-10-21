@@ -493,6 +493,52 @@ job runs it on every pull request against the target branch. `perf-nightly.yml` 
 and the rewritten pairs every night, as an artifact. `micro --alloc-types` adds the runtime's allocation samples by
 type to each row, which is how the compile allocation above was found.
 
+## Real stylesheets: the TEI Stylesheets (remaining-scope 1.3)
+
+`eng/fetch-bench.sh` fetches the TEI Stylesheets (BSD-2-Clause or CC BY-SA 3.0) at a pinned commit; they aren't
+committed. `tests/Xsl3.W3C/TeiStylesheetTests` runs seven of their test suite's conversions (HTML of two documents,
+LaTeX of four, text of one) against the expected results, made with Saxon, and they agree word for word apart from
+the dates of the run. `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- tei` times four
+conversions of `Test/test14.xml` (550 KB); the nightly workflow runs it.
+
+Measured on 2026-10-21, after a temporary tree stopped allocating a 256-entry value table it then replaced, and got
+its attribute and namespace arrays only with its first attribute or namespace node (allocation before both in
+brackets):
+
+| Stylesheet | Compile | Transform | Allocated per transform |
+|---|---:|---:|---:|
+| html/html.xsl | 241 ms | 470 ms | 291 MB (426 MB) |
+| latex/latex.xsl | 90 ms | 272 ms | 439 MB (557 MB) |
+| fo/fo.xsl | 90 ms | 67 ms | 227 MB (356 MB) |
+| txt/tei-to-text.xsl | 12 ms | 29 ms | 83 MB (97 MB) |
+
+These stylesheets build many small temporary trees and copy navigators freely; `tei --alloc-types` shows where the
+rest goes (item arrays, navigators, item sequences). XMark isn't run: its generator is a C program, to be fetched and
+built separately.
+
+## Real stylesheets: DocBook xslTNG (remaining-scope 1.3)
+
+`eng/fetch-bench.sh` also fetches the DocBook xslTNG 2.7.1 release (MIT; the zip without Saxon's jars, checked against
+its SHA-256). `tests/Xsl3.W3C/DocBookStylesheetTests` converts its sample article and `tests/Xsl3.W3C/docbook/book.xml`
+(lists, sections, a table, a program listing, cross references, a footnote, an index) to HTML and checks the structure;
+there is no expected output to compare with. `-- docbook [--chapters n] [--transform-only] [--alloc-types]` times the
+compile and a book of the test book's chapters repeated.
+
+Getting it to run found five faults, fixed on 2026-10-21: the static variables of an imported module weren't visible
+after the `xsl:import` (static-021), `xsl:next-match` from a union pattern's rule broke when it passed on one of the
+rule's parameters, a namespace node couldn't follow attributes, `xsl:call-template` lost the current group, and the
+`xsl:evaluate` cache (64 expressions) was smaller than the 151 localization patterns DocBook evaluates in turn from one
+instruction, so each was compiled again every time. Then the names pool got a per-thread cache in front of its lock.
+
+| Measure (Release, .NET 10) | Before the fixes | After |
+|---|---:|---:|
+| Compile `docbook.xsl` (warm) | | 351 ms, 180 MB |
+| Transform, 150 KB book | 6,599 ms, 1,958 MB | 1,247 ms, 1,554 MB |
+| Transform, 301 KB book | 14,957 ms, 3,893 MB | 2,332 ms, 3,088 MB |
+
+The allocation is the next thing to work on: `docbook --alloc-types` puts item arrays, navigators, node arrays, string
+dictionaries and the output objects of DocBook's many small temporary trees at the top.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

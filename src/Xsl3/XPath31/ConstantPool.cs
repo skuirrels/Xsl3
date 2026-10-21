@@ -103,13 +103,20 @@ namespace Xsl3.XPath31
 
         /// <summary>xs:NMTOKENS, xs:IDREFS, xs:ENTITIES: whitespace-separated lists of <see cref="CastTarget.Type"/>.</summary>
         List,
+
+        /// <summary>Xsl3 (P6): a list or union type a schema defines (<see cref="CastTarget.Schema"/>).</summary>
+        Schema,
     }
 
     /// <summary>The target of <c>cast as</c>/<c>castable as</c>, with the namespaces xs:QName casts resolve prefixes against.</summary>
     internal sealed record CastTarget(AtomicType Type, IXmlNamespaceResolver? Namespaces, CastKind Kind = CastKind.Atomic)
     {
+        /// <summary>Xsl3 (P6): the schema's list or union type, for <see cref="CastKind.Schema"/>.</summary>
+        public System.Xml.Schema.XmlSchemaSimpleType? Schema { get; init; }
+
         public string Name => Kind switch
         {
+            CastKind.Schema => Schema!.QualifiedName.ToString(),
             CastKind.Numeric => "xs:numeric",
             CastKind.List => Type.Name + "S",
             _ => Type.Name.ToString(),
@@ -138,9 +145,54 @@ namespace Xsl3.XPath31
                         items[i] = Casting.Cast(AtomicValue.OfString(tokens[i]), Type);
                     }
                     return items;
+                case CastKind.Schema:
+                    return CastToSchemaType(value);
                 default:
                     return new XPathItem[] { Casting.Cast(value, Type, Namespaces) };
             }
+        }
+
+        // A cast to a list type (from a string) or to a union type (F&O 3.1 §19.3.5, §19.3.6).
+        private IList<XPathItem> CastToSchemaType(AtomicValue value)
+        {
+            System.Xml.Schema.XmlSchemaSimpleType type = Schema!;
+            bool list = type.Datatype?.Variety == System.Xml.Schema.XmlSchemaDatatypeVariety.List;
+            if (value.Type.Primitive is Primitive.String or Primitive.UntypedAtomic)
+            {
+                IList<XPathItem> result = Xsl3.Schema.SchemaTypes.Simple(type, value.Value, Namespaces);
+                if (list && result.Count == 0 && !Xsl3.Schema.SchemaTypes.AllowsEmptyList(type))
+                {
+                    throw new XdmException("FORG0001", $"A value of {Name} must have at least one item");
+                }
+                return result;
+            }
+            if (list)
+            {
+                throw Err.XPTY0004($"Only a string can be cast to the list type {Name}, not {value.Type.Name}");
+            }
+            foreach (System.Xml.Schema.XmlSchemaSimpleType member in Xsl3.Schema.SchemaTypes.UnionMemberTypes(type))
+            {
+                if (Xsl3.Schema.SchemaTypes.AtomicTypeOf(member) is { } atomic && value.Type.DerivesFrom(atomic))
+                {
+                    return new XPathItem[] { value };
+                }
+            }
+            XdmException? last = null;
+            foreach (System.Xml.Schema.XmlSchemaSimpleType member in Xsl3.Schema.SchemaTypes.UnionMemberTypes(type))
+            {
+                if (Xsl3.Schema.SchemaTypes.AtomicTypeOf(member) is { } atomic)
+                {
+                    try
+                    {
+                        return new XPathItem[] { Casting.Cast(value, atomic, Namespaces) };
+                    }
+                    catch (XdmException e)
+                    {
+                        last = e;
+                    }
+                }
+            }
+            throw last ?? new XdmException("FORG0001", $"{value.Value} can't be cast to {Name}");
         }
 
         public bool IsCastable(AtomicValue value)

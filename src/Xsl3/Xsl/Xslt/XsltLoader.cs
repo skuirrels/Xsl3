@@ -42,6 +42,25 @@ namespace Xsl3.Xslt
 
         public void Load(Compiler compiler, object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver)
         {
+            // Xsl3: static expressions read documents (doc('') in a shadow attribute) as document() does: through the
+            // stylesheet's resolver, when EnableDocumentFunction allows it.
+            XmlResolver? savedStaticResolver = UseWhen.Resolver;
+            bool savedSchemaAware = UseWhen.SchemaAware;
+            UseWhen.Resolver = compiler.Settings.EnableDocumentFunction ? xmlResolver : null;
+            UseWhen.SchemaAware = compiler.Settings.SchemaAware;
+            try
+            {
+                LoadCore(compiler, stylesheet, xmlResolver, origResolver);
+            }
+            finally
+            {
+                UseWhen.Resolver = savedStaticResolver;
+                UseWhen.SchemaAware = savedSchemaAware;
+            }
+        }
+
+        private void LoadCore(Compiler compiler, object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver)
+        {
             Debug.Assert(compiler != null);
             _compiler = compiler;
             _xmlResolver = xmlResolver ?? XmlResolver.ThrowingResolver;
@@ -218,6 +237,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_mergeKeyAttributes);
             AtomizeAttributes(_accumulatorRuleAttributes);
             AtomizeAttributes(_catchAttributes);
+            AtomizeAttributes(_importSchemaAttributes);
 
         }
 
@@ -419,6 +439,13 @@ namespace Xsl3.Xslt
                     new SourceLineInfo(ex.SourceUri, ex.LineNumber, ex.LinePosition, ex.LineNumber, ex.LinePosition) :
                     _input.BuildReaderLineInfo()
                 );
+                if (V2 && e is System.IO.IOException or UnauthorizedAccessException or System.Net.WebException)
+                {
+                    // Xsl3: a module that xsl:import or xsl:include names and that can't be read (XTSE0165).
+                    var load = new XslLoadException(SR.Xml_UserException, $"XTSE0165: {e.Message}");
+                    load.SetSourceLineInfo(lineInfo);
+                    throw load;
+                }
                 throw new XslLoadException(e, lineInfo);
             }
             finally
@@ -505,13 +532,21 @@ namespace Xsl3.Xslt
             bool isPackage = _input.LocalName == "package"; // (before the attributes are read)
             ContextInfo ctxInfo = _input.GetAttributes(_stylesheetAttributes);
 
-            ParseValidationAttribute(2, /*defVal:*/true);
+            if (ParseValidationAttribute(2, /*defVal:*/true) is string defaultValidation && _compiler.DefaultValidation == null)
+            {
+                _compiler.DefaultValidation = defaultValidation; // Xsl3 (P6): the principal module's, read first
+            }
             ParseInputTypeAnnotationsAttribute(3);
             // Xsl3: xsl:use-package is only allowed in the top-level module of a package and the modules it
             // includes, not those it imports (XTSE3008).
             if (!_loadingInclude)
             {
                 _packageTopModule = V2 && _packageTopModules.Add(_packageId);
+            }
+            if (V2 && isPackage && (_loadingInclude || !_packageTopModule))
+            {
+                // Xsl3: xsl:import and xsl:include name stylesheet modules; a package is used with xsl:use-package.
+                ReportError(SR.Xml_UserException, "XTSE0165: an imported or included module is an xsl:package, not a stylesheet module");
             }
             // Xsl3: name, package-version and declared-modes belong to xsl:package only (XTSE0090).
             if (V2 && !isPackage && !_input.ForwardCompatibility)
@@ -673,6 +708,10 @@ namespace Xsl3.Xslt
                                 {
                                     LoadFunction(ctxInfo.nsList);
                                 }
+                                else if (V2 && _input.LocalName == "import-schema" && _compiler.Settings.SchemaAware)
+                                {
+                                    LoadImportSchema();
+                                }
                                 else if (V2 && _input.LocalName == "import-schema")
                                 {
                                     // Xsl3: schema-awareness is P6 (SPEC §18); until then this is a basic processor (XSLT 3.0 §3.14).
@@ -734,12 +773,25 @@ namespace Xsl3.Xslt
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
                 {
-                    ReportError(/*[XT0210]*/SR.Xslt_CircularInclude, _input.Value);
+                    if (V2)
+                    {
+                        // Xsl3: an import cycle is XTSE0210 (an include cycle XTSE0180).
+                        ReportError(SR.Xml_UserException, $"XTSE0210: the stylesheet '{_input.Value}' imports itself, directly or indirectly");
+                    }
+                    else
+                    {
+                        ReportError(/*[XT0210]*/SR.Xslt_CircularInclude, _input.Value);
+                    }
                 }
                 else
                 {
                     _curStylesheet!.ImportHrefs.Add(uri);
                     _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
+                    if (V2)
+                    {
+                        // Xsl3: the imported module's static variables are in scope after the xsl:import (static-021).
+                        PreloadImportedStatics(uri, new HashSet<string>(StringComparer.Ordinal));
+                    }
                 }
             }
             else
@@ -830,7 +882,23 @@ namespace Xsl3.Xslt
             new XsltAttribute("parameter-document",     V2Opt),
             new XsltAttribute("suppress-indentation",   V2Opt),
         };
+        // Xsl3: xsl:output's attributes are being read (an invalid yes/no is SEPM0016 there).
+        private bool _serializationAttributes;
+
         private void LoadOutput()
+        {
+            _serializationAttributes = true;
+            try
+            {
+                LoadOutputCore();
+            }
+            finally
+            {
+                _serializationAttributes = false;
+            }
+        }
+
+        private void LoadOutputCore()
         {
             _input.GetAttributes(_outputAttributes);
 
@@ -920,7 +988,8 @@ namespace Xsl3.Xslt
                     try
                     {
                         // Encoding.GetEncoding() should never throw NotSupportedException, only ArgumentException
-                        Encoding encoding = Encoding.GetEncoding(_input.Value);
+                        // Xsl3: in 2.0+ the common aliases too (utf8, as TEI's LaTeX stylesheets write it).
+                        Encoding encoding = V2 ? Xsl3.Runtime.SerializationParameters.EncodingByName(_input.Value) : Encoding.GetEncoding(_input.Value);
                         if (currentPrec == output.EncodingPrec && output.Encoding != _input.Value)
                         {
                             ReportOutputRedefinition("encoding");
@@ -2161,14 +2230,15 @@ namespace Xsl3.Xslt
                 AddUseAttributeSets(content);
             }
 
-            ParseTypeAttribute(3);
-            ParseValidationAttribute(4, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(3);
+            string? validation = ParseValidationAttribute(4, /*defVal:*/false);
 
             string? select = V2 ? ParseStringAttribute(5, "select") : null;
             XslNode copy = SetInfo(F.Copy(), LoadEndTag(LoadInstructions(content)), ctxInfo);
             if (V2)
             {
                 copy.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, InheritNamespaces = inheritNamespacesAtt };
+                WithValidation(copy, validation, type);
             }
             if (select != null)
             {
@@ -2195,14 +2265,15 @@ namespace Xsl3.Xslt
             TriState copyNamespacesAtt = ParseYesNoAttribute(1, "copy-namespaces");
             if (V1 && copyNamespacesAtt == TriState.False) ReportNYI("xsl:copy-of[@copy-namespaces    = 'no']");
 
-            ParseTypeAttribute(2);
-            ParseValidationAttribute(3, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(2);
+            string? validation = ParseValidationAttribute(3, /*defVal:*/false);
 
             CheckNoContent();
             XslNode copyOf = SetInfo(F.CopyOf(select, _input.XslVersion), null, ctxInfo);
             if (V2)
             {
                 copyOf.V2 = new XslNodeV2 { CopyNamespaces = copyNamespacesAtt, CopyAccumulators = _input.CopyAccumulators is "yes" or "true" or "1" };
+                WithValidation(copyOf, validation, type);
                 if (_input.CopyAccumulators is not (null or "yes" or "true" or "1" or "no" or "false" or "0"))
                 {
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "copy-accumulators", _input.CopyAccumulators);
@@ -2726,8 +2797,8 @@ namespace Xsl3.Xslt
             bool inheritNamespaces = ParseYesNoAttribute(2, "inherit-namespaces") != TriState.False;
             if (V1 && !inheritNamespaces) ReportNYI("xsl:copy[@inherit-namespaces = 'no']");
 
-            ParseTypeAttribute(4);
-            ParseValidationAttribute(5, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string? validation = ParseValidationAttribute(5, /*defVal:*/false);
 
             List<XslNode> content = new List<XslNode>();
             if (_input.MoveToXsltAttribute(3, "use-attribute-sets"))
@@ -2741,7 +2812,7 @@ namespace Xsl3.Xslt
             {
                 element.V2 = new XslNodeV2 { InheritNamespaces = TriState.False };
             }
-            return element;
+            return WithValidation(element, validation, type);
         }
 
         // http://www.w3.org/TR/xslt#creating-attributes
@@ -2767,15 +2838,15 @@ namespace Xsl3.Xslt
             string? separator = ParseStringAttribute(3, "separator");
             if (V1 && separator != null) ReportNYI("xsl:attribute/@separator");
 
-            ParseTypeAttribute(4);
-            ParseValidationAttribute(5, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(4);
+            string? validation = ParseValidationAttribute(5, /*defVal:*/false);
 
             XslNode attribute = SetInfo(F.Attribute(name, ns, _input.XslVersion), LoadContent(select != null), ctxInfo);
             if (V2)
             {
                 attribute.V2 = new XslNodeV2 { Select = select, Separator = separator };
             }
-            return attribute;
+            return WithValidation(attribute, validation, type);
         }
 
         // http://www.w3.org/TR/xslt#sorting
@@ -2844,9 +2915,10 @@ namespace Xsl3.Xslt
             string nsUri = _input.NamespaceUri;
 
             ContextInfo ctxInfo = _input.GetLiteralAttributes(asStylesheet);
-            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml")
+            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml" && _compiler.PrincipalVersion >= 2.0)
             {
-                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml.
+                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml; but xml
+                // when the principal module says version="1.0" (XSLT 3.0 §26.1, backwards-019).
                 _compiler.XhtmlHtmlLiteral = true;
             }
 
@@ -2857,6 +2929,8 @@ namespace Xsl3.Xslt
             }
 
             List<XslNode> content = new List<XslNode>();
+            string? literalValidation = null;
+            XmlQualifiedName? literalType = null;
 
             for (int i = 1; _input.MoveToLiteralAttribute(i); i++)
             {
@@ -2873,6 +2947,14 @@ namespace Xsl3.Xslt
                     XslNode att = F.LiteralAttribute(F.QName(_input.LocalName, _input.NamespaceUri, _input.Prefix), _input.Value, _input.XslVersion);
                     // QilGenerator takes care of AVTs, and needs line info
                     AddInstruction(content, SetLineInfo(att, ctxInfo.lineInfo));
+                }
+                else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "type")
+                {
+                    literalType = ResolveTypeName(_input.Value); // Xsl3 (P6)
+                }
+                else if (V2 && _compiler.Settings.SchemaAware && _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax" or "preserve" or "strip")
+                {
+                    literalValidation = _input.Value.Trim();
                 }
                 else if (V2 && (_input.LocalName == "type" || _input.LocalName == "validation" && _input.Value.Trim() is "strict" or "lax"))
                 {
@@ -2893,7 +2975,7 @@ namespace Xsl3.Xslt
             // Xsl3: xsl:version below 2.0 asks for backwards-compatible behaviour (XSLT 3.0 §3.9): the scope manager marks
             // the region, and its nodes carry XslVersion.BackwardsCompatible.
             content = LoadEndTag(LoadInstructions(content));
-            return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
+            return WithValidation(SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo), literalValidation, literalType);
         }
 
         // Xsl3: conflicting xsl:output values at the same import precedence are an error in 2.0 (XTSE1560).
@@ -2931,7 +3013,7 @@ namespace Xsl3.Xslt
         private readonly List<int> _importPath = new List<int>();
 
         // Xsl3: the static variables declared so far: where in the tree of modules, and their values.
-        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value)>> _staticDeclarations = new();
+        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value, bool IsParam)>> _staticDeclarations = new();
 
         /// <summary>
         /// XTSE3450 (XSLT 3.0 §9.6): a static variable must have the same value as one of the same name declared earlier
@@ -2947,7 +3029,8 @@ namespace Xsl3.Xslt
             {
                 _staticDeclarations[name] = declarations = new();
             }
-            foreach (var (package, otherPath, otherValue) in declarations)
+            bool isParam = var.NodeType == XslNodeType.Param;
+            foreach (var (package, otherPath, otherValue, otherIsParam) in declarations)
             {
                 if (package != _packageId)
                 {
@@ -2957,14 +3040,15 @@ namespace Xsl3.Xslt
                 int[] earlier = otherFirst ? otherPath : path, later = otherFirst ? path : otherPath;
                 // The earlier one's module is the later one's or an ancestor of it: the same or higher precedence.
                 bool ancestor = earlier.Length <= later.Length && earlier.AsSpan(0, earlier.Length - 1).SequenceEqual(later.AsSpan(0, earlier.Length - 1));
-                if (!ancestor && !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
-                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b))))
+                // (A parameter and a variable of the same name are inconsistent whatever their values, static-023.)
+                if (!ancestor && (otherIsParam != isParam || !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
+                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b)))))
                 {
                     ReportError(SR.Xml_UserException, $"XTSE3450: the static variable ${var.Name!.QualifiedName} is declared with another value at a lower import precedence earlier in the stylesheet");
                     break;
                 }
             }
-            declarations.Add((_packageId, path, value));
+            declarations.Add((_packageId, path, value, isParam));
         }
 
         private static int TreeOrder(int[] a, int[] b)
@@ -3526,7 +3610,8 @@ namespace Xsl3.Xslt
                 _compiler.EnterForwardsCompatible();
                 foreach (string qname in XmlConvert.SplitString(_input.Value))
                 {
-                    useCharacterMaps.Add(CreateXPathQName(qname));
+                    // Xsl3: character maps are local to their package (use-package-106).
+                    useCharacterMaps.Add(PackageComponents.Mangle(CreateXPathQName(qname), _packageId));
                 }
                 if (!_compiler.ExitForwardsCompatible(_input.ForwardCompatibility))
                 {
@@ -3598,7 +3683,15 @@ namespace Xsl3.Xslt
                     default:
                         if (!_input.ForwardCompatibility)
                         {
-                            ReportError(/*[XT_028]*/SR.Xslt_BistateAttribute, attName, "yes", "no");
+                            if (V2 && _serializationAttributes)
+                            {
+                                // Xsl3: a serialization parameter of xsl:output (SEPM0016).
+                                ReportError(SR.Xml_UserException, $"SEPM0016: the value of the '{attName}' attribute must be 'yes' or 'no'");
+                            }
+                            else
+                            {
+                                ReportError(/*[XT_028]*/SR.Xslt_BistateAttribute, attName, "yes", "no");
+                            }
                         }
                         break;
                 }
@@ -3606,11 +3699,15 @@ namespace Xsl3.Xslt
             return TriState.Unknown;
         }
 
-        private void ParseTypeAttribute(int attNum)
+        private XmlQualifiedName? ParseTypeAttribute(int attNum)
         {
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All 'type' attributes are optional.");
             if (_input.MoveToXsltAttribute(attNum, "type"))
             {
+                if (V2 && _compiler.Settings.SchemaAware)
+                {
+                    return ResolveTypeName(_input.Value);
+                }
                 if (V2)
                 {
                     ReportError(SR.Xml_UserException, "XTSE1660: the type attribute needs a schema-aware processor");
@@ -3620,15 +3717,20 @@ namespace Xsl3.Xslt
                     CheckError(true, /*[???]*/SR.Xslt_SchemaAttribute, "type");
                 }
             }
+            return null;
         }
 
-        private void ParseValidationAttribute(int attNum, bool defVal)
+        private string? ParseValidationAttribute(int attNum, bool defVal)
         {
             Debug.Assert(!_input.IsRequiredAttribute(attNum), "All 'validation' attributes are optional.");
             string attributeName = defVal ? _atoms.DefaultValidation : "validation";
             if (_input.MoveToXsltAttribute(attNum, attributeName))
             {
                 string value = V2 ? _input.Value.Trim() : _input.Value;
+                if (V2 && _compiler.Settings.SchemaAware && (value is "strip" or "preserve" || !defVal && value is "strict" or "lax"))
+                {
+                    return value; // Xsl3 (P6)
+                }
                 if (value == "strip" || V2 && value == "preserve")
                 {
                     // no error: a basic XSLT 3.0 processor has no type annotations to preserve
@@ -3650,6 +3752,42 @@ namespace Xsl3.Xslt
                     ReportError(/*[???]*/SR.Xslt_InvalidAttrValue, attributeName, value);
                 }
             }
+            return null;
+        }
+
+        // Xsl3 (P6): a type attribute's name; an unprefixed one is in the xpath-default-namespace (XSLT 3.0 §5.1.2).
+        private XmlQualifiedName ResolveTypeName(string value)
+        {
+            XmlQualifiedName name = ResolveQName(/*ignoreDefaultNs:*/true, value);
+            return name.Namespace.Length == 0 && !value.TrimStart().StartsWith("Q{", StringComparison.Ordinal) && _input.XPathDefaultNamespace.Length > 0
+                ? new XmlQualifiedName(name.Name, _input.XPathDefaultNamespace)
+                : name;
+        }
+
+        // Xsl3 (P6): the validation and type attributes of an instruction that constructs or copies nodes. Without
+        // either, a default-validation in scope that differs from the stylesheet's is the instruction's validation.
+        private T WithValidation<T>(T node, string? validation, XmlQualifiedName? type) where T : XslNode
+        {
+            if (validation == null && type == null && _compiler.Settings.SchemaAware && _input.DefaultValidation is string scoped &&
+                scoped != (_compiler.DefaultValidation ?? "strip") && scoped is "preserve" or "strip")
+            {
+                validation = scoped;
+            }
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: an instruction can't have both a validation and a type attribute");
+            }
+            else if (type is { Name: "untyped", Namespace: XmlReservedNs.NsXs } || type is { Name: "untypedAtomic", Namespace: XmlReservedNs.NsXs } && node.NodeType == XslNodeType.Attribute)
+            {
+                // type="xs:untyped" (xs:untypedAtomic for attributes) is validation="strip" (XSLT 3.0 §25.4.1).
+            }
+            else if (validation != null || type != null)
+            {
+                node.V2 ??= new XslNodeV2();
+                node.V2.Validation = validation;
+                node.V2.ValidationType = type;
+            }
+            return node;
         }
 
         private void ParseInputTypeAnnotationsAttribute(int attNum)

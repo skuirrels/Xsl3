@@ -121,8 +121,10 @@ namespace Xsl3.Xslt
         public bool AllModes;
         public List<string>? Errors; // xsl:catch/@errors as EQNames, "Q{ns}*", "*:local" or "*"
         public string? Match, Phase; // xsl:accumulator-rule
-        public string? ForEachItem, ForEachSource, Order; // xsl:merge-source, xsl:merge-key
+        public string? ForEachItem, ForEachSource, Order, DataType, Lang, CaseOrder; // xsl:merge-source, xsl:merge-key
         public bool SortBeforeMerge;
+        public string? Validation; // Xsl3 (P6): validation="strict|lax|preserve|strip" (xsl:validation on a literal result element)
+        public System.Xml.XmlQualifiedName? ValidationType; // Xsl3 (P6): type="T" (xsl:type)
     }
 
     internal sealed class NsDecl

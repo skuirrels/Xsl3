@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.2" xml:id="book">
+  <info>
+    <title>Xsl3 Test Book</title>
+    <subtitle>DocBook xslTNG on Xsl3</subtitle>
+    <author><personname><firstname>Test</firstname><surname>Author</surname></personname></author>
+    <pubdate>2026</pubdate>
+  </info>
+  <preface xml:id="preface">
+    <title>Preface</title>
+    <para>This book exercises the DocBook xslTNG stylesheets: <emphasis>emphasis</emphasis>,
+    <emphasis role="strong">strong</emphasis>, <code>code</code>, <link xlink:href="https://example.org/">links</link>
+    and a cross reference to <xref linkend="tables"/>.</para>
+  </preface>
+  <chapter xml:id="lists">
+    <title>Lists</title>
+    <para>An itemized list:<footnote><para>A footnote in the first chapter.</para></footnote></para>
+    <itemizedlist>
+      <listitem><para>First item</para></listitem>
+      <listitem><para>Second item</para></listitem>
+    </itemizedlist>
+    <orderedlist numeration="loweralpha">
+      <listitem><para>Alpha</para></listitem>
+      <listitem><para>Beta</para></listitem>
+    </orderedlist>
+    <variablelist>
+      <varlistentry><term>Term</term><listitem><para>Definition<indexterm><primary>definition</primary></indexterm></para></listitem></varlistentry>
+    </variablelist>
+    <section xml:id="nested">
+      <title>A section</title>
+      <para>Inside a section, with a <quote>quotation</quote> and <filename>a/file.xml</filename>.</para>
+      <note><para>A note.</para></note>
+    </section>
+  </chapter>
+  <chapter xml:id="tables">
+    <title>Tables and listings</title>
+    <table xml:id="table1">
+      <title>A table</title>
+      <tgroup cols="2">
+        <thead><row><entry>Name</entry><entry>Value</entry></row></thead>
+        <tbody>
+          <row><entry>one</entry><entry>1</entry></row>
+          <row><entry>two</entry><entry>2</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+    <programlisting language="xml">&lt;out&gt;listing&lt;/out&gt;</programlisting>
+    <example xml:id="ex1"><title>An example</title><para>See <xref linkend="lists"/>.<indexterm><primary>example</primary></indexterm></para></example>
+  </chapter>
+  <appendix xml:id="appendix">
+    <title>An appendix</title>
+    <para>The end.</para>
+  </appendix>
+  <index/>
+</book>

@@ -59,6 +59,17 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: XsltSettings.Timeout of the running transformation: the match timeout of its regular expressions, which
+        // the checks at template and function entry don't reach (a match that runs this long ends the run as cancelled).
+        [System.ThreadStatic]
+        private static System.TimeSpan? t_regexTimeout;
+
+        internal static System.TimeSpan? RegexTimeout
+        {
+            get => t_regexTimeout;
+            set => t_regexTimeout = value;
+        }
+
         // Xsl3: the package library of the running transformation (XslCompiledTransform.Packages), for fn:transform.
         [System.ThreadStatic]
         private static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? t_packages;
@@ -132,6 +143,21 @@ namespace Xsl3.Runtime
 
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
+
+        /// <summary>Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.</summary>
+        internal bool PreserveAnnotations
+        {
+            get => AnnotationScopes is { Count: > 0 } scopes ? scopes.Peek() : _preserveAnnotations;
+            set => _preserveAnnotations = value;
+        }
+
+        private bool _preserveAnnotations;
+
+        /// <summary>Xsl3 (P6): the constructors being evaluated that preserve (true) or strip (false) type annotations.</summary>
+        internal Stack<bool>? AnnotationScopes { get; set; }
+
+        /// <summary>Xsl3 (P6): the stylesheet was compiled by a schema-aware processor (XsltSettings.SchemaAware).</summary>
+        internal bool SchemaAware { get; set; }
 
         // Xsl3: the constants compiled code refers to by number (ConstantPool); null for the process-wide table.
         internal Xsl3.XPath31.ConstantTable? Constants { get; }
@@ -666,6 +692,9 @@ namespace Xsl3.Runtime
                 // It is not correct to resolve xmlns prefix in XPath but removing it would be a breaking change.
                 else if (prefix.Equals("xmlns"))
                     ns = XmlReservedNs.NsXmlNs;
+                else if (IsXslt2)
+                    // Xsl3: a computed element name's undeclared prefix (an attribute's is XTDE0860, XmlQueryOutput).
+                    throw new Xsl3.Xdm.XdmException("XTDE0830", $"The prefix '{prefix}' of the computed name '{tagName}' is not declared");
                 else
                     throw new XslTransformException(SR.Xslt_InvalidPrefix, prefix);
             }
@@ -1058,7 +1087,8 @@ namespace Xsl3.Runtime
                         if (nav.XmlType == null)
                             return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), XmlSchemaComplexType.UntypedAnyType, false);
 
-                        return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), nav.XmlType, nav.SchemaInfo!.SchemaElement!.IsNillable);
+                        // Xsl3 (P6): a compact tree's validated node has a type but no declaration.
+                        return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.New(nav.LocalName, nav.NamespaceURI), nav.XmlType, nav.SchemaInfo?.SchemaElement?.IsNillable ?? false);
 
                     case XPathNodeType.Attribute:
                         if (nav.XmlType == null)
@@ -1176,10 +1206,27 @@ namespace Xsl3.Runtime
                 }
             }
 
+            if (IsXslt2)
+            {
+                // Xsl3: an index asked for while it is being built means the key's definition uses itself (XTDE0640).
+                _indexesInProgress ??= new List<(int, XPathNavigator)>();
+                foreach (var (id, root) in _indexesInProgress)
+                {
+                    if (id == indexId && root.IsSamePosition(navRoot))
+                    {
+                        throw new Xsl3.Xdm.XdmException("XTDE0640", "The definition of a key depends on itself");
+                    }
+                }
+                _indexesInProgress.Add((indexId, navRoot.Clone()));
+            }
+
             // Return a new, empty index
             index = new XmlILIndex();
             return false;
         }
+
+        // Xsl3: the indexes being built (2.0+), by key and document.
+        private List<(int Id, XPathNavigator Root)>? _indexesInProgress;
 
         /// <summary>
         /// Add a newly built index over the specified "context" document to the existing collection of indexes.
@@ -1193,6 +1240,7 @@ namespace Xsl3.Runtime
             // Get root of document
             navRoot = context.Clone();
             navRoot.MoveToRoot();
+            _indexesInProgress?.RemoveAll(e => e.Id == indexId && e.Root.IsSamePosition(navRoot));
 
             // Ensure that a slot exists for the new index
             if (_indexes == null)

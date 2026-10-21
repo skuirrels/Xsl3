@@ -22,19 +22,26 @@ namespace Xsl3.Xslt
         /// </summary>
         private QilNode CompileEvaluate31(QName name, IReadOnlyList<XPath31.Expr> args, System.Func<XPath31.Expr, QilNode> compile)
         {
-            if (name.LocalName != "evaluate" || args.Count != 7)
+            if (name.LocalName is not ("evaluate" or "evaluate-without-schemas") || args.Count != 7)
             {
                 return ReportXPath31Error("XPST0017", $"There is no function {name.EQName}#{args.Count}");
             }
             XPathStaticContext sc = StaticContext31();
             var context = new EvaluateContext(new Dictionary<string, string>(sc.Namespaces), sc.DefaultElementNamespace, sc.BaseUri, sc.DefaultCollation,
-                sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats));
-            var references = new List<XPath31.Expr>();
-            foreach (var (ns, local, arity) in EvaluateFunctions31())
+                sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats)) { Schemas = name.LocalName == "evaluate" ? sc.Schemas : null };
+            // The function items: made once per transformation (a hidden global of the package), not per evaluation.
+            if (!_evaluateFunctions31.TryGetValue(_package31, out QilIterator? functions))
             {
-                references.Add(new XPath31.NamedFunctionRef(new XPath31.LexicalQName(null, local, ns), arity));
+                var references = new List<XPath31.Expr>();
+                foreach (var (ns, local, arity) in EvaluateFunctions31())
+                {
+                    references.Add(new XPath31.NamedFunctionRef(new XPath31.LexicalQName(null, local, ns), arity));
+                }
+                functions = _f.Let(references.Count == 0 ? _f.TypeAssert(_f.Sequence(), T.ItemS) : Box(compile(new XPath31.SequenceExpr(references))));
+                functions.DebugName = "<xsl:evaluate functions>";
+                _gloVars.Add(functions);
+                _evaluateFunctions31[_package31] = functions;
             }
-            QilNode functions = references.Count == 0 ? _f.TypeAssert(_f.Sequence(), T.ItemS) : Box(compile(new XPath31.SequenceExpr(references)));
             var actual = new List<QilNode>();
             foreach (XPath31.Expr arg in args)
             {
@@ -44,6 +51,9 @@ namespace Xsl3.Xslt
             actual.Add(_f.Double(ConstantPool.Add(context)));
             return X31(nameof(XsltLibrary.X31Evaluate), T.ItemS, actual.ToArray());
         }
+
+        // The function items xsl:evaluate passes, by package: a global variable each.
+        private readonly Dictionary<int, QilIterator> _evaluateFunctions31 = new();
 
         /// <summary>
         /// The stylesheet functions a target expression may call (XSLT 3.0 §10.4.1): the package's own functions that

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Xml;
 
@@ -145,6 +146,136 @@ public static class Micro
                 _bytes.Clear();
             }
         }
+    }
+
+    /// <summary>
+    /// tei [--ms budget]: real stylesheets (remaining-scope 1.3), the TEI Stylesheets' HTML, LaTeX, XSL-FO and text
+    /// conversions of Test/test14.xml (550 KB): compile time and transform time and allocation.
+    /// </summary>
+    public static void RunTei(string[] args)
+    {
+        int budget = 3000;
+        string? only = null;
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--ms":
+                    budget = int.Parse(args[++i], CultureInfo.InvariantCulture);
+                    break;
+                case "--alloc-types":
+                    s_allocations = new AllocationSampler();
+                    break;
+                default:
+                    only = args[i];
+                    break;
+            }
+        }
+        string? root = null;
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null && root == null; dir = dir.Parent)
+        {
+            string candidate = Path.Combine(dir.FullName, "external", "bench", "tei");
+            root = File.Exists(Path.Combine(candidate, "html", "html.xsl")) ? candidate : null;
+        }
+        if (root == null)
+        {
+            Console.WriteLine("TEI Stylesheets not found: run eng/fetch-bench.sh");
+            return;
+        }
+        var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false);
+        var resolver = new XmlUrlResolver();
+        var readerSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse };
+        Tree.CompactDocument input;
+        using (XmlReader reader = XmlReader.Create(Path.Combine(root, "Test", "test14.xml"), readerSettings))
+        {
+            input = Tree.CompactDocument.Load(reader);
+        }
+        bool header = true;
+        foreach (string stylesheet in new[] { "html/html.xsl", "latex/latex.xsl", "fo/fo.xsl", "txt/tei-to-text.xsl" }.Where(n => only == null || n.StartsWith(only, StringComparison.Ordinal)))
+        {
+            string path = Path.Combine(root, stylesheet);
+            XslCompiledTransform Compile()
+            {
+                var t = new XslCompiledTransform();
+                using XmlReader reader = XmlReader.Create(path, readerSettings);
+                t.Load(reader, settings, resolver);
+                return t;
+            }
+            string name = stylesheet.Split('/')[0];
+            Print(Measure(name, "compile", budget, () => Compile()), header);
+            header = false;
+            XslCompiledTransform transform = Compile();
+            Print(Measure(name, "test14", budget, () =>
+            {
+                // (With the resolver: the stylesheets read their own i18n.xml with document().)
+                using XmlWriter writer = XmlWriter.Create(Stream.Null, transform.OutputSettings);
+                transform.Transform(input, null, writer, resolver);
+            }));
+        }
+    }
+
+    /// <summary>
+    /// docbook [--ms budget]: DocBook xslTNG (eng/fetch-bench.sh), its HTML conversion: compile time, and a book made of
+    /// the test book's chapters repeated (tests/Xsl3.W3C/docbook/book.xml) at about 400 KB.
+    /// </summary>
+    public static void RunDocBook(string[] args)
+    {
+        int budget = 3000, chapters = 200;
+        for (int i = 0; i + 1 < args.Length; i++)
+        {
+            if (args[i] == "--ms") budget = int.Parse(args[i + 1], CultureInfo.InvariantCulture);
+            if (args[i] == "--chapters") chapters = int.Parse(args[i + 1], CultureInfo.InvariantCulture);
+        }
+        if (args.Contains("--alloc-types"))
+        {
+            s_allocations = new AllocationSampler();
+        }
+        string? xslt = null, book = null;
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null && (xslt == null || book == null); dir = dir.Parent)
+        {
+            string candidate = Path.Combine(dir.FullName, "external", "bench", "docbook", "docbook-xslTNG-nosaxon-2.7.1", "xslt", "docbook.xsl");
+            xslt ??= File.Exists(candidate) ? candidate : null;
+            string test = Path.Combine(dir.FullName, "tests", "Xsl3.W3C", "docbook", "book.xml");
+            book ??= File.Exists(test) ? test : null;
+        }
+        if (xslt == null || book == null)
+        {
+            Console.WriteLine("DocBook xslTNG not found: run eng/fetch-bench.sh");
+            return;
+        }
+        var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false) { EnableEvaluate = true }; // (it runs its pipeline with fn:transform)
+        var resolver = new XmlUrlResolver();
+        XslCompiledTransform Compile()
+        {
+            var t = new XslCompiledTransform();
+            t.Load(xslt, settings, resolver);
+            return t;
+        }
+        if (!args.Contains("--transform-only"))
+        {
+            Print(Measure("docbook", "compile", budget, () => Compile()), header: true);
+        }
+        // The chapters, 200 times over, their ids made unique.
+        string text = File.ReadAllText(book);
+        int start = text.IndexOf("<chapter", StringComparison.Ordinal), end = text.LastIndexOf("</chapter>", StringComparison.Ordinal) + "</chapter>".Length;
+        var sb = new StringBuilder(text[..start]);
+        for (int i = 0; i < chapters; i++)
+        {
+            sb.Append(text[start..end].Replace("xml:id=\"", $"xml:id=\"c{i}-", StringComparison.Ordinal).Replace("linkend=\"", $"linkend=\"c{i}-", StringComparison.Ordinal));
+        }
+        sb.Append(text[end..]);
+        // (With the test book's URI: the stylesheets use the document's base URI.)
+        Tree.CompactDocument input;
+        using (XmlReader reader = XmlReader.Create(new StringReader(sb.ToString()), null, new Uri(book).AbsoluteUri))
+        {
+            input = Tree.CompactDocument.Load(reader);
+        }
+        XslCompiledTransform transform = Compile();
+        Print(Measure("docbook", $"{sb.Length / 1024}kb", budget, () =>
+        {
+            using XmlWriter writer = XmlWriter.Create(Stream.Null, transform.OutputSettings);
+            transform.Transform(input, null, writer, resolver);
+        }));
     }
 
     private static readonly Dictionary<string, Tree.CompactDocument> s_inputs = new(StringComparer.Ordinal);

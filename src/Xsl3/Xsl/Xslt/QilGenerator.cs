@@ -305,6 +305,21 @@ namespace Xsl3.Xslt
                 }
             }
 
+            // Xsl3 (P6): input-type-annotations="strip": the source documents' type annotations are ignored (XSLT 3.0 §4.4.1).
+            if (IsV2 && _compiler.inputTypeAnnotations == "strip" && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31StripInputAnnotations), T.IntX));
+            }
+            if (IsV2 && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31SchemaAware), T.IntX));
+            }
+            // Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.
+            if (IsV2 && _compiler.DefaultValidation == "preserve" && _compiler.Settings.SchemaAware)
+            {
+                init = _f.Add(init, XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31PreserveAnnotations), T.IntX));
+            }
+
             // Register all script namespaces
 #pragma warning disable SYSLIB0062 // Scripts field is obsolete
             foreach (string scriptNs in _compiler.Scripts.ScriptClasses.Keys)
@@ -633,6 +648,19 @@ namespace Xsl3.Xslt
                     // Xsl3: tunnel parameters travel in one implicit argument (2.0).
                     args.Add(CreateXslParam(CloneName(_nameTunnel), T.ItemS));
                 }
+                if (tmpl is Template withAlternatives && _alternatives31 != null && _alternatives31.TryGetValue(withAlternatives, out List<TemplateMatch>? alternatives))
+                {
+                    // Xsl3: which alternative of the template's union pattern matched; -1 when it is called by name.
+                    QilParameter alternative = CreateXslParam(CloneName(s_nameAlternative31), T.DoubleX);
+                    alternative.DefaultValue = _f.Double(-1);
+                    args.Add(alternative);
+                    foreach (TemplateMatch match in alternatives)
+                    {
+                        VarPar arg = AstFactory.VarPar(XslNodeType.WithParam, CloneName(s_nameAlternative31), null, XslVersion.Current);
+                        arg.Value = _f.Double(match.Alternative);
+                        match.AlternativeArg = arg;
+                    }
+                }
                 if (IsDebug && nsList != null)
                 {
                     // AttributeSet doesn't need this logic because: 1) it doesn't have args; 2) we merge them.
@@ -849,7 +877,9 @@ namespace Xsl3.Xslt
                 _noFocus = true;
             }
             _namedFocus31 = IsV2 && tmpl is Template { Match: null, IsFunction: false } && (XslFlags.Current & tmpl.Flags) != 0;
+            _namedTemplateBody31 = IsV2 && tmpl is Template { Match: null, IsFunction: false };
             QilNode body = CompileInstructions(tmpl.Content);
+            _namedTemplateBody31 = false;
             _namedFocus31 = false;
             _noFocus = savedNoFocus;
             if (IsV2)
@@ -971,6 +1001,19 @@ namespace Xsl3.Xslt
 
                 ExitScope();
                 Debug.Assert(result != null, "Result of compilation should not be null");
+                if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
+                {
+                    result = Validate31(result, validated);
+                }
+                else if (IsV2 && node.V2?.Validation is string kept and ("preserve" or "strip") && nodeType is XslNodeType.LiteralElement or XslNodeType.Element or XslNodeType.Copy or XslNodeType.Document)
+                {
+                    // Xsl3 (P6): validation="preserve" or "strip" on a constructor: the nodes copied into it keep, or lose,
+                    // their type annotations, whatever the stylesheet's default-validation.
+                    result = _f.Sequence(
+                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(kept == "preserve" ? 1 : 0)),
+                        result,
+                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(-1)));
+                }
                 if (result.NodeType == QilNodeType.Sequence && result.Count == 0)
                 {
                     continue;
@@ -2493,14 +2536,28 @@ namespace Xsl3.Xslt
                     foreach (QilName? mode in modes)
                     {
                         _templatePattern31 = true; // Xsl3: only template rules match items that aren't nodes
+                        // Xsl3 (P6): in a mode with typed="strict", an element name test is schema-element(N).
+                        _strictPattern31 = IsV2 && _compiler.Settings.SchemaAware && _compiler.ModeDecls.TryGetValue(mode ?? template.Mode, out ModeDecl? patternMode) && patternMode.Typed == "strict";
                         QilNode result = CompileMatchPattern(template.Match);
                         _templatePattern31 = false;
+                        _strictPattern31 = false;
                         if (result.NodeType == QilNodeType.Sequence)
                         {
                             QilList filters = (QilList)result;
+                            // Xsl3: without a priority attribute the alternatives of a union are rules of their own (XSLT
+                            // 3.0 §6.5): xsl:next-match goes on below the one that matched, the template's other
+                            // alternatives included (the template learns which through a hidden argument).
+                            bool alternatives = IsV2 && !IsDebug && filters.Count > 1 && double.IsNaN(template.Priority) && modes.Count == 1 &&
+                                template.V2 is not { AllModes: true } && UsesNextMatch31(template.Content);
                             for (int idx = 0; idx < filters.Count; idx++)
                             {
-                                sheet.AddTemplateMatch(template, (QilLoop)filters[idx], mode);
+                                TemplateMatch match = sheet.AddTemplateMatch(template, (QilLoop)filters[idx], mode);
+                                if (alternatives)
+                                {
+                                    match.Alternative = idx;
+                                    (_alternatives31 ??= new Dictionary<Template, List<TemplateMatch>>()).TryAdd(template, new List<TemplateMatch>());
+                                    _alternatives31[template].Add(match);
+                                }
                             }
                         }
                         else
@@ -2592,7 +2649,15 @@ namespace Xsl3.Xslt
         private void CompileGlobalVariables()
         {
             CheckSingletonFocus();
-            _singlFocus.SetFocus(SingletonFocusType.InitialDocumentNode);
+            if (IsV2)
+            {
+                // Xsl3: the global context item, which may be absent (XSLT 3.0 §5.3.3, §9.7).
+                _singlFocus.SetGlobalFocus(_compiler.GlobalContextItem is ("absent", _));
+            }
+            else
+            {
+                _singlFocus.SetFocus(SingletonFocusType.InitialDocumentNode);
+            }
 
             foreach (VarPar par in _compiler.ExternalPars)
             {
@@ -2600,6 +2665,11 @@ namespace Xsl3.Xslt
             }
             foreach (VarPar var in _compiler.GlobalVars)
             {
+                if (IsV2)
+                {
+                    // Xsl3: a used package's global variables have no global context item (XSLT 3.0 §2.3.2, XPDY0002).
+                    _singlFocus.SetGlobalFocus(var.PackageId > 0 || _compiler.GlobalContextItem is ("absent", _));
+                }
                 _gloVars.Add(CompileGlobalVarPar(var));
             }
 
@@ -3070,9 +3140,9 @@ namespace Xsl3.Xslt
             if (nextMatchBelow != null)
             {
                 // Xsl3: xsl:next-match functions, one family per template rule.
-                if (!_nextMatchFunctions.TryGetValue((nextMatchBelow, ModeKey31(mode)), out functionsForMode))
+                if (!_nextMatchFunctions.TryGetValue(((object?)_belowMatch31 ?? nextMatchBelow, ModeKey31(mode)), out functionsForMode))
                 {
-                    functionsForMode = _nextMatchFunctions[(nextMatchBelow, ModeKey31(mode))] = new List<QilFunction>();
+                    functionsForMode = _nextMatchFunctions[((object?)_belowMatch31 ?? nextMatchBelow, ModeKey31(mode))] = new List<QilFunction>();
                 }
             }
             else if (!sheet.ApplyFunctions.TryGetValue(mode, out functionsForMode))
@@ -3184,9 +3254,35 @@ namespace Xsl3.Xslt
                 }
 
                 // 3.2 Stylesheet templates
-                _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
+                _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
+                bool schemaAware = _compiler.Settings.SchemaAware;
+                if (IsV2 && schemaAware && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? strictMode) && strictMode.Typed == "strict")
+                {
+                    CheckStrictPatterns31(mode);
+                }
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? untypedMode) && schemaAware && untypedMode.Typed is "no" or "false" or "0")
+                {
+                    // Xsl3 (P6): typed="no": processing a typed element or attribute in the mode is XTTE3110.
+                    applyFunction.Definition = _f.Conditional(
+                        _f.And(_f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute)), _f.Not(X31(nameof(XsltLibrary.X31Untyped), T.BooleanX, current))),
+                        _f.Error(_f.String("XTTE3110: a mode with typed=\"" + untypedMode.Typed + "\" processes a typed element or attribute")),
+                        applyFunction.Definition);
+                }
+                if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? typedMode) && (typedMode.Typed is "yes" or "true" or "1" or "strict" || schemaAware && typedMode.Typed == "lax"))
+                {
+                    // Xsl3: typed="yes" or "strict" (XSLT 3.0 §3.5.4.1): processing an untyped element or attribute in
+                    // the mode is XTTE3100. (Without schemas every one is untyped; with them, P6, it is asked at run time.)
+                    QilNode elementOrAttribute = _f.Or(_f.IsType(current, T.Element), _f.IsType(current, T.Attribute));
+                    if (_compiler.Schemas != null || _compiler.Settings.SchemaAware)
+                    {
+                        elementOrAttribute = _f.And(elementOrAttribute, X31(nameof(XsltLibrary.X31Untyped), T.BooleanX, current));
+                    }
+                    applyFunction.Definition = _f.Conditional(elementOrAttribute,
+                        _f.Error(_f.String("XTTE3100: a mode with typed=\"" + typedMode.Typed + "\" processes an untyped element or attribute")),
+                        applyFunction.Definition);
+                }
                 if (modeFrame != null)
                 {
                     applyFunction.Definition = _f.Loop(modeFrame, applyFunction.Definition);

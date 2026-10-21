@@ -235,7 +235,7 @@ namespace Xsl3.Runtime
             // Cache attributes in order to detect duplicates
             if (cacheAttributes || _cntNmsp != 0)
             {
-                _attrCache ??= new XmlAttributeCache();
+                _attrCache ??= new XmlAttributeCache { HoldLateNamespaces = _runtime.IsXslt2 };
 
                 _attrCache.Init(Writer!);
                 Writer = _attrCache;
@@ -721,6 +721,16 @@ namespace Xsl3.Runtime
         public void WriteRawUnchecked(string text)
         {
             Debug.Assert(_xstate != XmlState.WithinSequence && _xstate != XmlState.EnumAttrs, $"WriteTextBlockNoEntities cannot be called in the {_xstate} state.");
+            if (_runtime.IsXslt2)
+            {
+                XmlRawWriter? raw = Writer is XmlAttributeCache cache ? cache.Wrapped : Writer;
+                if ((raw is XmlAutoDetectWriter auto ? auto.Wrapped : raw) is QueryOutputWriter query)
+                {
+                    // Xsl3: not as CDATA in a cdata-section element (2.0+).
+                    query.WriteRawOutsideCData(text);
+                    return;
+                }
+            }
             Writer!.WriteRaw(text);
         }
 
@@ -1081,6 +1091,7 @@ namespace Xsl3.Runtime
             {
                 // Xsl3: in a sequence being constructed (XSLT 2.0+), a copy of a document node is a new document node.
                 WriteStartRoot();
+                KeepBaseUri31(navigator);
                 if (navRtf != null)
                 {
                     navRtf.CopyToWriter(this);
@@ -1145,6 +1156,7 @@ namespace Xsl3.Runtime
                 if (newRoot)
                 {
                     WriteStartRoot();
+                    KeepBaseUri31(navigator);
                 }
                 return true;
             }
@@ -1152,6 +1164,9 @@ namespace Xsl3.Runtime
             if (StartCopy(navigator, true))
             {
                 Debug.Assert(navigator.NodeType == XPathNodeType.Element, "StartCopy should return true only for Element nodes.");
+
+                // Xsl3: xsl:copy's element has its original's base URI (XSLT 3.0 §11.9.1).
+                KeepBaseUri31(navigator);
 
                 // Copy namespaces to output
                 CopyNamespaces(navigator, XPathNamespaceScope.ExcludeXml);
@@ -1267,6 +1282,15 @@ namespace Xsl3.Runtime
             XPathNodeType nodeType;
             int depthStart = _depth;
             Debug.Assert(navigator != null);
+            // Xsl3 (P6): a typed node added to a temporary tree's document node keeps its type annotations (XSLT 3.0
+            // §9.4, the temporary tree is built with validation="preserve"); not a copy xsl:copy-of makes, which strips them.
+            // With default-validation="preserve", every copy into a constructed tree keeps them.
+            Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
+                ? Xsl3.Schema.AnnotatingWriters.Of(Writer) : null;
+            if (navigator.NodeType == XPathNodeType.Attribute)
+            {
+                CopyAttributeAnnotation(navigator, typedCopy);
+            }
 
             while (true)
             {
@@ -1274,12 +1298,22 @@ namespace Xsl3.Runtime
                 {
                     nodeType = navigator.NodeType;
                     Debug.Assert(nodeType == XPathNodeType.Element, "StartCopy should return true only for Element nodes.");
+                    if (_depth - 1 == depthStart)
+                    {
+                        // Xsl3: a copied element keeps its original's base URI (its descendants inherit it).
+                        KeepBaseUri31(navigator, deep: true);
+                    }
+                    if (typedCopy != null && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } elementType)
+                    {
+                        typedCopy.AnnotateElement(elementType, Xsl3.Schema.SchemaTypes.IsNilled(navigator));
+                    }
 
                     // Copy attributes
                     if (navigator.MoveToFirstAttribute())
                     {
                         do
                         {
+                            CopyAttributeAnnotation(navigator, typedCopy);
                             StartCopy(navigator, false);
                         }
                         while (navigator.MoveToNextAttribute());
@@ -1323,6 +1357,48 @@ namespace Xsl3.Runtime
                     navigator.MoveToParent();
 
                     EndCopy(navigator, (_depth - 1) == depthStart);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Xsl3 (P6): the type annotation of an attribute being copied, where the copy keeps them; else its is-id property,
+        /// which a copy keeps even when its type annotation is stripped (XDM 3.1 §3.3.1.1).
+        /// </summary>
+        private void CopyAttributeAnnotation(XPathNavigator attribute, Xsl3.Schema.IAnnotatingWriter? typedCopy)
+        {
+            if (attribute is not Xsl3.Tree.CompactNavigator compact)
+            {
+                return;
+            }
+            if (typedCopy != null && compact.Typed && Xsl3.Schema.SchemaTypes.TypeOf(compact) is { } type)
+            {
+                typedCopy.AnnotateAttribute(compact.NamespaceURI, compact.LocalName, type);
+            }
+            else if (compact.IsIdAttribute && _runtime.IsXslt2)
+            {
+                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+            }
+        }
+
+        /// <summary>
+        /// Xsl3: the copy just started, an element or a document node, gets its original's base URI when it is built
+        /// as a tree (2.0+; XSLT 3.0 §11.9).
+        /// </summary>
+        private void KeepBaseUri31(XPathNavigator original, bool deep = false)
+        {
+            // A deep copy of an element with xml:base has the attribute instead, resolved where the copy is (base-uri-046).
+            if (_runtime.IsXslt2 && (Writer is XmlAttributeCache cache ? cache.Wrapped : Writer) is Xsl3.Tree.CompactDocument.Writer tree &&
+                !(deep && original.NodeType == XPathNodeType.Element && original.GetAttribute("base", XmlReservedNs.NsXml).Length != 0))
+            {
+                string baseUri = Xsl3.XPath31.Functions.FunctionLibrary.BaseUri(original);
+                if (original.NodeType == XPathNodeType.Root)
+                {
+                    tree.SetDocumentBaseUri(baseUri);
+                }
+                else
+                {
+                    tree.SetElementBaseUri(baseUri);
                 }
             }
         }
@@ -1382,7 +1458,7 @@ namespace Xsl3.Runtime
                     {
                         // Do not allow namespaces to be copied after attributes
                         XmlAttributeCache? attrCache = Writer as XmlAttributeCache;
-                        if (attrCache != null && attrCache.Count != 0)
+                        if (attrCache != null && attrCache.Count != 0 && !_runtime.IsXslt2) // Xsl3: 2.0+ allows them (XmlAttributeCache)
                             throw new XslTransformException(SR.XmlIl_NmspAfterAttr, string.Empty);
 
                         WriteNamespaceDeclaration(navigator.LocalName, navigator.Value);
@@ -1706,7 +1782,14 @@ namespace Xsl3.Runtime
             string prefix, localName, ns;
 
             // Parse the tag name and map the prefix to a namespace
-            _runtime.ParseTagName(tagName, prefixMappingsIndex, out prefix, out localName, out ns);
+            try
+            {
+                _runtime.ParseTagName(tagName, prefixMappingsIndex, out prefix, out localName, out ns);
+            }
+            catch (Xsl3.Xdm.XdmException e) when (e.Code == "XTDE0830" && nodeType == XPathNodeType.Attribute)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0860", e.Message);
+            }
 
             // Validate the name parts
             prefix = EnsureValidName(prefix, localName, ns, nodeType);
@@ -1841,7 +1924,12 @@ namespace Xsl3.Runtime
                         throw new XslTransformException(SR.XmlIl_BadXmlState, new string[] { constructorType.ToString(), _rootType.ToString() });
 
                     if (_xstate == XmlState.WithinContent)
+                    {
+                        // Xsl3: in 2.0+ the error is XTDE0410 (an attribute or namespace after the element's children).
+                        if (_runtime.IsXslt2)
+                            throw new Xsl3.Xdm.XdmException("XTDE0410", XslTransformException.CreateMessage(SR.XmlIl_BadXmlStateAttr, string.Empty));
                         throw new XslTransformException(SR.XmlIl_BadXmlStateAttr, string.Empty);
+                    }
 
                     goto case XPathNodeType.Element;
 

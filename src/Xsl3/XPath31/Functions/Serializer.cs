@@ -2,6 +2,7 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
 using System.Xml.XPath;
@@ -241,22 +242,58 @@ namespace Xsl3.XPath31.Functions
                 String(name);
             }
             Option("html-version", AtomicTypes.Decimal);
-            if (method is "json" or "adaptive")
+            _ = (method, indent, separator, allowDuplicates, jsonNodes, standaloneOption, omitDeclaration);
+
+            // Xsl3: the parameters as the engine's serializer takes them (SerializationParameters), so that fn:serialize
+            // writes as xsl:output and xsl:result-document do: the html and xhtml methods with their doctype and meta
+            // element, cdata-section-elements, encodings, normalization. A QName key names a vendor parameter, and one
+            // in no namespace isn't a parameter at all (F&O 3.1 §14.1.1): both are ignored.
+            var encoded = new StringBuilder();
+            void Add(string name, string value) =>
+                encoded.Append(name).Append(Xsl3.Runtime.SerializationParameters.NameEnd).Append(value).Append(Xsl3.Runtime.SerializationParameters.ValueEnd);
+            static string Lexical(XPathItem item) => item switch
             {
-                var extras = new Xsl3.Runtime.OutputExtras
+                QNameValue qn => $"Q{{{qn.QName.NamespaceUri}}}{qn.QName.LocalName}",
+                BooleanValue b => b.Boolean ? "yes" : "no",
+                _ => item.Value,
+            };
+            foreach (var (key, value) in parameters.Entries)
+            {
+                if (key is QNameValue || key.Value is "use-character-maps" || value.Count == 0)
                 {
-                    RawMethod = method,
-                    Indent = indent,
-                    ItemSeparator = separator,
-                    AllowDuplicateNames = allowDuplicates,
-                    JsonNodeOutputMethod = jsonNodes,
-                };
-                var sw = new StringWriter();
-                Xsl3.Runtime.ItemSerializer.Write(items, extras, sw);
-                return sw.ToString();
+                    continue;
+                }
+                IList<XPathItem> atoms = Sequences.Atomize(value);
+                Add(key.Value, key.Value is "cdata-section-elements" or "suppress-indentation"
+                    ? string.Join(" ", atoms.Select(Lexical))
+                    : Lexical(atoms[0]));
             }
-            string? standalone = standaloneOption is bool sa ? (sa ? "yes" : "no") : null;
-            return Serialize(items, method, separator, standalone, indent, omitDeclaration, characterMap);
+            if (parameters.Get(AtomicValue.OfString("omit-xml-declaration")) is not { Count: > 0 })
+            {
+                Add("omit-xml-declaration", "yes"); // fn:serialize's default
+            }
+            var names = new Xsl3.Runtime.XsltNameContext(new Dictionary<string, string>(), new HashSet<(string, string, int)>());
+            var defaults = new System.Xml.XmlWriterSettings { OmitXmlDeclaration = true, Indent = false };
+            var (settings, extras, _) = Xsl3.Runtime.SerializationParameters.Apply(new Xsl3.Runtime.ResultFormat(defaults, null, false), encoded.ToString(), names);
+            extras ??= new Xsl3.Runtime.OutputExtras();
+            if (characterMap.Count > 0)
+            {
+                extras.CharacterMap = characterMap;
+            }
+            var sw = new StringWriter();
+            if (extras.RawMethod is "json" or "adaptive")
+            {
+                Xsl3.Runtime.ItemSerializer.Write(items, extras, sw);
+            }
+            else
+            {
+                Xsl3.Runtime.ItemSerializer.WriteSequence(items, settings, extras, ws => System.Xml.XmlWriter.Create(Xsl3.Runtime.EmptyTagFilter.Wrap(sw, ws, extras), ws));
+            }
+            string result = sw.ToString();
+            // Characters the encoding lacks: \uXXXX in JSON, character references otherwise (Serialization 3.1 §10, §11).
+            return parameters.Get(AtomicValue.OfString("encoding")) is { Count: > 0 } && extras.RawMethod != "adaptive"
+                ? Xsl3.Runtime.ItemSerializer.EscapeUnencodable(result, settings.Encoding, extras.RawMethod == "json")
+                : result;
         }
 
         private static string Serialize(IList<XPathItem> items, string method, string? separator, string? standalone, bool indent, bool omitDeclaration,

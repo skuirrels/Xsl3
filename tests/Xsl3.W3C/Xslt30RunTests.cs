@@ -43,6 +43,8 @@ public class Xslt30RunTests
         var notRunReasons = new SortedDictionary<string, int>(StringComparer.Ordinal);
         // XSL3_XSLT30_TRACE=file appends each test id before running it, to find a test that crashes the process.
         string? trace = Environment.GetEnvironmentVariable("XSL3_XSLT30_TRACE");
+        // XSL3_XSLT30_CODES=file appends each test that expected an error and raised another code, with the codes.
+        string? codes = Environment.GetEnvironmentVariable("XSL3_XSLT30_CODES");
 
         // XSL3_XSLT30_SETS=sequence,for-each-group runs only those test sets (prefixes); the baseline is then not checked.
         string[]? sets = Environment.GetEnvironmentVariable("XSL3_XSLT30_SETS")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -51,8 +53,11 @@ public class Xslt30RunTests
         bool Routine(Xslt30.TestCase t) => sets != null || !t.Set.Name.StartsWith("unicode-90", StringComparison.Ordinal);
         // XSL3_XSLT30_PROFILE=2.0 runs the P2 profile (then the baseline is not checked).
         bool p2 = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") == "2.0";
-        Xslt30.Profile profile = p2 ? Xslt30.Profile.Xslt20 : Xslt30.Profile.Xslt30;
-        foreach (Xslt30.TestCase test in catalog.TestCases.Where(profile.Applies).Where(Routine).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
+        // XSL3_XSLT30_PROFILE=sa runs the tests that need schema-awareness (P6, docs/plan/p6-schema.md), unchecked.
+        bool sa = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") == "sa";
+        Xslt30.Profile profile = p2 ? Xslt30.Profile.Xslt20 : sa ? Xslt30.Profile.SchemaAware : Xslt30.Profile.Xslt30;
+        bool Selected(Xslt30.TestCase t) => !sa || t.EffectiveDependencies.Any(d => d.Type == "feature" && d.Value.Split(' ').Contains("schema_aware"));
+        foreach (Xslt30.TestCase test in catalog.TestCases.Where(profile.Applies).Where(Routine).Where(Selected).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
         {
             if (trace != null)
             {
@@ -80,14 +85,18 @@ public class Xslt30RunTests
             else if (outcome.Kind == OutcomeKind.Pass && outcome.Detail.StartsWith("error code", StringComparison.Ordinal))
             {
                 wrongErrorCode++;
+                if (codes != null)
+                {
+                    File.AppendAllText(codes, $"{test.Id}: {outcome.Detail}{Environment.NewLine}");
+                }
             }
         }
 
         int pass = perSet.Values.Sum(v => v[0]), fail = perSet.Values.Sum(v => v[1]), notRun = perSet.Values.Sum(v => v[2]);
-        string summary = $"xslt30-test (XSLT {(p2 ? "2.0" : "3.0")} profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
+        string summary = $"xslt30-test (XSLT {(p2 ? "2.0" : sa ? "3.0 schema-aware" : "3.0")} profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
         _output.WriteLine(summary);
-        WriteReport(p2 ? "xslt30-run-2.0.md" : "xslt30-run.md", summary, perSet, perFeature, failures, notRunReasons);
-        if (sets != null || p2)
+        WriteReport(p2 ? "xslt30-run-2.0.md" : sa ? "xslt30-run-sa.md" : "xslt30-run.md", summary, perSet, perFeature, failures, notRunReasons);
+        if (sets != null || p2 || sa)
         {
             return;
         }

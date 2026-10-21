@@ -44,8 +44,8 @@ public class SettingsTests
         string directory = Directory.CreateTempSubdirectory("xsl3-").FullName;
         XslCompiledTransform transform = Load(WritesSecondary, new XsltSettings { EnableResultDocument = true });
         transform.BaseOutputUri = new Uri(Path.Combine(directory, "main.xml"));
-        Assert.Equal("<main />", Run(transform));
-        Assert.Equal("<second />", File.ReadAllText(Path.Combine(directory, "sub", "second.xml")).Replace("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", ""));
+        Assert.Equal("<main/>", Run(transform));
+        Assert.Equal("<second/>", File.ReadAllText(Path.Combine(directory, "sub", "second.xml")).Replace("<?xml version=\"1.0\" encoding=\"UTF-8\"?>", ""));
     }
 
     [Fact]
@@ -149,6 +149,18 @@ public class SettingsTests
         Assert.Contains("cancelled", e.ToString());
     }
 
+    /// <summary>A regular expression that backtracks for ever is stopped at the timeout too, though it enters no template.</summary>
+    [Fact]
+    public void TimeoutStopsARegularExpression()
+    {
+        const string body = """<xsl:template match="/"><out><xsl:value-of select="matches(string-join((1 to 60) ! 'a') || '!', '^(a|aa)+$')"/></out></xsl:template>""";
+        XslCompiledTransform transform = Load(body, new XsltSettings { Timeout = TimeSpan.FromMilliseconds(200) });
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(transform));
+        Assert.Contains("cancelled", e.ToString());
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"took {clock.Elapsed}");
+    }
+
     [Fact]
     public void CancellationToken()
     {
@@ -175,7 +187,7 @@ public class SettingsTests
 
     /// <summary>xsl:assert is ignored unless assertions are enabled (XSLT 3.0 §23.2).</summary>
     [Fact]
-    public void AssertionsOffByDefault() => Assert.Equal("<out />", Run(Load(Asserts)));
+    public void AssertionsOffByDefault() => Assert.Equal("<out/>", Run(Load(Asserts)));
 
     [Fact]
     public void FailedAssertionRaisesXTMM9001()

@@ -28,6 +28,12 @@ namespace Xsl3.Xdm
                 case FunctionItem f:
                     throw new XdmException("FOTY0013", $"{f.Describe()} can't be atomized");
                 case XPathNavigator n:
+                    if (Xsl3.Schema.SchemaTypes.TypeOf(n) is { } type)
+                    {
+                        // Xsl3 (P6): a node a schema validated has the typed value of its type annotation.
+                        IList<XPathItem> typed = Xsl3.Schema.SchemaTypes.TypedValue(n, type);
+                        return typed.Count == 1 ? (AtomicValue)typed[0] : throw Err.XPTY0004($"{n.Name} atomizes to {typed.Count} values where one is expected");
+                    }
                     // Without schema validation every node is untyped: comments, PIs and namespace nodes have
                     // xs:string typed values, everything else xs:untypedAtomic.
                     return n.NodeType is XPathNodeType.Comment or XPathNodeType.ProcessingInstruction or XPathNodeType.Namespace
@@ -48,7 +54,8 @@ namespace Xsl3.Xdm
                 if (item is not AtomicValue)
                 {
                     alreadyAtomic = false;
-                    arrays |= item is ArrayItem;
+                    // (Xsl3, P6: a node of a list type atomizes to any number of values.)
+                    arrays |= item is ArrayItem || (item is XPathNavigator n && Xsl3.Schema.SchemaTypes.TypeOf(n) != null);
                 }
             }
             if (alreadyAtomic)
@@ -63,6 +70,10 @@ namespace Xsl3.Xdm
                     if (item is ArrayItem array)
                     {
                         flat.AddRange(Atomize(Flatten(array)));
+                    }
+                    else if (item is XPathNavigator n && Xsl3.Schema.SchemaTypes.TypeOf(n) is { } type)
+                    {
+                        flat.AddRange(Xsl3.Schema.SchemaTypes.TypedValue(n, type));
                     }
                     else
                     {
