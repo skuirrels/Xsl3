@@ -189,7 +189,11 @@ namespace Xsl3
                 _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             }
             _qil.CompactTree = UseCompactTree;
+            _importsSchemas = compiler.Schemas != null;
         }
+
+        // Xsl3 (P6): whether the stylesheet last compiled imports schemas (it then can't be saved: CompileToAssembly).
+        private bool _importsSchemas;
 
         /// <summary>
         /// Xsl3: whether an XSLT 1.0 stylesheet builds the documents it parses itself (an input given as a URI or
@@ -378,6 +382,11 @@ namespace Xsl3
             if (GetFirstError() is CompilerError error)
             {
                 throw new XslLoadException(error);
+            }
+            if (_importsSchemas)
+            {
+                _qil = null;
+                throw new NotSupportedException("A schema-aware stylesheet can't be saved: its imported schemas aren't saved with it");
             }
             var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
             ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
