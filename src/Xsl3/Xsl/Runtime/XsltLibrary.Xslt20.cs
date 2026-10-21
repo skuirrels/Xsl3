@@ -245,7 +245,36 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Coerce(IList<XPathItem> value, double typeId, string errorCode)
         {
             var type = (SequenceTypeTest)Constant((int)typeId);
-            return Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            IList<XPathItem> coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            return type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test ? CoerceFunctions(coerced, test) : coerced;
+        }
+
+        /// <summary>
+        /// Function coercion (XPath 3.1 §3.1.5.3): a function item that doesn't match a typed function test is wrapped,
+        /// so that its arguments and result are converted to the test's types when it is called (XPTY0004 if they can't be).
+        /// </summary>
+        private IList<XPathItem> CoerceFunctions(IList<XPathItem> items, FunctionItemTest test)
+        {
+            XPathItem[]? wrapped = null;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] is XdmFunction function and not XdmMap and not XdmArray && !test.Matches(function))
+                {
+                    wrapped ??= items.ToArray();
+                    SequenceTypeTest[] parameters = test.Parameters!.ToArray();
+                    SequenceTypeTest result = test.ReturnType!;
+                    wrapped[i] = new NativeFunction(parameters, result, args =>
+                    {
+                        var converted = new IList<XPathItem>[args.Length];
+                        for (int a = 0; a < args.Length; a++)
+                        {
+                            converted[a] = Coercion.CoerceTo(args[a], parameters[a], "XPTY0004", () => $"Argument {a + 1} of the coerced function");
+                        }
+                        return Coercion.CoerceTo(CallFunction(function, converted), result, "XPTY0004", () => "The result of the coerced function");
+                    }, function.Describe());
+                }
+            }
+            return wrapped ?? items;
         }
 
         /// <summary>The value, if it is an instance of the type (no conversion is applied); else the error.</summary>
@@ -263,7 +292,6 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty
 
-        /// <summary>Whether a sequence has only vacuous items (XSLT 3.0 §8.4.2): zero-length strings and text nodes, documents without children, empty arrays.</summary>
         /// <summary>An xsl:on-empty (or xsl:on-non-empty) whose value waits for the rest of its sequence constructor.</summary>
         internal sealed class DeferredItem(bool onEmpty, XdmFunction value) : AtomicValue(AtomicTypes.String)
         {
@@ -311,6 +339,7 @@ namespace Xsl3.Runtime
             return result;
         }
 
+        /// <summary>Whether a sequence has only vacuous items (XSLT 3.0 §8.4.2): zero-length strings and text nodes, documents without children, empty arrays.</summary>
         public bool X31Vacuous(IList<XPathItem> items)
         {
             foreach (XPathItem item in items)

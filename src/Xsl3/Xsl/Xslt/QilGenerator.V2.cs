@@ -156,6 +156,11 @@ namespace Xsl3.Xslt
 
         QilNode? IXPath31Environment.ResolveVariable(QName name)
         {
+            if (_globalBeingCompiled31 is QilName own && own.LocalName == name.LocalName && own.NamespaceUri == name.NamespaceUri
+                && !_scope.IsLocalVariable(name.LocalName, name.NamespaceUri))
+            {
+                return null; // a global variable isn't in scope within its own declaration (XPST0008)
+            }
             if (_scope.IsLocalVariable(name.LocalName, name.NamespaceUri) || _compiler.PackageInfos.Count <= 1)
             {
                 return _scope.LookupVariable(name.LocalName, name.NamespaceUri);
@@ -164,6 +169,9 @@ namespace Xsl3.Xslt
             QilName? global = ResolveComponent31('V', _f.QName(name.LocalName, name.NamespaceUri), -1);
             return global == null ? null : _scope.LookupVariable(global.LocalName, global.NamespaceUri);
         }
+
+        // The global variable or parameter whose value is being compiled.
+        private QilName? _globalBeingCompiled31;
 
         // ------------------------------------------------------------ packages
 
