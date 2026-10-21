@@ -47,6 +47,28 @@ public sealed class Runner
     private static bool IsHtml(string serialized) =>
         System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
+    // A stylesheet module and the modules it includes or imports, by their hrefs (for the initial template's search).
+    private static IEnumerable<string> Modules(string stylesheet)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>();
+        pending.Push(Path.GetFullPath(stylesheet));
+        while (pending.Count > 0)
+        {
+            string file = pending.Pop();
+            if (!seen.Add(file) || !File.Exists(file))
+            {
+                continue;
+            }
+            yield return file;
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(file),
+                @"<[\w.-]+:(?:include|import)\s[^>]*href\s*=\s*[""']([^""'#]+)"))
+            {
+                pending.Push(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file)!, m.Groups[1].Value)));
+            }
+        }
+    }
+
     // The result tree for an assertion: the serialization parsed back, else the result written as XML.
     private static XPathNavigator ResultTree(RunResult run, string serialized)
     {
@@ -222,7 +244,7 @@ public sealed class Runner
                 args.AddParam(name.Name, name.Namespace, Evaluate((string?)functionArguments[i].Attribute("select") ?? "()", functionArguments[i], input));
             }
             if (initialFunction == null && initialTemplate == null && initialMode == null && input == null &&
-                new[] { stylesheet }.Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
+                Modules(stylesheet).Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
                     System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(file), @"name\s*=\s*[""'][\w.-]+:initial-template[""']")))
             {
                 initialTemplate = new XmlQualifiedName("initial-template", "http://www.w3.org/1999/XSL/Transform");
