@@ -141,6 +141,7 @@ namespace Xsl3.Runtime
                         XPathNavigator validatedRoot = ((XPathNavigator)result[i]).Clone();
                         validatedRoot.MoveToRoot();
                         _accumulatorCopies[_runtime.GenerateId(validatedRoot)] = (((XPathNavigator)result[i]).Clone(), original.Clone());
+                        (_validatedAccumulatorCopies ??= new HashSet<string>(System.StringComparer.Ordinal)).Add(_runtime.GenerateId(validatedRoot));
                     }
                 }
             }

@@ -126,6 +126,7 @@ has the history.
 | 2026-10-21 | 8,832 | 35 | 42 | 99.6% | `copy-of()` and `snapshot()` keep type annotations and accumulator values; elements made with `validation="preserve"` are `xs:anyType` |
 | 2026-10-21 | 8,838 | 29 | 42 | 99.7% | An override's types match when they name union types with the same members; a strip parent strips the annotations of constructed attributes and elements in it; members of a union with list members don't derive from it; `typed="lax"` modes read a declared element name as `schema-element(N)`; keys compare QNames and NOTATIONs by expanded name. Schema-aware tests: 836 passed, 8 failed (99.1%) |
 | 2026-10-22 | 8,839 | 28 | 42 | 99.7% | An element validated with `type="xs:untypedAtomic"` is annotated `xs:untypedAtomic`. Schema-aware tests: 837 passed, 7 failed (99.2%) |
+| 2026-10-22 | 8,842 | 25 | 42 | 99.7% | Of two schemas for one namespace, the higher import precedence's components win; stripped copies keep is-idrefs; a validated copy-accumulators copy takes its original's values. Schema-aware tests: 840 passed, 4 failed (99.5%) |
 
 ### P5 exit sets
 

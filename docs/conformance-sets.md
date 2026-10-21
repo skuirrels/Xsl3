@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8839 passed, 28 failed, 42 not run; 99.7% of those run (218 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8842 passed, 25 failed, 42 not run; 99.7% of those run (218 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
@@ -19,18 +19,18 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature schema_aware | 837 | 7 | 2 | 99.2% |
+| feature schema_aware | 840 | 4 | 2 | 99.5% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 3258 | 11 | 7 | 99.7% |
-| spec XSLT30+ | 3684 | 14 | 35 | 99.6% |
+| spec XSLT20+ | 3260 | 9 | 7 | 99.7% |
+| spec XSLT30+ | 3685 | 13 | 35 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | accept | 50 | 0 | 0 | 100.0% |
 | accessor | 52 | 0 | 0 | 100.0% |
-| accumulator | 70 | 1 | 0 | 98.6% |
+| accumulator | 71 | 0 | 0 | 100.0% |
 | analyze-string | 53 | 0 | 0 | 100.0% |
 | apply-imports | 1 | 0 | 0 | 100.0% |
 | apply-templates | 38 | 0 | 0 | 100.0% |
@@ -56,7 +56,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | collection | 0 | 0 | 6 |  |
 | construct-node | 34 | 0 | 0 | 100.0% |
 | context-item | 31 | 0 | 0 | 100.0% |
-| copy | 146 | 2 | 0 | 98.6% |
+| copy | 147 | 1 | 0 | 99.3% |
 | copy-of | 13 | 0 | 0 | 100.0% |
 | core-function | 90 | 0 | 0 | 100.0% |
 | current | 1 | 0 | 0 | 100.0% |
@@ -89,7 +89,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 202 | 1 | 0 | 99.5% |
+| import-schema | 203 | 0 | 0 | 100.0% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |

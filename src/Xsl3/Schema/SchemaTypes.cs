@@ -429,6 +429,9 @@ namespace Xsl3.Schema
 
         /// <summary>An attribute of the element just started is an ID, though untyped (validation="strip" keeps is-id).</summary>
         void MarkIdAttribute(string ns, string local);
+
+        /// <summary>An attribute of the element just started is an IDREF or IDREFS, though untyped (validation="strip" keeps is-idrefs).</summary>
+        void MarkIdrefAttribute(string ns, string local);
     }
 
     internal static class AnnotatingWriters

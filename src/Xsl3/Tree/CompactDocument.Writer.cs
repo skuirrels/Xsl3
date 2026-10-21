@@ -67,6 +67,7 @@ namespace Xsl3.Tree
             {
                 _attributeTypes?.Clear(); // (an annotation not taken by its attribute doesn't carry over)
                 _idAttributes?.Clear();
+                _idrefAttributes?.Clear();
                 _builder.StartElement(prefix ?? string.Empty, localName, ns ?? string.Empty, null);
             }
 
@@ -100,9 +101,16 @@ namespace Xsl3.Tree
                 {
                     _builder.AnnotateAttribute(type, value);
                 }
-                else if (_idAttributes != null && _idAttributes.Remove((_attrNs!, _attrLocal!)))
+                else
                 {
-                    _builder.MarkAttributeId(value);
+                    if (_idAttributes != null && _idAttributes.Remove((_attrNs!, _attrLocal!)))
+                    {
+                        _builder.MarkAttributeId(value);
+                    }
+                    if (_idrefAttributes != null && _idrefAttributes.Remove((_attrNs!, _attrLocal!)))
+                    {
+                        _builder.MarkAttributeIdref();
+                    }
                 }
                 _attrLocal = null;
                 _attrValue = null;
@@ -130,6 +138,11 @@ namespace Xsl3.Tree
             private System.Collections.Generic.HashSet<(string, string)>? _idAttributes;
 
             public void MarkIdAttribute(string ns, string local) => (_idAttributes ??= new System.Collections.Generic.HashSet<(string, string)>()).Add((ns, local));
+
+            // Xsl3 (P6): the attributes of the element being copied that are IDREFs though untyped, until they are written.
+            private System.Collections.Generic.HashSet<(string, string)>? _idrefAttributes;
+
+            public void MarkIdrefAttribute(string ns, string local) => (_idrefAttributes ??= new System.Collections.Generic.HashSet<(string, string)>()).Add((ns, local));
 
             public void AnnotateAttribute(string ns, string local, System.Xml.Schema.XmlSchemaType type) =>
                 (_attributeTypes ??= new System.Collections.Generic.Dictionary<(string, string), System.Xml.Schema.XmlSchemaType>())[(ns, local)] = type;

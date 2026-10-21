@@ -1,15 +1,12 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
-accumulator/accumulator-073
 base-uri/base-uri-046
 base-uri/base-uri-052
 copy/copy-1221
-copy/copy-5034
 docbook/docbook-001
 docbook/docbook-004
 document/document-2401
 document/document-2402
 id/id-001
-import-schema/import-schema-177
 import/import-1201
 merge/merge-097
 namespace-alias/namespace-alias-1903

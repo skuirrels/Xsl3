@@ -1417,9 +1417,17 @@ namespace Xsl3.Runtime
             {
                 typedCopy.AnnotateAttribute(compact.NamespaceURI, compact.LocalName, type);
             }
-            else if (compact.IsIdAttribute && _runtime.IsXslt2)
+            else if (_runtime.IsXslt2)
             {
-                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+                // (Its is-idrefs property too: copy-5034.)
+                if (compact.IsIdAttribute)
+                {
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+                }
+                if (compact.IsIdrefAttribute)
+                {
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdrefAttribute(compact.NamespaceURI, compact.LocalName);
+                }
             }
         }
 
