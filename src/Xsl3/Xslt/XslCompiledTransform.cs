@@ -183,7 +183,11 @@ namespace Xsl3
                 InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
                 InitialParameters = InitialParameters, RegisteredFunctions = RegisteredFunctions,
             };
-            _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            // Xsl3: each XPath text is parsed once in a compilation.
+            using (Xsl3.XPath31.Parser.CompilationScope())
+            {
+                _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            }
             _qil.CompactTree = UseCompactTree;
         }
 

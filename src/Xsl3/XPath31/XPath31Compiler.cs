@@ -698,17 +698,26 @@ namespace Xsl3.XPath31
             }
             QilNode site = _f.Double(System.Threading.Interlocked.Increment(ref s_indexSites));
             QilIterator values = _f.Let(Items(Build(value!)));
-            QilIterator root = _f.Let(Items(Build(new RootExpr())));
+            // (The context node: the runtime finds its root, and scans, so that the path raises XPDY0050, when the root
+            // isn't a document node.)
+            QilIterator root = _f.Let(FocusNode());
             QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, site, root, values));
-            // The candidates, each with its key values, into the index being built.
+            // One pass over the candidates (the path without its predicate: the predicate doesn't use the position, so
+            // filtering them all is filtering each step's), with each one's key values compiled once: kept when a key
+            // equals a value (state 0, the path as written), or put in the index being built (state 2).
             var all = new PathExpr(p.Left, step with { Predicates = System.Array.Empty<Expr>() }, p.Descendants) { Span = p.Span };
-            var (it, add, input) = WithFocus(Nodes(Build(all), "XPTY0019"), needsLast: false,
-                () => Call(nameof(XsltLibrary.X31IndexAdd), T.ItemS, FocusNode(), Items(Build(key))));
-            QilNode build = WrapLet(input, _f.Loop(it, add));
-            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.ItemS, site, root, values);
-            QilNode original = PathAsWritten(p);
-            return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Conditional(_f.Eq(state, _f.Double(0)), original,
-                Nodes(_f.Conditional(_f.Eq(state, _f.Double(2)), _f.Sequence(build, lookup), lookup), "XPTY0019")))));
+            var (it, body, input) = WithFocus(Nodes(Build(all), "XPTY0019"), needsLast: false, () =>
+            {
+                QilNode node = FocusNode();
+                return _f.Conditional(Call(nameof(XsltLibrary.X31IndexFilter), T.BooleanX, state, node, Items(Build(key)), values, StaticId()),
+                    FocusNode(), _f.Sequence());
+            });
+            QilNode scan = WrapLet(input, _f.Loop(it, body));
+            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, site, root, values);
+            // The scan unless the index is there; the lookup unless the path is evaluated as written.
+            return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Sequence(
+                _f.Conditional(_f.Eq(state, _f.Double(1)), _f.Sequence(), scan),
+                _f.Conditional(_f.Eq(state, _f.Double(0)), _f.Sequence(), lookup)))));
         }
 
         // A path from the root with no predicates: the same nodes wherever it is evaluated in the document.

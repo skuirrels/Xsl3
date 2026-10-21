@@ -32,8 +32,12 @@ namespace Xsl3.Runtime
         /// What the path at <paramref name="site"/> does now in the document of <paramref name="root"/>, given the values
         /// it compares with: 0 to be evaluated as written, 1 to look the values up, 2 to build the index first.
         /// </summary>
-        public double X31IndexState(double site, IList<XPathItem> root, IList<XPathItem> values)
+        public double X31IndexState(double site, XPathNavigator context, IList<XPathItem> values)
         {
+            if (Root(context) is not { NodeType: XPathNodeType.Root })
+            {
+                return 0; // the path as written raises XPDY0050
+            }
             for (int i = 0; i < values.Count; i++)
             {
                 // Strings and nodes compare with the keys (untyped) as strings; anything else as its own type.
@@ -42,7 +46,7 @@ namespace Xsl3.Runtime
                     return 0;
                 }
             }
-            PathIndex index = Index(site, root);
+            PathIndex index = Index(site, context);
             if (index.Keys != null)
             {
                 return 1;
@@ -58,9 +62,16 @@ namespace Xsl3.Runtime
         }
 
         // The index of the path at the site for the document of the root.
-        private PathIndex Index(double site, IList<XPathItem> root)
+        private static XPathNavigator Root(XPathNavigator node)
         {
-            var document = (XPathNavigator)root[0];
+            XPathNavigator root = node.Clone();
+            root.MoveToRoot();
+            return root;
+        }
+
+        private PathIndex Index(double site, XPathNavigator context)
+        {
+            XPathNavigator document = Root(context);
             _pathIndexes ??= new Dictionary<int, List<PathIndex>>();
             if (!_pathIndexes.TryGetValue((int)site, out List<PathIndex>? indexes))
             {
@@ -73,9 +84,23 @@ namespace Xsl3.Runtime
                     return candidate;
                 }
             }
-            var index = new PathIndex { Root = document.Clone() };
+            var index = new PathIndex { Root = document };
             indexes.Add(index);
             return index;
+        }
+
+        /// <summary>
+        /// A candidate of the path: with <paramref name="state"/> 2, added to the index being built (and not kept);
+        /// otherwise kept when one of its keys equals one of the values, as the predicate as written says.
+        /// </summary>
+        public bool X31IndexFilter(double state, XPathNavigator node, IList<XPathItem> keys, IList<XPathItem> values, double sc)
+        {
+            if (state == 2)
+            {
+                X31IndexAdd(node, keys);
+                return false;
+            }
+            return X31GeneralCompare(keys, values, (double)ValueComparisonOp.Eq, sc);
         }
 
         /// <summary>Adds a candidate node under each of its key values to the index being built.</summary>
@@ -100,16 +125,16 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>The indexed nodes whose key equals one of the values, in document order.</summary>
-        public IList<XPathItem> X31IndexGet(double site, IList<XPathItem> root, IList<XPathItem> values)
+        public IList<XPathNavigator> X31IndexGet(double site, XPathNavigator context, IList<XPathItem> values)
         {
-            PathIndex index = Index(site, root);
+            PathIndex index = Index(site, context);
             if (values.Count == 1)
             {
                 if (!index.Keys!.TryGetValue(values[0].Value, out var nodes))
                 {
-                    return Sequences.Empty;
+                    return System.Array.Empty<XPathNavigator>();
                 }
-                var result = new XPathItem[nodes.Count];
+                var result = new XPathNavigator[nodes.Count];
                 for (int i = 0; i < result.Length; i++)
                 {
                     result[i] = nodes[i].Node;
@@ -127,7 +152,7 @@ namespace Xsl3.Runtime
                     }
                 }
             }
-            return new List<XPathItem>(found.Values);
+            return new List<XPathNavigator>(found.Values);
         }
     }
 }

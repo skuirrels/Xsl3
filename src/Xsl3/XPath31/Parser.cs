@@ -25,10 +25,37 @@ namespace Xsl3.XPath31
         /// <summary>Parses a complete XPath expression.</summary>
         public static Expr ParseXPath(string text)
         {
+            // Xsl3 (perf): a stylesheet's compilation parses an expression or pattern several times (the loader's checks,
+            // pattern analysis, compilation). The trees are immutable and don't depend on the context, so within a
+            // compilation (CompilationScope) each text is parsed once. Errors aren't kept.
+            Dictionary<string, Expr>? cache = t_parsed;
+            if (cache != null && text != null && cache.TryGetValue(text, out Expr? parsed))
+            {
+                return parsed;
+            }
             var parser = new Parser(text);
             Expr expr = parser.Expr();
             parser.ExpectEnd();
+            if (cache != null)
+            {
+                cache[text!] = expr;
+            }
             return expr;
+        }
+
+        [System.ThreadStatic]
+        private static Dictionary<string, Expr>? t_parsed;
+
+        /// <summary>Parses each expression text once until disposed (one stylesheet's compilation on this thread).</summary>
+        internal static System.IDisposable CompilationScope() => new Scope();
+
+        private sealed class Scope : System.IDisposable
+        {
+            private readonly Dictionary<string, Expr>? _saved = t_parsed;
+
+            public Scope() => t_parsed = new Dictionary<string, Expr>(System.StringComparer.Ordinal);
+
+            public void Dispose() => t_parsed = _saved;
         }
 
         private Parser(List<Token> tokens)
