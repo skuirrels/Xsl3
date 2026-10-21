@@ -187,11 +187,6 @@ namespace Xsl3.Runtime
         public XPathItem X31InitialFocus(XPathItem item) =>
             item is XPathNavigator node && XslCompiledTransform.AbsentInput.IsSamePosition(node) ? AbsentItem.Instance : item;
 
-        /// <summary>An initial mode with no initial match selection: XTDE0044.</summary>
-        public IList<XPathItem> X31RequireInput(XPathItem item) =>
-            item is XPathNavigator node && XslCompiledTransform.AbsentInput.IsSamePosition(node)
-                ? throw new XdmException("XTDE0044", "The transformation applies templates, but there is no initial match selection")
-                : System.Array.Empty<XPathItem>();
 
         /// <summary>The value of a yes/no attribute value template (XTDE0030 for other values).</summary>
         public bool X31YesNo(string value, string attribute) => value.Trim() switch

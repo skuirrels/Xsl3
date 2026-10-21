@@ -342,7 +342,6 @@ namespace Xsl3.Xslt
                 ? CompileInitialCall31((XslNodeEx)applyTmpls)
                 : IsV2 && applyTmpls.Select != null
                 ? CompileApplyTemplates31((XslNodeEx)applyTmpls)
-                : IsV2 ? _f.Sequence(X31(nameof(XsltLibrary.X31RequireInput), T.ItemS, GetCurrentNode()), GenerateApply(_compiler.Root!, applyTmpls)) // Xsl3: XTDE0044 without an input
                 : GenerateApply(_compiler.Root!, applyTmpls);
             if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
             {
@@ -1110,7 +1109,7 @@ namespace Xsl3.Xslt
             QilNode content = CompileInstructions(node.Content);
             if (IsV2)
             {
-                content = ContentNodes(content);
+                content = NoInherit31(node, ContentNodes(content));
             }
             _outputScope.PopScope();
 

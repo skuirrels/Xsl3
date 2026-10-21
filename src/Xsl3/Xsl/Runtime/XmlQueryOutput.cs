@@ -517,6 +517,7 @@ namespace Xsl3.Runtime
             _usedPrefixes.Add(prefix);
             _xstate = XmlState.EnumAttrs;
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -533,6 +534,14 @@ namespace Xsl3.Runtime
         public void StartElementContentUnchecked()
         {
             Debug.Assert(_xstate == XmlState.EnumAttrs, $"StartElementContent cannot be called in the {_xstate} state.");
+
+            // Xsl3: a child of an element made with inherit-namespaces="no" doesn't inherit its default namespace: an
+            // element that declares none undeclares it (xmlns=""), which XML 1.0 can say.
+            if (ParentDoesntInherit && !(_elementPrefix.Length == 0 && _elementNs.Length != 0) && _nsmgr != null && _nsmgr.LookupNamespace(string.Empty) is { Length: > 0 }
+                && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(string.Empty))
+            {
+                WriteNamespaceDeclarationUnchecked(string.Empty, string.Empty);
+            }
 
             // Output any cached namespaces
             if (_cntNmsp != 0)
@@ -571,6 +580,7 @@ namespace Xsl3.Runtime
             Writer!.WriteStartAttribute(prefix, localName, ns);
             _xstate = XmlState.WithinAttr;
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -599,8 +609,45 @@ namespace Xsl3.Runtime
         ///       same prefix to different namespaces within the same element start tag).  If no such
         ///       guarantees exist, then WriteNamespaceDeclaration() should be called instead.
         /// </summary>
+        /// <summary>
+        /// Xsl3: the prefix of the marker inherit-namespaces="no" writes at the start of an element's content. The
+        /// compact tree records it (the element's children don't inherit its namespaces); every other output drops it.
+        /// </summary>
+        internal const string NoInheritPrefix = "#no-inherit";
+
+        // Xsl3: handles the inherit-namespaces="no" marker; true if it was the marker.
+        private bool NoInheritMarker(string prefix)
+        {
+            if ((object)prefix != NoInheritPrefix && prefix != NoInheritPrefix)
+            {
+                return false;
+            }
+            // Passed to a tree being built, directly or through the events of a temporary tree (replayed into one).
+            XmlRawWriter? target = Writer is XmlAttributeCache cache ? cache.Wrapped : Writer;
+            if (_xstate != XmlState.EnumAttrs || _depth == 0 || _documentContent is { Count: > 0 } content && content.Peek() == _depth)
+            {
+                return true; // not on an element
+            }
+            (_noInheritAt ??= new HashSet<int>()).Add(_depth);
+            if (target is Xsl3.Tree.CompactDocument.Writer or XmlEventCache)
+            {
+                Writer!.WriteNamespaceDeclaration(prefix, string.Empty);
+            }
+            return true;
+        }
+
+        // Xsl3: the depths of the open elements made with inherit-namespaces="no": their children declare every
+        // namespace they are given, since they don't inherit their parent's.
+        private HashSet<int>? _noInheritAt;
+
+        private bool ParentDoesntInherit => _noInheritAt != null && _noInheritAt.Contains(_depth - 1);
+
         public void WriteNamespaceDeclarationUnchecked(string prefix, string ns)
         {
+            if (NoInheritMarker(prefix))
+            {
+                return;
+            }
             Debug.Assert(prefix != null && ns != null);
             Debug.Assert(_xstate == XmlState.EnumAttrs, $"WriteNamespaceDeclaration cannot be called in the {_xstate} state.");
             CheckDefaultNamespace(prefix, ns);
@@ -625,7 +672,7 @@ namespace Xsl3.Runtime
                 _nsmgr.PushScope();
             }
 
-            if (_nsmgr.LookupNamespace(prefix) != ns)
+            if (_nsmgr.LookupNamespace(prefix) != ns || ParentDoesntInherit && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
             {
                 // Xsl3: in 2.0+, two namespace nodes of one element can't bind a prefix to different URIs (XTDE0430).
                 if (_runtime.IsXslt2 && _nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).TryGetValue(prefix, out string? declared) && declared != ns)
@@ -699,6 +746,7 @@ namespace Xsl3.Runtime
 
             StartTree(XPathNodeType.Root);
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -803,6 +851,10 @@ namespace Xsl3.Runtime
         {
             string? nsExisting;
             Debug.Assert(prefix != null && ns != null);
+            if (NoInheritMarker(prefix))
+            {
+                return;
+            }
 
             ConstructInEnumAttrs(XPathNodeType.Namespace);
 
@@ -816,7 +868,7 @@ namespace Xsl3.Runtime
             else
             {
                 nsExisting = _nsmgr.LookupNamespace(prefix);
-                if (ns != nsExisting)
+                if (ns != nsExisting || ParentDoesntInherit && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
                 {
                     // prefix = "", ns = "", nsExisting --> Look for xmlns="", found xmlns="foo"
                     // prefix = "", ns, nsExisting = null --> Look for xmlns="uri", no uri found
@@ -860,6 +912,7 @@ namespace Xsl3.Runtime
 
             _xstate = XmlState.WithinNmsp;
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -899,6 +952,7 @@ namespace Xsl3.Runtime
             _nodeText.Clear();
             _xstate = XmlState.WithinComment;
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -942,6 +996,7 @@ namespace Xsl3.Runtime
 
             _xstate = XmlState.WithinPI;
             _depth++;
+            _noInheritAt?.Remove(_depth);
         }
 
         /// <summary>
@@ -1233,6 +1288,12 @@ namespace Xsl3.Runtime
 
                     // Copy namespaces in document order (navigator returns them in reverse document order)
                     CopyNamespaces(navigator, (_depth - 1 == depthStart) ? XPathNamespaceScope.ExcludeXml : XPathNamespaceScope.Local);
+
+                    // Xsl3: a copy keeps inherit-namespaces="no" (the copied children have only their own namespaces).
+                    if (navigator is Xsl3.Tree.CompactNavigator { NoInherit: true })
+                    {
+                        NoInheritMarker(NoInheritPrefix);
+                    }
 
                     StartElementContentUnchecked();
 

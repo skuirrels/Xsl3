@@ -232,6 +232,7 @@ namespace Xsl3
         internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver)
         {
             CheckCommand();
+            CheckInput(input);
             System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
             Run(arguments, BaseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments));
             return items;
@@ -597,6 +598,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             CheckCommand();
+            CheckInput(input as XPathNavigator);
             if (results is RawResultWriter raw)
             {
                 Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments)));
@@ -611,6 +613,16 @@ namespace Xsl3
         /// it, environment variables; on a dedicated thread if asked. What a caller has already set for the thread
         /// (the W3C harness sets these itself) is kept.
         /// </summary>
+        // Xsl3: an initial mode with no input (AbsentInput) has no initial match selection (XTDE0044).
+        private void CheckInput(XPathNavigator? input)
+        {
+            if (input != null && _command?.StaticData.Xslt2 == true && InitialTemplate == null && InitialFunction == null && !InitialMatchSelection
+                && AbsentInput.IsSamePosition(input))
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0044", "The transformation applies templates, but there is no initial match selection");
+            }
+        }
+
         private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform)
         {
             XsltSettings settings = _settings ?? XsltSettings.Default;

@@ -92,8 +92,18 @@ namespace Xsl3.Tree
                 _attrMore?.Clear();
             }
 
-            internal override void WriteNamespaceDeclaration(string prefix, string namespaceName) =>
+            internal override void WriteNamespaceDeclaration(string prefix, string namespaceName)
+            {
+                if (prefix == Xsl3.Runtime.XmlQueryOutput.NoInheritPrefix)
+                {
+                    NoInherit();
+                    return;
+                }
                 _builder.NamespaceDeclaration(prefix, namespaceName);
+            }
+
+            /// <summary>Xsl3: inherit-namespaces="no" on the open element: its children don't inherit its namespaces.</summary>
+            internal void NoInherit() => _builder.NoInherit();
 
             internal override void StartElementContent()
             {

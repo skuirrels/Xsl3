@@ -16,7 +16,6 @@ fn-function-lookup/fn-function-lookup-402
 fn-function-lookup/fn-function-lookup-404
 fn-function-lookup/fn-function-lookup-759
 fn-function-lookup/fn-function-lookup-762
-fn-function-lookup/fn-function-lookup-765
 fn-function-lookup/fn-function-lookup-800
 fn-function-name/fn-function-name-018
 fn-idref/fn-idref-dtd-12

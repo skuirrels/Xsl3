@@ -215,6 +215,9 @@ namespace System.Xml
                             break;
 
                         case XmlEventType.Nmsp:
+                            // Xsl3: the inherit-namespaces="no" marker reaches only a compact tree being built.
+                            if (page[idxEvent].String1 == Xsl3.Runtime.XmlQueryOutput.NoInheritPrefix && rawWriter is not Xsl3.Tree.CompactDocument.Writer)
+                                break;
                             if (rawWriter != null)
                                 rawWriter.WriteNamespaceDeclaration(page[idxEvent].String1!, page[idxEvent].String2!);
                             else

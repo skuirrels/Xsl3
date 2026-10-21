@@ -208,17 +208,52 @@ namespace Xsl3.Tree
         /// </summary>
         internal (string Prefix, string Uri, int Owner, int Decl)[] InScopeNamespaces(int element)
         {
-            if (_scopes != null)
+            for (int n = element; n != None; n = _parent[n])
             {
-                for (int n = element; n != None; n = _parent[n])
+                if (_scopes != null && _scopes.TryGetValue(n, out var scope))
                 {
-                    if (_scopes.TryGetValue(n, out var scope))
-                    {
-                        return scope;
-                    }
+                    return scope;
+                }
+                if (_noInherit != null && _parent[n] != None && _noInherit.Contains(_parent[n]))
+                {
+                    // Xsl3: a child of an element made with inherit-namespaces="no" has only the namespaces it needs.
+                    var needed = NeededNamespaces(n);
+                    (_scopes ??= new Dictionary<int, (string, string, int, int)[]>())[n] = needed;
+                    return needed;
                 }
             }
             return _xmlOnly;
+        }
+
+        // Xsl3: the elements made with inherit-namespaces="no" (XSLT 3.0 §11.1.2).
+        internal HashSet<int>? _noInherit;
+
+        // The namespaces an element's own name and its attributes' names need, with the xml namespace.
+        private (string, string, int, int)[] NeededNamespaces(int element)
+        {
+            var list = new List<(string, string, int, int)>();
+            void Need(int name)
+            {
+                if (name == None)
+                {
+                    return;
+                }
+                string prefix = _prefix[name], uri = _uri[name];
+                if ((prefix.Length != 0 || uri.Length != 0) && prefix != "xml" && !list.Exists(ns => (object)ns.Item1 == (object)prefix || ns.Item1 == prefix))
+                {
+                    list.Add((prefix, uri, element, 0));
+                }
+            }
+            Need(_name[element]);
+            for (int a = _data[element]; a != None && a < _attrCount && _attrOwner[a] == element; a++)
+            {
+                if (_prefix[_attrName[a]].Length != 0)
+                {
+                    Need(_attrName[a]);
+                }
+            }
+            list.Add(_xmlOnly[0]);
+            return list.ToArray();
         }
 
         // The in-scope namespaces of each element that declares any (built with the tree, parents first).
@@ -249,7 +284,8 @@ namespace Xsl3.Tree
                     i++;
                     continue;
                 }
-                var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(InScopeNamespaces(_parent[element]));
+                var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(
+                    _noInherit != null && _noInherit.Contains(_parent[element]) ? NeededNamespaces(element) : InScopeNamespaces(_parent[element]));
                 for (; i < _nsCount && _nsOwner[i] == element; i++)
                 {
                     var added = (_nsPrefix[i], _nsUri[i], element, location++);

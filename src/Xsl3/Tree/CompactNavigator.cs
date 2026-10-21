@@ -224,6 +224,9 @@ namespace Xsl3.Tree
 
         // Namespaces
 
+        /// <summary>Xsl3: an element made with inherit-namespaces="no" (its children don't inherit its namespaces).</summary>
+        internal bool NoInherit => OnContent && _doc._noInherit != null && _doc._noInherit.Contains(_node);
+
         public override bool MoveToFirstNamespace(XPathNamespaceScope scope)
         {
             if (!OnContent || _doc.Kind(_node) != (int)XPathNodeType.Element)

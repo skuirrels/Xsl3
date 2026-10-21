@@ -2680,9 +2680,14 @@ namespace Xsl3.Xslt
             {
                 AddUseAttributeSets(content);
             }
-            return SetInfo(F.Element(name, ns, _input.XslVersion),
+            XslNode element = SetInfo(F.Element(name, ns, _input.XslVersion),
                 LoadEndTag(LoadInstructions(content)), ctxInfo
             );
+            if (V2 && !inheritNamespaces)
+            {
+                element.V2 = new XslNodeV2 { InheritNamespaces = TriState.False };
+            }
+            return element;
         }
 
         // http://www.w3.org/TR/xslt#creating-attributes

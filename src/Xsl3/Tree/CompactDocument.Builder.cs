@@ -400,6 +400,14 @@ namespace Xsl3.Tree
                 ? _pool.Local[name] == "id" && (object)_pool.Uri[name] == (object)_doc._xmlUri
                 : _local![name] == "id" && (object)_uri![name] == (object)_doc._xmlUri;
 
+            internal void NoInherit()
+            {
+                if (InElement)
+                {
+                    (_doc._noInherit ??= new HashSet<int>()).Add(_open[_depth - 1]);
+                }
+            }
+
             internal void NamespaceDeclaration(string prefix, string uri)
             {
                 CompactDocument d = _doc;

@@ -1321,12 +1321,12 @@ namespace Xsl3.Xslt
                 QilIterator e;
                 return _f.Loop(e = _f.Let(current),
                     _f.Conditional(_f.IsType(e, T.Element),
-                        _f.ElementCtor(_f.NameOf(_f.TypeAssert(e, T.Element)), ContentNodes(CompileInstructions(copy.Content))),
+                        _f.ElementCtor(_f.NameOf(_f.TypeAssert(e, T.Element)), NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content)))),
                         CopyOther31(e, copy)));
             }
             if (current.XmlType!.IsSubtypeOf(T.NodeNotRtf))
             {
-                return _f.XsltCopy(current, ContentNodes(CompileInstructions(copy.Content)));
+                return _f.XsltCopy(current, NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content))));
             }
             QilIterator c;
             return _f.Loop(c = _f.Let(current), CopyOther31(c, copy));
@@ -1335,8 +1335,18 @@ namespace Xsl3.Xslt
         // An atomic context item is copied as itself; a node with XsltCopy.
         private QilNode CopyOther31(QilIterator c, XslNode copy) =>
             _f.Conditional(_f.IsType(c, T.Node),
-                _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), ContentNodes(CompileInstructions(copy.Content))),
+                _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content)))),
                 _f.TypeAssert(c, T.AnyAtomicType));
+
+        /// <summary>
+        /// inherit-namespaces="no" (XSLT 3.0 §11.1.2): the element's children don't inherit its namespaces. A marker
+        /// declaration (<see cref="XmlQueryOutput.NoInheritPrefix"/>) at the start of the content tells the tree being
+        /// built; serialized output can't express it, and drops it.
+        /// </summary>
+        private QilNode NoInherit31(XslNode node, QilNode content) =>
+            node.V2?.InheritNamespaces == TriState.False
+                ? _f.Sequence(_f.NamespaceDecl(_f.String(XmlQueryOutput.NoInheritPrefix), _f.String("")), content)
+                : content;
 
         private QilNode CompileNamespace31(XslNode node)
         {

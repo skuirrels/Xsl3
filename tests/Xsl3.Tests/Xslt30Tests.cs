@@ -688,4 +688,20 @@ public class Xslt30Tests
         Assert.Contains("xmlns:b=\"urn:b\"", result);
         Assert.EndsWith("<a:e xmlns:a=\"urn:a\" /></o>", result);
     }
+
+    /// <summary>inherit-namespaces="no" (XSLT 3.0 §11.1.2): children don't inherit the element's namespaces, in trees and output.</summary>
+    [Fact]
+    public void InheritNamespacesNo()
+    {
+        // Sorted prefixes: x:a has x, b none, c the default namespace; none has p's.
+        Assert.Equal("<o>x xml|xml| xml</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="v"><xsl:element name="p" namespace="urn:p" inherit-namespaces="no"><x:a xmlns:x="urn:x"/><b/><c xmlns="urn:c"/></xsl:element></xsl:variable>
+              <o><xsl:value-of select="string-join($v/*/*!string-join(sort(in-scope-prefixes(.)), ' '), '|')"/></o>
+            </xsl:template>
+            """));
+        Assert.Contains("<b xmlns=\"\" />", Run("""
+            <xsl:template match="/"><xsl:element name="p" namespace="urn:p" inherit-namespaces="no"><b/></xsl:element></xsl:template>
+            """));
+    }
 }
