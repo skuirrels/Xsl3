@@ -19,7 +19,8 @@ namespace Xsl3.XPath31.Functions
         {
             Define("fn:document-uri($arg as node()?) as xs:anyURI?", (c, a) =>
                 Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root && n is not XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } && n is not Xsl3.Tree.CompactNavigator { Document.NoDocumentUri: true } ? Uri(n.BaseURI) : Empty);
-            Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator n ? Uri(BaseUri(n)) : Empty);
+            // A namespace node has no base URI (XDM 3.1 §6.4.2).
+            Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: not XPathNodeType.Namespace } n ? Uri(BaseUri(n)) : Empty);
             Define("fn:generate-id($arg as node()?) as xs:string", (c, a) =>
                 Str(Node(a[0]) is XPathNavigator n ? (c.Runtime?.GenerateId(n) ?? "id" + n.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture)) : ""));
             Define("fn:nilled($arg as node()?) as xs:boolean?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: XPathNodeType.Element } ? Bool(false) : Empty);
@@ -57,6 +58,24 @@ namespace Xsl3.XPath31.Functions
 
             // ---------------------------------------------------------- documents and text resources
             Define("fn:doc($uri as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(Doc(S(a[0]), c)));
+            // XSLT 3.0 §18.2.6: whether xsl:source-document streamable="yes" would succeed, which it does (without
+            // streaming) whenever the document can be read.
+            Define("fn:stream-available($uri as xs:string?) as xs:boolean", (c, a) =>
+            {
+                if (a[0].Count == 0)
+                {
+                    return Bool(false);
+                }
+                try
+                {
+                    Doc(S(a[0]), c);
+                    return Bool(true);
+                }
+                catch (XdmException e) when (e.Code is "FODC0002" or "FODC0005")
+                {
+                    return Bool(false);
+                }
+            });
             Define("fn:doc-available($uri as xs:string?) as xs:boolean", (c, a) =>
             {
                 if (a[0].Count == 0) return Bool(false);
@@ -312,9 +331,10 @@ namespace Xsl3.XPath31.Functions
             {
                 throw new XdmException("FODC0005", $"'{uri}' has a fragment identifier");
             }
-            if (c.Runtime == null)
+            if (c.Runtime == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
             {
-                throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved");
+                // (Without XsltSettings.EnableDocumentFunction, no document is available.)
+                throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved" + (c.Runtime == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
             }
             try
             {
@@ -325,7 +345,7 @@ namespace Xsl3.XPath31.Functions
                 }
                 return doc;
             }
-            catch (Exception e) when (e is not XdmException && e is not OutOfMemoryException)
+            catch (Exception e) when (e is not XdmException && e is not OutOfMemoryException && e is not OperationCanceledException)
             {
                 throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved: {e.InnerException?.Message ?? e.Message}");
             }
@@ -338,9 +358,9 @@ namespace Xsl3.XPath31.Functions
                 throw new XdmException("FOUT1170", $"'{href}' has a fragment identifier");
             }
             XmlResolver? resolver = c.Runtime?.ExternalContext.DataSources;
-            if (resolver == null)
+            if (resolver == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
             {
-                throw new XdmException("FOUT1170", $"'{href}' can't be retrieved");
+                throw new XdmException("FOUT1170", $"'{href}' can't be retrieved" + (resolver == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
             }
             Encoding? enc = null;
             if (encoding != null)

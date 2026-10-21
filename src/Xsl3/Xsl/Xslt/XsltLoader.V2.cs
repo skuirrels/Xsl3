@@ -620,6 +620,77 @@ namespace Xsl3.Xslt
             return SetInfo(F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion), content, ctxInfo);
         }
 
+        // XSLT 3.0 §23.2
+        private readonly XsltAttribute[] _assertAttributes = {
+            new XsltAttribute("test",       V2Req),
+            new XsltAttribute("select",     V2Opt),
+            new XsltAttribute("error-code", V2Opt),
+        };
+
+        // The xsl:assert instructions loaded so far, for the names of the variables they bind.
+        private int _assertCount;
+
+        /// <summary>
+        /// xsl:assert (XSLT 3.0 §23.2). With XsltSettings.EnableAssertions off, nothing (it is checked, then dropped).
+        /// On, <c>xsl:if test="not(test)"</c> around a variable holding the message (select, else the content) and a
+        /// call of fn:error with the error code (XTMM9001 by default), the message as description and as error value.
+        /// </summary>
+        private XslNode? XslAssert()
+        {
+            ContextInfo ctxInfo = _input.GetAttributes(_assertAttributes);
+            string test = ParseStringAttribute(0, "test") ?? "true()";
+            string? select = ParseStringAttribute(1, "select");
+            string? errorCode = ParseStringAttribute(2, "error-code");
+            List<XslNode> content = LoadInstructions();
+            CheckError(select != null && content.Count != 0, /*[XTSE3205]*/SR.Xslt_ElementCntSel, "xsl:assert");
+            if (!_compiler.Settings.EnableAssertions)
+            {
+                return null;
+            }
+
+            // The error code: an EQName or a lexical QName, as an expression of an xs:QName.
+            string code;
+            if (errorCode == null)
+            {
+                code = $"QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTMM9001')";
+            }
+            else if (errorCode.Replace("{{", "").Replace("}}", "") is var lone && (lone.Contains('{') || lone.Contains('}'))
+                && !System.Text.RegularExpressions.Regex.IsMatch(errorCode.Trim(), @"^Q\{[^{}]*\}[^{}:]+$"))
+            {
+                // An attribute value template with an expression, whose value would be resolved against the
+                // instruction's namespaces. (Q{uri}local is taken as written.)
+                ReportError(SR.Xml_UserException, "XTSE0020: a computed error-code on xsl:assert isn't supported yet");
+                return null;
+            }
+            else
+            {
+                // The attribute's value: {{ and }} stand for braces (Q{{uri}}local is an EQName).
+                string value = (lone.Contains('{') ? errorCode : errorCode.Replace("{{", "{").Replace("}}", "}")).Trim();
+                int colon = value.IndexOf(':');
+                if (value.StartsWith("Q{", StringComparison.Ordinal) && value.IndexOf('}') is int close and > 0)
+                {
+                    code = $"QName('{value[2..close].Replace("'", "''")}', '{value[(close + 1)..]}')";
+                }
+                else
+                {
+                    string ns = colon < 0 ? "" : _input.LookupXmlNamespace(value[..colon]) ?? "";
+                    code = $"QName('{ns.Replace("'", "''")}', '{value}')";
+                }
+            }
+
+            QilName message = F.QName($"a{_assertCount++}", Runtime.DynamicEvaluation.Namespace, "");
+            VarPar variable = F.VarPar(XslNodeType.Variable, message, select, _input.XslVersion);
+            variable.V2 = new XslNodeV2();
+            SetLineInfo(variable, ctxInfo.lineInfo);
+            variable.SetContent(content.Count == 0 ? null : content);
+            string reference = $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{message.LocalName}";
+            XslNode raise = SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
+                $"error({code}, string-join(for $i in {reference} return if ($i instance of function(*)) then '' else string($i), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
+            // (Parenthesized, so a test that is a sequence expression stays one argument.)
+            XslNode check = F.XslNode(XslNodeType.If, null, $"not(({test}))", _input.XslVersion);
+            return SetInfo(check, new List<XslNode> { variable, raise }, ctxInfo);
+        }
+
         // An attribute value template as an XPath expression of its string value.
         internal static string AvtAsXPath31(string avt)
         {
@@ -875,7 +946,7 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_analyzeStringAttributes);
             string? select = ParseStringAttribute(0, "select");
-            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "", EmptyMatches = _input.LastVersion >= 3.0 };
+            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "", EmptyMatches = true }; // Xsl3 is a 3.0 processor: XTDE1150 is gone, even for a 2.0 stylesheet
 
             XslNode? matching = null, nonMatching = null;
             QName parentName = _input.ElementName;
@@ -1119,7 +1190,8 @@ namespace Xsl3.Xslt
             var function = new Template(name, /*match:*/null, nullMode, double.NaN, _input.XslVersion);
             function.IsFunction = true;
             PackageDeclaration(function, functionVisibility);
-            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime };
+            bool cache = ParseYesNoAttribute(7, "cache") == TriState.True;
+            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;
@@ -1270,6 +1342,10 @@ namespace Xsl3.Xslt
                         // A set of names: compared as expanded names, in any order.
                         value = string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
                         {
+                            if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                            {
+                                return token; // already an EQName
+                            }
                             int colon = token.IndexOf(':');
                             return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
                         }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
@@ -1277,13 +1353,31 @@ namespace Xsl3.Xslt
                     decl.Attributes[_modeAttributes[i].name] = value;
                 }
             }
-            // Declarations of higher import precedence win (modules are read in decreasing precedence); those of the
-            // same precedence combine, and may not give an attribute two values (XTSE0545).
+            // Each attribute comes from the declaration of highest import precedence that gives it (modules are read
+            // in decreasing precedence); declarations of the same precedence may not give an attribute two values
+            // (XTSE0545).
             if (!_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? existing))
             {
                 _compiler.ModeDecls[mode] = decl;
             }
-            else if (existing.ImportPrecedence == decl.ImportPrecedence)
+            else if (existing.ImportPrecedence != decl.ImportPrecedence)
+            {
+                foreach (var (attribute, value) in decl.Attributes)
+                {
+                    if (existing.Attributes.TryAdd(attribute, value))
+                    {
+                        if (attribute == "on-no-match")
+                        {
+                            existing.OnNoMatch = decl.OnNoMatch;
+                        }
+                        else if (attribute == "on-multiple-match")
+                        {
+                            existing.OnMultipleMatch = decl.OnMultipleMatch;
+                        }
+                    }
+                }
+            }
+            else
             {
                 foreach (var (attribute, value) in decl.Attributes)
                 {

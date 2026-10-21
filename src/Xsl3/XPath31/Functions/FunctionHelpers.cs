@@ -181,9 +181,9 @@ namespace Xsl3.XPath31.Functions
 
         private static decimal RoundDecimal(decimal x, long precision, bool halfToEven)
         {
-            if (precision >= 28)
+            if (precision >= 28 || precision >= x.Scale)
             {
-                return x;
+                return x; // nothing to round (and x × 10^precision could overflow)
             }
             if (precision >= 0)
             {
@@ -212,6 +212,36 @@ namespace Xsl3.XPath31.Functions
             return r;
         }
 
+        // Rounding beyond decimal's range: on the double's 17 significant digits (d × 10^scale), then parsed back, so
+        // round(9.9e-99, 99) is 1.0E-98 exactly as a double can hold it.
+        private static double RoundDigits(double x, long precision, bool halfToEven)
+        {
+            string e = System.Math.Abs(x).ToString("E16", System.Globalization.CultureInfo.InvariantCulture);
+            int ePos = e.IndexOf('E');
+            var digits = System.Numerics.BigInteger.Parse(e[..ePos].Replace(".", ""), System.Globalization.CultureInfo.InvariantCulture);
+            long scale = long.Parse(e[(ePos + 1)..], System.Globalization.CultureInfo.InvariantCulture) - 16;
+            long drop = -precision - scale;
+            if (drop <= 0)
+            {
+                return x;
+            }
+            if (drop > 17)
+            {
+                return x < 0 ? -0.0 : 0.0;
+            }
+            var unit = System.Numerics.BigInteger.Pow(10, (int)drop);
+            var q = System.Numerics.BigInteger.DivRem(digits, unit, out System.Numerics.BigInteger r);
+            int half = (r * 2).CompareTo(unit);
+            // Ties: to even, or towards positive infinity (up in magnitude for positive numbers, down for negative ones).
+            if (half > 0 || half == 0 && (halfToEven ? !q.IsEven : x > 0))
+            {
+                q += 1;
+            }
+            double magnitude = double.Parse(q.ToString(System.Globalization.CultureInfo.InvariantCulture) + "E" + (-precision).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                System.Globalization.CultureInfo.InvariantCulture);
+            return x < 0 ? -magnitude : magnitude;
+        }
+
         private static double RoundDouble(double x, long precision, bool halfToEven)
         {
             if (double.IsNaN(x) || double.IsInfinity(x) || x == 0)
@@ -219,9 +249,13 @@ namespace Xsl3.XPath31.Functions
                 return x;
             }
             double result;
-            if (System.Math.Abs(x) < 7.9e27 && decimal.TryParse(x.ToString("R", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal dx))
+            // Rounding works on the double's own value, not its shortest form: to 29 digits, -13.65e0 is
+            // -13.650000000000000355271367880.
+            if (System.Math.Abs(x) < 7.9e27 && decimal.TryParse(x.ToString("E28", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal dx) && dx != 0 && dx.Scale < 28)
             {
-                result = (double)RoundDecimal(dx, precision, halfToEven);
+                decimal rounded = RoundDecimal(dx, precision, halfToEven);
+                // Unchanged, the double itself; else parsed back (the decimal-to-double conversion isn't correctly rounded).
+                result = rounded == dx ? x : double.Parse(rounded.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
             }
             else if (precision == 0)
             {
@@ -229,8 +263,7 @@ namespace Xsl3.XPath31.Functions
             }
             else
             {
-                double factor = System.Math.Pow(10, precision);
-                result = (halfToEven ? System.Math.Round(x * factor, System.MidpointRounding.ToEven) : System.Math.Floor(x * factor + 0.5)) / factor;
+                result = RoundDigits(x, precision, halfToEven);
             }
             // Negative values that round to zero give negative zero.
             return result == 0 && x < 0 ? -0.0 : result;
@@ -454,7 +487,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (a is XPathNavigator m && b is XPathNavigator n)
             {
-                return Nodes(m, n);
+                return Nodes(m, n, c.DefaultCollation);
             }
             switch (a, b)
             {
@@ -480,7 +513,8 @@ namespace Xsl3.XPath31.Functions
             return false;
         }
 
-        private static bool Nodes(XPathNavigator a, XPathNavigator b)
+        // Text, attribute and other string values compare under the collation (F&O 3.1 §14.2.1); names don't.
+        private static bool Nodes(XPathNavigator a, XPathNavigator b, Collation collation)
         {
             if (Kind(a.NodeType) != Kind(b.NodeType))
             {
@@ -489,26 +523,27 @@ namespace Xsl3.XPath31.Functions
             switch (a.NodeType)
             {
                 case XPathNodeType.Root:
-                    return Children(a, b);
+                    return Children(a, b, collation);
                 case XPathNodeType.Element:
-                    return a.LocalName == b.LocalName && a.NamespaceURI == b.NamespaceURI && Attributes(a, b) && Children(a, b);
+                    return a.LocalName == b.LocalName && a.NamespaceURI == b.NamespaceURI && Attributes(a, b, collation) && Children(a, b, collation);
                 case XPathNodeType.Attribute:
-                    return a.LocalName == b.LocalName && a.NamespaceURI == b.NamespaceURI && a.Value == b.Value;
+                    return a.LocalName == b.LocalName && a.NamespaceURI == b.NamespaceURI && collation.Compare(a.Value, b.Value) == 0;
                 case XPathNodeType.ProcessingInstruction:
+                    return a.LocalName == b.LocalName && collation.Compare(a.Value, b.Value) == 0;
                 case XPathNodeType.Namespace:
                     return a.LocalName == b.LocalName && a.Value == b.Value;
                 default:
-                    return a.Value == b.Value;
+                    return collation.Compare(a.Value, b.Value) == 0;
             }
         }
 
         private static XPathNodeType Kind(XPathNodeType t) => t is XPathNodeType.Whitespace or XPathNodeType.SignificantWhitespace ? XPathNodeType.Text : t;
 
-        private static bool Attributes(XPathNavigator a, XPathNavigator b)
+        private static bool Attributes(XPathNavigator a, XPathNavigator b, Collation collation)
         {
             var left = AttributeMap(a);
             var right = AttributeMap(b);
-            return left.Count == right.Count && left.All(kv => right.TryGetValue(kv.Key, out string? v) && v == kv.Value);
+            return left.Count == right.Count && left.All(kv => right.TryGetValue(kv.Key, out string? v) && collation.Compare(v, kv.Value) == 0);
         }
 
         private static Dictionary<(string, string), string> AttributeMap(XPathNavigator n)
@@ -527,7 +562,7 @@ namespace Xsl3.XPath31.Functions
         }
 
         // Comments and processing instructions are ignored among children; elements and text are compared in order.
-        private static bool Children(XPathNavigator a, XPathNavigator b)
+        private static bool Children(XPathNavigator a, XPathNavigator b, Collation collation)
         {
             List<XPathNavigator> left = SignificantChildren(a), right = SignificantChildren(b);
             if (left.Count != right.Count)
@@ -536,7 +571,7 @@ namespace Xsl3.XPath31.Functions
             }
             for (int i = 0; i < left.Count; i++)
             {
-                if (!Nodes(left[i], right[i]))
+                if (!Nodes(left[i], right[i], collation))
                 {
                     return false;
                 }

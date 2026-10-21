@@ -36,7 +36,11 @@ namespace Xsl3.XPath31.Functions
 
         public string Uri { get; }
 
-        public int Compare(string? x, string? y) => _comparer.Compare(x, y);
+        public int Compare(string? x, string? y) =>
+            _caseFirstUpper == null ? _comparer.Compare(x, y) : KeyBytes(x ?? "").AsSpan().SequenceCompareTo(KeyBytes(y ?? ""));
+
+        // With caseFirst: true for upper case first, false for lower case first.
+        private bool? _caseFirstUpper;
 
         // The HTML ASCII case-insensitive collation folds A-Z only; ordinal matching on folded strings.
         private bool AsciiFold => Uri == HtmlAsciiCaseInsensitiveUri;
@@ -113,7 +117,29 @@ namespace Xsl3.XPath31.Functions
         public byte[] KeyBytes(string s) =>
             AsciiFold ? System.Text.Encoding.UTF8.GetBytes(Fold(s))
             : _compareInfo == null ? System.Text.Encoding.UTF8.GetBytes(s)
+            : _caseFirstUpper is bool upper ? CaseFirstKey(s, upper)
             : _compareInfo.GetSortKey(s, _options).KeyData;
+
+        // The key without case, then each letter's case in the order caseFirst asks for, then the full key. Sort keys
+        // hold no zero bytes before their end, so a zero separates the parts.
+        private byte[] CaseFirstKey(string s, bool upper)
+        {
+            byte[] caseless = _compareInfo!.GetSortKey(s, _options | CompareOptions.IgnoreCase).KeyData;
+            byte[] full = _compareInfo.GetSortKey(s, _options).KeyData;
+            var key = new List<byte>(caseless.Length + s.Length + full.Length + 2);
+            key.AddRange(caseless);
+            key.Add(0);
+            foreach (char c in s)
+            {
+                if (char.IsUpper(c) || char.IsLower(c))
+                {
+                    key.Add((byte)(char.IsUpper(c) == upper ? 1 : 2));
+                }
+            }
+            key.Add(0);
+            key.AddRange(full);
+            return key.ToArray();
+        }
 
         /// <summary>A key such that equal keys mean equal strings under this collation (fn:collation-key, grouping).</summary>
         public string Key(string s) =>
@@ -205,13 +231,26 @@ namespace Xsl3.XPath31.Functions
             }
             foreach (string key in parameters.Keys)
             {
-                bool known = key is "fallback" or "lang" or "strength" or "alternate";
+                bool known = key is "fallback" or "lang" or "strength" or "alternate" or "caseFirst";
                 if (!known && !fallback)
                 {
                     throw new XdmException("FOCH0002", $"Collation parameter '{key}' is not supported");
                 }
             }
             CompareInfo info = culture.CompareInfo;
+            // caseFirst=upper|lower (xsl:sort's case-order): strings equal but for case put the upper (or lower) case first.
+            string? caseFirst = parameters.GetValueOrDefault("caseFirst") switch
+            {
+                "upper" or "upper-first" => "upper",
+                "lower" or "lower-first" => "lower",
+                null or "off" => null,
+                _ when fallback => null,
+                var other => throw new XdmException("FOCH0002", $"Collation parameter caseFirst={other} is not supported"),
+            };
+            if (caseFirst != null && (options & CompareOptions.IgnoreCase) == 0)
+            {
+                return new Collation(uri, null!, info, options) { _caseFirstUpper = caseFirst == "upper" };
+            }
             if (strength is "identical" or "5")
             {
                 // Identical strength: strings equal at every level are still ordered (and distinguished) by code points.

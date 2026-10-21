@@ -976,6 +976,8 @@ namespace Xsl3.Runtime
                 // If this is a top-level node, write a reference to it; else copy it by value
                 if (_xstate == XmlState.WithinSequence)
                     _seqwrt!.WriteItem(navigator);
+                else if (navigator.NodeType == XPathNodeType.Root && _runtime.IsXslt2)
+                    XsltCopyOfCore(navigator.Clone()); // Xsl3: a document node in content is replaced by its children (XSLT 3.0 §5.7.1)
                 else
                     CopyNode(navigator);
             }
@@ -1073,6 +1075,11 @@ namespace Xsl3.Runtime
                 // Xsl3: in a sequence being constructed (XSLT 2.0+), xsl:copy of a document node makes a new one.
                 bool newRoot = _depth == 0 && _xstate == XmlState.WithinSequence && _seqwrt is XmlCachedSequenceWriter;
                 (_copiedRoots ??= new Stack<bool>()).Push(newRoot);
+                if (!newRoot && _runtime.IsXslt2)
+                {
+                    // Its content is a document node's: attributes and namespaces there are XTDE0420.
+                    (_documentContent ??= new Stack<int>()).Push(_depth);
+                }
                 if (newRoot)
                 {
                     WriteStartRoot();
@@ -1107,11 +1114,18 @@ namespace Xsl3.Runtime
                 {
                     WriteEndRoot();
                 }
+                else if (_runtime.IsXslt2)
+                {
+                    _documentContent?.Pop();
+                }
             }
         }
 
         // Xsl3: for each xsl:copy of a document node being written, whether it made a new document node.
         private Stack<bool>? _copiedRoots;
+
+        // Xsl3: the depths at which a document node's content is being copied into an element (2.0+).
+        private Stack<int>? _documentContent;
 
 
         //-----------------------------------------------
@@ -1473,6 +1487,10 @@ namespace Xsl3.Runtime
 
                 case XmlState.EnumAttrs:
                     // Already in EnumAttrs state
+                    if (_documentContent is { Count: > 0 } content && content.Peek() == _depth)
+                    {
+                        throw new Xdm.XdmException("XTDE0420", $"The content of a document node can't contain {(rootType == XPathNodeType.Attribute ? "an attribute" : "a namespace")} node");
+                    }
                     break;
 
                 default:

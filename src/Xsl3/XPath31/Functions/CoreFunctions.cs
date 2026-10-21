@@ -158,11 +158,11 @@ namespace Xsl3.XPath31.Functions
             Define("fn:error($code as xs:QName?) as item()*", (c, a) => throw ErrorFrom(a[0], null));
             Define("fn:error($code as xs:QName?, $description as xs:string) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1])));
             Define("fn:error($code as xs:QName?, $description as xs:string, $error-object as item()*) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1]), a[2]));
-            Define("fn:trace($value as item()*) as item()*", (c, a) => a[0]);
+            Define("fn:trace($value as item()*) as item()*", (c, a) => Trace(c, "", a[0]));
             // XSLT 3.0 §20.4.5
             Define("fn:available-system-properties() as xs:QName*", (c, a) => Xsl3.Runtime.XsltNameContext.SystemProperties
                 .Select(p => (XPathItem)new QNameValue(AtomicTypes.QName, new QName("http://www.w3.org/1999/XSL/Transform", p, "xsl"))).ToList());
-            Define("fn:trace($value as item()*, $label as xs:string) as item()*", (c, a) => a[0]);
+            Define("fn:trace($value as item()*, $label as xs:string) as item()*", (c, a) => Trace(c, S(a[1]), a[0]));
 
             // ---------------------------------------------------------- QNames (F&O §10)
             Define("fn:QName($paramURI as xs:string?, $paramQName as xs:string) as xs:QName", (c, a) => One(QNameFunctions.Construct(S(a[0]), S(a[1]))));
@@ -177,6 +177,7 @@ namespace Xsl3.XPath31.Functions
             RegisterFormatting();
             RegisterMapsAndArrays();
             RegisterJson();
+            RegisterRandom();
             Define("fn:parse-ietf-date($value as xs:string?) as xs:dateTime?", (c, a) => a[0].Count == 0 ? Empty : One(IetfDate.Parse(S(a[0]))));
         }
 
@@ -192,6 +193,12 @@ namespace Xsl3.XPath31.Functions
             XPathNodeType.ProcessingInstruction or XPathNodeType.Namespace when n.LocalName.Length > 0 => new QName("", n.LocalName),
             _ => null,
         };
+
+        private static IList<XPathItem> Trace(FunctionContext c, string label, IList<XPathItem> value)
+        {
+            c.Runtime?.ExternalContext.OnTrace(label, value);
+            return value;
+        }
 
         private static XdmException ErrorFrom(IList<XPathItem> code, string? description, IList<XPathItem>? errorObject = null)
         {

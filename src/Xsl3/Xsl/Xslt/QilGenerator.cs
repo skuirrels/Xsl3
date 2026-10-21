@@ -165,7 +165,7 @@ namespace Xsl3.Xslt
                     // Patterns may call key() and stylesheet functions; key definitions may apply templates.
                     _dynamicCurrentMode31 = compiler.AllTemplates.Any(t => !HasStaticMode31(t) && UsesCurrentMode31(t.Content, t is Template { Match: not null }));
                     _rules31 = compiler.AllTemplates.OfType<Template>().Where(t => t.Match != null).ToList();
-                    _callerRule31 = compiler.AllTemplates.Any(t => t is Template { Match: null } && UsesNextMatch31(t.Content));
+                    _callerRule31 = compiler.AllTemplates.Any(t => (t is Template { Match: null } || t is AttributeSet) && UsesNextMatch31(t.Content));
                     CreateKeyFunctions31();
                     PrecompileFunctions31();
                     CompileAndSortMatches(compiler.Root!.Imports![0]);
@@ -243,12 +243,15 @@ namespace Xsl3.Xslt
                 qil.GlobalVariableList = _gloVars;
                 qil.WhitespaceRules = compiler.WhitespaceRules;
                 qil.IsDebug = IsDebug;
+                qil.MaxRecursionDepth = compiler.Settings.MaxRecursionDepth;
                 qil.DefaultWriterSettings = compiler.Output.Settings;
                 if (IsV2)
                 {
                     ValidateCharacterMaps31();
                     (qil.DefaultWriterSettings, qil.OutputExtras) = WithParameterDocument31(compiler.Output);
-                    qil.ResultDocuments = _resultDocuments31;
+                    // The principal result writer is needed for xsl:result-document, and to choose the xhtml method when
+                    // the result starts with XHTML's html element and no method is declared (XSLT 3.0 §26.1).
+                    qil.ResultDocuments = _resultDocuments31 || compiler.XhtmlHtmlLiteral && compiler.Output.Method == null;
                     qil.Xslt2 = true;
                     qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
                 }
@@ -330,8 +333,12 @@ namespace Xsl3.Xslt
             _package31 = 0; // Xsl3: the entry point is the principal package's
             _component31 = null;
             _singlFocus.SetFocus(SingletonFocusType.InitialContextNode);
-            // Xsl3: the entry point is apply-templates in a mode, or a call of the initial named template.
-            QilNode result = applyTmpls.NodeType == XslNodeType.CallTemplate
+            // Xsl3: the entry point is apply-templates in a mode, a call of the initial named template, or a call of the
+            // initial function.
+            QilNode result = IsV2 && _compiler.InitialFunction != null ? CompileInitialFunction31()
+                : IsV2 && UnknownInitialMode31(applyTmpls) is string unknown
+                ? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0045"), _f.String($"The initial mode {unknown} has no template rules and isn't declared"))
+                : applyTmpls.NodeType == XslNodeType.CallTemplate
                 ? CompileCallTemplate((XslNodeEx)applyTmpls)
                 : GenerateApply(_compiler.Root!, applyTmpls);
             if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
@@ -339,9 +346,21 @@ namespace Xsl3.Xslt
                 // Xsl3: xsl:global-context-item use="required" as="…": the global context item must be of the type.
                 result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), requiredType, "XTTE0590")), result);
             }
+            if (IsV2 && _compiler.PackageInfos.Count <= 1)
+            {
+                // Xsl3: a required stylesheet parameter must be supplied even if it is never used (XTDE0050). (With
+                // packages, an override may make it optional: those are still checked when used.)
+                foreach (VarPar par in _compiler.ExternalPars)
+                {
+                    if (par.NodeType == XslNodeType.Param && par.V2 is { Required: true, StaticValue: null } && par.Value is QilIterator it)
+                    {
+                        result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, Box(it)), result);
+                    }
+                }
+            }
             _singlFocus.SetFocus(null);
 
-            if (IsV2 && (_compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))
+            if (IsV2 && (_compiler.RawResult || _compiler.Output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } || _compiler.Output.ItemSeparator != null))
             {
                 // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
                 return Box(result);
@@ -766,8 +785,9 @@ namespace Xsl3.Xslt
             _currentTemplateRule = tmpl is Template { Match: not null } rule ? rule : null;
             _modeRule31 = _currentTemplateRule;
             // (A named template with <xsl:context-item use="absent"/> has no current template rule either.)
+            // An attribute set keeps its caller's too.
             _inNamedTemplate31 = tmpl is Template { Match: null, IsFunction: false } &&
-                !tmpl.Content.Any(n => n.NodeType == XslNodeType.ContextItem && (string?)n.Arg == "absent");
+                !tmpl.Content.Any(n => n.NodeType == XslNodeType.ContextItem && (string?)n.Arg == "absent") || tmpl is AttributeSet;
             List<QilIterator>? prologue = IsV2 ? BindTemplateParams31(tmpl) : null;
             QilIterator? ruleFrame = IsV2 ? WithCurrentRule31(_currentTemplateRule) : null;
             QilNode body = CompileInstructions(tmpl.Content);
@@ -1022,6 +1042,11 @@ namespace Xsl3.Xslt
         {
             QilNode? qilNs = CompileStringAvt(node.NsAvt);
             QilNode qilName = CompileStringAvt(node.NameAvt);
+            if (IsV2 && qilName.NodeType != QilNodeType.LiteralString)
+            {
+                // A computed name may have leading and trailing whitespace (it is collapsed, as an xs:QName is).
+                qilName = _f.InvokeNormalizeSpace(qilName);
+            }
             QilNode qname;
 
             if (qilName.NodeType == QilNodeType.LiteralString && (qilNs == null || qilNs.NodeType == QilNodeType.LiteralString))
@@ -1084,6 +1109,11 @@ namespace Xsl3.Xslt
         {
             QilNode? qilNs = CompileStringAvt(node.NsAvt);
             QilNode qilName = CompileStringAvt(node.NameAvt);
+            if (IsV2 && qilName.NodeType != QilNodeType.LiteralString)
+            {
+                // A computed name may have leading and trailing whitespace (it is collapsed, as an xs:QName is).
+                qilName = _f.InvokeNormalizeSpace(qilName);
+            }
             QilNode qname;
             bool explicitNamespace = false;
 
@@ -1436,6 +1466,11 @@ namespace Xsl3.Xslt
                         CheckWithParams31(content, tmpl);
                     }
                     result = _invkGen.GenerateInvoke(tmpl.Function, AddRemoveImplicitArgs(node.Content, tmpl.Flags)!);
+                }
+                else if (node.SourceLine == null && IsV2)
+                {
+                    // Xsl3: the initial template the caller named doesn't exist (XTDE0040).
+                    result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0040"), _f.String($"There is no template named {node.Name!.QualifiedName} to start with"));
                 }
                 else
                 {
@@ -3015,7 +3050,8 @@ namespace Xsl3.Xslt
                     // we can't just modify current/position/last of actualArgs in XSLT 2.0 as we tried before,
                     // becuase flags for apply-import amy now be different then flags for apply-templates, so
                     // we may need to add some space for additional position/last arguments
-                    QilNode body = InvokeApplyFunction(_compiler.Root!, mode, /*actualArgs:*/null);
+                    // Xsl3: in 2.0+ the parameters are passed on (XSLT 3.0 §6.7); 1.0 drops them, as stock does.
+                    QilNode body = InvokeApplyFunction(_compiler.Root!, mode, /*actualArgs:*/IsV2 ? PassedParams31(actualArgs) : null);
                     if (IsDebug)
                     {
                         body = _f.Sequence(InvokeOnCurrentNodeChanged(), body);
@@ -3035,7 +3071,7 @@ namespace Xsl3.Xslt
                 if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? modeDecl) && modeDecl.OnNoMatch != "text-only-copy")
                 {
                     // Xsl3: the built-in template rules of xsl:mode on-no-match (XSLT 3.0 §6.7).
-                    builtinTemplates = BuiltinRules31(modeDecl.OnNoMatch, current, mode);
+                    builtinTemplates = BuiltinRules31(modeDecl.OnNoMatch, current, mode, PassedParams31(actualArgs));
                 }
 
                 // 3.2 Stylesheet templates

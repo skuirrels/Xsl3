@@ -19,6 +19,9 @@ namespace System.Xml
         private const string Asm = "System.Private.Xml";
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
+        // Xsl3: annotated, so the trimmer keeps the members looked up below (a literal type name is analyzable).
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods
+            | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)]
         private static readonly Type? s_implType = Type.GetType("System.Xml.XmlTextReaderImpl, System.Private.Xml");
         private static readonly MethodInfo? s_getResolver = s_implType?.GetMethod("GetResolver", Instance, Type.EmptyTypes);
         private static readonly PropertyInfo? s_whitespaceHandling = s_implType?.GetProperty("WhitespaceHandling", Instance);

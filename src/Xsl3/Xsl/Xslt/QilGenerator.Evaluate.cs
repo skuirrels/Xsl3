@@ -71,5 +71,58 @@ namespace Xsl3.Xslt
                 }
             }
         }
+
+        /// <summary>
+        /// The initial function (XSLT 3.0 §2.3.4): a public or final stylesheet function of the principal package, called
+        /// with the arguments the caller supplies as parameters; XTDE0041 if there is no such function.
+        /// </summary>
+        private QilNode CompileInitialFunction31()
+        {
+            XmlQualifiedName name = _compiler.InitialFunction!;
+            int arity = _compiler.InitialFunctionArity;
+            QilName functionName = _f.QName(name.Name, name.Namespace);
+            if (!_compiler.Functions.TryGetValue((functionName, arity), out var entry) || entry.Function.PackageId != 0 ||
+                entry.Function.Visibility is not ("public" or "final"))
+            {
+                return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0041"),
+                    _f.String($"There is no public stylesheet function Q{{{name.Namespace}}}{name.Name}#{arity} to call as the initial function"));
+            }
+            QilList actual = _f.ActualParameterList();
+            for (int i = 1; i <= arity; i++)
+            {
+                System.Xml.XmlQualifiedName argument = InitialFunctionArguments.Name(i);
+                actual.Add(X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(argument.Name), _f.String(argument.Namespace)));
+            }
+            return _f.Invoke(entry.Function.Function!, actual);
+        }
+
+        /// <summary>
+        /// The initial mode the caller named, if it is a mode with no template rules that no xsl:mode declares (XTDE0045,
+        /// XSLT 3.0 §2.3.3); null otherwise.
+        /// </summary>
+        private string? UnknownInitialMode31(XslNode start)
+        {
+            // The default mode is always eligible; packages check their entry points themselves (Packages.CheckEntryPoints).
+            if (_compiler.InitialMode == null || start is not { NodeType: XslNodeType.ApplyTemplates, Name: QilName mode } || mode.LocalName.Length == 0 ||
+                mode.Equals(_compiler.DefaultInitialMode) || _compiler.PackageInfos.Count > 1)
+            {
+                return null;
+            }
+            if (_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? decl))
+            {
+                // A declared mode is eligible unless it is private.
+                return decl.Attributes.TryGetValue("visibility", out string? visibility) && visibility.Trim() == "private" ? mode.QualifiedName : null;
+            }
+            foreach (ProtoTemplate template in _compiler.AllTemplates)
+            {
+                // A rule naming the mode, alone or in a list (mode="#all" doesn't name it).
+                if (template is Template { Match: not null } rule &&
+                    (rule.Mode.Equals(mode) || rule.V2?.Modes?.Exists(m => m.Equals(mode)) == true))
+                {
+                    return null;
+                }
+            }
+            return mode.QualifiedName;
+        }
     }
 }

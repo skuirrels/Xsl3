@@ -52,10 +52,24 @@ public sealed class Profile
             // Upstream recovers from conflicting template rules by choosing the last.
             "on-multiple-match" => d.Value == "recover",
             "xsd-version" => d.Value == "1.0",
+            // Regex character classes use .NET's Unicode tables, newer than any version the suite tests (6.0, 9.0).
+            "unicode-version" => false,
             // xsl:use-package chooses the highest version in range (implementation-defined, XSLT 3.0 §3.5.2).
             "package_version_resolution" => d.Value is "highest_version" or "unspecified",
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),
-            "enable_assertions" or "sweep_and_posture" or "combinations_for_numbering" or "additional_normalization_form" => false,
+            // Assertions can be on or off: the runner sets XsltSettings.EnableAssertions as the test asks.
+            "enable_assertions" => d.Satisfied,
+            "sweep_and_posture" or "combinations_for_numbering" or "extension-function" or "ordinal_scheme_name" => false,
+            // NFD, NFKC and NFKD are supported, besides NFC.
+            "additional_normalization_form" => true,
+            // .NET decimal: 28 significant digits.
+            "maximum_number_of_decimal_digits" => int.TryParse(d.Value, out int digits) && digits <= 28,
+            // The html method's default html-version is 4 (5 when html-version says so).
+            "default_html_version" => d.Value == "4",
+            "supported_calendars_in_date_formatting_functions" => d.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(c => c is "AD" or "ISO"),
+            // unparsed-text defaults to UTF-8; documents on the web aren't fetched; doc() failures aren't ignored.
+            "unparsed_text_encoding" => d.Value.Equals("utf-8", StringComparison.OrdinalIgnoreCase),
+            "available_documents" or "ignore_doc_failure" => false,
             _ => true,
         };
         return met == d.Satisfied;

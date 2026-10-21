@@ -35,9 +35,12 @@ namespace Xsl3
     //      results, resultsFile        - cannot be null
     //----------------------------------------------------------------------------------------------------
 
-    [RequiresDynamicCode("XslCompiledTransform requires dynamic code because it generates IL at runtime.")]
+    // Xsl3 (Sink B, B1): only compiling from source needs dynamic code; a precompiled stylesheet (Load(Type),
+    // Load(MethodInfo, ...)) and the transforms themselves don't.
     public sealed class XslCompiledTransform
     {
+        private const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
+
         // Version for GeneratedCodeAttribute
         private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
 
@@ -67,6 +70,7 @@ namespace Xsl3
             OutputSettings = null;
             _qil = null;
             _command = null;
+            _settings = null;
         }
 
         /// <summary>
@@ -84,6 +88,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(XmlReader stylesheet)
         {
             Reset();
@@ -92,6 +97,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
@@ -100,6 +106,7 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(IXPathNavigable stylesheet)
         {
             Reset();
@@ -108,12 +115,14 @@ namespace Xsl3
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
         // It's OK to suppress the SxS warning.
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(IXPathNavigable stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
             LoadInternal(stylesheet, settings, stylesheetResolver, stylesheetResolver);
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(string stylesheetUri)
         {
             Reset();
@@ -121,6 +130,7 @@ namespace Xsl3
             LoadInternal(stylesheetUri, XsltSettings.Default, CreateDefaultResolver(), originalStylesheetResolver: null);
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         public void Load(string stylesheetUri, XsltSettings? settings, XmlResolver? stylesheetResolver)
         {
             Reset();
@@ -131,11 +141,15 @@ namespace Xsl3
         // The 'originalStylesheetResolver' argument should be the original XmlResolver
         // that was passed to the caller (or null), *before* any default substitutions
         // were made by the caller.
+        [RequiresDynamicCode(CompilesIL)]
         private void LoadInternal(object stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
             ArgumentNullException.ThrowIfNull(stylesheet);
 
             settings ??= XsltSettings.Default;
+            _settings = settings.Clone();
+            // Xsl3: the stylesheet's own constants, for every unit compiled for it (ConstantPool).
+            using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
             CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
             CompilerError? error = GetFirstError();
             if (error != null)
@@ -150,9 +164,14 @@ namespace Xsl3
 
         [MemberNotNull(nameof(_compilerErrorColl))]
         [MemberNotNull(nameof(_qil))]
+        [RequiresDynamicCode(CompilesIL)]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
-            var compiler = new Compiler(settings, _enableDebug, null) { InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages };
+            var compiler = new Compiler(settings, _enableDebug, null)
+            {
+                InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
+                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult,
+            };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             _qil.CompactTree = UseCompactTree;
         }
@@ -165,9 +184,51 @@ namespace Xsl3
         /// </summary>
         public bool UseCompactTree { get; set; }
 
+        // Xsl3: the settings of the last Load (run-time ones: result documents, environment variables, time limit, thread).
+        private XsltSettings? _settings;
+
+        /// <summary>
+        /// Xsl3: the base output URI (XSLT 3.0 §2.3.6): what <c>xsl:result-document</c> resolves a relative href against
+        /// and <c>current-output-uri()</c> returns. It names the principal result's file (<c>file:///out/main.xml</c>),
+        /// or a directory when it ends with <c>/</c> or names an existing directory. With
+        /// <see cref="XsltSettings.EnableResultDocument"/>, secondary results are confined to that directory and its
+        /// subdirectories, and are not written through symbolic links below it. <c>Transform(string, string)</c> uses
+        /// the results file when this is null. One value serves every <c>Transform</c> call on this instance.
+        /// </summary>
+        public Uri? BaseOutputUri
+        {
+            get => _baseOutputUri;
+            set => _baseOutputUri = value is { IsAbsoluteUri: false } ? throw new ArgumentException("The base output URI must be absolute.", nameof(value)) : value;
+        }
+        private Uri? _baseOutputUri;
+
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
         internal XmlQualifiedName? InitialTemplate { get; set; }
+
+        /// <summary>
+        /// The initial function (XSLT 3.0 §2.3.4) and its arity: the transformation calls it, with the arguments
+        /// supplied as parameters named <see cref="InitialFunctionArgument"/>(1…n), and delivers its result.
+        /// </summary>
+        internal XmlQualifiedName? InitialFunction { get; set; }
+
+        internal int InitialFunctionArity { get; set; }
+
+
+        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems"/>.</summary>
+        internal bool RawResult { get; set; }
+
+        /// <summary>Runs a stylesheet loaded with <see cref="RawResult"/> and returns its result sequence.</summary>
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver)
+        {
+            CheckCommand();
+            System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
+            Run(arguments, BaseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments));
+            return items;
+        }
+
+        /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1) of the initial function.</summary>
+        internal static XmlQualifiedName InitialFunctionArgument(int position) => InitialFunctionArguments.Name(position);
 
         internal XmlQualifiedName? InitialMode { get; set; }
 
@@ -192,6 +253,7 @@ namespace Xsl3
             return null;
         }
 
+        [RequiresDynamicCode(CompilesIL)]
         private void CompileQilToMsil()
         {
             _command = new XmlILGenerator().Generate(_qil!, null)!;
@@ -267,7 +329,11 @@ namespace Xsl3
 
         // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
         // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
-        private XmlWriter CreateResultWriter(Stream results) =>
+        private XmlWriter CreateResultWriter(Stream results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedStream(results, max) : results);
+
+        private XmlWriter CreateResultWriter(TextWriter results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedTextWriter(results, max) : results);
+
+        private XmlWriter CreateLimitedWriter(Stream results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
@@ -275,7 +341,7 @@ namespace Xsl3
                     : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
-        private XmlWriter CreateResultWriter(TextWriter results) =>
+        private XmlWriter CreateLimitedWriter(TextWriter results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
@@ -475,7 +541,9 @@ namespace Xsl3
             // SQLBUDT 276415: Prevent wiping out the content of the input file if the output file is the same
             using XmlReader reader = XmlReader.Create(inputUri);
             using XmlWriter writer = XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, resultsFile);
-            Transform(reader, null, writer, CreateDefaultResolver());
+            CheckCommand();
+            // Xsl3: secondary results go next to the results file unless BaseOutputUri says otherwise.
+            Run(null, BaseOutputUri ?? new Uri(Path.GetFullPath(resultsFile)), () => _command.Execute(reader, CreateDefaultResolver(), null, writer));
         }
 
         //------------------------------------------------
@@ -492,10 +560,10 @@ namespace Xsl3
             CheckCommand();
             if (results is RawResultWriter raw)
             {
-                raw.Write(_command.Evaluate(input, documentResolver, arguments));
+                Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input, documentResolver, arguments)));
                 return;
             }
-            _command.Execute(input, documentResolver, arguments, results);
+            Run(arguments, BaseOutputUri, () => _command.Execute(input, documentResolver, arguments, results));
         }
 
         // SxS: This method does not take any resource name and does not expose any resources to the caller.
@@ -508,11 +576,131 @@ namespace Xsl3
             CheckCommand();
             if (results is RawResultWriter raw)
             {
-                raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments));
+                Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments)));
                 return;
             }
-            _command.Execute(input.CreateNavigator()!, documentResolver, arguments, results);
+            Run(arguments, BaseOutputUri, () => _command.Execute(input.CreateNavigator()!, documentResolver, arguments, results));
         }
+
+        /// <summary>
+        /// Xsl3: runs a transformation with the run-time settings in force for the current thread (SPEC §21.1–2):
+        /// cancellation (the argument list's token, the timeout), the base output URI, secondary results written under
+        /// it, environment variables; on a dedicated thread if asked. What a caller has already set for the thread
+        /// (the W3C harness sets these itself) is kept.
+        /// </summary>
+        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform)
+        {
+            XsltSettings settings = _settings ?? XsltSettings.Default;
+            System.Threading.CancellationToken token = arguments?.CancellationToken ?? default;
+            using System.Threading.CancellationTokenSource? limit = settings.Timeout is TimeSpan timeout
+                ? System.Threading.CancellationTokenSource.CreateLinkedTokenSource(token) : null;
+            if (limit != null)
+            {
+                limit.CancelAfter(settings.Timeout!.Value);
+                token = limit.Token;
+            }
+            void Body()
+            {
+                System.Threading.CancellationToken savedToken = XmlQueryRuntime.Cancellation;
+                string? savedBase = XmlQueryRuntime.BaseOutputUri;
+                Func<string, Stream>? savedOpener = XmlQueryRuntime.ResultDocumentOpener;
+                bool savedEnvironment = XmlQueryRuntime.EnvironmentVariables;
+                bool? savedDocuments = XmlQueryRuntime.DocumentFunctions;
+                int savedDepth = XmlQueryRuntime.Depth;
+                bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
+                try
+                {
+                    if (token.CanBeCanceled)
+                    {
+                        XmlQueryRuntime.Cancellation = token;
+                    }
+                    // This transform's own base output URI and file opener, even inside another transform on the
+                    // thread (through an extension object or a resolver); a host's handler (the W3C harness) stays.
+                    if (baseOutputUri != null)
+                    {
+                        XmlQueryRuntime.BaseOutputUri = baseOutputUri.AbsoluteUri;
+                    }
+                    XmlQueryRuntime.ResultDocumentOpener = settings.EnableResultDocument && XmlQueryRuntime.ResultDocumentHandler == null
+                        ? ResultFileOpener(XmlQueryRuntime.BaseOutputUri)
+                        : null;
+                    XmlQueryRuntime.EnvironmentVariables = settings.EnableEnvironmentVariables;
+                    XmlQueryRuntime.DocumentFunctions = settings.EnableDocumentFunction;
+                    XmlQueryRuntime.Depth = 0;
+                    XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
+                    transform();
+                }
+                finally
+                {
+                    XmlQueryRuntime.Cancellation = savedToken;
+                    XmlQueryRuntime.BaseOutputUri = savedBase;
+                    XmlQueryRuntime.ResultDocumentOpener = savedOpener;
+                    XmlQueryRuntime.EnvironmentVariables = savedEnvironment;
+                    XmlQueryRuntime.DocumentFunctions = savedDocuments;
+                    XmlQueryRuntime.Depth = savedDepth;
+                    XmlQueryRuntime.ExtensionFunctions = savedExtensions;
+                }
+            }
+            if (!settings.UseDedicatedThread)
+            {
+                Body();
+                return;
+            }
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo? failure = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    Body();
+                }
+                catch (Exception e)
+                {
+                    failure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e);
+                }
+            }, settings.DedicatedThreadStackSize);
+            thread.Start();
+            thread.Join();
+            failure?.Throw();
+        }
+
+        /// <summary>
+        /// Xsl3: the default destination of secondary results with XsltSettings.EnableResultDocument: a file, which
+        /// must be under the base output URI's directory (or the error is XTDE1480; so it is without a base output URI).
+        /// </summary>
+        private static Func<string, Stream> ResultFileOpener(string? baseOutputUri) => uri =>
+        {
+            Uri target = new Uri(uri, UriKind.RelativeOrAbsolute);
+            if (baseOutputUri == null || !target.IsAbsoluteUri || !target.IsFile || !new Uri(baseOutputUri).IsFile)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under the base output URI (XslCompiledTransform.BaseOutputUri); can't write {uri}");
+            }
+            string basePath = Path.GetFullPath(new Uri(baseOutputUri).LocalPath);
+            // A directory when it says so (a trailing separator) or exists as one; else the principal result's file.
+            string directory = Path.EndsInDirectorySeparator(basePath) || Directory.Exists(basePath)
+                ? Path.TrimEndingDirectorySeparator(basePath)
+                : Path.GetDirectoryName(basePath) ?? "";
+            if (directory.Length == 0 || Path.GetPathRoot(directory) is string root && Path.TrimEndingDirectorySeparator(root) == directory)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results aren't written under a file system root ({basePath})");
+            }
+            string file = Path.GetFullPath(target.LocalPath);
+            // Windows and macOS file systems are usually case-insensitive.
+            StringComparison comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            if (!file.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, comparison))
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under {directory}; can't write {file}");
+            }
+            // Not through a symbolic link (or junction) below the directory, which could lead out of it.
+            for (string? path = file; path != null && path.Length > directory.Length; path = Path.GetDirectoryName(path))
+            {
+                FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+                if (info.Exists && info.LinkTarget != null)
+                {
+                    throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results aren't written through the symbolic link {path}");
+                }
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            return new FileStream(file, FileMode.Create, FileAccess.Write, FileShare.Read);
+        };
 
         [MemberNotNull(nameof(_command))]
         private void CheckCommand()

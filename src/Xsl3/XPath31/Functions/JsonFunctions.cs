@@ -814,7 +814,21 @@ namespace Xsl3.XPath31.Functions
 
         private static string Unescape(string s)
         {
-            var parser = new JsonParser("\"" + s.Replace("\"", "\\\"") + "\"", true);
+            // A quotation mark is escaped for the parser unless the text escapes it already (\" stays \").
+            var quoted = new System.Text.StringBuilder(s.Length + 8).Append('"');
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '\\' && i + 1 < s.Length)
+                {
+                    quoted.Append(s, i, 2);
+                    i++;
+                }
+                else
+                {
+                    quoted.Append(s[i] == '"' ? "\\\"" : s[i].ToString());
+                }
+            }
+            var parser = new JsonParser(quoted.Append('"').ToString(), true);
             try
             {
                 return ((JsonString)parser.Parse()).Value;

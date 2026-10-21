@@ -26,7 +26,7 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31MergeSourceGroupNamed(IList<XPathItem> sources, string name, double namesId)
         {
-            int index = System.Array.IndexOf((string?[])ConstantPool.Get((int)namesId), name.Trim());
+            int index = System.Array.IndexOf((string?[])Constant((int)namesId), name.Trim());
             return index < 0 ? throw new XdmException("XTDE3490", $"There is no merge source named {name}") : X31MergeSourceGroup(sources, index);
         }
 
@@ -37,13 +37,13 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31Merge(IList<XPathItem> sources, IList<XPathItem> keyFunctions, IList<XPathItem> action, IList<XPathItem> orders, double specId)
         {
-            var spec = (MergeSpec)ConstantPool.Get((int)specId);
+            var spec = (MergeSpec)Constant((int)specId);
             if (orders.Count > 0)
             {
                 // The order attributes are attribute value templates (XTDE0030 for other values).
                 spec = new MergeSpec();
-                spec.Collations.AddRange(((MergeSpec)ConstantPool.Get((int)specId)).Collations);
-                spec.SortBeforeMerge.AddRange(((MergeSpec)ConstantPool.Get((int)specId)).SortBeforeMerge);
+                spec.Collations.AddRange(((MergeSpec)Constant((int)specId)).Collations);
+                spec.SortBeforeMerge.AddRange(((MergeSpec)Constant((int)specId)).SortBeforeMerge);
                 foreach (XPathItem order in orders)
                 {
                     spec.Descending.Add(order.Value.Trim() switch

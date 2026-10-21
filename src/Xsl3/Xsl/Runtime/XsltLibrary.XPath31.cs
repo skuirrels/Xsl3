@@ -54,7 +54,7 @@ namespace Xsl3.Runtime
             _x31Contexts ??= new Dictionary<int, FunctionContext>();
             if (!_x31Contexts.TryGetValue(id, out FunctionContext? context))
             {
-                _x31Contexts[id] = context = X31Context.WithStatic((StaticInfo)ConstantPool.Get(id));
+                _x31Contexts[id] = context = X31Context.WithStatic((StaticInfo)Constant(id));
             }
             return context;
         }
@@ -70,7 +70,10 @@ namespace Xsl3.Runtime
 
         // ------------------------------------------------------------ values
 
-        public XPathItem X31Constant(double id) => (XPathItem)ConstantPool.Get((int)id);
+        // A constant of this unit (ConstantPool).
+        private object Constant(int id) => ConstantPool.Get(_runtime.Constants, id);
+
+        public XPathItem X31Constant(double id) => (XPathItem)Constant((int)id);
 
         public XPathItem X31BooleanItem(bool value) => AtomicValue.OfBoolean(value);
 
@@ -243,6 +246,59 @@ namespace Xsl3.Runtime
         }
 
         /// <summary><c>a to b</c>.</summary>
+        /// <summary>
+        /// <c>$x = (lo to hi)</c> without building the range: whether some numeric item of <paramref name="items"/> is an
+        /// integer from lo to hi. Items of other types take the general comparison.
+        /// </summary>
+        public bool X31InRange(IList<XPathItem> items, IList<XPathItem> lo, IList<XPathItem> hi, double sc)
+        {
+            var start = (IntegerValue?)Coerce(lo, AtomicTypes.Integer, "to");
+            var end = (IntegerValue?)Coerce(hi, AtomicTypes.Integer, "to");
+            if (start == null || end == null || start.Integer > end.Integer)
+            {
+                return false;
+            }
+            IList<XPathItem> atoms = Sequences.Atomize(items);
+            foreach (XPathItem item in atoms)
+            {
+                var a = (AtomicValue)item;
+                if (!a.Type.IsNumeric && a.Type.Primitive != Primitive.UntypedAtomic)
+                {
+                    return X31GeneralCompare(atoms, X31Range(lo, hi), (double)ValueComparisonOp.Eq, sc);
+                }
+            }
+            foreach (XPathItem item in atoms)
+            {
+                var a = (AtomicValue)item;
+                BigInteger value;
+                switch (a)
+                {
+                    case IntegerValue i:
+                        value = i.Integer;
+                        break;
+                    case DecimalValue d when decimal.Truncate(d.Decimal) == d.Decimal:
+                        value = new BigInteger(d.Decimal);
+                        break;
+                    case DecimalValue:
+                        continue;
+                    default:
+                        // xs:double, xs:float, and xs:untypedAtomic (cast to xs:double, FORG0001 if it can't be).
+                        double v = a.Type.Primitive == Primitive.UntypedAtomic ? Numeric.ToDouble(Casting.Cast(a, AtomicTypes.Double)) : Numeric.ToDouble(a);
+                        if (double.IsNaN(v) || double.IsInfinity(v) || System.Math.Floor(v) != v)
+                        {
+                            continue;
+                        }
+                        value = new BigInteger(v);
+                        break;
+                }
+                if (value >= start.Integer && value <= end.Integer)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public IList<XPathItem> X31Range(IList<XPathItem> left, IList<XPathItem> right)
         {
             var start = (IntegerValue?)Coerce(left, AtomicTypes.Integer, "to");
@@ -373,7 +429,7 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31Cast(IList<XPathItem> seq, double targetId, bool allowEmpty)
         {
-            var target = (CastTarget)ConstantPool.Get((int)targetId);
+            var target = (CastTarget)Constant((int)targetId);
             AtomicValue? a = Sequences.AtomizeOptional(seq, "the operand of a cast");
             if (a == null)
             {
@@ -384,7 +440,7 @@ namespace Xsl3.Runtime
 
         public bool X31Castable(IList<XPathItem> seq, double targetId, bool allowEmpty)
         {
-            var target = (CastTarget)ConstantPool.Get((int)targetId);
+            var target = (CastTarget)Constant((int)targetId);
             IList<XPathItem> atomized = Sequences.Atomize(seq);
             if (atomized.Count == 0)
             {
@@ -393,11 +449,11 @@ namespace Xsl3.Runtime
             return atomized.Count == 1 && target.IsCastable((AtomicValue)atomized[0]);
         }
 
-        public bool X31InstanceOf(IList<XPathItem> seq, double typeId) => ((SequenceTypeTest)ConstantPool.Get((int)typeId)).Matches(seq);
+        public bool X31InstanceOf(IList<XPathItem> seq, double typeId) => ((SequenceTypeTest)Constant((int)typeId)).Matches(seq);
 
         public IList<XPathItem> X31Treat(IList<XPathItem> seq, double typeId)
         {
-            var type = (SequenceTypeTest)ConstantPool.Get((int)typeId);
+            var type = (SequenceTypeTest)Constant((int)typeId);
             return type.Matches(seq) ? seq : throw new XdmException("XPDY0050", $"The value does not match the type {type} required by 'treat as'");
         }
 

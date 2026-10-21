@@ -182,6 +182,7 @@ namespace Xsl3.Xslt
             AtomizeAttributes(_iterateAttributes);
             AtomizeAttributes(_sourceDocumentAttributes);
             AtomizeAttributes(_evaluateAttributes);
+            AtomizeAttributes(_assertAttributes);
             AtomizeAttributes(_contextItemAttributes);
             AtomizeAttributes(_mapEntryAttributes);
             AtomizeAttributes(_packageRuleAttributes);
@@ -625,6 +626,13 @@ namespace Xsl3.Xslt
                                 else if (V2 && _input.IsKeyword(_atoms.Function))
                                 {
                                     LoadFunction(ctxInfo.nsList);
+                                }
+                                else if (V2 && _input.LocalName == "import-schema")
+                                {
+                                    // Xsl3: schema-awareness is P6 (SPEC §18); until then this is a basic processor (XSLT 3.0 §3.14).
+                                    _input.GetVersionAttribute();
+                                    ReportError(SR.Xml_UserException, "XTSE1650: xsl:import-schema needs a schema-aware processor, and Xsl3 isn't one yet");
+                                    _input.SkipNode();
                                 }
                                 else
                                 {
@@ -1360,28 +1368,31 @@ namespace Xsl3.Xslt
             }
 
             char[] DefaultValues = DecimalFormatDecl.Default.Characters;
+            if (V2)
+            {
+                // Xsl3: declarations of one format merge, each giving some attributes (XSLT 3.0 §4.7): the distinct
+                // characters are checked once all are read (Compiler.Compile). A character may be outside the BMP.
+                Span<int> codePoints = stackalloc int[NumCharAttrs];
+                for (int idx = 0; idx < NumCharAttrs; idx++)
+                {
+                    codePoints[idx] = ParseCodePointAttribute(3 + idx, _decimalFormatAttributes[3 + idx].name, DefaultValues[idx]);
+                }
+                // zero-digit must be a digit whose value is zero (XTSE1295).
+                if (!(System.Text.Rune.GetUnicodeCategory(new System.Text.Rune(codePoints[4])) == System.Globalization.UnicodeCategory.DecimalDigitNumber
+                    && System.Text.Rune.GetNumericValue(new System.Text.Rune(codePoints[4])) == 0))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE1295: zero-digit '{char.ConvertFromUtf32(codePoints[4])}' is not a digit with numeric value zero");
+                }
+                MergeDecimalFormat31(name, infinity, nan, codePoints, ParseCodePointAttribute(11, "exponent-separator", 'e'), ctxInfo);
+                CheckNoContent();
+                return;
+            }
             Span<char> characters = stackalloc char[NumCharAttrs];
             Debug.Assert(NumCharAttrs == DefaultValues.Length);
 
             for (int idx = 0; idx < NumCharAttrs; idx++)
             {
                 characters[idx] = ParseCharAttribute(3 + idx, _decimalFormatAttributes[3 + idx].name, DefaultValues[idx]);
-            }
-
-            // Xsl3: zero-digit must be a digit whose value is zero (XTSE1295).
-            if (V2 && !(char.GetUnicodeCategory(characters[4]) == System.Globalization.UnicodeCategory.DecimalDigitNumber && char.GetNumericValue(characters[4]) == 0))
-            {
-                ReportError(SR.Xml_UserException, $"XTSE1295: zero-digit '{characters[4]}' is not a digit with numeric value zero");
-            }
-
-            char exponent = V2 ? ParseCharAttribute(11, "exponent-separator", 'e') : 'e';
-            if (V2)
-            {
-                // Xsl3: declarations of one format merge, each giving some attributes (XSLT 3.0 §4.7): the distinct
-                // characters are checked once all are read (Compiler.Compile).
-                MergeDecimalFormat31(name, infinity, nan, characters, exponent, ctxInfo);
-                CheckNoContent();
-                return;
             }
 
             // Check all NumSignAttrs signs are distinct
@@ -1430,12 +1441,11 @@ namespace Xsl3.Xslt
         }
 
         // Xsl3: a 2.0 xsl:decimal-format declaration, merged with the others of its format and import precedence.
-        private void MergeDecimalFormat31(XmlQualifiedName name, string infinity, string nan, ReadOnlySpan<char> characters, char exponent, ContextInfo ctxInfo)
+        private void MergeDecimalFormat31(XmlQualifiedName name, string infinity, string nan, ReadOnlySpan<int> characters, int exponent, ContextInfo ctxInfo)
         {
-            if (_compiler.DecimalFormats.Contains(name) && _compiler.DecimalFormats[name].ImportPrecedence > _curStylesheet!.ImportPrecedence)
-            {
-                return; // overridden by a definition of higher import precedence (modules are read in decreasing order)
-            }
+            // Each attribute comes from the declaration of highest import precedence that gives it (modules are read in
+            // decreasing order).
+            bool lower = _compiler.DecimalFormats.Contains(name) && _compiler.DecimalFormats[name].ImportPrecedence > _curStylesheet!.ImportPrecedence;
             DecimalFormatDecl format;
             if (_compiler.DecimalFormats.Contains(name))
             {
@@ -1458,16 +1468,20 @@ namespace Xsl3.Xslt
                 {
                     1 => infinity,
                     2 => nan,
-                    11 => exponent.ToString(),
-                    _ => characters[attNum - 3].ToString(),
+                    11 => char.ConvertFromUtf32(exponent),
+                    _ => char.ConvertFromUtf32(characters[attNum - 3]),
                 };
                 string current = attNum switch
                 {
                     1 => format.InfinitySymbol,
                     2 => format.NanSymbol,
-                    11 => format.ExponentSeparator.ToString(),
-                    _ => format.Characters[attNum - 3].ToString(),
+                    11 => char.ConvertFromUtf32(format.Exponent),
+                    _ => char.ConvertFromUtf32(format.CodePoints[attNum - 3]),
                 };
+                if (lower && format.Specified.Contains(attNum))
+                {
+                    continue;
+                }
                 if (format.Specified.Contains(attNum) && current != value)
                 {
                     _input.MoveToXsltAttribute(attNum, _decimalFormatAttributes[attNum].name);
@@ -1479,8 +1493,8 @@ namespace Xsl3.Xslt
                 {
                     case 1: format.InfinitySymbol = value; break;
                     case 2: format.NanSymbol = value; break;
-                    case 11: format.ExponentSeparator = exponent; break;
-                    default: format.Characters[attNum - 3] = value[0]; break;
+                    case 11: format.Exponent = exponent; break;
+                    default: format.CodePoints[attNum - 3] = characters[attNum - 3]; break;
                 }
             }
         }
@@ -1846,6 +1860,13 @@ namespace Xsl3.Xslt
                                         _input.SkipNode();
                                         continue;
                                     }
+                                    // Xsl3: whitespace before xsl:param or xsl:sort is stripped even under
+                                    // xml:space="preserve" (XSLT 3.0 §4.3).
+                                    while (V2 && content.Count > 0 && content[^1] is Text { Hints: SerializationHints.None } ws && ws.NodeType == XslNodeType.Text
+                                        && XmlCharType.IsOnlyWhitespace(ws.Select))
+                                    {
+                                        content.RemoveAt(content.Count - 1);
+                                    }
                                 }
                                 else if (V2 && name == "context-item")
                                 {
@@ -1892,6 +1913,7 @@ namespace Xsl3.Xslt
                                     V2 && name == "iterate" ? XslIterate() :
                                     V2 && name == "source-document" ? XslSourceDocument() :
                                     V2 && name == "evaluate" ? XslEvaluate() :
+                                    V2 && name == "assert" ? XslAssert() :
                                     V2 && name == "context-item" ? XslContextItem() :
                                     V2 && name == "map" ? XslMap() :
                                     V2 && name == "merge" ? XslMerge() :
@@ -2280,7 +2302,8 @@ namespace Xsl3.Xslt
             }
             if (select != null)
             {
-                content.Insert(0, F.CopyOf(select, _input.XslVersion));
+                // Xsl3: with the message's line, which gives its static base URI.
+                content.Insert(0, V2 ? SetLineInfo(F.CopyOf(select, _input.XslVersion), ctxInfo.lineInfo) : F.CopyOf(select, _input.XslVersion));
             }
 
             XslNode message = SetInfo(F.Message(terminate), content, ctxInfo);
@@ -2472,7 +2495,8 @@ namespace Xsl3.Xslt
             TriState tunnel = ParseYesNoAttribute(4, "tunnel");
             if (tunnel != TriState.Unknown)
             {
-                if (nodeType == XslNodeType.Param && _curTemplate == null)
+                // Xsl3: in 2.0+ a global parameter may say tunnel="no"; only tunnel="yes" is the error (XTSE0020).
+                if (nodeType == XslNodeType.Param && _curTemplate == null && (V1 || tunnel == TriState.True))
                 {
                     if (!_input.ForwardCompatibility)
                     {
@@ -2752,6 +2776,11 @@ namespace Xsl3.Xslt
             string nsUri = _input.NamespaceUri;
 
             ContextInfo ctxInfo = _input.GetLiteralAttributes(asStylesheet);
+            if (V2 && name == "html" && nsUri == "http://www.w3.org/1999/xhtml")
+            {
+                // Xsl3: the result may start with XHTML's html element, whose default output method is xhtml.
+                _compiler.XhtmlHtmlLiteral = true;
+            }
 
             if (_input.IsExtensionNamespace(nsUri))
             {
@@ -3391,6 +3420,24 @@ namespace Xsl3.Xslt
                 return _input.Value;
             }
             return null;
+        }
+
+        // Xsl3: a single character, which may be outside the BMP (2.0).
+        private int ParseCodePointAttribute(int attNum, string attName, int defVal)
+        {
+            if (_input.MoveToXsltAttribute(attNum, attName))
+            {
+                string value = _input.Value;
+                if (value.Length == 1 && !char.IsSurrogate(value[0]) || value.Length == 2 && char.IsSurrogatePair(value[0], value[1]))
+                {
+                    return char.ConvertToUtf32(value, 0);
+                }
+                if (_input.IsRequiredAttribute(attNum) || !_input.ForwardCompatibility)
+                {
+                    ReportError(/*[XT_029]*/SR.Xslt_CharAttribute, attName);
+                }
+            }
+            return defVal;
         }
 
         private char ParseCharAttribute(int attNum, string attName, char defVal)

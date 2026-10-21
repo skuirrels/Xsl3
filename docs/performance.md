@@ -395,6 +395,21 @@ Same measure, the median of three runs.
   `xs:double`, so no check is needed that the keys are comparable. NaN sorts least and -0 equals 0, as in the
   general string encoding; a test compares the two.
 
+### Measured again (2026-10-21)
+
+| Pair | main | remaining-scope |
+|---|---:|---:|
+| identity | 0.82 | 0.80 |
+| sort | 0.71 | 0.68 |
+| muenchian | 1.14 | 1.15 |
+| string-recursion | 0.76 | 0.74 |
+| key-join | 1.11 | 1.12 |
+
+One `pairs 20000` run of each, back to back on the same machine. The conformance work on the remaining-scope
+branch (docs/plan/remaining-scope.md) leaves the pairs where main has them. Muenchian and key-join measure above
+the earlier table's 0.83 and 1.03 on both, so that difference is the machine and the run, not a code change; both
+are still above the ≤ 1.0 target.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

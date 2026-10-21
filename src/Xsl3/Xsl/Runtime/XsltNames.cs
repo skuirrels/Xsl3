@@ -26,12 +26,19 @@ namespace Xsl3.Runtime
             "number", "perform-sort", "processing-instruction", "result-document", "sequence", "text", "value-of", "variable",
             // XSLT 3.0
             "where-populated", "on-empty", "on-non-empty", "try", "iterate", "next-iteration", "break", "fork", "source-document",
-            "map", "map-entry", "merge",
+            "map", "map-entry", "merge", "assert",
+            // In 3.0 element-available covers every XSLT element the processor implements, declarations and the
+            // elements that only appear inside others too (XSLT 3.0 §20.4.2); not xsl:import-schema (no schema-awareness).
+            "accept", "accumulator", "accumulator-rule", "attribute-set", "catch", "character-map", "context-item", "decimal-format",
+            "expose", "function", "global-context-item", "import", "include", "key", "matching-substring", "merge-action", "merge-key",
+            "merge-source", "mode", "namespace-alias", "non-matching-substring", "on-completion", "otherwise", "output",
+            "output-character", "override", "package", "param", "preserve-space", "sort", "strip-space", "stylesheet", "template",
+            "transform", "use-package", "when", "with-param",
         };
 
         public static readonly HashSet<(string, int)> XsltFunctions = new()
         {
-            ("current", 0), ("current-group", 0), ("current-grouping-key", 0), ("document", 1), ("document", 2), ("element-available", 1),
+            ("current", 0), ("current-group", 0), ("position", 0), ("last", 0), ("current-output-uri", 0), ("current-grouping-key", 0), ("document", 1), ("document", 2), ("element-available", 1),
             ("format-number", 2), ("format-number", 3), ("function-available", 1), ("function-available", 2), ("key", 2), ("key", 3),
             ("regex-group", 1), ("system-property", 1), ("type-available", 1), ("copy-of", 0), ("copy-of", 1), ("snapshot", 0), ("snapshot", 1), ("accumulator-before", 1), ("accumulator-after", 1), ("current-merge-group", 0), ("current-merge-group", 1), ("current-merge-key", 0), ("unparsed-entity-public-id", 1), ("unparsed-entity-uri", 1), ("unparsed-entity-public-id", 2), ("unparsed-entity-uri", 2),
         };
@@ -100,13 +107,12 @@ namespace Xsl3.Runtime
         public bool FunctionAvailable(string name, int? arity)
         {
             var (ns, local) = Resolve(name, QName.Ns.Fn, "XTDE1400");
-            for (int n = 0; n <= 10; n++)
+            // With an arity, just that one (concat takes any number of arguments); without, any up to 10.
+            for (int n = arity ?? 0; n <= (arity ?? 10); n++)
             {
-                if (arity != null && arity != n)
-                {
-                    continue;
-                }
                 if (FunctionLibrary.Find(ns, local, n) != null || StylesheetFunctions.Contains((ns, local, n)) || (ns == QName.Ns.Fn && XsltFunctions.Contains((local, n))) ||
+                    // The context-item forms (fn:name#0 and the like), compiled rather than in the library.
+                    ns == QName.Ns.Fn && n == 0 && XPath31Compiler.s_contextFunctions.Contains(local) ||
                     XPath31Compiler.CompiledHigherOrderFunctions.Contains((ns, local, n)))
                 {
                     return true;
@@ -131,19 +137,21 @@ namespace Xsl3.Runtime
 
     public sealed partial class XsltLibrary
     {
-        private static XsltNameContext NameContext(double id) => (XsltNameContext)ConstantPool.Get((int)id);
+        private XsltNameContext NameContext(double id) => (XsltNameContext)Constant((int)id);
 
         public XPathItem X31SystemProperty(string name, double context) => AtomicValue.OfString(NameContext(context).SystemProperty(name));
 
+        // NaN: no arity given. No function has a negative arity or more than 255 parameters.
         public XPathItem X31FunctionAvailable(string name, double arity, double context) =>
-            AtomicValue.OfBoolean(NameContext(context).FunctionAvailable(name, arity < 0 ? null : (int)arity));
+            AtomicValue.OfBoolean(double.IsNaN(arity) ? NameContext(context).FunctionAvailable(name, null)
+                : arity is >= 0 and <= 255 && NameContext(context).FunctionAvailable(name, (int)arity));
 
         public XPathItem X31ElementAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).ElementAvailable(name));
 
         public XPathItem X31TypeAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).TypeAvailable(name));
 
         /// <summary>The value of a static variable or parameter, computed when the stylesheet was compiled.</summary>
-        public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)ConstantPool.Get((int)id);
+        public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)Constant((int)id);
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
         public XPathItem X31AbsentFocus() => AtomicValue.OfString("");

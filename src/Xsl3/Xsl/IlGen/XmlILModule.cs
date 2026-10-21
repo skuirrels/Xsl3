@@ -24,7 +24,11 @@ namespace Xsl3.IlGen
     internal sealed class XmlILModule
     {
         private static long s_assemblyId;                                     // Unique identifier used to ensure that assembly names are unique within AppDomain
-        private static readonly ModuleBuilder s_LREModule = CreateLREModule();         // Module used to emit dynamic lightweight-reflection-emit (LRE) methods
+        // Module used to emit dynamic lightweight-reflection-emit (LRE) methods.
+        // Xsl3: created on first use, so that a precompiled stylesheet runs without Reflection.Emit (NativeAOT;
+        // docs/plan/p4-sink-b.md, decision 5).
+        private static ModuleBuilder? s_LREModule;
+        private static ModuleBuilder LREModule => s_LREModule ?? System.Threading.Interlocked.CompareExchange(ref s_LREModule, CreateLREModule(), null) ?? s_LREModule!;
 
         private TypeBuilder? _typeBldr;
         private Hashtable _methods;
@@ -168,7 +172,7 @@ namespace Xsl3.IlGen
             }
             else
             {
-                DynamicMethod methDyn = new DynamicMethod(name, returnType, paramTypes, s_LREModule);
+                DynamicMethod methDyn = new DynamicMethod(name, returnType, paramTypes, LREModule);
                 methDyn.InitLocals = true;
 
                 methResult = methDyn;

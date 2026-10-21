@@ -224,6 +224,13 @@ namespace Xsl3.XPath31
             var parameters = new List<(QName, SequenceTypeTest)>();
             Functions.FunctionDefinition? def = name.NamespaceUri is QName.Ns.Fn or QName.Ns.Math or QName.Ns.Map or QName.Ns.Array
                 ? Functions.FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity) : null;
+            if (def != null && arity > s_params.Length)
+            {
+                // A variadic function with more arguments than a lifted function takes (concat#1000): the run-time
+                // library's function item.
+                return Call(nameof(XsltLibrary.X31FunctionLookup), T.ItemS, Constant(new QNameValue(AtomicTypes.QName, name)),
+                    Constant(AtomicValue.OfInteger(arity)), StaticId());
+            }
             // A stylesheet function's declared types (so local:f#2 instance of function(xs:long) works).
             var host = def == null ? _env?.FunctionSignature(name, arity) : null;
             for (int i = 0; i < arity; i++)
@@ -232,7 +239,8 @@ namespace Xsl3.XPath31
             }
             var call = new XPath31.FunctionCall(r.Name, Enumerable.Range(0, arity).Select(i => (Expr)new VarRef(s_params[i])).ToList()) { Span = r.Span };
             bool focusDependent = name.NamespaceUri == QName.Ns.Fn && (arity == 0 && (s_contextFunctions.Contains(name.LocalName) || name.LocalName is "position" or "last")
-                || (name.LocalName, arity) is ("lang" or "id" or "idref" or "element-with-id" or "unparsed-entity-uri" or "unparsed-entity-public-id", 1) or ("key", 2));
+                || (name.LocalName, arity) is ("lang" or "id" or "idref" or "element-with-id" or "unparsed-entity-uri" or "unparsed-entity-public-id"
+                    or "accumulator-before" or "accumulator-after", 1) or ("key", 2));
             return LiftFunction(System.Array.Empty<(QName, QilNode)>(), parameters, def?.ReturnType ?? host?.Result, name, () => Build(call),
                 focus: focusDependent && !_focusAbsent ? Items(CapturedFocus()) : null);
         }

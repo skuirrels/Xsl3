@@ -13,6 +13,15 @@ using T = Xsl3.XmlQueryTypeFactory;
 
 namespace Xsl3.Runtime
 {
+    /// <summary>Xsl3: the parameters that supply the initial function's arguments (XSLT 3.0 §2.3.4).</summary>
+    internal static class InitialFunctionArguments
+    {
+        public const string Namespace = "urn:xsl3:initial-function";
+
+        /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1).</summary>
+        public static System.Xml.XmlQualifiedName Name(int position) => new("arg" + position, Namespace);
+    }
+
     /// <summary>Xsl3: names shared by the parts of xsl:evaluate (docs/plan/p5-evaluate.md).</summary>
     internal static class DynamicEvaluation
     {
@@ -109,10 +118,12 @@ namespace Xsl3.Runtime
         /// namespace context's namespaces), with the parameters as its variables and the stylesheet functions as
         /// function items, and evaluates it with the context item as a singleton focus.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050",
+            Justification = "Checked: without dynamic code, xsl:evaluate fails with PlatformNotSupportedException (docs/plan/p4-sink-b.md decision 7).")]
         public IList<XPathItem> X31Evaluate(IList<XPathItem> xpath, IList<XPathItem> contextItem, IList<XPathItem> namespaceContext, IList<XPathItem> namespaceGiven,
             IList<XPathItem> baseUri, IList<XPathItem> withParams, IList<XPathItem> withParamValues, IList<XPathItem> functions, double contextId)
         {
-            var context = (EvaluateContext)ConstantPool.Get((int)contextId);
+            var context = (EvaluateContext)Constant((int)contextId);
             string target = TargetExpression(xpath);
             if (contextItem.Count > 1)
             {
@@ -202,11 +213,17 @@ namespace Xsl3.Runtime
 
             var names = new HashSet<QName>(variables.Keys);
             XPathStaticContext sc = context.StaticContext(namespaces, defaultElementNamespace, staticBase);
+            if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+            {
+                throw new System.PlatformNotSupportedException("xsl:evaluate compiles its target expression at run time, which needs dynamic code; NativeAOT doesn't have it.");
+            }
             XPath31Executable executable = context.Get(key.ToString(), () =>
             {
                 try
                 {
                     Expr ast = Parser.ParseXPath(target);
+                    // In the stylesheet's constant table: the target refers to the stylesheet's constants by number.
+                    using var constants = ConstantPool.Use(_runtime.Constants);
                     return XPath31Compiler.CompileHosted(ast, sc, f => new EvaluateEnvironment(f, names, functionTable));
                 }
                 catch (XPathStaticException e)

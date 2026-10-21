@@ -38,6 +38,52 @@ namespace Xsl3.Runtime
             set => t_cancellation = value;
         }
 
+        // Xsl3: opens the file of a secondary result when XsltSettings.EnableResultDocument is set (its URI already
+        // checked to be under the base output URI); the result is written in its own encoding.
+        [System.ThreadStatic]
+        private static System.Func<string, System.IO.Stream>? t_resultDocumentOpener;
+
+        internal static System.Func<string, System.IO.Stream>? ResultDocumentOpener
+        {
+            get => t_resultDocumentOpener;
+            set => t_resultDocumentOpener = value;
+        }
+
+        // Xsl3: XsltSettings.EnableEnvironmentVariables for the running transformation (fn:environment-variable).
+        [System.ThreadStatic]
+        private static bool t_environmentVariables;
+
+        internal static bool EnvironmentVariables
+        {
+            get => t_environmentVariables;
+            set => t_environmentVariables = value;
+        }
+
+        // Xsl3: XsltSettings.EnableExtensionFunctions for the running transformation; on outside one.
+        [System.ThreadStatic]
+        private static bool t_noExtensionFunctions;
+
+        internal static bool ExtensionFunctions
+        {
+            get => !t_noExtensionFunctions;
+            set => t_noExtensionFunctions = !value;
+        }
+
+        // Xsl3: the seed of fn:random-number-generator() without an argument: one per transformation.
+        private ulong? _randomSeed;
+        internal ulong RandomSeed => _randomSeed ??= (ulong)System.Random.Shared.NextInt64();
+
+        // Xsl3: XsltSettings.EnableDocumentFunction for the running transformation (fn:doc, fn:unparsed-text and the
+        // like, SPEC §21.1); null outside a transformation (XPath evaluated directly, with its own resolver).
+        [System.ThreadStatic]
+        private static bool? t_documentFunctions;
+
+        internal static bool? DocumentFunctions
+        {
+            get => t_documentFunctions;
+            set => t_documentFunctions = value;
+        }
+
         // Xsl3: where xsl:result-document writes secondary results (SPEC §21.1, EnableResultDocument): given the
         // absolute URI and the output method, a writer for the serialization. Null: secondary results are refused.
         [System.ThreadStatic]
@@ -66,6 +112,9 @@ namespace Xsl3.Runtime
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
 
+        // Xsl3: the constants compiled code refers to by number (ConstantPool); null for the process-wide table.
+        internal Xsl3.XPath31.ConstantTable? Constants { get; }
+
         /// <summary>Xsl3 (P4): documents the transform parses become compact trees (always for 2.0+).</summary>
         internal bool UseCompactTree { get; }
 
@@ -90,6 +139,30 @@ namespace Xsl3.Runtime
             System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
             t_cancellation.ThrowIfCancellationRequested();
         }
+
+        // Xsl3: the nesting of templates and functions, counted when XsltSettings.MaxRecursionDepth is set (SPEC §21.2).
+        [System.ThreadStatic]
+        private static int t_depth;
+
+        internal static int Depth
+        {
+            get => t_depth;
+            set => t_depth = value;
+        }
+
+        /// <summary>On entry, with MaxRecursionDepth: one level deeper, at most <paramref name="max"/>.</summary>
+        public static void EnterFunctionCounted(int max)
+        {
+            EnterFunction();
+            if (++t_depth > max)
+            {
+                t_depth--;
+                throw new System.InsufficientExecutionStackException($"The transformation nested templates and functions more than {max} deep (XsltSettings.MaxRecursionDepth)");
+            }
+        }
+
+        /// <summary>On return (or before a tail call), with MaxRecursionDepth.</summary>
+        public static void ExitFunctionCounted() => t_depth--;
 
         // Early-Bound Library Objects
         private readonly XmlQueryContext _ctxt;
@@ -124,6 +197,21 @@ namespace Xsl3.Runtime
         private XmlQueryOutput _output;
         private readonly Stack<XmlQueryOutput> _stkOutput;
 
+        // Xsl3: the output state before xsl:try's body; an error leaves the constructions it was in the middle of
+        // pushed on the stack, and the catch restores this.
+        // Xsl3: the state an error caught by xsl:try unwinds to: the output stack and the call depth.
+        internal (int Depth, XmlQueryOutput Output, int Calls) SaveOutput() => (_stkOutput.Count, _output, t_depth);
+
+        internal void RestoreOutput((int Depth, XmlQueryOutput Output, int Calls) saved)
+        {
+            while (_stkOutput.Count > saved.Depth)
+            {
+                _stkOutput.Pop();
+            }
+            _output = saved.Output;
+            t_depth = saved.Calls;
+        }
+
 
         //-----------------------------------------------
         // Constructors
@@ -138,6 +226,7 @@ namespace Xsl3.Runtime
             Dispatcher = data.Dispatcher;
             IsXslt2 = data.Xslt2;
             UseCompactTree = data.CompactTree;
+            Constants = data.Constants;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;
@@ -715,6 +804,12 @@ namespace Xsl3.Runtime
 
                 case XmlTypeCode.Item:
                     {
+                        // Xsl3: 2.0+ stylesheets map more CLR types to XDM values (SPEC §7.1); 1.0 keeps stock's rules.
+                        if (IsXslt2 && ClrValues.TryConvert(value, out IList<XPathItem> converted))
+                        {
+                            value = converted;
+                            break;
+                        }
                         Type sourceType = value.GetType();
                         IXPathNavigable? navigable;
 

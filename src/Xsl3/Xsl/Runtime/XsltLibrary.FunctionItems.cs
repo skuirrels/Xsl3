@@ -100,7 +100,7 @@ namespace Xsl3.Runtime
         // ---------------------------------------------------------------- creating function items
 
         public XPathItem X31FunctionNew(double id, double signature) =>
-            new CompiledFunction((int)id, (FunctionSignature)ConstantPool.Get((int)signature), _runtime);
+            new CompiledFunction((int)id, (FunctionSignature)Constant((int)signature), _runtime);
 
         public XPathItem X31FunctionCapture(XPathItem function, IList<XPathItem> value)
         {
@@ -169,6 +169,8 @@ namespace Xsl3.Runtime
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
                     return lf.Definition.Invoke(lf.Context, c.Arguments.ToArray());
+                case NativeFunction nf:
+                    return nf.Invoke(c.Arguments.ToArray());
                 case CompiledFunction cf when cf.Owner != _runtime && cf.Owner.Dispatcher is { } foreign:
                     // A function item of another compiled unit: its own dispatcher, in its own runtime.
                     return foreign(cf.Owner, call);
@@ -222,13 +224,15 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
+            var output = _runtime.SaveOutput();
             try
             {
                 return Copy(CallFunction((XdmFunction)tryFunction[0]));
             }
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
-                var errors = (List<List<string>>)ConstantPool.Get((int)errorsId);
+                _runtime.RestoreOutput(output);
+                var errors = (List<List<string>>)Constant((int)errorsId);
                 for (int i = 0; i < errors.Count; i++)
                 {
                     if (errors[i].Exists(test => ErrorNameMatches(test, code)))
@@ -245,14 +249,70 @@ namespace Xsl3.Runtime
         /// <summary>A pattern's condition, lifted: an error evaluating it is a non-match (XSLT 3.0 §5.5.4).</summary>
         public bool X31PatternTry(IList<XPathItem> test)
         {
+            var output = _runtime.SaveOutput();
             try
             {
                 return Sequences.EffectiveBooleanValue(CallFunction((XdmFunction)test[0]));
             }
             catch (System.Exception e) when (DynamicError(e) != null)
             {
+                _runtime.RestoreOutput(output);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// The text of a non-terminating xsl:message (XSLT 3.0 §23.1): its content as the serializer would show it, with
+        /// attributes, maps and functions described rather than refused, and an error in the content reported in the
+        /// message rather than ending the transformation.
+        /// </summary>
+        public string X31MessageText(IList<XPathItem> body)
+        {
+            var output = _runtime.SaveOutput();
+            IList<XPathItem> items;
+            try
+            {
+                items = CallFunction((XdmFunction)body[0]);
+            }
+            // Errors the stylesheet raises itself (fn:error, a terminating xsl:message, xsl:assert) still end it.
+            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _)
+                && !(e is XdmException { Name: not null } or XdmException { Code: "FOER0000" } || code.LocalName.StartsWith("XTMM", System.StringComparison.Ordinal)))
+            {
+                _runtime.RestoreOutput(output);
+                return $"[the content of xsl:message raised {code.LocalName}: {description}]";
+            }
+            var sb = new System.Text.StringBuilder();
+            bool atomic = false;
+            foreach (XPathItem item in items)
+            {
+                switch (item)
+                {
+                    case XPathNavigator { NodeType: XPathNodeType.Root } document:
+                        sb.Append(document.InnerXml);
+                        break;
+                    case XPathNavigator { NodeType: XPathNodeType.Attribute } attribute:
+                        sb.Append(attribute.Name).Append("=\"").Append(attribute.Value).Append('"');
+                        break;
+                    case XPathNavigator { NodeType: XPathNodeType.Namespace } ns:
+                        sb.Append(ns.Name.Length == 0 ? "xmlns" : "xmlns:" + ns.Name).Append("=\"").Append(ns.Value).Append('"');
+                        break;
+                    case XPathNavigator node:
+                        sb.Append(node.OuterXml);
+                        break;
+                    case XdmFunction function:
+                        sb.Append(function.Describe());
+                        break;
+                    default:
+                        if (atomic)
+                        {
+                            sb.Append(' ');
+                        }
+                        sb.Append(item.Value);
+                        break;
+                }
+                atomic = item is not XPathNavigator and not XdmFunction;
+            }
+            return sb.ToString();
         }
 
         /// <summary>A captured number (a position) back as a double.</summary>
@@ -266,6 +326,9 @@ namespace Xsl3.Runtime
                 case XdmException x:
                     return (x.Name ?? new QName(XdmException.ErrorNamespace, x.Code, "err"), x.Description ?? Describe(x.Message, x.Code),
                         x.ErrorObject ?? System.Array.Empty<XPathItem>());
+                case XslTransformException when e.Data.Contains(XmlExtensionFunction.ExtensionErrorKey):
+                    // An extension function's .NET exception (SPEC §16.7).
+                    return (new QName("http://xsl3/err", "extension-error", "xsl3"), (e.InnerException ?? e).Message, System.Array.Empty<XPathItem>());
                 case XslTransformException or System.Xml.XmlException or System.FormatException or System.OverflowException or System.DivideByZeroException:
                     string message = e.Message;
                     var m = System.Text.RegularExpressions.Regex.Match(message, @"^([A-Z]{4}[0-9]{4})\b");
@@ -308,8 +371,16 @@ namespace Xsl3.Runtime
         /// <summary>fn:function-lookup for a built-in function (user functions are found when the name is a literal).</summary>
         public IList<XPathItem> X31FunctionLookup(IList<XPathItem> name, IList<XPathItem> arity, double sc)
         {
-            var q = ((QNameValue)name[0]).QName;
-            int n = (int)((IntegerValue)arity[0]).Integer;
+            // The arguments' types are xs:QName and xs:integer, exactly one each (XPTY0004).
+            if (name.Count != 1 || name[0] is not QNameValue { QName: var q } || arity.Count != 1 || arity[0] is not IntegerValue arityValue)
+            {
+                throw Err.XPTY0004($"fn:function-lookup takes one xs:QName and one xs:integer, not {Coercion.Describe(name)} and {Coercion.Describe(arity)}");
+            }
+            if (arityValue.Integer < 0 || arityValue.Integer > int.MaxValue)
+            {
+                return Sequences.Empty;
+            }
+            int n = (int)arityValue.Integer;
             FunctionDefinition? def = FunctionLibrary.Find(q.NamespaceUri, q.LocalName, n);
             return def == null ? Sequences.Empty : Sequences.One(new LibraryFunction(def, n, X31ContextFor(sc)));
         }

@@ -26,4 +26,48 @@ through the public `XmlWriter` API instead of stock's internal raw writer; see d
 
 ## From the W3C specifications
 
-None yet: Xsl3 implements no XSLT 2.0/3.0 features so far.
+Xsl3 is a basic XSLT 3.0 processor (XSLT 3.0 §27) with the serialization, higher-order functions and dynamic
+evaluation features, and XPath 3.1. This section lists where it departs from the specifications, the optional
+features it lacks, and its implementation-defined choices. `tests/Xsl3.W3C/Xslt30/Profile.cs` encodes the same
+choices for the W3C suites.
+
+### Features not provided
+
+| Feature | Behaviour | Plan |
+|---|---|---|
+| Schema-awareness (XSLT 3.0 §27.3) | `xsl:import-schema` raises XTSE1650; `validation="strict"`/`"lax"` and `type` raise XTSE1660; `schema-element()` and `schema-attribute()` raise XPST0008 | P6 |
+| Streaming (§27.4) | `streamable="yes"` is checked and otherwise ignored: the input is read into a tree | P7 |
+| Backwards-compatible behaviour (§3.9) | not claimed: whole 1.0 stylesheets run on the XSLT 1.0 engine, byte for byte as stock, but the 1.0 rules for a `version="1.0"` region inside a 2.0+ stylesheet are incomplete (the 122 `backwards_compatibility` tests don't run) | remaining-scope 4.6 |
+| `fn:transform` | not available (XPST0017) | remaining-scope 5 |
+| `fn:random-number-generator` | the unseeded generator is seeded once per transformation, so its numbers differ between runs | |
+| XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | not planned |
+| `xsl:stylesheet` found through an `<?xml-stylesheet?>` processing instruction | not supported | remaining-scope 4.6 |
+
+### Implementation-defined choices
+
+| Area | Xsl3's choice |
+|---|---|
+| `xsl:use-package` with a version range (§3.5.2) | the highest version in range |
+| Template conflicts (`on-multiple-match` absent or `use-last`) | recovery: the rule last in document order |
+| `xsl:evaluate` (§10.4.4) | disabled unless `XsltSettings.EnableEvaluate`; then statically enabled; target expressions run in the transformation's execution scope but parse documents again (node identity differs from the stylesheet's) |
+| Secondary results (`xsl:result-document`, §25) | refused unless `XsltSettings.EnableResultDocument`; then written as files only under the base output URI |
+| `fn:environment-variable` | no variables unless `XsltSettings.EnableEnvironmentVariables` |
+| `xsl:assert` | ignored unless `XsltSettings.EnableAssertions`; a computed `error-code` isn't supported (XTSE0020) |
+| Default language, numbering languages | `en` (also `de` month and day names); others fall back to English |
+| Calendars | AD and ISO |
+| Year range | above 9999 and negative years, up to ±(2^31 − 1) (FODT0001 beyond); no year zero (XSD 1.0) |
+| Errors known statically | an unknown literal `collation` on `xsl:sort` (XTDE1035) is reported when the stylesheet is compiled, as XSLT 3.0 §2.14 allows |
+| Document access (`fn:doc`, `fn:unparsed-text`, `fn:json-doc`, `xsl:source-document`) | refused unless `XsltSettings.EnableDocumentFunction`, as `document()` is; then through the transformation's resolver |
+| XSD version | 1.0 |
+| `xs:decimal` | .NET `decimal`: 28–29 significant digits; `xs:integer` is unbounded |
+| Implicit timezone | the local timezone |
+| Collations | the codepoint collation, the HTML ASCII case-insensitive collation, and UCA collations (`http://www.w3.org/2013/collation/UCA?…`) mapped onto .NET's culture-aware comparison; other URIs raise FOCH0002 |
+| Regular expression character classes | .NET's Unicode tables, newer than the versions the suite's `regex-classes` (Unicode 6.0) and `unicode-90` (Unicode 9.0) sets expect |
+| Unicode normalization forms | NFC, NFD, NFKC, NFKD, `fully-normalized` (as NFC, with SERE0012 for text starting with a combining character), `none` |
+| Empty elements, xml and xhtml methods | written `<a />` (.NET's writer), not `<a/>` |
+| Quotation marks in xhtml attribute values | `&#34;` |
+| Adaptive method | each node with an XML declaration unless `omit-xml-declaration="yes"` (Serialization 3.1 §10.1.6); `fn:serialize` defaults to `yes` |
+| Default output method | `html` for a first element `html` in no namespace; `xhtml` for XHTML's `html` element; otherwise `xml` |
+| `disable-output-escaping` | honoured for text that reaches a result by sequence normalization; dropped by `xsl:copy-of` and in temporary trees and attributes |
+| `doc()` and `document()` | DTDs are refused unless the input reader allows them |
+| Deep recursion | a stack probe raises `Q{http://xsl3/err}recursion-limit` before the stack overflows; `XsltSettings.UseDedicatedThread` gives a larger stack |

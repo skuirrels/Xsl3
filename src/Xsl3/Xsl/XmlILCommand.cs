@@ -113,11 +113,16 @@ namespace Xsl3
             catch (System.InsufficientExecutionStackException e)
             {
                 // Xsl3: raised by the guard at template and function entry (SPEC §21.2).
-                throw new XslTransformException(e, "Q{http://xsl3/err}recursion-limit: the transformation recursed too deeply for the available stack");
+                // The message goes in as an argument: as the format string, its braces would break string.Format.
+                throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}recursion-limit: the transformation recursed too deeply for the available stack");
+            }
+            catch (OutputLimit.ExceededException e)
+            {
+                throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}output-limit: " + e.Message);
             }
             catch (System.OperationCanceledException e)
             {
-                throw new XslTransformException(e, "Q{http://xsl3/err}cancelled: the transformation was cancelled");
+                throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}cancelled: the transformation was cancelled");
             }
         }
     }
