@@ -20,7 +20,8 @@ namespace Xsl3.Runtime
         public const string TypesFieldName = "ebTypes";
 
         // Format version marker to support versioning: (major << 8) | minor
-        private const int CurrentFormatVersion = (0 << 8) | 0;
+        // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B).
+        private const int CurrentFormatVersion = (0 << 8) | 1;
 
         private readonly XmlWriterSettings _defaultWriterSettings;
         private readonly IList<WhitespaceRule>? _whitespaceRules;
@@ -181,6 +182,21 @@ namespace Xsl3.Runtime
                 }
             }
 
+            if ((formatVersion & 0xff) >= 1)
+            {
+                // Xsl3 (Sink B): the 2.0+ static data.
+                Xslt2 = dataReader.ReadBoolean();
+                CompactTree = dataReader.ReadBoolean();
+                ResultDocuments = dataReader.ReadBoolean();
+                OutputExtras = Xsl3.XPath31.ConstantSerializer.ReadOutputExtras(dataReader);
+                if (dataReader.ReadBoolean())
+                {
+                    Constants = Xsl3.XPath31.ConstantSerializer.Read(dataReader);
+                }
+                string dispatcher = dataReader.ReadString();
+                DispatcherName = dispatcher.Length > 0 ? dispatcher : null;
+            }
+
             Debug.Assert(formatVersion != CurrentFormatVersion || dataReader.Read() == -1, "Extra data at the end of the stream");
             dataReader.Dispose();
         }
@@ -321,6 +337,18 @@ namespace Xsl3.Runtime
                 }
             }
 
+            // Xsl3 (Sink B): the 2.0+ static data, the constants and the dispatcher's method name.
+            dataWriter.Write(Xslt2);
+            dataWriter.Write(CompactTree);
+            dataWriter.Write(ResultDocuments);
+            Xsl3.XPath31.ConstantSerializer.WriteOutputExtras(dataWriter, OutputExtras);
+            dataWriter.Write(Constants != null);
+            if (Constants != null)
+            {
+                Xsl3.XPath31.ConstantSerializer.Write(dataWriter, Constants);
+            }
+            dataWriter.Write(DispatcherName ?? "");
+
             dataWriter.Dispose();
             data = dataStream.ToArray();
         }
@@ -336,6 +364,9 @@ namespace Xsl3.Runtime
         /// library can call them (folds, sort keys, …).
         /// </summary>
         public System.Func<XmlQueryRuntime, System.Xml.XPath.XPathItem, IList<System.Xml.XPath.XPathItem>>? Dispatcher { get; set; }
+
+        /// <summary>Xsl3 (Sink B): in a saved assembly, the name of the dispatcher's method, bound when it is loaded.</summary>
+        public string? DispatcherName { get; set; }
 
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path (its principal result is a <see cref="PrincipalResult"/>).</summary>
         public bool Xslt2 { get; set; }

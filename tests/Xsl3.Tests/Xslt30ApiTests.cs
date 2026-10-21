@@ -252,6 +252,43 @@ public class Xslt30ApiTests
         Assert.Contains("match=&quot;doc&quot;", text.ToString());
     }
 
+#if NET9_0_OR_GREATER
+    /// <summary>
+    /// Sink B: a stylesheet compiled into a saved assembly, with its constants, output formats, function items and
+    /// trace frames, runs from Load(Type) as it does from source.
+    /// </summary>
+    [Fact]
+    public void SavedAssembliesRunAsCompiledFromSource()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:xs='http://www.w3.org/2001/XMLSchema' xmlns:f='urn:f' exclude-result-prefixes='xs f'>" +
+            "<xsl:output omit-xml-declaration='yes'/><xsl:decimal-format name='eu' decimal-separator=',' grouping-separator='.'/>" +
+            "<xsl:accumulator name='n' initial-value='0' as='xs:integer'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
+            "<xsl:mode use-accumulators='n'/>" +
+            "<xsl:function name='f:double' as='xs:integer'><xsl:param name='x' as='xs:integer'/><xsl:sequence select='$x * 2'/></xsl:function>" +
+            "<xsl:template match='/'><out><xsl:variable name='m' select=\"map{'a': [1, 2.5, xs:date('2026-10-21')]}\"/>" +
+            "<xsl:value-of select=\"sort((3, 1, 2), (), function($k) { -$k }), $m?a?3 + xs:dayTimeDuration('P1D'), format-number(1234.5, '#.##0,0', 'eu'), f:double(21), accumulator-after('n')\"/>" +
+            "<xsl:try><xsl:sequence select=\"error(QName('urn:f', 'x'), 'boom')\"/><xsl:catch errors='f:x'>caught</xsl:catch></xsl:try>" +
+            "</out></xsl:template></xsl:stylesheet>";
+        var settings = new XsltSettings { EnableTracing = true };
+        var fromSource = new XslCompiledTransform();
+        fromSource.Load(XmlReader.Create(new StringReader(stylesheet)), settings, null);
+        var saved = new MemoryStream();
+        new XslCompiledTransform().CompileToAssembly(XmlReader.Create(new StringReader(stylesheet)), settings, null, "Xsl3.Tests.Saved", "Saved.Stylesheet", saved);
+        var context = new System.Runtime.Loader.AssemblyLoadContext("saved", isCollectible: true);
+        var fromAssembly = new XslCompiledTransform();
+        fromAssembly.Load(context.LoadFromStream(new MemoryStream(saved.ToArray())).GetType("Saved.Stylesheet", throwOnError: true)!, settings);
+        string Run(XslCompiledTransform t)
+        {
+            var text = new StringWriter();
+            t.Transform(XmlReader.Create(new StringReader("<doc><i/><i/></doc>")), null, text);
+            return text.ToString();
+        }
+        Assert.Equal("<out>3 2 1 2026-10-22 1.234,5 42 2caught</out>", Run(fromSource));
+        Assert.Equal(Run(fromSource), Run(fromAssembly));
+        context.Unload();
+    }
+#endif
+
     [Fact]
     public void AnExecutableServesManyTransformersAndEntryPoints()
     {

@@ -48,6 +48,29 @@ public sealed class Runner
         System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     // A stylesheet module and the modules it includes or imports, by their hrefs (for the initial template's search).
+    // XSL3_W3C_SAVED=n: about one test in n is compiled into a saved assembly, loaded from it, and run (Sink B, B4).
+    private static readonly uint s_savedEvery = uint.TryParse(Environment.GetEnvironmentVariable("XSL3_W3C_SAVED"), out uint every) ? every : 0;
+
+    private static int s_savedCount;
+
+    /// <summary>The stylesheet compiled into an assembly in memory, loaded into its own context, and loaded from its type.</summary>
+    private static XslCompiledTransform RoundTrip(XslCompiledTransform transform, XmlReader stylesheet, XsltSettings settings, XmlResolver resolver)
+    {
+        var saved = new MemoryStream();
+        string name = "Xsl3.W3C.Saved" + Interlocked.Increment(ref s_savedCount);
+        transform.CompileToAssembly(stylesheet, settings, resolver, name, "Compiled.Stylesheet", saved);
+        var context = new System.Runtime.Loader.AssemblyLoadContext(name, isCollectible: true);
+        System.Reflection.Assembly assembly = context.LoadFromStream(new MemoryStream(saved.ToArray()));
+        var loaded = new XslCompiledTransform
+        {
+            InitialTemplate = transform.InitialTemplate, InitialMode = transform.InitialMode, InitialFunction = transform.InitialFunction,
+            InitialFunctionArity = transform.InitialFunctionArity, RawResult = transform.RawResult, InitialMatchSelection = transform.InitialMatchSelection,
+            Packages = transform.Packages, StaticParameters = transform.StaticParameters,
+        };
+        loaded.Load(assembly.GetType("Compiled.Stylesheet", throwOnError: true)!, settings);
+        return loaded;
+    }
+
     private static IEnumerable<string> Modules(string stylesheet)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -280,12 +303,20 @@ public sealed class Runner
                 ? XmlReader.Create(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver })
                 : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
             {
-                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false)
+                var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
                     EnableEvaluate = true,
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
-                }, resolver);
+                };
+                if (s_savedEvery > 0 && (uint)test.Id.GetHashCode(StringComparison.Ordinal) % s_savedEvery == 0)
+                {
+                    transform = RoundTrip(transform, stylesheetReader, settings, resolver);
+                }
+                else
+                {
+                    transform.Load(stylesheetReader, settings, resolver);
+                }
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).

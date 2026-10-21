@@ -343,9 +343,49 @@ namespace Xsl3
             _qil = null;
         }
 
+#if NET9_0_OR_GREATER
+        /// <summary>
+        /// Xsl3 (Sink B): compiles a stylesheet into an assembly saved to <paramref name="output"/>, holding the public type
+        /// <paramref name="typeName"/> that <see cref="Load(Type)"/> loads without compiling (docs/plan/p4-sink-b.md).
+        /// </summary>
+        [RequiresDynamicCode(CompilesIL)]
+        internal void CompileToAssembly(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, string assemblyName, string typeName, Stream output)
+        {
+            Reset();
+            settings ??= XsltSettings.Default;
+            using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
+            CompileXsltToQil(stylesheet, settings, stylesheetResolver, stylesheetResolver);
+            if (GetFirstError() is CompilerError error)
+            {
+                throw new XslLoadException(error);
+            }
+            var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
+            ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
+            TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
+            type.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
+                new object[] { typeof(XslCompiledTransform).FullName!, s_version?.ToString() ?? "0.0.0.0" }));
+            new XmlILGenerator().Generate(_qil!, type);
+            _qil = null;
+            assembly.Save(output);
+        }
+#endif
+
         //------------------------------------------------
         // Load compiled stylesheet from a Type
         //------------------------------------------------
+        /// <summary>
+        /// Xsl3: loads a precompiled stylesheet (<see cref="Load(Type)"/>) with run-time settings: what it may reach (documents,
+        /// result documents, environment variables, evaluation) and its limits. Settings that act at compile time were
+        /// fixed when it was compiled.
+        /// </summary>
+        [RequiresUnreferencedCode("This method will get fields and types from the assembly of the passed in compiledStylesheet and call their constructors which cannot be statically analyzed")]
+        public void Load(Type compiledStylesheet, XsltSettings? settings)
+        {
+            Load(compiledStylesheet);
+            _settings = (settings ?? XsltSettings.Default).Clone();
+        }
+
         [RequiresUnreferencedCode("This method will get fields and types from the assembly of the passed in compiledStylesheet and call their constructors which cannot be statically analyzed")]
         public void Load(Type compiledStylesheet)
         {
@@ -401,7 +441,13 @@ namespace Xsl3
                 ? dm.CreateDelegate(typeof(ExecuteDelegate))
                 : executeMethod.CreateDelegate<ExecuteDelegate>();
 
-            _command = new XmlILCommand((ExecuteDelegate)delExec, new XmlQueryStaticData(queryData, earlyBoundTypes));
+            var staticData = new XmlQueryStaticData(queryData, earlyBoundTypes);
+            if (staticData.DispatcherName is string dispatcher && executeMethod.DeclaringType?.GetMethod(dispatcher, BindingFlags.Static | BindingFlags.NonPublic) is MethodInfo dispatch)
+            {
+                // Xsl3 (Sink B): the saved assembly's function item dispatcher.
+                staticData.Dispatcher = dispatch.CreateDelegate<Func<XmlQueryRuntime, XPathItem, System.Collections.Generic.IList<XPathItem>>>();
+            }
+            _command = new XmlILCommand((ExecuteDelegate)delExec, staticData);
             OutputSettings = _command.StaticData.DefaultWriterSettings;
         }
 

@@ -172,6 +172,10 @@ namespace Xsl3
             // Create static constructor that initializes XmlQueryStaticData instance at runtime
             if (typeBldr != null)
             {
+                if (_qil.Dispatcher != null && XmlILAnnotation.Write(_qil.Dispatcher).FunctionBinding is MethodInfo saved)
+                {
+                    staticData.DispatcherName = saved.Name; // Xsl3: bound by Load(MethodInfo, …)
+                }
                 CreateTypeInitializer(staticData);
 
                 // Finish up creation of the type

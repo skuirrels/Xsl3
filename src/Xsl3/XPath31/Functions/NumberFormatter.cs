@@ -92,6 +92,11 @@ namespace Xsl3.XPath31.Functions
 
         public XPathDecimalFormat Unnamed => unnamed;
 
+        // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
+        internal IReadOnlyDictionary<QName, XPathDecimalFormat> Named => named;
+
+        internal System.Xml.IXmlNamespaceResolver? Namespaces => namespaces;
+
         /// <summary>The decimal format with this name (an EQName or lexical QName); FODF1280 if there is none.</summary>
         public XPathDecimalFormat Resolve(string? name)
         {

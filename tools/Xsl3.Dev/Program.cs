@@ -46,6 +46,24 @@ for (int i = 2; i < args.Length; i++)
 }
 
 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false);
+if (command == "compile")
+{
+    // compile style.xsl out.dll: a saved assembly (Sink B); "runcompiled out.dll input.xml" runs it.
+    using XmlReader reader = XmlReader.Create(new Uri(stylesheet).AbsoluteUri, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse });
+    using FileStream dll = File.Create(input!);
+    new XslCompiledTransform().CompileToAssembly(reader, settings, new XmlUrlResolver(), Path.GetFileNameWithoutExtension(input!), "Compiled.Stylesheet", dll);
+    return 0;
+}
+if (command == "runcompiled")
+{
+    Type type = System.Reflection.Assembly.LoadFrom(stylesheet).GetType("Compiled.Stylesheet", throwOnError: true)!;
+    var compiled = new XslCompiledTransform();
+    compiled.Load(type);
+    using XmlReader compiledInput = input != null ? XmlReader.Create(input) : XmlReader.Create(new StringReader("<empty/>"));
+    compiled.Transform(compiledInput, arguments, Console.Out, new XmlUrlResolver());
+    Console.WriteLine();
+    return 0;
+}
 if (command is "qil" or "qilopt")
 {
     var compiler = new Compiler(settings, debug: false, scriptAssemblyPath: null);

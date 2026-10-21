@@ -110,8 +110,13 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
 
 ### B3: Sink B
 
-- [ ] `PersistedAssemblyBuilder` behind `XmlILModule`.
-- [ ] Static data and constants serialized.
+- [x] `PersistedAssemblyBuilder` behind `XmlILModule`: `XslCompiledTransform.CompileToAssembly` (.NET 9+) defines one
+  public type, with `GeneratedCodeAttribute`, through upstream's `TypeBuilder` path of `XmlILGenerator`.
+- [x] Static data and constants serialized: the static data format's minor version 1 adds `Xslt2`, `CompactTree`,
+  `ResultDocuments`, `OutputExtras`, the constant table (`XPath31.ConstantSerializer`, every kind the compiler adds)
+  and the dispatcher's method name, which `Load(MethodInfo, …)` binds. `Load(Type, XsltSettings)` supplies the run-time
+  settings. With `XSL3_W3C_SAVED=1` every xslt30-test case compiles into a saved assembly, loads from it in its own
+  load context, and runs: the results equal the from-source run (7,959 passed, 77 failed, 2026-10-21).
 - [ ] `Xsl3.Build` MSBuild task (`<XsltStylesheet Include="…"/>`) and a sample.
 - [ ] `XslCompiledTransform.Load(Type)` loads it with no compilation.
 - [ ] Portable PDBs mapping IL to stylesheet lines (SPEC §21.3), so `GenerateHelper.MarkSequencePoint` comes back.

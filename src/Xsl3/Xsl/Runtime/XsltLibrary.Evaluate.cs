@@ -57,6 +57,13 @@ namespace Xsl3.Runtime
 
         public string? BaseUri { get; } = baseUri;
 
+        // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
+        internal string DefaultCollation => defaultCollation;
+
+        internal XPathDecimalFormat DefaultDecimalFormat => defaultDecimalFormat;
+
+        internal Dictionary<QName, XPathDecimalFormat> DecimalFormats => decimalFormats;
+
         private readonly LinkedList<(string Key, object Compiled)> _cache = new();
         private readonly Dictionary<string, LinkedListNode<(string Key, object Compiled)>> _index = new(System.StringComparer.Ordinal);
 
