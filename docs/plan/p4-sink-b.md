@@ -134,6 +134,13 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
 - [x] A sampled W3C subset runs through the saved-assembly round trip: CI sets `XSL3_W3C_SAVED=10` (about one test in
   ten); locally, `XSL3_W3C_SAVED=1` sends the whole xslt30-test suite through it with unchanged results.
 
+A finding from CI: a saved assembly loaded into a *collectible* `AssemblyLoadContext` crashes with an
+`AccessViolationException` in its `Execute` method on Linux (arm64 and x64) once tiered PGO has optimized Xsl3's
+methods (output-0102c reproduces it in a container; `DOTNET_TieredPGO=0`, `DOTNET_TieredCompilation=0` or a
+non-collectible load each make it go away; macOS doesn't show it). Applications reference Xsl3.Build's assemblies
+normally, so the runner now loads saved assemblies with `Assembly.Load` too. The collectible case is worth a minimal
+repro for a dotnet/runtime issue.
+
 Exit status (2026-10-21): the sample runs under NativeAOT with no warnings and the round trip passes. Publishing
 `Xsl3.Build` and `Xsl3.Cli` to nuget.org needs the owner's go-ahead: the release workflow packs only `Xsl3`.
 

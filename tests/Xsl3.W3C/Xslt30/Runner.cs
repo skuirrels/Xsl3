@@ -170,6 +170,13 @@ public sealed class Runner
 
     private static int s_savedCount;
 
+    // XSL3_W3C_SAVED_ONLY=set/test,…: only those tests round-trip (for diagnosis).
+    private static readonly HashSet<string>? s_savedOnly = Environment.GetEnvironmentVariable("XSL3_W3C_SAVED_ONLY")?.Split(',').ToHashSet(StringComparer.Ordinal);
+
+    private static bool Saved(string id) => s_savedOnly != null ? s_savedOnly.Contains(id) : s_savedEvery > 0 && StableHash(id) % s_savedEvery == 0;
+
+
+
     // The same tests on every machine and run (string.GetHashCode is randomized per process).
     private static uint StableHash(string s)
     {
@@ -181,14 +188,15 @@ public sealed class Runner
         return hash;
     }
 
-    /// <summary>The stylesheet compiled into an assembly in memory, loaded into its own context, and loaded from its type.</summary>
+    /// <summary>The stylesheet compiled into an assembly in memory, loaded, and loaded from its type.</summary>
     private static XslCompiledTransform RoundTrip(XslCompiledTransform transform, XmlReader stylesheet, XsltSettings settings, XmlResolver resolver)
     {
         var saved = new MemoryStream();
         string name = "Xsl3.W3C.Saved" + Interlocked.Increment(ref s_savedCount);
         transform.CompileToAssembly(stylesheet, settings, resolver, name, "Compiled.Stylesheet", saved);
-        var context = new System.Runtime.Loader.AssemblyLoadContext(name, isCollectible: true);
-        System.Reflection.Assembly assembly = context.LoadFromStream(new MemoryStream(saved.ToArray()));
+        // Loaded as an application loads Xsl3.Build's output: not into a collectible context, which crashes with an
+        // AccessViolationException on Linux under tiered PGO (.NET 10; docs/plan/p4-sink-b.md).
+        System.Reflection.Assembly assembly = System.Reflection.Assembly.Load(saved.ToArray());
         var loaded = new XslCompiledTransform
         {
             InitialTemplate = transform.InitialTemplate, InitialMode = transform.InitialMode, InitialFunction = transform.InitialFunction,
@@ -436,7 +444,7 @@ public sealed class Runner
                 RawResult = (initialFunction != null || test.TestElement.Element(Catalog.Ns + "output")?.Attribute("tree") is { Value: "no" }) &&
                     test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
-            if (s_api && !(s_savedEvery > 0 && StableHash(test.Id) % s_savedEvery == 0))
+            if (s_api && !(Saved(test.Id)))
             {
                 return ExecuteApi(test, stylesheet, resolver, input, transform, api, packages, messages, secondary);
             }
@@ -452,7 +460,7 @@ public sealed class Runner
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
                 };
-                if (s_savedEvery > 0 && StableHash(test.Id) % s_savedEvery == 0)
+                if (Saved(test.Id))
                 {
                     // (On stderr, so that a crash in saved code names its test.)
                     Console.Error.WriteLine("xslt30 saved round trip: " + test.Id);
