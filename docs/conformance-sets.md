@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 7962 passed, 74 failed, 49 not run; 99.1% of those run (1631 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 7967 passed, 69 failed, 49 not run; 99.1% of those run (1631 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -15,14 +15,14 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature XPath_3.1 | 96 | 1 | 1 | 99.0% |
 | feature backwards_compatibility | 114 | 3 | 0 | 97.4% |
 | feature disabling_output_escaping | 29 | 1 | 0 | 96.7% |
-| feature dtd | 69 | 10 | 0 | 87.3% |
+| feature dtd | 74 | 5 | 0 | 93.7% |
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 217 | 3 | 0 | 98.6% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
 | feature serialization | 364 | 6 | 0 | 98.4% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2671 | 30 | 11 | 98.9% |
+| spec XSLT20+ | 2676 | 25 | 11 | 99.1% |
 | spec XSLT30+ | 3400 | 38 | 38 | 98.9% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
@@ -40,7 +40,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | attribute-set | 49 | 0 | 0 | 100.0% |
 | available-system-properties | 29 | 0 | 0 | 100.0% |
 | avt | 35 | 0 | 0 | 100.0% |
-| axes | 201 | 1 | 0 | 99.5% |
+| axes | 202 | 0 | 0 | 100.0% |
 | backwards | 45 | 2 | 0 | 95.7% |
 | base-uri | 50 | 5 | 0 | 90.9% |
 | boolean | 112 | 0 | 0 | 100.0% |
@@ -86,7 +86,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | function-lookup | 7 | 1 | 0 | 87.5% |
 | global-context-item | 11 | 3 | 0 | 78.6% |
 | higher-order-functions | 75 | 0 | 0 | 100.0% |
-| id | 38 | 5 | 0 | 88.4% |
+| id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
 | import-schema | 0 | 0 | 1 |  |
 | include | 14 | 0 | 0 | 100.0% |
@@ -167,7 +167,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4561 passed, 36 failed, 11 not run; 99.2% of those run (634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4566 passed, 31 failed, 11 not run; 99.3% of those run (634 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 
@@ -175,12 +175,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 |---|---:|---:|---:|---:|
 | feature backwards_compatibility | 110 | 2 | 0 | 98.2% |
 | feature disabling_output_escaping | 11 | 1 | 0 | 91.7% |
-| feature dtd | 55 | 10 | 0 | 84.6% |
+| feature dtd | 60 | 5 | 0 | 92.3% |
 | feature namespace_axis | 65 | 1 | 0 | 98.5% |
 | feature serialization | 231 | 6 | 0 | 97.5% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2670 | 30 | 11 | 98.9% |
+| spec XSLT20+ | 2675 | 25 | 11 | 99.1% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -191,7 +191,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | attribute | 22 | 1 | 0 | 95.7% |
 | attribute-set | 45 | 0 | 0 | 100.0% |
 | avt | 32 | 0 | 0 | 100.0% |
-| axes | 201 | 1 | 0 | 99.5% |
+| axes | 202 | 0 | 0 | 100.0% |
 | backwards | 44 | 2 | 0 | 95.7% |
 | base-uri | 46 | 2 | 0 | 95.8% |
 | boolean | 112 | 0 | 0 | 100.0% |
@@ -226,7 +226,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | format-number | 64 | 0 | 0 | 100.0% |
 | function | 44 | 0 | 0 | 100.0% |
 | function-available | 7 | 0 | 0 | 100.0% |
-| id | 38 | 5 | 0 | 88.4% |
+| id | 42 | 1 | 0 | 97.7% |
 | import | 34 | 1 | 0 | 97.1% |
 | import-schema | 0 | 0 | 1 |  |
 | include | 13 | 0 | 0 | 100.0% |
@@ -280,12 +280,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21810 passed, 74 failed, 99 not run; 99.7% of those run (86 passes raised a different error code)**
+**QT3 (XPath 3.1): 21824 passed, 60 failed, 99 not run; 99.7% of those run (86 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | feature higherOrderFunctions | 1806 | 34 | 0 | 98.2% |
-| feature infoset-dtd | 13 | 14 | 0 | 48.1% |
+| feature infoset-dtd | 27 | 0 | 0 | 100.0% |
 | feature namespace-axis | 36 | 0 | 0 | 100.0% |
 | spec XP20 | 7 | 0 | 0 | 100.0% |
 | spec XP20+ | 360 | 0 | 1 | 100.0% |
@@ -387,7 +387,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-hours-from-duration | 31 | 0 | 0 | 100.0% |
 | fn-hours-from-time | 27 | 0 | 0 | 100.0% |
 | fn-id | 30 | 0 | 0 | 100.0% |
-| fn-idref | 10 | 14 | 0 | 41.7% |
+| fn-idref | 24 | 0 | 0 | 100.0% |
 | fn-implicit-timezone | 27 | 0 | 0 | 100.0% |
 | fn-in-scope-prefixes | 8 | 0 | 1 | 100.0% |
 | fn-index-of | 53 | 0 | 0 | 100.0% |

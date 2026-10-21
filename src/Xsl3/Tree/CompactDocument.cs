@@ -62,6 +62,7 @@ namespace Xsl3.Tree
         internal string _baseUri = "";
         internal Dictionary<int, string>? _baseUris;   // elements and PIs whose base URI differs from their parent's
         internal Dictionary<string, int>? _ids;        // DTD ID value -> element
+        internal List<int>? _idrefAttributes;           // Xsl3: the attributes the DTD declares IDREF or IDREFS, in order
         internal string _xmlPrefix = null!, _xmlUri = null!;
 
         /// <summary>Built from writer events (a temporary tree): elements and PIs have an empty base URI, as there.</summary>

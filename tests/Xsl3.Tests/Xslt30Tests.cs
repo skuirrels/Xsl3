@@ -923,4 +923,24 @@ public class Xslt30Tests
             <xsl:template match="/"><o xmlns:f="urn:f"><xsl:value-of select="f:sum(f:dates((1 to 10) ! xs:date('2026-10-21')))"/></o></xsl:template>
             """));
     }
+
+    /// <summary>fn:idref finds the attributes a DTD declares IDREF or IDREFS that refer to an ID, in document order.</summary>
+    [Fact]
+    public void IdrefFindsDtdIdrefAttributes()
+    {
+        string input = """
+            <!DOCTYPE r [
+              <!ELEMENT r (a*)>
+              <!ELEMENT a EMPTY>
+              <!ATTLIST a id ID #IMPLIED ref IDREF #IMPLIED refs IDREFS #IMPLIED other CDATA #IMPLIED>
+            ]>
+            <r><a id="x"/><a id="y" ref="x"/><a refs="y  x" other="x"/><a ref="z"/></r>
+            """;
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select=\"idref('x') ! name()\"/>|<xsl:value-of select=\"idref(' y ') ! name()\"/>|<xsl:value-of select=\"idref('nope') ! name()\"/></o></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
+        Assert.Equal("<o>ref refs|refs|</o>", text.ToString());
+    }
 }

@@ -39,8 +39,9 @@ raised a different code are counted separately.
 | 2026-10-21 | 21,796 | 88 | 99 | 99.6% | `fn:random-number-generator`; `fn:function-lookup` type-checks its arguments |
 | 2026-10-21 | 21,801 | 83 | 99 | 99.6% | `xml-to-json` key escapes, function arity and name corner cases |
 | 2026-10-21 | 21,810 | 74 | 99 | 99.7% | `fn:collection` and `fn:uri-collection` over a directory of documents, FODC0004 for invalid collection URIs, `xs:error`, `function-available` for list-type constructors |
+| 2026-10-21 | 21,824 | 60 | 99 | 99.7% | `fn:idref` over the DTD's IDREF and IDREFS attributes; the harness gives the XPath engine Xsl3's own tree for sources, as the 2.0+ processor builds |
 
-The remaining failures are mostly `fn:idref`, `fn:serialize` details (html doctype, CDATA, character maps), a few
+The remaining failures are mostly `fn:serialize` details (html doctype, CDATA, character maps), a few
 JSON corner cases and `op-same-key`.
 
 ## XSLT 2.0 / 3.0 (xslt30-test)
@@ -99,6 +100,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,849 | 76 | 49 | 99.0% | The `xsl-stylesheet-processing-instruction` feature claimed (`XsltCompiler.GetAssociatedStylesheet`): the 18 `embedded-stylesheet` tests run and pass; the 2.0 profile is at 99.2% (4,453 passed, 37 failed) |
 | 2026-10-21 | 7,959 | 77 | 49 | 99.0% | `backwards_compatibility` claimed: the runner loads with `XsltSettings.VersionMode = BackwardsCompatible`, so 1.0 stylesheets run on the 3.0 processor in backwards-compatible mode, as do `version="1.0"` regions (XPath 1.0 compatibility mode, first items for `xsl:value-of`, AVTs, sort keys and `xsl:number`, keys compared as strings, undeclared with-params, unknown extension functions as dynamic errors). Also `xsl:apply-imports` in named templates and `exsl:node-set`. 110 more tests run; `backwards` 45 of 47, `xpath-compat` and `xslt-compat` all; the 2.0 profile is at 99.2% (4,560 passed, 37 failed) |
 | 2026-10-21 | 7,962 | 74 | 49 | 99.1% | The runner on the public 3.0 API (`XsltCompiler`, `Xslt30Transformer`): `override-v-008`, `override-v-009` and `strip-space-023` pass that the internal entry points failed; the 2.0 profile is at 99.2% (4,561 passed, 36 failed) |
+| 2026-10-21 | 7,967 | 69 | 49 | 99.1% | `fn:idref` (id-039, -040, -042, -043); the harness loads sources as Xsl3's own tree; the 2.0 profile is at 99.3% (4,566 passed, 31 failed) |
 
 ### P5 exit sets
 

@@ -379,6 +379,15 @@ namespace Xsl3.Tree
             return true;
         }
 
+        /// <summary>Xsl3: to an attribute of the tree, by its index (fn:idref).</summary>
+        internal void MoveToAttributeIndex(int attribute)
+        {
+            _node = _doc._attrOwner[attribute];
+            _attr = attribute;
+            _ns = None;
+            _scope = null;
+        }
+
         public override bool MoveToId(string id)
         {
             int element = _doc.LookupId(id);

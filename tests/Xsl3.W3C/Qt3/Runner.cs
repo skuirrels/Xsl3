@@ -210,7 +210,8 @@ public sealed class Runner
     {
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(path, settings);
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        // Xsl3's own tree, as the 2.0+ processor builds for the documents it loads (it keeps the DTD's IDREF types).
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
     });
 
     private IList<XPathItem> Evaluate(string expression, XPathStaticContext sc, XPathItem? contextItem, IList<XPathItem>? result)

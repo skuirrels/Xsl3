@@ -1,6 +1,5 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
 attribute/attribute-1101
-axes/axes-201
 backwards/backwards-019
 backwards/backwards-043
 base-uri/base-uri-024
@@ -26,10 +25,6 @@ global-context-item/glob-cxt-item-003
 global-context-item/glob-cxt-item-012
 global-context-item/glob-cxt-item-013
 id/id-001
-id/id-039
-id/id-040
-id/id-042
-id/id-043
 import/import-1201
 merge/merge-019
 merge/merge-097

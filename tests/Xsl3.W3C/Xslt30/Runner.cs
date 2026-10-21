@@ -620,8 +620,9 @@ public sealed class Runner
     }
 
     // Source documents are read-only, so one parse serves every test that uses the file (the unicode-90 sets
-    // share a few documents of tens of megabytes).
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, XPathDocument> s_documents = new(StringComparer.Ordinal);
+    // share a few documents of tens of megabytes). They are Xsl3's own tree, as the processor builds for the documents
+    // it loads (it keeps the DTD's IDREF types, for fn:idref).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Xsl3.Tree.CompactDocument> s_documents = new(StringComparer.Ordinal);
 
     private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile)
     {
@@ -631,14 +632,14 @@ public sealed class Runner
         }
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(testSetFile).AbsoluteUri);
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
     }
 
-    private static XPathDocument Parse(string file)
+    private static Xsl3.Tree.CompactDocument Parse(string file)
     {
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(file, settings);
-        return new XPathDocument(reader, XmlSpace.Preserve);
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
     }
 
     // ------------------------------------------------------------ assertions

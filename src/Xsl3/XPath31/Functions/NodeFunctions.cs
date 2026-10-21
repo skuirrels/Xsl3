@@ -27,7 +27,7 @@ namespace Xsl3.XPath31.Functions
             Define("fn:lang($testlang as xs:string?, $node as node()) as xs:boolean", (c, a) => Bool(Lang(S(a[0]), (XPathNavigator)a[1][0])));
             Define("fn:id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
             Define("fn:element-with-id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
-            Define("fn:idref($arg as xs:string*, $node as node()) as node()*", (c, a) => RootIsDocument((XPathNavigator)a[1][0]) ? Empty : throw new XdmException("FODC0001", "fn:idref: the node is not in a tree rooted at a document node"));
+            Define("fn:idref($arg as xs:string*, $node as node()) as node()*", (c, a) => Idref(a[0], (XPathNavigator)a[1][0]));
             Define("fn:outermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: true));
             Define("fn:innermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: false));
             Define("fn:path($arg as node()?) as xs:string?", (c, a) => Node(a[0]) is XPathNavigator n ? Str(Path(n)) : Empty);
@@ -228,6 +228,51 @@ namespace Xsl3.XPath31.Functions
                 }
             }
             return DocumentOrder(found, c);
+        }
+
+        /// <summary>
+        /// fn:idref (F&amp;O 3.1 §14.5.4): the attributes whose DTD type is IDREF or IDREFS and that refer to one of the
+        /// IDs, in document order. Each string is taken as an xs:ID (whitespace collapsed; ignored unless an NCName).
+        /// Without a schema no element has the is-idrefs property, and only Xsl3's own trees record the DTD's types.
+        /// </summary>
+        private static IList<XPathItem> Idref(IList<XPathItem> ids, XPathNavigator node)
+        {
+            if (!RootIsDocument(node))
+            {
+                throw new XdmException("FODC0001", "fn:idref: the node is not in a tree rooted at a document node");
+            }
+            if (node is not Tree.CompactNavigator { Document._idrefAttributes: { } attributes } compact)
+            {
+                return Empty;
+            }
+            var wanted = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (XPathItem id in ids)
+            {
+                string collapsed = Lexical.Collapse(((AtomicValue)id).Value);
+                if (Casting.IsNCName(collapsed))
+                {
+                    wanted.Add(collapsed);
+                }
+            }
+            var found = new List<XPathItem>();
+            if (wanted.Count == 0)
+            {
+                return found;
+            }
+            foreach (int attribute in attributes)
+            {
+                var nav = (Tree.CompactNavigator)compact.Clone();
+                nav.MoveToAttributeIndex(attribute);
+                foreach (string token in nav.Value.Split(new[] { ' ', '\t', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (wanted.Contains(token))
+                    {
+                        found.Add(nav);
+                        break;
+                    }
+                }
+            }
+            return found;
         }
 
         // xml:id attributes are IDs whatever the DTD says (xml:id 1.0); the first element with a value wins.
