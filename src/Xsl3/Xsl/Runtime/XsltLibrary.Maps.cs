@@ -12,7 +12,7 @@ namespace Xsl3.Runtime
     public sealed partial class XsltLibrary
     {
         // A map or array under construction; the constructor calls are chained, so a builder is used once.
-        private sealed class Builder : XdmFunction
+        private sealed class Builder : FunctionItem
         {
             public readonly Dictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>> Entries = new();
             public readonly List<IList<XPathItem>> Members = new();
@@ -33,16 +33,16 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XPTY0004", $"The key of xsl:map-entry must be one atomic value, not {Coercion.Describe(atoms)}");
             }
-            return XdmMap.Empty.Put((AtomicValue)atoms[0], Copy(value));
+            return MapItem.Empty.Put((AtomicValue)atoms[0], Copy(value));
         }
 
         /// <summary>xsl:map: the maps its content gives, merged; anything else is XTTE3375, a duplicate key XTDE3365.</summary>
         public XPathItem X31MapMerge(IList<XPathItem> maps)
         {
-            XdmMap result = XdmMap.Empty;
+            MapItem result = MapItem.Empty;
             foreach (XPathItem item in maps)
             {
-                if (item is not XdmMap map)
+                if (item is not MapItem map)
                 {
                     throw new XdmException("XTTE3375", $"The content of xsl:map must be maps, not {Coercion.Describe(Sequences.One(item))}");
                 }
@@ -70,7 +70,7 @@ namespace Xsl3.Runtime
             return b;
         }
 
-        public XPathItem X31MapDone(XPathItem builder) => XdmMap.Of(((Builder)builder).Entries.Values);
+        public XPathItem X31MapDone(XPathItem builder) => MapItem.Of(((Builder)builder).Entries.Values);
 
         public XPathItem X31ArrayNew() => new Builder();
 
@@ -81,7 +81,7 @@ namespace Xsl3.Runtime
             return b;
         }
 
-        public XPathItem X31ArrayDone(XPathItem builder) => XdmArray.Of(((Builder)builder).Members);
+        public XPathItem X31ArrayDone(XPathItem builder) => ArrayItem.Of(((Builder)builder).Members);
 
         /// <summary><c>array { E }</c>: one member per item.</summary>
         public XPathItem X31ArrayOfItems(IList<XPathItem> items)
@@ -91,7 +91,7 @@ namespace Xsl3.Runtime
             {
                 members[i] = new[] { Unshare(items[i]) };
             }
-            return XdmArray.Of(members);
+            return ArrayItem.Of(members);
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace Xsl3.Runtime
             {
                 switch (item)
                 {
-                    case XdmMap map:
+                    case MapItem map:
                         if (wildcard)
                         {
                             foreach (var e in map.Entries)
@@ -125,7 +125,7 @@ namespace Xsl3.Runtime
                             }
                         }
                         break;
-                    case XdmArray array:
+                    case ArrayItem array:
                         if (wildcard)
                         {
                             foreach (IList<XPathItem> m in array.Members)
@@ -162,7 +162,7 @@ namespace Xsl3.Runtime
 
         private static string FunctionDescription(XPathItem item) => item switch
         {
-            XdmFunction f => f.Describe(),
+            FunctionItem f => f.Describe(),
             AtomicValue a => a.Type.Name.ToString(),
             _ => "a node",
         };

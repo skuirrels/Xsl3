@@ -105,7 +105,7 @@ namespace Xsl3.XPath31.Functions
             {
                 return false;
             }
-            return value.All(v => v is XdmFunction f and not XdmMap and not XdmArray && f.Arity == test.Parameters!.Count || test.Matches(v));
+            return value.All(v => v is FunctionItem f and not MapItem and not ArrayItem && f.Arity == test.Parameters!.Count || test.Matches(v));
         }
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
@@ -146,7 +146,7 @@ namespace Xsl3.XPath31.Functions
             1 => value[0] switch
             {
                 AtomicValue a => $"{a.Type.Name} '{a.Value}'",
-                XdmFunction f => f.Describe(),
+                FunctionItem f => f.Describe(),
                 var n => $"a {((XPathNavigator)n).NodeType} node",
             },
             _ => $"a sequence of {value.Count} items",

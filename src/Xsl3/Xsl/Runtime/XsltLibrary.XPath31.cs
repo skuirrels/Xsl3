@@ -88,6 +88,9 @@ namespace Xsl3.Runtime
                 null => throw new XdmException("XPDY0002", $"No value supplied for ${localName}"),
                 IList<XPathItem> items => items,
                 XPathItem item => One(item),
+                string s => One(AtomicValue.OfString(s)),
+                bool b => One(AtomicValue.OfBoolean(b)),
+                XPathNodeIterator nodes => Xsl3.Xdm.XdmValue.MakeValue(nodes).Items,
                 // Other CLR values map to XDM values as stylesheet parameters' do.
                 _ when ClrValues.TryConvert(value, out IList<XPathItem> converted) => converted,
                 _ => throw new XdmException("XPTY0004", $"Unsupported value for ${localName}: {value.GetType()}"),
@@ -116,8 +119,17 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Raise(string code, string message) => throw new XdmException(code, message);
 
         /// <summary>An error with a value ($err:value): a terminating xsl:message's document.</summary>
-        public IList<XPathItem> X31RaiseWithValue(string code, string message, IList<XPathItem> value) =>
+        public IList<XPathItem> X31RaiseWithValue(string code, string message, IList<XPathItem> value)
+        {
+            if (code.StartsWith("Q{", System.StringComparison.Ordinal))
+            {
+                // An error code outside the err namespace (xsl:message error-code).
+                int close = code.IndexOf('}');
+                string local = code[(close + 1)..];
+                throw new XdmException(local, message) { ErrorObject = value, Name = new QName(code[2..close], local), Description = message };
+            }
             throw new XdmException(code, message) { ErrorObject = value };
+        }
 
         public XPathItem X31RaiseItem(string code, string message) => throw new XdmException(code, message);
 
@@ -132,7 +144,7 @@ namespace Xsl3.Runtime
         public bool X31Predicate(IList<XPathItem> value, double position)
         {
             // (An external parameter's number is System.Xml's XmlAtomicValue.)
-            if (value.Count == 1 && value[0] is { IsNode: false } and not XdmFunction && Sequences.Atomize(value[0]) is { Type.IsNumeric: true } a)
+            if (value.Count == 1 && value[0] is { IsNode: false } and not FunctionItem && Sequences.Atomize(value[0]) is { Type.IsNumeric: true } a)
             {
                 return Numeric.ToDouble(a) == position;
             }

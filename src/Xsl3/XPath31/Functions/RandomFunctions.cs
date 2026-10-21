@@ -11,7 +11,7 @@ namespace Xsl3.XPath31.Functions
     /// fn:random-number-generator): called by the run-time library, like a map or a built-in function.
     /// </summary>
     internal sealed class NativeFunction(SequenceTypeTest[] parameters, SequenceTypeTest returnType, System.Func<IList<XPathItem>[], IList<XPathItem>> body, string description)
-        : XdmFunction
+        : FunctionItem
     {
         public override int Arity => parameters.Length;
 
@@ -66,7 +66,7 @@ namespace Xsl3.XPath31.Functions
         private static SequenceTypeTest GeneratorType => s_generatorType ??= ResolveType("map(xs:string, item())");
 
         /// <summary>The map of a generator in state <paramref name="state"/>: number, next() and permute($arg).</summary>
-        private static XdmMap RandomGenerator(ulong state)
+        private static MapItem RandomGenerator(ulong state)
         {
             ulong numberState = state;
             double number = (Next(ref numberState) >> 11) * (1.0 / (1UL << 53));
@@ -84,7 +84,7 @@ namespace Xsl3.XPath31.Functions
                 }
                 return items;
             }, "the permute function of a random number generator");
-            return XdmMap.Empty
+            return MapItem.Empty
                 .Put(AtomicValue.OfString("number"), One(AtomicValue.OfDouble(number)))
                 .Put(AtomicValue.OfString("next"), One(next))
                 .Put(AtomicValue.OfString("permute"), One(permute));

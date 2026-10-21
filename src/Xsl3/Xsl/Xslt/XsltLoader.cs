@@ -2328,15 +2328,20 @@ namespace Xsl3.Xslt
             string? terminateAvt = V2 && _input.MoveToXsltAttribute(1, "terminate") && _input.Value.Contains('{') ? _input.Value : null;
             bool terminate = terminateAvt == null && ParseYesNoAttribute(1, /*attName:*/"terminate") == TriState.True;
             // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
-            // another in the err namespace.
+            // another: a local name for one in the err namespace, else an EQName.
             string errorCode = "XTMM9000";
             if (V2 && _input.MoveToXsltAttribute(2, "error-code") && !_input.Value.Contains('{'))
             {
                 string token = _input.Value.Trim();
                 int colon = token.IndexOf(':');
-                if (colon > 0 && _input.LookupXmlNamespace(token[..colon]) == "http://www.w3.org/2005/xqt-errors")
+                string? ns = colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                if (ns == "http://www.w3.org/2005/xqt-errors")
                 {
                     errorCode = token[(colon + 1)..];
+                }
+                else if (ns != null && token.Length > 0)
+                {
+                    errorCode = "Q{" + ns + "}" + token[(colon + 1)..];
                 }
             }
 

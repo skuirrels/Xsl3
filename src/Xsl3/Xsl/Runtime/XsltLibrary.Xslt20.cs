@@ -94,7 +94,7 @@ namespace Xsl3.Runtime
         /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
         public string X31AvtString(IList<XPathItem> items)
         {
-            if (items.Count == 1 && items[0] is not XdmArray)
+            if (items.Count == 1 && items[0] is not ArrayItem)
             {
                 return Sequences.Atomize(items[0]).Value;
             }
@@ -109,7 +109,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31ContentItems(IList<XPathItem> items)
         {
-            if (items.Any(i => i is XdmArray))
+            if (items.Any(i => i is ArrayItem))
             {
                 // Arrays in content are flattened to their members, nodes included (XSLT 3.0 §5.7.1).
                 items = Flatten(items);
@@ -156,7 +156,7 @@ namespace Xsl3.Runtime
                     {
                         run.Append(' ');
                     }
-                    if (item is XdmArray array)
+                    if (item is ArrayItem array)
                     {
                         // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2).
                         run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(array)).Select(a => a.Value)));
@@ -171,18 +171,18 @@ namespace Xsl3.Runtime
             return result;
         }
 
-        public bool X31IsArray(XPathItem item) => item is XdmArray;
+        public bool X31IsArray(XPathItem item) => item is ArrayItem;
 
         /// <summary>The members of an array, flattened (?*); empty for other items.</summary>
         public IList<XPathItem> X31ArrayMembers(XPathItem item) =>
-            item is XdmArray array ? array.Members.SelectMany(m => m).ToList() : Sequences.Empty;
+            item is ArrayItem array ? array.Members.SelectMany(m => m).ToList() : Sequences.Empty;
 
         private static List<XPathItem> Flatten(IList<XPathItem> items)
         {
             var flat = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
-                if (item is XdmArray array)
+                if (item is ArrayItem array)
                 {
                     foreach (IList<XPathItem> member in array.Members)
                     {
@@ -222,7 +222,7 @@ namespace Xsl3.Runtime
                 {
                     parts.Add(container.Value);
                 }
-                else if (item is XdmArray array)
+                else if (item is ArrayItem array)
                 {
                     foreach (XPathItem atom in Sequences.Atomize(Sequences.One(array)))
                     {
@@ -258,7 +258,7 @@ namespace Xsl3.Runtime
             XPathItem[]? wrapped = null;
             for (int i = 0; i < items.Count; i++)
             {
-                if (items[i] is XdmFunction function and not XdmMap and not XdmArray && !test.Matches(function))
+                if (items[i] is FunctionItem function and not MapItem and not ArrayItem && !test.Matches(function))
                 {
                     wrapped ??= items.ToArray();
                     SequenceTypeTest[] parameters = test.Parameters!.ToArray();
@@ -293,17 +293,17 @@ namespace Xsl3.Runtime
         // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty
 
         /// <summary>An xsl:on-empty (or xsl:on-non-empty) whose value waits for the rest of its sequence constructor.</summary>
-        internal sealed class DeferredItem(bool onEmpty, XdmFunction value) : AtomicValue(AtomicTypes.String)
+        internal sealed class DeferredItem(bool onEmpty, FunctionItem value) : AtomicValue(AtomicTypes.String)
         {
             public readonly bool OnEmpty = onEmpty;
-            public readonly XdmFunction Body = value;
+            public readonly FunctionItem Body = value;
 
             public override string Value => "";
 
             public override object ClrValue => "";
         }
 
-        public XPathItem X31Deferred(bool onEmpty, IList<XPathItem> value) => new DeferredItem(onEmpty, (XdmFunction)value[0]);
+        public XPathItem X31Deferred(bool onEmpty, IList<XPathItem> value) => new DeferredItem(onEmpty, (FunctionItem)value[0]);
 
         /// <summary>
         /// A sequence constructor with xsl:on-empty or xsl:on-non-empty (XSLT 3.0 §8.4.2–3): when the other items are
@@ -360,8 +360,8 @@ namespace Xsl3.Runtime
                 XPathNodeType.Root => !n.HasChildren,
                 _ => false,
             },
-            XdmArray a => a.Members.All(m => m.All(IsVacuous)),
-            XdmFunction => false,
+            ArrayItem a => a.Members.All(m => m.All(IsVacuous)),
+            FunctionItem => false,
             AtomicValue v => v.Type.Primitive is Primitive.String or Primitive.UntypedAtomic && v.Value.Length == 0,
             _ => false,
         };
@@ -373,9 +373,9 @@ namespace Xsl3.Runtime
             XPathNavigator { NodeType: XPathNodeType.Element or XPathNodeType.Root } n => !n.HasChildren,
             XPathNavigator { NodeType: XPathNodeType.Namespace } => false,
             XPathNavigator n => n.Value.Length == 0,
-            XdmArray a => a.Members.All(m => m.All(DeemedEmpty)),
-            XdmMap m => m.Count == 0,
-            XdmFunction => false,
+            ArrayItem a => a.Members.All(m => m.All(DeemedEmpty)),
+            MapItem m => m.Count == 0,
+            FunctionItem => false,
             AtomicValue v => v.Value.Length == 0,
             _ => false,
         };

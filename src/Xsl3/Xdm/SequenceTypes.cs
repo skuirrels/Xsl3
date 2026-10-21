@@ -91,7 +91,7 @@ namespace Xsl3.Xdm
 
         public AtomicType Type { get; }
 
-        public override bool Matches(XPathItem item) => item is AtomicValue a ? a.Type.DerivesFrom(Type) : (!item.IsNode && item is not XdmFunction && Sequences.Atomize(item).Type.DerivesFrom(Type));
+        public override bool Matches(XPathItem item) => item is AtomicValue a ? a.Type.DerivesFrom(Type) : (!item.IsNode && item is not FunctionItem && Sequences.Atomize(item).Type.DerivesFrom(Type));
 
         public override string ToString() => Type.Name.ToString();
     }
@@ -217,7 +217,7 @@ namespace Xsl3.Xdm
 
         public override bool Matches(XPathItem item)
         {
-            if (item is not XdmFunction f)
+            if (item is not FunctionItem f)
             {
                 return false;
             }
@@ -231,12 +231,12 @@ namespace Xsl3.Xdm
             }
             switch (f)
             {
-                case XdmMap map:
+                case MapItem map:
                     // A map is function(xs:anyAtomicType) as item()*: its values must match the return type, which must
                     // allow the empty sequence a missing key gives.
                     return SubtypeOf.Item(Parameters[0].Item, new AtomicTypeTest(AtomicTypes.AnyAtomicType)) && ReturnType!.AllowsEmpty &&
                         map.Entries.All(e => ReturnType.Matches(e.Value));
-                case XdmArray array:
+                case ArrayItem array:
                     return SubtypeOf.Item(Parameters[0].Item, new AtomicTypeTest(AtomicTypes.Integer)) && array.Members.All(m => ReturnType!.Matches(m));
             }
             for (int i = 0; i < Parameters.Count; i++)
@@ -269,7 +269,7 @@ namespace Xsl3.Xdm
         public SequenceTypeTest? ValueType { get; }
 
         public override bool Matches(XPathItem item) =>
-            item is XdmMap map && (KeyType == null || map.Entries.All(e => e.Key.Type.DerivesFrom(KeyType) && ValueType!.Matches(e.Value)));
+            item is MapItem map && (KeyType == null || map.Entries.All(e => e.Key.Type.DerivesFrom(KeyType) && ValueType!.Matches(e.Value)));
 
         public override string ToString() => KeyType == null ? "map(*)" : $"map({KeyType.Name}, {ValueType})";
     }
@@ -286,7 +286,7 @@ namespace Xsl3.Xdm
 
         public SequenceTypeTest? MemberType { get; }
 
-        public override bool Matches(XPathItem item) => item is XdmArray array && (MemberType == null || array.Members.All(m => MemberType.Matches(m)));
+        public override bool Matches(XPathItem item) => item is ArrayItem array && (MemberType == null || array.Members.All(m => MemberType.Matches(m)));
 
         public override string ToString() => MemberType == null ? "array(*)" : $"array({MemberType})";
     }

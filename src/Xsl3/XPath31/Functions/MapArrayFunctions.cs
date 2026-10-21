@@ -11,9 +11,9 @@ namespace Xsl3.XPath31.Functions
     // map:* and array:* (F&O 3.1 §17), except those that take function items, which compile to QIL.
     internal static partial class FunctionLibrary
     {
-        private static XdmMap Map(IList<XPathItem> arg) => (XdmMap)arg[0];
+        private static MapItem Map(IList<XPathItem> arg) => (MapItem)arg[0];
 
-        private static XdmArray Array(IList<XPathItem> arg) => (XdmArray)arg[0];
+        private static ArrayItem Array(IList<XPathItem> arg) => (ArrayItem)arg[0];
 
         private static AtomicValue Key(IList<XPathItem> arg) => (AtomicValue)arg[0];
 
@@ -50,12 +50,12 @@ namespace Xsl3.XPath31.Functions
             Define("map:keys($map as map(*)) as xs:anyAtomicType*", (c, a) => Map(a[0]).Keys.Cast<XPathItem>().ToList());
             Define("map:contains($map as map(*), $key as xs:anyAtomicType) as xs:boolean", (c, a) => Bool(Map(a[0]).ContainsKey(Key(a[1]))));
             Define("map:get($map as map(*), $key as xs:anyAtomicType) as item()*", (c, a) => Map(a[0]).Get(Key(a[1])) ?? Empty);
-            Define("map:find($input as item()*, $key as xs:anyAtomicType) as array(*)", (c, a) => One(XdmArray.Of(Find(a[0], Key(a[1])))));
+            Define("map:find($input as item()*, $key as xs:anyAtomicType) as array(*)", (c, a) => One(ArrayItem.Of(Find(a[0], Key(a[1])))));
             Define("map:put($map as map(*), $key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(Map(a[0]).Put(Key(a[1]), Keep(a[2]))));
-            Define("map:entry($key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(XdmMap.Empty.Put(Key(a[0]), Keep(a[1]))));
+            Define("map:entry($key as xs:anyAtomicType, $value as item()*) as map(*)", (c, a) => One(MapItem.Empty.Put(Key(a[0]), Keep(a[1]))));
             Define("map:remove($map as map(*), $keys as xs:anyAtomicType*) as map(*)", (c, a) =>
             {
-                XdmMap map = Map(a[0]);
+                MapItem map = Map(a[0]);
                 foreach (XPathItem k in a[1])
                 {
                     map = map.Remove((AtomicValue)k);
@@ -73,7 +73,7 @@ namespace Xsl3.XPath31.Functions
                 One(Subarray(Array(a[0]), I(a[1]), I(a[2]))));
             Define("array:remove($array as array(*), $positions as xs:integer*) as array(*)", (c, a) =>
             {
-                XdmArray array = Array(a[0]);
+                ArrayItem array = Array(a[0]);
                 var positions = new SortedSet<int>();
                 foreach (XPathItem p in a[1])
                 {
@@ -89,7 +89,7 @@ namespace Xsl3.XPath31.Functions
             });
             Define("array:insert-before($array as array(*), $position as xs:integer, $member as item()*) as array(*)", (c, a) =>
             {
-                XdmArray array = Array(a[0]);
+                ArrayItem array = Array(a[0]);
                 BigInteger p = I(a[1]);
                 if (p < 1 || p > array.Count + 1)
                 {
@@ -101,8 +101,8 @@ namespace Xsl3.XPath31.Functions
                 Array(a[0]).Count > 0 ? Array(a[0])[0] : throw new XdmException("FOAY0001", "array:head of an empty array"));
             Define("array:tail($array as array(*)) as array(*)", (c, a) =>
                 Array(a[0]).Count > 0 ? One(Array(a[0]).RemoveAt(0)) : throw new XdmException("FOAY0001", "array:tail of an empty array"));
-            Define("array:reverse($array as array(*)) as array(*)", (c, a) => One(XdmArray.Of(Array(a[0]).Members.Reverse())));
-            Define("array:join($arrays as array(*)*) as array(*)", (c, a) => One(XdmArray.Of(a[0].SelectMany(x => ((XdmArray)x).Members))));
+            Define("array:reverse($array as array(*)) as array(*)", (c, a) => One(ArrayItem.Of(Array(a[0]).Members.Reverse())));
+            Define("array:join($arrays as array(*)*) as array(*)", (c, a) => One(ArrayItem.Of(a[0].SelectMany(x => ((ArrayItem)x).Members))));
             Define("array:flatten($input as item()*) as item()*", (c, a) => FlattenAll(a[0]));
             Define("array:sort($array as array(*)) as array(*)", (c, a) => One(SortArray(Array(a[0]), c)));
             Define("array:sort($array as array(*), $collation as xs:string?) as array(*)", (c, a) =>
@@ -110,7 +110,7 @@ namespace Xsl3.XPath31.Functions
         }
 
         // map:merge (F&O 3.1 §17.1.1): duplicates are use-first (the default), use-last, use-any, combine or reject.
-        private static XdmMap Merge(IList<XPathItem> maps, XdmMap? options)
+        private static MapItem Merge(IList<XPathItem> maps, MapItem? options)
         {
             string duplicates = "use-first";
             if (options?.Get(AtomicValue.OfString("duplicates")) is IList<XPathItem> d)
@@ -127,13 +127,13 @@ namespace Xsl3.XPath31.Functions
             }
             if (maps.Count == 1)
             {
-                return (XdmMap)maps[0];
+                return (MapItem)maps[0];
             }
             var entries = new Dictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>>();
             var order = new List<MapKey>();
             foreach (XPathItem item in maps)
             {
-                foreach (var e in ((XdmMap)item).Entries)
+                foreach (var e in ((MapItem)item).Entries)
                 {
                     var key = new MapKey(e.Key);
                     if (!entries.TryGetValue(key, out var existing))
@@ -155,7 +155,7 @@ namespace Xsl3.XPath31.Functions
                     }
                 }
             }
-            return XdmMap.Of(order.Select(k => entries[k]));
+            return MapItem.Of(order.Select(k => entries[k]));
         }
 
         // map:find: the values of the key in every map, searching the items, arrays' members and maps' values.
@@ -168,7 +168,7 @@ namespace Xsl3.XPath31.Functions
                 {
                     switch (item)
                     {
-                        case XdmMap map:
+                        case MapItem map:
                             if (map.Get(key) is IList<XPathItem> v)
                             {
                                 result.Add(v);
@@ -178,7 +178,7 @@ namespace Xsl3.XPath31.Functions
                                 Search(e.Value);
                             }
                             break;
-                        case XdmArray array:
+                        case ArrayItem array:
                             foreach (IList<XPathItem> m in array.Members)
                             {
                                 Search(m);
@@ -191,7 +191,7 @@ namespace Xsl3.XPath31.Functions
             return result;
         }
 
-        private static XdmArray Subarray(XdmArray array, BigInteger start, BigInteger length)
+        private static ArrayItem Subarray(ArrayItem array, BigInteger start, BigInteger length)
         {
             if (start < 1 || start > array.Count + 1)
             {
@@ -213,7 +213,7 @@ namespace Xsl3.XPath31.Functions
             var result = new List<XPathItem>();
             foreach (XPathItem item in input)
             {
-                if (item is XdmArray array)
+                if (item is ArrayItem array)
                 {
                     result.AddRange(Sequences.Flatten(array));
                 }
@@ -225,11 +225,11 @@ namespace Xsl3.XPath31.Functions
             return result;
         }
 
-        private static XdmArray SortArray(XdmArray array, FunctionContext c)
+        private static ArrayItem SortArray(ArrayItem array, FunctionContext c)
         {
             List<IList<XPathItem>> members = array.Members.ToList();
             int[] order = SortOrder(members.Select(m => Sequences.Atomize(m)).ToList(), c);
-            return XdmArray.Of(order.Select(i => members[i]));
+            return ArrayItem.Of(order.Select(i => members[i]));
         }
 
         /// <summary>

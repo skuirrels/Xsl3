@@ -26,7 +26,7 @@ namespace Xsl3
     internal static class FnTransform
     {
         [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Allowed only with XsltSettings.EnableEvaluate; refused without dynamic code.")]
-        public static IList<XPathItem> Invoke(XdmMap options, FunctionContext c)
+        public static IList<XPathItem> Invoke(MapItem options, FunctionContext c)
         {
             if (XmlQueryRuntime.DynamicTransforms != true)
             {
@@ -77,7 +77,7 @@ namespace Xsl3
             if (OptionQName("initial-function") is QName function)
             {
                 IList<XPathItem> parameters = Option("function-params") ?? Array.Empty<XPathItem>();
-                XdmArray args = parameters is { Count: 1 } && parameters[0] is XdmArray a ? a : XdmArray.Empty;
+                ArrayItem args = parameters is { Count: 1 } && parameters[0] is ArrayItem a ? a : ArrayItem.Empty;
                 transform.InitialFunction = new XmlQualifiedName(function.LocalName, function.NamespaceUri);
                 transform.InitialFunctionArity = args.Count;
                 for (int i = 0; i < args.Count; i++)
@@ -86,7 +86,7 @@ namespace Xsl3
                     arguments.AddParam(argument.Name, argument.Namespace, args.Get(i + 1));
                 }
             }
-            if (Option("static-params") is { Count: 1 } staticParams && staticParams[0] is XdmMap statics)
+            if (Option("static-params") is { Count: 1 } staticParams && staticParams[0] is MapItem statics)
             {
                 transform.StaticParameters = new Dictionary<XmlQualifiedName, IList<XPathItem>>();
                 foreach (var (key, value) in statics.Entries)
@@ -95,7 +95,7 @@ namespace Xsl3
                     transform.StaticParameters[new XmlQualifiedName(name.LocalName, name.NamespaceUri)] = value;
                 }
             }
-            if (Option("stylesheet-params") is { Count: 1 } stylesheetParams && stylesheetParams[0] is XdmMap parametersMap)
+            if (Option("stylesheet-params") is { Count: 1 } stylesheetParams && stylesheetParams[0] is MapItem parametersMap)
             {
                 foreach (var (key, value) in parametersMap.Entries)
                 {
@@ -208,7 +208,7 @@ namespace Xsl3
                     : new XPathItem[] { Parse(text.ToString(), uri) };
                 entries.Add(new(new StringValue(AtomicTypes.AnyUri, uri), value));
             }
-            return new XPathItem[] { XdmMap.Of(entries) };
+            return new XPathItem[] { MapItem.Of(entries) };
         }
 
         // The highest version of the named package that matches the requested version: exact, a "1.*" prefix, or any.

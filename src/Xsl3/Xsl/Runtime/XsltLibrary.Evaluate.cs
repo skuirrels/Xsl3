@@ -181,7 +181,7 @@ namespace Xsl3.Runtime
             var variables = new Dictionary<QName, IList<XPathItem>>();
             void Bind(IList<XPathItem> map, string what)
             {
-                if (map.Count != 1 || map[0] is not XdmMap m)
+                if (map.Count != 1 || map[0] is not MapItem m)
                 {
                     throw Err.XPTY0004($"{what} of xsl:evaluate must be a map, not {Coercion.Describe(map)}");
                 }
@@ -201,7 +201,7 @@ namespace Xsl3.Runtime
             var functionTable = new Dictionary<(string, string, int), QName>();
             for (int i = 0; i < functions.Count; i++)
             {
-                if (functions[i] is XdmFunction { Name: QName fn } f)
+                if (functions[i] is FunctionItem { Name: QName fn } f)
                 {
                     var hidden = new QName(DynamicEvaluation.Namespace, "f" + i);
                     functionTable[(fn.NamespaceUri, fn.LocalName, f.Arity)] = hidden;

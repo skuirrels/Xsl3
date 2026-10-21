@@ -137,6 +137,26 @@ These facts come from the code as of 2026-10-21.
 6. The W3C runner on the public API.
 7. Registered extension functions (decision 7).
 
+## Status (2026-10-21)
+
+Steps 1 to 5 are done, in `src/Xsl3/Xdm/XdmValue.cs`, `src/Xsl3/Xslt/XsltCompiler.cs` and `src/Xsl3/Xslt/XsltErrors.cs`,
+with unit tests in `tests/Xsl3.Tests/Xslt30ApiTests.cs`. Where the result differs from the decisions above:
+
+- **Units** are compiled again from the stylesheet's source (kept as text, or re-read from its URI) rather than
+  from a kept AST; each is cached by entry point, raw or serialized delivery, and the names of the initial
+  template's or mode's parameters.
+- **Destinations** are overloads taking a `Stream`, a `TextWriter` or an `XmlWriter` (serialized), or none (the raw
+  result as an `XdmValue`), rather than `Destination` classes. A tree comes back as the raw result's nodes.
+- **The global context item** is an `XdmNode`. Applying templates to a single node makes it the global context
+  item too, as `XslCompiledTransform` does; any other selection is passed as the initial match selection.
+- **Messages** reach `MessageHandler` as text; a terminating message is an `XsltDynamicException` (XTMM9000 or its
+  error code).
+- **Maps** and arrays give their size as `Size`: `Count` is the number of items, 1.
+- The internal `XdmMap`, `XdmArray` and `XdmFunction` became `MapItem`, `ArrayItem` and `FunctionItem`, so the public
+  types could take the names.
+
+Left: step 6 (the W3C runner on the public API) and step 7 (registered extension functions).
+
 ## Open questions for the owner
 
 - **Namespace.** The new types could go in `Xsl3`, next to `XslCompiledTransform`, or in `Xsl3.S9`, which mirrors

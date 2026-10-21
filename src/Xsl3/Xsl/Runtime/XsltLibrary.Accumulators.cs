@@ -71,7 +71,7 @@ namespace Xsl3.Runtime
             if (!_accumulatorValues.TryGetValue((key, _runtime.GenerateId(root)), out var values))
             {
                 values = new Dictionary<string, (IList<XPathItem>, IList<XPathItem>)>();
-                IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((XdmFunction)items[info.Offset], Sequences.One(root.Clone())), name);
+                IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset], Sequences.One(root.Clone())), name);
                 AccumulatorVisit(root, initial, items, info, name, values);
                 _accumulatorValues[(key, _runtime.GenerateId(root))] = values;
             }
@@ -192,7 +192,7 @@ namespace Xsl3.Runtime
                 {
                     continue;
                 }
-                IList<XPathItem> priority = CallFunction((XdmFunction)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
+                IList<XPathItem> priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
                 if (priority.Count == 1)
                 {
                     double p = XmlConvert.ToDouble(priority[0].Value);
@@ -207,7 +207,7 @@ namespace Xsl3.Runtime
             {
                 return value;
             }
-            return AccumulatorCoerce(info, CallFunction((XdmFunction)items[info.Offset + 2 + 2 * best], Sequences.One(node.Clone()), value), name);
+            return AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset + 2 + 2 * best], Sequences.One(node.Clone()), value), name);
         }
 
         private static IList<XPathItem> AccumulatorCoerce(AccumulatorInfo info, IList<XPathItem> value, string name) =>

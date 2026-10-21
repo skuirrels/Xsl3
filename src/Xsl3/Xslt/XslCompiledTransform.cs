@@ -39,7 +39,7 @@ namespace Xsl3
     // Load(MethodInfo, ...)) and the transforms themselves don't.
     public sealed class XslCompiledTransform
     {
-        private const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
+        internal const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
 
         // Version for GeneratedCodeAttribute
         private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
@@ -238,14 +238,63 @@ namespace Xsl3
         internal bool RawResult { get; set; }
 
         /// <summary>Runs a stylesheet loaded with <see cref="RawResult"/> and returns its result sequence.</summary>
-        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver)
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver) =>
+            TransformToItems(input, arguments, documentResolver, BaseOutputUri);
+
+        /// <summary>Xsl3: <see cref="TransformToItems(XPathNavigator, XsltArgumentList?, XmlResolver?)"/> with this run's base output URI (the 3.0 API).</summary>
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver, Uri? baseOutputUri,
+            Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             CheckCommand();
             CheckInput(input);
             System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
-            Run(arguments, BaseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments));
+            Run(arguments, baseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments), resultDocumentHandler);
             return items;
         }
+
+        /// <summary>
+        /// Xsl3: serializes a run as <c>xsl:output</c> says to a stream, a text writer or an XML writer, with this run's
+        /// base output URI (the 3.0 API).
+        /// </summary>
+        internal void TransformTo(XPathNavigator input, XsltArgumentList? arguments, object destination, XmlResolver? documentResolver, Uri? baseOutputUri,
+            Func<string, string, TextWriter>? resultDocumentHandler = null)
+        {
+            CheckCommand();
+            CheckInput(input);
+            switch (destination)
+            {
+                case Stream stream:
+                {
+                    using XmlWriter writer = CreateResultWriter(stream);
+                    Execute(writer);
+                    break;
+                }
+                case TextWriter text:
+                {
+                    using XmlWriter writer = CreateResultWriter(text);
+                    Execute(writer);
+                    break;
+                }
+                case XmlWriter xml:
+                    Execute(xml);
+                    break;
+                default:
+                    throw new ArgumentException("The destination must be a Stream, a TextWriter or an XmlWriter", nameof(destination));
+            }
+
+            void Execute(XmlWriter results)
+            {
+                if (results is RawResultWriter raw)
+                {
+                    Run(arguments, baseOutputUri, () => raw.Write(_command!.Evaluate(input, documentResolver, arguments)), resultDocumentHandler);
+                    return;
+                }
+                Run(arguments, baseOutputUri, () => _command!.Execute(input, documentResolver, arguments, results), resultDocumentHandler);
+            }
+        }
+
+        /// <summary>Xsl3: the errors and warnings of the last Load.</summary>
+        internal CompilerErrorCollection? CompilerErrors => _compilerErrorColl;
 
         /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1) of the initial function.</summary>
         internal static XmlQualifiedName InitialFunctionArgument(int position) => InitialFunctionArguments.Name(position);
@@ -632,7 +681,7 @@ namespace Xsl3
             }
         }
 
-        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform)
+        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform, Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             XsltSettings settings = _settings ?? XsltSettings.Default;
             System.Threading.CancellationToken token = arguments?.CancellationToken ?? default;
@@ -654,8 +703,13 @@ namespace Xsl3
                 bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
                 bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
                 var savedPackages = XmlQueryRuntime.Packages;
+                Func<string, string, TextWriter>? savedHandler = XmlQueryRuntime.ResultDocumentHandler;
                 try
                 {
+                    if (resultDocumentHandler != null)
+                    {
+                        XmlQueryRuntime.ResultDocumentHandler = resultDocumentHandler; // the 3.0 API's, for this run
+                    }
                     if (token.CanBeCanceled)
                     {
                         XmlQueryRuntime.Cancellation = token;
@@ -688,6 +742,7 @@ namespace Xsl3
                     XmlQueryRuntime.ExtensionFunctions = savedExtensions;
                     XmlQueryRuntime.DynamicTransforms = savedDynamic;
                     XmlQueryRuntime.Packages = savedPackages;
+                    XmlQueryRuntime.ResultDocumentHandler = savedHandler;
                 }
             }
             if (!settings.UseDedicatedThread)

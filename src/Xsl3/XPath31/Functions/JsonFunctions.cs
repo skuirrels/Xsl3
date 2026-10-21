@@ -52,7 +52,7 @@ namespace Xsl3.XPath31.Functions
             public bool HasFallback;
         }
 
-        private static JsonOptions Options(XdmMap? map, bool toXml)
+        private static JsonOptions Options(MapItem? map, bool toXml)
         {
             var o = new JsonOptions { Duplicates = toXml ? "retain" : "use-first" };
             if (map == null)
@@ -88,7 +88,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (map.Get(AtomicValue.OfString("fallback")) is IList<XPathItem> f)
             {
-                if (f.Count != 1 || f[0] is not XdmFunction { Arity: 1 } || f[0] is XdmMap or XdmArray)
+                if (f.Count != 1 || f[0] is not FunctionItem { Arity: 1 } || f[0] is MapItem or ArrayItem)
                 {
                     throw Err.XPTY0004("The fallback option must be a function(xs:string) as xs:string");
                 }
@@ -402,7 +402,7 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- parse-json
 
-        private static IList<XPathItem> ParseJson(string text, XdmMap? options)
+        private static IList<XPathItem> ParseJson(string text, MapItem? options)
         {
             JsonOptions o = Options(options, toXml: false);
             JsonValue value = new JsonParser(text, o.Liberal).Parse();
@@ -435,10 +435,10 @@ namespace Xsl3.XPath31.Functions
                         entries[k] = (k, ToXdm(member, o));
                         order.Add(k);
                     }
-                    return One(XdmMap.Of(order.Select(k => new KeyValuePair<AtomicValue, IList<XPathItem>>(AtomicValue.OfString(k), entries[k].Value))));
+                    return One(MapItem.Of(order.Select(k => new KeyValuePair<AtomicValue, IList<XPathItem>>(AtomicValue.OfString(k), entries[k].Value))));
                 }
                 case JsonArray array:
-                    return One(XdmArray.Of(array.Members.Select(m => ToXdm(m, o))));
+                    return One(ArrayItem.Of(array.Members.Select(m => ToXdm(m, o))));
                 case JsonString s:
                     return Str(o.Escape ? s.Raw : s.Value);
                 case JsonNumber n:
@@ -452,7 +452,7 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- json-to-xml
 
-        private static IList<XPathItem> JsonToXml(string text, XdmMap? options, FunctionContext c)
+        private static IList<XPathItem> JsonToXml(string text, MapItem? options, FunctionContext c)
         {
             JsonOptions o = Options(options, toXml: true);
             JsonValue value = new JsonParser(text, o.Liberal).Parse();
@@ -537,7 +537,7 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- xml-to-json
 
-        private static string XmlToJson(XPathNavigator node, XdmMap? options)
+        private static string XmlToJson(XPathNavigator node, MapItem? options)
         {
             JsonOptions o = Options(options, toXml: false);
             XPathNavigator n = node.Clone();

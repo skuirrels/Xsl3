@@ -84,7 +84,7 @@ namespace Xsl3.Runtime
                     case XPathNavigator node:
                         w.WriteNode(node, defattr: true);
                         break;
-                    case XdmFunction f:
+                    case FunctionItem f:
                         throw new XdmException("SENR0001", $"{f.Describe()} can't be serialized with this method");
                     case var item:
                         w.WriteString(item.Value);
@@ -154,7 +154,7 @@ namespace Xsl3.Runtime
                 case null:
                     sb.Append("null");
                     break;
-                case XdmMap map:
+                case MapItem map:
                 {
                     sb.Append('{');
                     var seen = new HashSet<string>(System.StringComparer.Ordinal);
@@ -183,7 +183,7 @@ namespace Xsl3.Runtime
                     sb.Append('}');
                     break;
                 }
-                case XdmArray array:
+                case ArrayItem array:
                 {
                     sb.Append('[');
                     for (int i = 0; i < array.Count; i++)
@@ -202,7 +202,7 @@ namespace Xsl3.Runtime
                     sb.Append(']');
                     break;
                 }
-                case XdmFunction f:
+                case FunctionItem f:
                     throw new XdmException("SERE0021", $"The json output method can't serialize {f.Describe()}");
                 case XPathNavigator node:
                     JsonString(sb, extras.JsonNodeOutputMethod switch
@@ -297,7 +297,7 @@ namespace Xsl3.Runtime
             IReadOnlyDictionary<int, string>? characterMap = extras.CharacterMap;
             switch (item)
             {
-                case XdmMap map:
+                case MapItem map:
                 {
                     sb.Append("map{");
                     bool first = true;
@@ -315,7 +315,7 @@ namespace Xsl3.Runtime
                     sb.Append('}');
                     break;
                 }
-                case XdmArray array:
+                case ArrayItem array:
                     sb.Append('[');
                     for (int i = 0; i < array.Count; i++)
                     {
@@ -327,7 +327,7 @@ namespace Xsl3.Runtime
                     }
                     sb.Append(']');
                     break;
-                case XdmFunction f:
+                case FunctionItem f:
                     sb.Append(f.Name is QName name ? name.EQName : "(anonymous-function)").Append('#').Append(f.Arity);
                     break;
                 case XPathNavigator node:

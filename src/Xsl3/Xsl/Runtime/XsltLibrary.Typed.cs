@@ -13,7 +13,7 @@ namespace Xsl3.Runtime
     public sealed partial class XsltLibrary
     {
         /// <summary>Whether a dynamic call's function is a single map (so that $m(key) can look the key up directly).</summary>
-        public bool X31IsMap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function) => function.Count == 1 && function[0] is XdmMap;
+        public bool X31IsMap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function) => function.Count == 1 && function[0] is MapItem;
 
         /// <summary>
         /// $m(key) for a map: the key converted as a map's parameter type, xs:anyAtomicType (exactly one atomic value,
@@ -24,9 +24,9 @@ namespace Xsl3.Runtime
             System.Collections.Generic.IList<System.Xml.XPath.XPathItem> atoms = Sequences.Atomize(key);
             if (atoms.Count != 1)
             {
-                throw Err.XPTY0004($"Argument 1 of {((XdmMap)function[0]).Describe()} must be one atomic value, not {Coercion.Describe(atoms)}");
+                throw Err.XPTY0004($"Argument 1 of {((MapItem)function[0]).Describe()} must be one atomic value, not {Coercion.Describe(atoms)}");
             }
-            return ((XdmMap)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
+            return ((MapItem)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
         }
 
         /// <summary>

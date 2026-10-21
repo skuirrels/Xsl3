@@ -180,7 +180,7 @@ namespace Xsl3.XPath31.Functions
         }
 
         /// <summary>fn:serialize with the parameters as a map (F&amp;O 3.1 §14.1.1), which also selects json and adaptive.</summary>
-        public static string Serialize(IList<XPathItem> items, XdmMap parameters)
+        public static string Serialize(IList<XPathItem> items, MapItem parameters)
         {
             // The option parameter conventions (F&O 3.1 §1.5): each value is converted to the parameter's type,
             // xs:untypedAtomic by casting; anything else is XPTY0004.
@@ -209,7 +209,7 @@ namespace Xsl3.XPath31.Functions
             var characterMap = new Dictionary<int, string>();
             if (parameters.Get(AtomicValue.OfString("use-character-maps")) is { Count: > 0 } maps)
             {
-                if (maps.Count != 1 || maps[0] is not XdmMap characters)
+                if (maps.Count != 1 || maps[0] is not MapItem characters)
                 {
                     throw Err.XPTY0004("The serialization parameter use-character-maps must be a map(xs:string, xs:string)");
                 }

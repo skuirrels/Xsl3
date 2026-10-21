@@ -30,10 +30,13 @@ namespace Xsl3.Runtime
             }
             switch (value)
             {
+                case Xsl3.Xdm.XdmValue xdm:
+                    items = xdm.Items;
+                    return true;
                 case IList<XPathItem> sequence:
                     items = sequence;
                     return true;
-                case AtomicValue or XdmFunction:
+                case AtomicValue or FunctionItem:
                     items = new[] { (XPathItem)value };
                     return true;
                 case string or bool or XPathNavigator or XPathNodeIterator or IXPathNavigable:
@@ -54,7 +57,7 @@ namespace Xsl3.Runtime
                         ?? throw new XdmException("XPTY0004", $"A map key can't be a {entry.Key.GetType().Name}");
                     entries.Add(new(key, entry.Value == null ? System.Array.Empty<XPathItem>() : Sequence(entry.Value, depth + 1)));
                 }
-                items = new XPathItem[] { XdmMap.Of(entries) };
+                items = new XPathItem[] { MapItem.Of(entries) };
                 return true;
             }
             if (value is IEnumerable enumerable)

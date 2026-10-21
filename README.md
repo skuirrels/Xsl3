@@ -75,12 +75,10 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**:
-  `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
-  temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
-  `cache`).
-- **API**: the XSLT 3.0 API of SPEC §7.2 (initial templates, modes and functions, the package library, raw
-  results); for now `XslCompiledTransform` plus the settings above. `MaxRecursionDepth` and `MaxOutputBytes`.
+- **XSLT 3.0**: backwards-compatible processing of `version="1.0"` regions in 2.0+ stylesheets, the stylesheet
+  processing instruction, unparsed entities of temporary trees (a document's own are read from its DTD).
+- **API**: the XSLT 3.0 API is new in this branch (below). Extension functions for 2.0+ stylesheets and the W3C
+  runner on the public API are still to do.
 - **Known gaps**:
   - `xsl:next-match` from one alternative of a union pattern to another of the same rule.
   - Dynamic errors in patterns are non-matches only for predicate patterns.
@@ -145,6 +143,34 @@ xslt.Transform("input.xml", "output.html");
 See [docs/performance.md](docs/performance.md) for the measurements.
 
 Targets .NET 8 and .NET 10.
+
+### The XSLT 3.0 API
+
+`XsltCompiler`, `XsltExecutable` and `Xslt30Transformer` start a stylesheet the ways XSLT 3.0 allows (§2.3): templates
+applied to any sequence in any mode, a named template, or a stylesheet function. Values are XDM values (`XdmValue`,
+`XdmNode`, `XdmAtomicValue`, `XdmMap`, `XdmArray` in `Xsl3.Xdm`), and a raw result comes back as one:
+
+```csharp
+using Xsl3;
+using Xsl3.Xdm;
+
+XsltExecutable executable = new XsltCompiler().Compile(new Uri("file:///style.xsl")); // cache and share this
+Xslt30Transformer transformer = executable.CreateTransformer();                       // one per thread
+transformer.StylesheetParameters[new QName("title")] = new XdmAtomicValue("Report");
+
+transformer.ApplyTemplates(XdmNode.Load(File.OpenRead("input.xml")), Console.Out);   // serialized as xsl:output says
+XdmValue rows = transformer.CallTemplate(new QName("rows"),
+    parameters: new Dictionary<QName, XdmValue> { [new QName("max")] = new XdmAtomicValue(10L) });
+XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows);
+```
+
+- A dynamic error is an `XsltDynamicException` with the error's `Code`, `Description` and `ErrorObject`; a stylesheet
+  that doesn't compile raises an `XsltStaticException` listing every error with its module, line and column.
+- Each transformer has its own `BaseOutputUri`, `MessageHandler`, `TraceHandler`, `ResultDocumentHandler`,
+  `DocumentResolver`, `CancellationToken` and `GlobalContextItem`.
+- `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`).
+- An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
+  [docs/plan/api.md](docs/plan/api.md).
 
 ### Parameters of XSLT 2.0 and 3.0 stylesheets
 

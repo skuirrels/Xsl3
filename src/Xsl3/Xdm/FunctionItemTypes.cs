@@ -15,7 +15,7 @@ namespace Xsl3.Xdm
     /// items are <see cref="XPathItem"/>s so that they travel through the engine's boxed <c>item*</c> values
     /// (docs/plan/p3-xslt30.md, decision 1). They have no string value (FOTY0014) and no typed value (FOTY0013).
     /// </summary>
-    internal abstract class XdmFunction : XPathItem
+    internal abstract class FunctionItem : XPathItem
     {
         public abstract int Arity { get; }
 
@@ -34,7 +34,7 @@ namespace Xsl3.Xdm
         public override XmlSchemaType? XmlType => null;
         public override string Value => throw new XdmException("FOTY0014", $"{Describe()} has no string value");
         public override object TypedValue => throw new XdmException("FOTY0013", $"{Describe()} can't be atomized");
-        public override Type ValueType => typeof(XdmFunction);
+        public override Type ValueType => typeof(FunctionItem);
         public override bool ValueAsBoolean => throw new XdmException("FORG0006", $"{Describe()} has no effective boolean value");
         public override DateTime ValueAsDateTime => throw new InvalidCastException();
         public override double ValueAsDouble => throw new InvalidCastException();
@@ -123,17 +123,17 @@ namespace Xsl3.Xdm
     /// An XDM map (XPath 3.1 §2.8.4): immutable; updates share structure with the original. Entries come back in
     /// the order they were added (the order is implementation-dependent; this one is at least deterministic).
     /// </summary>
-    internal sealed class XdmMap : XdmFunction
+    internal sealed class MapItem : FunctionItem
     {
         private readonly record struct Entry(AtomicValue Key, IList<XPathItem> Value, long Order);
 
         private static long s_order;
 
-        public static readonly XdmMap Empty = new(ImmutableDictionary<MapKey, Entry>.Empty);
+        public static readonly MapItem Empty = new(ImmutableDictionary<MapKey, Entry>.Empty);
 
         private readonly ImmutableDictionary<MapKey, Entry> _entries;
 
-        private XdmMap(ImmutableDictionary<MapKey, Entry> entries)
+        private MapItem(ImmutableDictionary<MapKey, Entry> entries)
         {
             _entries = entries;
         }
@@ -167,16 +167,16 @@ namespace Xsl3.Xdm
         }
 
         // A replaced entry keeps its place.
-        public XdmMap Put(AtomicValue key, IList<XPathItem> value)
+        public MapItem Put(AtomicValue key, IList<XPathItem> value)
         {
             var k = new MapKey(key);
             long order = _entries.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
             return new(_entries.SetItem(k, new Entry(key, value, order)));
         }
 
-        public XdmMap Remove(AtomicValue key) => new(_entries.Remove(new MapKey(key)));
+        public MapItem Remove(AtomicValue key) => new(_entries.Remove(new MapKey(key)));
 
-        public static XdmMap Of(IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> entries)
+        public static MapItem Of(IEnumerable<KeyValuePair<AtomicValue, IList<XPathItem>>> entries)
         {
             var builder = ImmutableDictionary.CreateBuilder<MapKey, Entry>();
             foreach (var e in entries)
@@ -185,7 +185,7 @@ namespace Xsl3.Xdm
                 long order = builder.TryGetValue(k, out Entry existing) ? existing.Order : System.Threading.Interlocked.Increment(ref s_order);
                 builder[k] = new Entry(e.Key, e.Value, order);
             }
-            return new XdmMap(builder.ToImmutable());
+            return new MapItem(builder.ToImmutable());
         }
 
         public override int Arity => 1;
@@ -198,18 +198,18 @@ namespace Xsl3.Xdm
     }
 
     /// <summary>An XDM array (XPath 3.1 §2.8.5): immutable; its members are sequences.</summary>
-    internal sealed class XdmArray : XdmFunction
+    internal sealed class ArrayItem : FunctionItem
     {
-        public static readonly XdmArray Empty = new(ImmutableList<IList<XPathItem>>.Empty);
+        public static readonly ArrayItem Empty = new(ImmutableList<IList<XPathItem>>.Empty);
 
         private readonly ImmutableList<IList<XPathItem>> _members;
 
-        private XdmArray(ImmutableList<IList<XPathItem>> members)
+        private ArrayItem(ImmutableList<IList<XPathItem>> members)
         {
             _members = members;
         }
 
-        public static XdmArray Of(IEnumerable<IList<XPathItem>> members) => new(ImmutableList.CreateRange(members));
+        public static ArrayItem Of(IEnumerable<IList<XPathItem>> members) => new(ImmutableList.CreateRange(members));
 
         public int Count => _members.Count;
 
@@ -221,19 +221,19 @@ namespace Xsl3.Xdm
         public IList<XPathItem> Get(BigInteger position) =>
             position >= 1 && position <= Count ? _members[(int)position - 1] : throw new XdmException("FOAY0001", $"Array index {position} is out of bounds (the array has {Count} members)");
 
-        public XdmArray Append(IList<XPathItem> member) => new(_members.Add(member));
+        public ArrayItem Append(IList<XPathItem> member) => new(_members.Add(member));
 
-        public XdmArray Put(BigInteger position, IList<XPathItem> member)
+        public ArrayItem Put(BigInteger position, IList<XPathItem> member)
         {
             Get(position);
             return new(_members.SetItem((int)position - 1, member));
         }
 
-        public XdmArray Insert(int index, IList<XPathItem> member) => new(_members.Insert(index, member));
+        public ArrayItem Insert(int index, IList<XPathItem> member) => new(_members.Insert(index, member));
 
-        public XdmArray RemoveAt(int index) => new(_members.RemoveAt(index));
+        public ArrayItem RemoveAt(int index) => new(_members.RemoveAt(index));
 
-        public XdmArray Sub(int start, int length) => new(_members.GetRange(start, length));
+        public ArrayItem Sub(int start, int length) => new(_members.GetRange(start, length));
 
         public override int Arity => 1;
 

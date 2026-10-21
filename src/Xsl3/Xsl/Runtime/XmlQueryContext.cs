@@ -404,7 +404,7 @@ namespace Xsl3.Runtime
                 handler(label, string.Join(", ", System.Linq.Enumerable.Select(value, item => item switch
                 {
                     XPathNavigator node => node.NodeType == XPathNodeType.Root ? node.InnerXml : node.OuterXml,
-                    Xdm.XdmFunction function => function.Describe(),
+                    Xdm.FunctionItem function => function.Describe(),
                     _ => item.Value,
                 })));
             }

@@ -19,13 +19,13 @@ namespace Xsl3.Xdm
             {
                 case AtomicValue a:
                     return a;
-                case XdmArray array:
+                case ArrayItem array:
                 {
                     // An array atomizes to its members' atomized values: here exactly one is expected.
                     IList<XPathItem> atoms = Atomize(Flatten(array));
                     return atoms.Count == 1 ? (AtomicValue)atoms[0] : throw Err.XPTY0004($"{array.Describe()} atomizes to {atoms.Count} values where one is expected");
                 }
-                case XdmFunction f:
+                case FunctionItem f:
                     throw new XdmException("FOTY0013", $"{f.Describe()} can't be atomized");
                 case XPathNavigator n:
                     // Without schema validation every node is untyped: comments, PIs and namespace nodes have
@@ -48,7 +48,7 @@ namespace Xsl3.Xdm
                 if (item is not AtomicValue)
                 {
                     alreadyAtomic = false;
-                    arrays |= item is XdmArray;
+                    arrays |= item is ArrayItem;
                 }
             }
             if (alreadyAtomic)
@@ -60,7 +60,7 @@ namespace Xsl3.Xdm
                 var flat = new List<XPathItem>(seq.Count);
                 foreach (XPathItem item in seq)
                 {
-                    if (item is XdmArray array)
+                    if (item is ArrayItem array)
                     {
                         flat.AddRange(Atomize(Flatten(array)));
                     }
@@ -124,7 +124,7 @@ namespace Xsl3.Xdm
             {
                 return true;
             }
-            if (first is XdmFunction fn)
+            if (first is FunctionItem fn)
             {
                 throw new XdmException("FORG0006", $"The effective boolean value of {fn.Describe()} is not defined");
             }
@@ -149,14 +149,14 @@ namespace Xsl3.Xdm
         public static string StringValue(XPathItem item) => item is AtomicValue a ? a.Value : item.Value;
 
         /// <summary>An array's members, concatenated (array:flatten one level deep, recursively for nested arrays).</summary>
-        public static IList<XPathItem> Flatten(XdmArray array)
+        public static IList<XPathItem> Flatten(ArrayItem array)
         {
             var result = new List<XPathItem>();
             foreach (IList<XPathItem> member in array.Members)
             {
                 foreach (XPathItem item in member)
                 {
-                    if (item is XdmArray inner)
+                    if (item is ArrayItem inner)
                     {
                         result.AddRange(Flatten(inner));
                     }

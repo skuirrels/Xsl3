@@ -121,7 +121,7 @@ namespace Xsl3.XPath31.Functions
             Define("fn:parse-xml($arg as xs:string?) as document-node(element(*))?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: false, c)));
             Define("fn:parse-xml-fragment($arg as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: true, c)));
             Define("fn:serialize($arg as item()*) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], (XPathNavigator?)null)));
-            Define("fn:serialize($arg as item()*, $params as item()?) as xs:string", (c, a) => Str(a[1] is [XdmMap map]
+            Define("fn:serialize($arg as item()*, $params as item()?) as xs:string", (c, a) => Str(a[1] is [MapItem map]
                 ? Serializer.Serialize(a[0], map)
                 : a[1] is [] or [XPathNavigator { NodeType: XPathNodeType.Element }]
                     ? Serializer.Serialize(a[0], Node(a[1]))
