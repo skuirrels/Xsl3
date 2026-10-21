@@ -145,6 +145,12 @@ namespace Xsl3.Xslt
                 foreach (DecimalFormatDecl format in DecimalFormats)
                 {
                     int[] cp = format.CodePoints;
+                    if (cp[4] is var zeroDigit && (System.Globalization.CharUnicodeInfo.GetDecimalDigitValue(char.ConvertFromUtf32(zeroDigit), 0) != 0))
+                    {
+                        // zero-digit must be a digit whose value is zero (XTSE1295).
+                        ReportError(format.Line ?? SourceLineInfo.NoSource, SR.Xml_UserException, $"XTSE1295: the zero-digit of the decimal format {format.Name} is not a digit with value zero");
+                        continue;
+                    }
                     var signs = new[] { cp[0], cp[1], cp[2], cp[3], cp[5], cp[6], format.Exponent };
                     if (System.Linq.Enumerable.Count(System.Linq.Enumerable.Distinct(signs)) != signs.Length || cp[4] is var zero && System.Linq.Enumerable.Any(signs, c => c >= zero && c <= zero + 9))
                     {

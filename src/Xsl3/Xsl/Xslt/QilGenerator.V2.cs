@@ -396,7 +396,8 @@ namespace Xsl3.Xslt
                 case ("current-merge-key", 0):
                     if (_currentMerge31 is not var (group, key, sources, names))
                     {
-                        return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3480"), _f.String($"{name.LocalName}() is absent outside xsl:merge-action"));
+                        // (XTDE3480 for current-merge-group(), XTDE3510 for current-merge-key().)
+                        return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String(name.LocalName == "current-merge-key" ? "XTDE3510" : "XTDE3480"), _f.String($"{name.LocalName}() is absent outside xsl:merge-action"));
                     }
                     if (name.LocalName == "current-merge-key")
                     {
@@ -1016,7 +1017,7 @@ namespace Xsl3.Xslt
             QilNode context = num.V2?.Select != null ? CompileXPath31(num.V2.Select)
                 : FocusAbsent ? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTTE0990"), _f.String("xsl:number has no context item to number"))
                 : GetCurrentNode();
-            QilIterator node = _f.Let(Node31(context, "XTTE0990"));
+            QilIterator node = _f.Let(Node31(context, num.V2?.Select != null ? "XTTE1000" : "XTTE0990"));
             _nodeContext31 = node;
             QilNode? countPattern = num.Count != null ? CompileNumberPattern(num.Count) : null;
             QilNode? fromPattern = num.From != null ? CompileNumberPattern(num.From) : null;
@@ -1458,6 +1459,12 @@ namespace Xsl3.Xslt
             int varScope = _varHelper.StartVariables();
             // XSLT 3.0 applies templates to any items (§6.8): those that aren't nodes go to the item matcher.
             QilNode selected = CompileXPath31(node.Select);
+            if (node.DefaultSelect && !FocusAbsent && GetCurrentNode() is var current && !current.XmlType!.IsSubtypeOf(T.NodeNotRtf))
+            {
+                // Without select, the context item must be a node (XTTE0510; not the axis step's XPTY0020).
+                selected = _f.Conditional(_f.IsType(current, T.NodeNotRtf), selected,
+                    _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTTE0510"), _f.String("xsl:apply-templates without select needs a node as the context item")), selected.XmlType!));
+            }
             QilIterator select = _f.Let(selected.XmlType!.IsSubtypeOf(T.NodeNotRtfS) ? selected : Box(selected));
             _varHelper.AddVariable(select);
             for (int i = 0; i < content.Count; i++)

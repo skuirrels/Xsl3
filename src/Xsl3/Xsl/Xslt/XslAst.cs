@@ -450,6 +450,9 @@ namespace Xsl3.Xslt
         public readonly ISourceLineInfo? ElemNameLi;
         public readonly ISourceLineInfo? EndTagLi;
 
+        // Xsl3: xsl:apply-templates without a select attribute (its context item must be a node, XTTE0510).
+        public bool DefaultSelect;
+
         public XslNodeEx(XslNodeType t, QilName? name, object? arg, ContextInfo ctxInfo, XslVersion xslVer)
             : base(t, name, arg, xslVer)
         {

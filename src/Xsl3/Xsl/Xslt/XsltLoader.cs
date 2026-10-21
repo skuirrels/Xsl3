@@ -2180,14 +2180,15 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_applyTemplatesAttributes);
 
-            string select = ParseStringAttribute(0, "select") ?? "node()";
+            string? explicitSelect = ParseStringAttribute(0, "select");
+            string select = explicitSelect ?? "node()";
             QilName mode = ParseModeAttribute(1);
 
             List<XslNode> content = LoadWithParams(InstructionFlags.AllowSort);
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ApplyTemplates(mode, select, ctxInfo, _input.XslVersion),
-                content, ctxInfo
-            );
+            XslNodeEx applyTemplates = F.ApplyTemplates(mode, select, ctxInfo, _input.XslVersion);
+            applyTemplates.DefaultSelect = explicitSelect == null;
+            return SetInfo(applyTemplates, content, ctxInfo);
         }
 
         // http://www.w3.org/TR/xslt#named-templates
