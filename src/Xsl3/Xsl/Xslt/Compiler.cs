@@ -270,7 +270,8 @@ namespace Xsl3.Xslt
             }
         }
 
-        public bool ParseQName(string qname, out string prefix, out string localName, IErrorHelper errorHelper)
+        /// <param name="code">Xsl3: the 2.0+ error code (XTDE0820 for a static xsl:element name, XTDE0850 for xsl:attribute's).</param>
+        public bool ParseQName(string qname, out string prefix, out string localName, IErrorHelper errorHelper, string code = "XTSE0020")
         {
             Debug.Assert(qname != null);
             try
@@ -282,7 +283,7 @@ namespace Xsl3.Xslt
             {
                 // Xsl3: in 2.0+ an attribute value that isn't a QName is XTSE0020.
                 if (Version == 2)
-                    errorHelper.ReportError(SR.Xml_UserException, "XTSE0020: " + e.Message);
+                    errorHelper.ReportError(SR.Xml_UserException, code + ": " + e.Message);
                 else
                     errorHelper.ReportError(/*[XT_042]*/e.Message, null);
                 prefix = PhantomNCName;

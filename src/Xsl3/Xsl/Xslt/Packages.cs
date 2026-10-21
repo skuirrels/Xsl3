@@ -186,7 +186,8 @@ namespace Xsl3.Xslt
             foreach (var c in components.Where(c => c.Package == p.Id && c.OverrideOf < 0))
             {
                 string visibility = OwnVisibility(compiler, p, c.Kind, c.Ns, c.Local, c.Arity, c.Decl);
-                if (visibility == "abstract" && p.Id == 0 && p.IsPackage)
+                // (Made abstract only by xsl:expose, it is XTSE3025, reported by OwnVisibility.)
+                if (visibility == "abstract" && p.Id == 0 && p.IsPackage && (c.Kind == 'M' ? (c.Decl as ModeDeclNode)?.Visibility : c.Decl.Visibility) == "abstract")
                 {
                     Error(c.Decl.SourceLine, $"XTSE3080: the top-level package contains the abstract component {c.Local}");
                 }

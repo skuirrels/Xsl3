@@ -1854,6 +1854,11 @@ namespace Xsl3.Runtime
             {
                 throw new Xsl3.Xdm.XdmException("XTDE0860", e.Message);
             }
+            catch (XmlException e) when (_runtime.IsXslt2)
+            {
+                // Xsl3: a computed name that isn't a lexical QName (XSLT 3.0 §11.2, §11.3).
+                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute ? "XTDE0850" : "XTDE0820", e.Message);
+            }
 
             // Validate the name parts
             prefix = EnsureValidName(prefix, localName, ns, nodeType);

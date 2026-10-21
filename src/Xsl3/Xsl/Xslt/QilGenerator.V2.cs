@@ -1493,7 +1493,7 @@ namespace Xsl3.Xslt
             if (qilName.NodeType == QilNodeType.LiteralString && (qilNs == null || qilNs.NodeType == QilNodeType.LiteralString))
             {
                 string name = (string)(QilLiteral)qilName;
-                bool isValid = _compiler.ParseQName(name, out string prefix, out string local, (IErrorHelper)this);
+                bool isValid = _compiler.ParseQName(name, out string prefix, out string local, (IErrorHelper)this, "XTDE0850");
                 string nsUri = qilNs == null ? (isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix) : _compiler.CreatePhantomNamespace()) : (string)(QilLiteral)qilNs;
                 if (name == "xmlns" || local == "xmlns" && nsUri.Length == 0)
                 {

@@ -1176,7 +1176,7 @@ namespace Xsl3.Xslt
                 string name = (string)(QilLiteral)qilName;
                 string prefix, local, nsUri;
 
-                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this);
+                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this, "XTDE0820");
 
                 if (qilNs == null)
                 {
@@ -1244,7 +1244,7 @@ namespace Xsl3.Xslt
                 string name = (string)(QilLiteral)qilName;
                 string prefix, local, nsUri;
 
-                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this);
+                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this, "XTDE0850");
 
                 if (qilNs == null)
                 {
