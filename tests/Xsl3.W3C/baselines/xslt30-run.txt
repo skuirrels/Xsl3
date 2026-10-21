@@ -24,7 +24,6 @@ try/try-034
 unparsed-entity-uri/unparsed-entity-50
 use-package/use-package-108
 use-package/use-package-108b
-validation/validation-0108
 validation/validation-0201
 validation/validation-0202
 validation/validation-0214

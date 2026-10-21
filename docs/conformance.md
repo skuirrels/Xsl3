@@ -125,6 +125,7 @@ has the history.
 | 2026-10-21 | 8,829 | 38 | 42 | 99.6% | XTSE3105 for `typed="strict"` modes; string functions atomize typed nodes, and `string-length()` and `normalize-space()` take the string value (schema-aware tests 827 passed, 17 failed); `CompileToAssembly` refuses a stylesheet that imports schemas |
 | 2026-10-21 | 8,832 | 35 | 42 | 99.6% | `copy-of()` and `snapshot()` keep type annotations and accumulator values; elements made with `validation="preserve"` are `xs:anyType` |
 | 2026-10-21 | 8,838 | 29 | 42 | 99.7% | An override's types match when they name union types with the same members; a strip parent strips the annotations of constructed attributes and elements in it; members of a union with list members don't derive from it; `typed="lax"` modes read a declared element name as `schema-element(N)`; keys compare QNames and NOTATIONs by expanded name. Schema-aware tests: 836 passed, 8 failed (99.1%) |
+| 2026-10-22 | 8,839 | 28 | 42 | 99.7% | An element validated with `type="xs:untypedAtomic"` is annotated `xs:untypedAtomic`. Schema-aware tests: 837 passed, 7 failed (99.2%) |
 
 ### P5 exit sets
 

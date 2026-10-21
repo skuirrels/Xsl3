@@ -113,7 +113,14 @@ namespace Xsl3.Runtime
                             throw new XdmException("XTTE1540", $"{e.Name} has element content, so it isn't valid as xs:untypedAtomic");
                         }
                     }
-                    return items;
+                    // (Elements are annotated xs:untypedAtomic; attributes stay untyped, which is the same.)
+                    var annotated = new XPathItem[items.Count];
+                    for (int i = 0; i < annotated.Length; i++)
+                    {
+                        annotated[i] = items[i] is XPathNavigator { NodeType: XPathNodeType.Element } element
+                            ? NodeValidator.Validate(element, schemas, strict: true, SchemaTypes.UntypedAtomic) : items[i];
+                    }
+                    return annotated;
                 }
                 schemaType = name.Namespace == XmlSchema.Namespace
                     ? (name.Name == "anyType" ? SchemaTypes.AnyType : XmlSchemaType.GetBuiltInSimpleType(name))

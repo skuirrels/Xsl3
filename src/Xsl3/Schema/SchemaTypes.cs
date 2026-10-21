@@ -72,6 +72,9 @@ namespace Xsl3.Schema
         /// <summary>xs:anyType.</summary>
         public static readonly XmlSchemaComplexType AnyType = XmlSchemaType.GetBuiltInComplexType(new XmlQualifiedName("anyType", XmlSchema.Namespace))!;
 
+        /// <summary>xs:untypedAtomic, the annotation of an element validated with type="xs:untypedAtomic" (.NET names it in the 2003 xpath-datatypes namespace).</summary>
+        public static readonly XmlSchemaSimpleType UntypedAtomic = XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.UntypedAtomic)!;
+
         public static bool IsBuiltIn(XmlSchemaType type) => type.QualifiedName.Namespace == XmlSchema.Namespace;
 
         /// <summary>The atomic type of a simple type of atomic variety, built-in or a schema's; null for any other type.</summary>
