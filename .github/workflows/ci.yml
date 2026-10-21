@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # (labeled: the perf-accepted label re-runs the checks with the perf gate advisory.)
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
@@ -91,10 +93,13 @@ jobs:
 
   # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
   # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric
-  # mean) or more than 5% more allocation in any benchmark. The results are in the perf artifact.
+  # mean) or more than 5% more allocation in any benchmark. The results are in the perf artifact. A deliberate trade
+  # (more compile allocation for a faster transform, say) is accepted by the owner with the perf-accepted label, which
+  # makes this job advisory.
   perf:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    continue-on-error: ${{ contains(github.event.pull_request.labels.*.name, 'perf-accepted') }}
     steps:
       - uses: actions/checkout@v4
         with:

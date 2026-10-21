@@ -371,9 +371,9 @@ public sealed class Runner
             {
                 sb.Append(nav.NodeType switch
                 {
-                    XPathNodeType.Root => nav.InnerXml,
+                    XPathNodeType.Root => Markup(nav, inner: true),
                     XPathNodeType.Attribute => $"{nav.Name}=\"{System.Security.SecurityElement.Escape(nav.Value)}\"",
-                    _ => nav.OuterXml,
+                    _ => Markup(nav, inner: false),
                 });
                 lastAtomic = false;
             }
@@ -385,6 +385,28 @@ public sealed class Runner
                 }
                 sb.Append(System.Security.SecurityElement.Escape(item.Value));
                 lastAtomic = true;
+            }
+        }
+        return sb.ToString();
+    }
+
+    // A node's markup with carriage returns as references, so that parsing it back for a comparison keeps them.
+    private static string Markup(XPathNavigator nav, bool inner)
+    {
+        var sb = new StringBuilder();
+        using (XmlWriter w = XmlWriter.Create(sb, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true, NewLineHandling = NewLineHandling.Entitize }))
+        {
+            if (!inner)
+            {
+                w.WriteNode(nav, defattr: true);
+            }
+            else if (nav.Clone() is XPathNavigator child && child.MoveToFirstChild())
+            {
+                do
+                {
+                    w.WriteNode(child, defattr: true);
+                }
+                while (child.MoveToNext());
             }
         }
         return sb.ToString();

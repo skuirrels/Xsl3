@@ -483,7 +483,9 @@ regex is still the slowest per byte: `xsl:analyze-string` and `replace` per orde
 **The CI gate.** `eng/perf-gate.sh <base>` builds this checkout's harness against the base commit's Xsl3 and against
 this checkout's. It runs the suite alternately on each, three rounds in CI, so runner noise hits both. It fails when
 the geometric mean of the time ratios grows by more than 5%, or when any benchmark allocates more than 5% (and 1 KB)
-more. Allocation is near-deterministic, so it is the sharper test; cold start is reported but not gated. CI's `perf`
+more. Allocation is near-deterministic, so it is the sharper test; cold start is reported but not gated. A deliberate
+trade, such as automatic indexing compiling three forms of an indexed path (the join stylesheet's compile allocation
+up 18% for a transform 100 times faster), fails the gate until the owner labels the pull request `perf-accepted`. CI's `perf`
 job runs it on every pull request against the target branch. `perf-nightly.yml` runs the suite at all three sizes
 and the rewritten pairs every night, as an artifact. `micro --alloc-types` adds the runtime's allocation samples by
 type to each row, which is how the compile allocation above was found.

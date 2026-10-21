@@ -280,11 +280,11 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21824 passed, 60 failed, 99 not run; 99.7% of those run (86 passes raised a different error code)**
+**QT3 (XPath 3.1): 21843 passed, 41 failed, 99 not run; 99.8% of those run (87 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
-| feature higherOrderFunctions | 1806 | 34 | 0 | 98.2% |
+| feature higherOrderFunctions | 1820 | 20 | 0 | 98.9% |
 | feature infoset-dtd | 27 | 0 | 0 | 100.0% |
 | feature namespace-axis | 36 | 0 | 0 | 100.0% |
 | spec XP20 | 7 | 0 | 0 | 100.0% |
@@ -292,7 +292,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | spec XP30 | 7 | 0 | 0 | 100.0% |
 | spec XP30+ | 4068 | 10 | 5 | 99.8% |
 | spec XP31 | 91 | 0 | 0 | 100.0% |
-| spec XP31+ | 2481 | 49 | 22 | 98.1% |
+| spec XP31+ | 2500 | 30 | 22 | 98.8% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -301,7 +301,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | app-UseCaseNLP | 0 | 1 | 0 | 0.0% |
 | app-UseCaseSEQ | 1 | 0 | 0 | 100.0% |
 | app-UseCaseSTRING | 1 | 0 | 0 | 100.0% |
-| app-spec-examples | 549 | 1 | 0 | 99.8% |
+| app-spec-examples | 550 | 0 | 0 | 100.0% |
 | array-append | 8 | 0 | 0 | 100.0% |
 | array-filter | 12 | 0 | 0 | 100.0% |
 | array-flatten | 7 | 0 | 0 | 100.0% |
@@ -394,8 +394,8 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-innermost | 53 | 0 | 0 | 100.0% |
 | fn-insert-before | 43 | 0 | 0 | 100.0% |
 | fn-iri-to-uri | 46 | 0 | 0 | 100.0% |
-| fn-json-doc | 65 | 3 | 0 | 95.6% |
-| fn-json-to-xml | 73 | 6 | 0 | 92.4% |
+| fn-json-doc | 68 | 0 | 0 | 100.0% |
+| fn-json-to-xml | 79 | 0 | 0 | 100.0% |
 | fn-lang | 38 | 0 | 0 | 100.0% |
 | fn-last | 54 | 0 | 0 | 100.0% |
 | fn-load-xquery-module | 14 | 0 | 0 | 100.0% |
@@ -425,7 +425,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-one-or-more | 53 | 0 | 0 | 100.0% |
 | fn-outermost | 52 | 0 | 0 | 100.0% |
 | fn-parse-ietf-date | 105 | 0 | 0 | 100.0% |
-| fn-parse-json | 139 | 8 | 0 | 94.6% |
+| fn-parse-json | 147 | 0 | 0 | 100.0% |
 | fn-parse-xml | 17 | 0 | 0 | 100.0% |
 | fn-parse-xml-fragment | 25 | 0 | 0 | 100.0% |
 | fn-path | 15 | 0 | 0 | 100.0% |
@@ -471,7 +471,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-unparsed-text-lines | 52 | 0 | 0 | 100.0% |
 | fn-upper-case | 28 | 0 | 0 | 100.0% |
 | fn-uri-collection | 7 | 0 | 0 | 100.0% |
-| fn-xml-to-json | 81 | 1 | 0 | 98.8% |
+| fn-xml-to-json | 82 | 0 | 0 | 100.0% |
 | fn-year-from-date | 27 | 0 | 0 | 100.0% |
 | fn-year-from-dateTime | 27 | 0 | 0 | 100.0% |
 | fn-years-from-duration | 31 | 0 | 0 | 100.0% |

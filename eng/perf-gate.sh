@@ -3,6 +3,7 @@
 # on this checkout's Xsl3 against a base commit's, in the same job, alternating rounds so runner noise hits both.
 # The same harness and stylesheets run on both sides: this checkout's bench/ is built against the base's src/.
 # Fails when the time's geometric mean grows by more than 5% or a benchmark allocates more than 5% more.
+# In CI a pull request labelled perf-accepted (the owner's call) makes a failure advisory.
 # Usage: eng/perf-gate.sh [base-ref] [rounds]   (default origin/main, 3 rounds)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
