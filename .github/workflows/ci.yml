@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request supersedes the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     strategy:
@@ -83,3 +88,29 @@ jobs:
 
       - name: Run it
         run: artifacts/aot/Xsl3.AotSample
+
+  # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
+  # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric
+  # mean) or more than 5% more allocation in any benchmark. The results are in the perf artifact.
+  perf:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Micro suite against the base branch
+        run: eng/perf-gate.sh origin/${{ github.base_ref }} 3
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf
+          path: artifacts/perf

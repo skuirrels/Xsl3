@@ -1,0 +1,40 @@
+name: Performance (nightly)
+
+# The full benchmark corpus (remaining-scope 1.7): the XSLT 3.0 micro suite at 1 KB, 1 MB and 100 MB, and the rewritten
+# pairs against stock System.Xml.Xsl. Recorded as an artifact; the gate on pull requests is ci.yml's perf job.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - run: dotnet build bench/Xsl3.Benchmarks -c Release -f net10.0
+
+      - name: Micro suite
+        run: |
+          mkdir -p artifacts/perf
+          dotnet bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll micro --sizes 1kb,1mb,100mb --json artifacts/perf/micro.json | tee artifacts/perf/micro.txt
+
+      - name: Rewritten pairs
+        run: dotnet bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll pairs | tee artifacts/perf/pairs.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-nightly
+          path: artifacts/perf
