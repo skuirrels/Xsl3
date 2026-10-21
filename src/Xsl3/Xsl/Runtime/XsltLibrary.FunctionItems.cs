@@ -274,7 +274,9 @@ namespace Xsl3.Runtime
             {
                 items = CallFunction((XdmFunction)body[0]);
             }
-            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _))
+            // Errors the stylesheet raises itself (fn:error, a terminating xsl:message, xsl:assert) still end it.
+            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _)
+                && !(e is XdmException { Name: not null } or XdmException { Code: "FOER0000" } || code.LocalName.StartsWith("XTMM", System.StringComparison.Ordinal)))
             {
                 _runtime.RestoreOutput(output);
                 return $"[the content of xsl:message raised {code.LocalName}: {description}]";

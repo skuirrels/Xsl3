@@ -10,18 +10,23 @@ on:
 
 permissions:
   contents: read
-  id-token: write # the OIDC token nuget.org exchanges for a short-lived API key
 
+# Actions are pinned to commit SHAs (the tag they were taken from is in the comment).
 jobs:
-  publish:
+  # Builds, tests and packs with no publishing credentials.
+  build:
     runs-on: ubuntu-latest
-    # Must match the environment in the nuget.org trusted-publishing policy; its protection rules (a required
-    # reviewer) gate every release.
-    environment: nuget
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - name: The tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::Release tags must point at a commit on main"; exit 1; }
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: |
             8.0.x
@@ -58,14 +63,34 @@ jobs:
           -p:ContinuousIntegrationBuild=true
           -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages
           path: artifacts/packages
 
+  # Publishes what the build job packed; only this job can mint a NuGet key.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Must match the environment in the nuget.org trusted-publishing policy; its protection rules (a required
+    # reviewer) gate every release.
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write # the OIDC token nuget.org exchanges for a short-lived API key
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: packages
+          path: artifacts/packages
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+
       - name: NuGet login (trusted publishing)
         id: login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ vars.NUGET_USER }}
 
@@ -74,3 +99,4 @@ jobs:
           dotnet nuget push "artifacts/packages/*.nupkg"
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

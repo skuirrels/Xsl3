@@ -38,7 +38,8 @@ choices for the W3C suites.
 | Schema-awareness (XSLT 3.0 §27.3) | `xsl:import-schema` raises XTSE1650; `validation="strict"`/`"lax"` and `type` raise XTSE1660; `schema-element()` and `schema-attribute()` raise XPST0008 | P6 |
 | Streaming (§27.4) | `streamable="yes"` is checked and otherwise ignored: the input is read into a tree | P7 |
 | Backwards-compatible behaviour (§3.9) | not claimed: whole 1.0 stylesheets run on the XSLT 1.0 engine, byte for byte as stock, but the 1.0 rules for a `version="1.0"` region inside a 2.0+ stylesheet are incomplete (the 122 `backwards_compatibility` tests don't run) | remaining-scope 4.6 |
-| `fn:transform`, `fn:random-number-generator` | not available (XPST0017) | remaining-scope 5 |
+| `fn:transform` | not available (XPST0017) | remaining-scope 5 |
+| `fn:random-number-generator` | the unseeded generator is seeded once per transformation, so its numbers differ between runs | |
 | XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | not planned |
 | `xsl:stylesheet` found through an `<?xml-stylesheet?>` processing instruction | not supported | remaining-scope 4.6 |
 
@@ -54,12 +55,14 @@ choices for the W3C suites.
 | `xsl:assert` | ignored unless `XsltSettings.EnableAssertions`; a computed `error-code` isn't supported (XTSE0020) |
 | Default language, numbering languages | `en` (also `de` month and day names); others fall back to English |
 | Calendars | AD and ISO |
-| Year range | above 9999 and negative years; no year zero (XSD 1.0) |
+| Year range | above 9999 and negative years, up to ±(2^31 − 1) (FODT0001 beyond); no year zero (XSD 1.0) |
+| Errors known statically | an unknown literal `collation` on `xsl:sort` (XTDE1035) is reported when the stylesheet is compiled, as XSLT 3.0 §2.14 allows |
+| Document access (`fn:doc`, `fn:unparsed-text`, `fn:json-doc`, `xsl:source-document`) | refused unless `XsltSettings.EnableDocumentFunction`, as `document()` is; then through the transformation's resolver |
 | XSD version | 1.0 |
 | `xs:decimal` | .NET `decimal`: 28–29 significant digits; `xs:integer` is unbounded |
 | Implicit timezone | the local timezone |
 | Collations | the codepoint collation, the HTML ASCII case-insensitive collation, and UCA collations (`http://www.w3.org/2013/collation/UCA?…`) mapped onto .NET's culture-aware comparison; other URIs raise FOCH0002 |
-| Regular expression character classes | .NET's Unicode tables, not Unicode 9 (the suite's `regex-classes` and `unicode-90` sets expect 9) |
+| Regular expression character classes | .NET's Unicode tables, newer than the versions the suite's `regex-classes` (Unicode 6.0) and `unicode-90` (Unicode 9.0) sets expect |
 | Unicode normalization forms | NFC, NFD, NFKC, NFKD, `fully-normalized` (as NFC, with SERE0012 for text starting with a combining character), `none` |
 | Empty elements, xml and xhtml methods | written `<a />` (.NET's writer), not `<a/>` |
 | Quotation marks in xhtml attribute values | `&#34;` |

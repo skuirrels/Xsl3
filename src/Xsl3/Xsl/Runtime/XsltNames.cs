@@ -141,8 +141,10 @@ namespace Xsl3.Runtime
 
         public XPathItem X31SystemProperty(string name, double context) => AtomicValue.OfString(NameContext(context).SystemProperty(name));
 
+        // NaN: no arity given. No function has a negative arity or more than 255 parameters.
         public XPathItem X31FunctionAvailable(string name, double arity, double context) =>
-            AtomicValue.OfBoolean(NameContext(context).FunctionAvailable(name, arity < 0 ? null : (int)arity));
+            AtomicValue.OfBoolean(double.IsNaN(arity) ? NameContext(context).FunctionAvailable(name, null)
+                : arity is >= 0 and <= 255 && NameContext(context).FunctionAvailable(name, (int)arity));
 
         public XPathItem X31ElementAvailable(string name, double context) => AtomicValue.OfBoolean(NameContext(context).ElementAvailable(name));
 

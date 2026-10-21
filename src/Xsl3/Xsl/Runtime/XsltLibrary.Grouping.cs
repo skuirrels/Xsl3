@@ -140,6 +140,13 @@ namespace Xsl3.Runtime
             }
             if (!_sortCollations.TryGetValue((collation, lang), out Collation? c))
             {
+                // case-order (passed in the collation the compiler builds for it) is upper-first or lower-first (XTDE0030).
+                const string CaseOrder = Collation.UcaPrefix + "?fallback=yes;caseFirst=";
+                if (collation.StartsWith(CaseOrder, System.StringComparison.Ordinal) && collation[CaseOrder.Length..] is var rest
+                    && !rest.StartsWith("upper-first;", System.StringComparison.Ordinal) && !rest.StartsWith("lower-first;", System.StringComparison.Ordinal))
+                {
+                    throw new XdmException("XTDE0030", $"case-order must be upper-first or lower-first, not '{rest[..System.Math.Max(0, rest.IndexOf(';'))]}'");
+                }
                 // lang must be an xs:language (XTDE0030); an unknown collation is XTDE1035.
                 if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))
                 {

@@ -105,7 +105,7 @@ namespace Xsl3.Xslt
                     case ("function-available", 1):
                     case ("function-available", 2):
                         return XPath31Compiler.Invoke(f, nameof(XsltLibrary.X31FunctionAvailable), T.Item, Name(),
-                            args.Count > 1 ? XPath31Compiler.Invoke(f, nameof(XsltLibrary.X31Integer), T.DoubleX, compile(args[1])) : f.Double(-1), f.Double(names));
+                            args.Count > 1 ? XPath31Compiler.Invoke(f, nameof(XsltLibrary.X31Integer), T.DoubleX, compile(args[1])) : f.Double(double.NaN), f.Double(names));
                     case ("current" or "current-group" or "current-grouping-key" or "regex-group" or "key" or "document" or "unparsed-entity-uri" or "unparsed-entity-public-id", _):
                         // XSLT functions that need a dynamic context aren't available in use-when (XSLT 3.0 §3.13.1).
                         throw new XPathStaticException("XPST0017", $"{name.LocalName}() isn't available in a use-when expression", 0);

@@ -10,23 +10,23 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **Status: alpha, Phase 3 (XSLT 3.0) in progress.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`;
-> XSLT 2.0 is complete; XPath 3.1 with maps, arrays and higher-order functions is in; most of XSLT 3.0 works.
+> **Status: alpha.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1 with maps,
+> arrays and higher-order functions is in; XSLT 3.0 works apart from schema awareness and streaming.
 > Preview builds are published to NuGet as prereleases of [Xsl3](https://www.nuget.org/packages/Xsl3) (see the
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
 
 ## What works
 
-Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md](docs/conformance.md).
+Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md](docs/conformance.md).
 
 | Gate | Result |
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,796 passed, 88 failed (99.6%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 97.3% |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,606 passed, 299 failed, 49 not run (96.2%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,415 passed, 57 failed (98.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,729 passed, 178 failed, 49 not run (97.7%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -95,7 +95,8 @@ Measured on 2026-10-20 (Release build, .NET 10); details in [docs/conformance.md
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
   - XSLT 2.0/3.0 has nearly caught up with 1.0 on stock. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3×
     slower than the 1.0 versions on stock, because the 2.0+ code boxed its values. Typed codegen and a direct result
-    writer have brought that to 0.74–1.03× of stock's time, and it continues until every pair is at or under 1×.
+    writer have brought that to 0.68–1.15× of stock's time (2026-10-21: muenchian and key-join still above 1×), and it
+    continues until every pair is at or under 1×.
   - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
@@ -221,8 +222,8 @@ From [SPEC.md §22](SPEC.md):
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
 | P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks measured at 1.9–4.3× slower than stock (target ≤ 1×), so unboxed 2.0/3.0 codegen is next; Sink B, NativeAOT and the SaxonCS comparison to do |
-| P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); in review on the `p5-evaluate` branch |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.68–1.15× of stock's time (target ≤ 1×; typed codegen and a direct result writer); Sink B (started: lazy IL module), NativeAOT and the SaxonCS comparison to do |
+| P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |
 

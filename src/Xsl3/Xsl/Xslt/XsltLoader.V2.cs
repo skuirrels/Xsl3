@@ -654,15 +654,18 @@ namespace Xsl3.Xslt
             {
                 code = $"QName('{Xdm.XdmException.ErrorNamespace}', 'err:XTMM9001')";
             }
-            else if (errorCode.Contains('{') && !errorCode.TrimStart().StartsWith("Q{", StringComparison.Ordinal))
+            else if (errorCode.Replace("{{", "").Replace("}}", "") is var lone && (lone.Contains('{') || lone.Contains('}'))
+                && !System.Text.RegularExpressions.Regex.IsMatch(errorCode.Trim(), @"^Q\{[^{}]*\}[^{}:]+$"))
             {
-                // An attribute value template, whose value would be resolved against the instruction's namespaces.
+                // An attribute value template with an expression, whose value would be resolved against the
+                // instruction's namespaces. (Q{uri}local is taken as written.)
                 ReportError(SR.Xml_UserException, "XTSE0020: a computed error-code on xsl:assert isn't supported yet");
                 return null;
             }
             else
             {
-                string value = errorCode.Trim();
+                // The attribute's value: {{ and }} stand for braces (Q{{uri}}local is an EQName).
+                string value = (lone.Contains('{') ? errorCode : errorCode.Replace("{{", "{").Replace("}}", "}")).Trim();
                 int colon = value.IndexOf(':');
                 if (value.StartsWith("Q{", StringComparison.Ordinal) && value.IndexOf('}') is int close and > 0)
                 {
@@ -682,8 +685,9 @@ namespace Xsl3.Xslt
             variable.SetContent(content.Count == 0 ? null : content);
             string reference = $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{message.LocalName}";
             XslNode raise = SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
-                $"error({code}, string-join({reference} ! string(.), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
-            XslNode check = F.XslNode(XslNodeType.If, null, $"not({test})", _input.XslVersion);
+                $"error({code}, string-join(for $i in {reference} return if ($i instance of function(*)) then '' else string($i), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
+            // (Parenthesized, so a test that is a sequence expression stays one argument.)
+            XslNode check = F.XslNode(XslNodeType.If, null, $"not(({test}))", _input.XslVersion);
             return SetInfo(check, new List<XslNode> { variable, raise }, ctxInfo);
         }
 

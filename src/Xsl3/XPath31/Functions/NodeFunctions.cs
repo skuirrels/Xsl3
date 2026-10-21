@@ -71,7 +71,7 @@ namespace Xsl3.XPath31.Functions
                     Doc(S(a[0]), c);
                     return Bool(true);
                 }
-                catch (XdmException)
+                catch (XdmException e) when (e.Code is "FODC0002" or "FODC0005")
                 {
                     return Bool(false);
                 }
@@ -331,9 +331,10 @@ namespace Xsl3.XPath31.Functions
             {
                 throw new XdmException("FODC0005", $"'{uri}' has a fragment identifier");
             }
-            if (c.Runtime == null)
+            if (c.Runtime == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
             {
-                throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved");
+                // (Without XsltSettings.EnableDocumentFunction, no document is available.)
+                throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved" + (c.Runtime == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
             }
             try
             {
@@ -344,7 +345,7 @@ namespace Xsl3.XPath31.Functions
                 }
                 return doc;
             }
-            catch (Exception e) when (e is not XdmException && e is not OutOfMemoryException)
+            catch (Exception e) when (e is not XdmException && e is not OutOfMemoryException && e is not OperationCanceledException)
             {
                 throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved: {e.InnerException?.Message ?? e.Message}");
             }
@@ -357,9 +358,9 @@ namespace Xsl3.XPath31.Functions
                 throw new XdmException("FOUT1170", $"'{href}' has a fragment identifier");
             }
             XmlResolver? resolver = c.Runtime?.ExternalContext.DataSources;
-            if (resolver == null)
+            if (resolver == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
             {
-                throw new XdmException("FOUT1170", $"'{href}' can't be retrieved");
+                throw new XdmException("FOUT1170", $"'{href}' can't be retrieved" + (resolver == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
             }
             Encoding? enc = null;
             if (encoding != null)

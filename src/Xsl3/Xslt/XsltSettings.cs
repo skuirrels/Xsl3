@@ -77,7 +77,19 @@ namespace Xsl3
         /// Xsl3: how long a transformation may run; it is then stopped at its next template or function entry with
         /// the error <c>Q{http://xsl3/err}cancelled</c> (SPEC §21.1). Null: no limit.
         /// </summary>
-        public TimeSpan? Timeout { get; set; }
+        public TimeSpan? Timeout
+        {
+            get => _timeout;
+            set
+            {
+                if (value is TimeSpan t && (t <= TimeSpan.Zero || t.TotalMilliseconds > int.MaxValue))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), t, "The timeout must be positive and at most int.MaxValue milliseconds.");
+                }
+                _timeout = value;
+            }
+        }
+        private TimeSpan? _timeout;
 
         /// <summary>
         /// Xsl3: run each transformation on a thread of its own with a stack of <see cref="DedicatedThreadStackSize"/>
@@ -85,8 +97,20 @@ namespace Xsl3
         /// </summary>
         public bool UseDedicatedThread { get; set; }
 
-        /// <summary>Xsl3: the stack size of the thread <see cref="UseDedicatedThread"/> runs on (64 MB by default).</summary>
-        public int DedicatedThreadStackSize { get; set; } = 64 * 1024 * 1024;
+        /// <summary>Xsl3: the stack size of the thread <see cref="UseDedicatedThread"/> runs on, in bytes (64 MB by default; 0 for the process default).</summary>
+        public int DedicatedThreadStackSize
+        {
+            get => _dedicatedThreadStackSize;
+            set
+            {
+                ArgumentOutOfRangeException.ThrowIfNegative(value);
+                _dedicatedThreadStackSize = value;
+            }
+        }
+        private int _dedicatedThreadStackSize = 64 * 1024 * 1024;
+
+        /// <summary>Xsl3: a copy, so a transform keeps the settings it was loaded with.</summary>
+        internal XsltSettings Clone() => (XsltSettings)MemberwiseClone();
 
         [Obsolete(Obsoletions.XsltSettingsEnableScriptMessage, DiagnosticId = Obsoletions.XsltSettingsEnableScriptDiagId, UrlFormat = Obsoletions.SharedUrlFormat)]
         public bool EnableScript

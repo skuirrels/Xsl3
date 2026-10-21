@@ -21,14 +21,14 @@ several sessions can work in parallel without editing the same files. Measured n
 |---|---|---|
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
-| W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,746 passed, 138 failed (99.4%) | ≥ 99% on claimed features (Hardening) |
-| W3C xslt30-test, 3.0 profile | 7,642 passed, 335 failed, 86 not run (95.8%) | ≥ 99% on claimed features (Hardening) |
-| W3C xslt30-test, 2.0 profile | 96.7% | ≥ 99% |
+| W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,801 passed, 83 failed (99.6%) | ≥ 99% on claimed features (Hardening) |
+| W3C xslt30-test, 3.0 profile | 7,729 passed, 178 failed, 49 not run (97.7%) | ≥ 99% on claimed features (Hardening) |
+| W3C xslt30-test, 2.0 profile | 4,415 passed, 57 failed (98.7%) | ≥ 99% |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
-| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.78, sort 0.83, muenchian 0.83, string-recursion 0.74, key-join 1.03 | ≤ 1.0 on every pair (§19.6) |
+| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.80, sort 0.68, muenchian 1.15, string-recursion 0.74, key-join 1.12 (2026-10-21; main measures the same) | ≤ 1.0 on every pair (§19.6) |
 | Compact tree memory | 59% of `XPathDocument` | ≤ 75% (met) |
-| NuGet | 0.6.0-alpha | 1.0 after P4 (§22 release plan) |
+| NuGet | 0.6.0-alpha (0.7.0-alpha next) | 1.0 after P4 (§22 release plan) |
 
 The xslt30-test catalogue has about 14,600 test cases. The 3.0 profile runs about 8,000 of them. Most of the
 rest depend on features Xsl3 doesn't claim yet:
@@ -548,7 +548,9 @@ A sensible sequence:
 | 4.3 `AddParam` CLR mappings | Done for 2.0+ stylesheets |
 | 4.4 Settings | `EnableResultDocument` (with `BaseOutputUri`), `EnableEnvironmentVariables`, `EnableAssertions`, `Timeout`, `UseDedicatedThread`, `XsltArgumentList.CancellationToken`. `MaxRecursionDepth` and `MaxOutputBytes` remain. |
 | 4.6 Missing 3.0 pieces | `xsl:assert` and initial functions (with raw result delivery) done |
-| 5.2 QT3 | `fn:random-number-generator` done; `fn:function-lookup` argument checks |
+| 5.1 xslt30-test | 3.0 profile 95.8% → 97.7%, 2.0 profile 96.7% → 98.7%. Fixed: `regex-group()` in called templates (through the tunnel frame), `xsl:sort` attributes (lang, collation, case-order, current-group hidden), non-terminating `xsl:message` that holds maps or fails, rounding of doubles on their exact value, `xsl:mode` and `xsl:decimal-format` attributes merged by precedence (non-BMP decimal-format characters), XTDE0045, XTDE0050, XTDE0420, XTSE0085, XTTE0990, `deep-equal` and grouping collations, big integers in `xsl:number`, attribute sets and `xsl:next-match`. Left: next-match between union alternatives, copy-namespaces/inherit-namespaces, initial template and mode parameters, absent context items, accumulator applicability, `fn:transform`, DTD-validated inputs (element-content whitespace), package-scoped outputs |
+| 5.2 QT3 | 99.4% → 99.6%: `fn:random-number-generator` (seeded once per transformation), `fn:function-lookup` argument checks |
+| Pre-release audit (2026-10-21) | Four review passes over this branch, then fixes: result documents confined to the base output directory (a directory URI, case-insensitive comparison on Windows and macOS, no symbolic links, never a file system root, a nested transform's own opener), settings taken at `Load` and validated when set, `doc()`/`unparsed-text()`/`json-doc()` gated by `EnableDocumentFunction` (SPEC §21.1), cyclic CLR parameter values refused, secondary result files always closed, `function-available` with impossible arities, rounding overflow, `xsl:assert` EQName error codes, errors raised by the stylesheet inside `xsl:message`, the release workflow split into build and publish jobs with pinned actions. Open: same-precedence conflicts below a higher-precedence `xsl:mode`/`xsl:decimal-format` aren't reported (XTSE0545, XTSE1290); `Timeout` isn't checked inside long regular expressions or pure XPath loops |
 | 5.5 Divergences | Done: the W3C list in docs/divergences.md |
 | 6 `xsl:import-schema` | Raises XTSE1650 |
 | 8.4 Memory test | Fixed: it runs in a child process |

@@ -67,6 +67,7 @@ namespace Xsl3
             OutputSettings = null;
             _qil = null;
             _command = null;
+            _settings = null;
         }
 
         /// <summary>
@@ -136,7 +137,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(stylesheet);
 
             settings ??= XsltSettings.Default;
-            _settings = settings;
+            _settings = settings.Clone();
             CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
             CompilerError? error = GetFirstError();
             if (error != null)
@@ -175,10 +176,18 @@ namespace Xsl3
 
         /// <summary>
         /// Xsl3: the base output URI (XSLT 3.0 §2.3.6): what <c>xsl:result-document</c> resolves a relative href against
-        /// and <c>current-output-uri()</c> returns; with <see cref="XsltSettings.EnableResultDocument"/>, the directory
-        /// secondary results are confined to. <c>Transform(string, string)</c> uses the results file when this is null.
+        /// and <c>current-output-uri()</c> returns. It names the principal result's file (<c>file:///out/main.xml</c>),
+        /// or a directory when it ends with <c>/</c> or names an existing directory. With
+        /// <see cref="XsltSettings.EnableResultDocument"/>, secondary results are confined to that directory and its
+        /// subdirectories, and are not written through symbolic links below it. <c>Transform(string, string)</c> uses
+        /// the results file when this is null. One value serves every <c>Transform</c> call on this instance.
         /// </summary>
-        public Uri? BaseOutputUri { get; set; }
+        public Uri? BaseOutputUri
+        {
+            get => _baseOutputUri;
+            set => _baseOutputUri = value is { IsAbsoluteUri: false } ? throw new ArgumentException("The base output URI must be absolute.", nameof(value)) : value;
+        }
+        private Uri? _baseOutputUri;
 
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
@@ -578,21 +587,24 @@ namespace Xsl3
                 string? savedBase = XmlQueryRuntime.BaseOutputUri;
                 Func<string, Stream>? savedOpener = XmlQueryRuntime.ResultDocumentOpener;
                 bool savedEnvironment = XmlQueryRuntime.EnvironmentVariables;
+                bool? savedDocuments = XmlQueryRuntime.DocumentFunctions;
                 try
                 {
                     if (token.CanBeCanceled)
                     {
                         XmlQueryRuntime.Cancellation = token;
                     }
-                    if (baseOutputUri != null && savedBase == null)
+                    // This transform's own base output URI and file opener, even inside another transform on the
+                    // thread (through an extension object or a resolver); a host's handler (the W3C harness) stays.
+                    if (baseOutputUri != null)
                     {
                         XmlQueryRuntime.BaseOutputUri = baseOutputUri.AbsoluteUri;
                     }
-                    if (settings.EnableResultDocument && XmlQueryRuntime.ResultDocumentHandler == null && savedOpener == null)
-                    {
-                        XmlQueryRuntime.ResultDocumentOpener = ResultFileOpener(XmlQueryRuntime.BaseOutputUri);
-                    }
+                    XmlQueryRuntime.ResultDocumentOpener = settings.EnableResultDocument && XmlQueryRuntime.ResultDocumentHandler == null
+                        ? ResultFileOpener(XmlQueryRuntime.BaseOutputUri)
+                        : null;
                     XmlQueryRuntime.EnvironmentVariables = settings.EnableEnvironmentVariables;
+                    XmlQueryRuntime.DocumentFunctions = settings.EnableDocumentFunction;
                     transform();
                 }
                 finally
@@ -601,6 +613,7 @@ namespace Xsl3
                     XmlQueryRuntime.BaseOutputUri = savedBase;
                     XmlQueryRuntime.ResultDocumentOpener = savedOpener;
                     XmlQueryRuntime.EnvironmentVariables = savedEnvironment;
+                    XmlQueryRuntime.DocumentFunctions = savedDocuments;
                 }
             }
             if (!settings.UseDedicatedThread)
@@ -636,11 +649,30 @@ namespace Xsl3
             {
                 throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under the base output URI (XslCompiledTransform.BaseOutputUri); can't write {uri}");
             }
-            string directory = Path.GetDirectoryName(Path.GetFullPath(new Uri(baseOutputUri).LocalPath))!;
+            string basePath = Path.GetFullPath(new Uri(baseOutputUri).LocalPath);
+            // A directory when it says so (a trailing separator) or exists as one; else the principal result's file.
+            string directory = Path.EndsInDirectorySeparator(basePath) || Directory.Exists(basePath)
+                ? Path.TrimEndingDirectorySeparator(basePath)
+                : Path.GetDirectoryName(basePath) ?? "";
+            if (directory.Length == 0 || Path.GetPathRoot(directory) is string root && Path.TrimEndingDirectorySeparator(root) == directory)
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results aren't written under a file system root ({basePath})");
+            }
             string file = Path.GetFullPath(target.LocalPath);
-            if (!file.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            // Windows and macOS file systems are usually case-insensitive.
+            StringComparison comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            if (!file.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, comparison))
             {
                 throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results are written only under {directory}; can't write {file}");
+            }
+            // Not through a symbolic link (or junction) below the directory, which could lead out of it.
+            for (string? path = file; path != null && path.Length > directory.Length; path = Path.GetDirectoryName(path))
+            {
+                FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+                if (info.Exists && info.LinkTarget != null)
+                {
+                    throw new Xsl3.Xdm.XdmException("XTDE1480", $"Secondary results aren't written through the symbolic link {path}");
+                }
             }
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             return new FileStream(file, FileMode.Create, FileAccess.Write, FileShare.Read);

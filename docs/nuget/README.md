@@ -40,15 +40,31 @@ Targets .NET 8 and .NET 10.
 | | |
 |---|---|
 | XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
-| XPath 3.1 | 99.4% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,642 of the 7,977 applicable W3C xslt30-test cases pass (95.8%) |
+| XPath 3.1 | 99.6% of the W3C QT3 tests that apply |
+| XSLT 2.0 / 3.0 | 7,729 of the 7,907 applicable W3C xslt30-test cases pass (97.7%); 98.7% of the XSLT 2.0 profile |
 | Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
 templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,
 `xsl:override`), the JSON functions, and json and adaptive output.
 
-Not yet: schema awareness and streaming. `xsl:evaluate` is off unless `XsltSettings.EnableEvaluate` is set.
+Not yet: schema awareness and streaming.
+
+## Secure by default
+
+What a stylesheet can reach beyond its input is opt-in, through `XsltSettings`:
+
+| Setting | Allows | Default |
+|---|---|---|
+| `EnableDocumentFunction` | `document()`, `doc()`, `unparsed-text()`, `json-doc()`, `xsl:source-document` | off |
+| `EnableEvaluate` | `xsl:evaluate` (XTDE3175 when off) | off |
+| `EnableResultDocument` | `xsl:result-document` files, only under `XslCompiledTransform.BaseOutputUri` | off |
+| `EnableEnvironmentVariables` | `fn:environment-variable` | off |
+| `EnableAssertions` | `xsl:assert` | off |
+| `Timeout`, `XsltArgumentList.CancellationToken` | stop a transformation | none |
+| `UseDedicatedThread`, `DedicatedThreadStackSize` | deep recursion on a large stack | off, 64 MB |
+
+`XsltSettings.TrustedXslt` turns on the document functions, scripts and `xsl:evaluate`.
 
 ## Performance
 

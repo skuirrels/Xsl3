@@ -1,7 +1,7 @@
 # Conformance
 
-Pass rates per feature and test set (SPEC §20). CI will regenerate this file once the W3C harness
-(`tests/Xsl3.W3C`, phase P1 onwards) exists; until then it records the XSLT 1.0 baseline by hand.
+Pass rates per suite and test set (SPEC §20), measured with the W3C harness (`tests/Xsl3.W3C`) on Release builds
+and recorded here by hand at each milestone. Every failing test is listed in `tests/Xsl3.W3C/baselines`.
 
 ## XSLT 1.0 (legacy mode)
 
@@ -19,7 +19,7 @@ Pass rates per feature and test set (SPEC §20). CI will regenerate this file on
 
 `Qt3RunTests` runs every QT3 test that applies to what Xsl3 claims: XPath 3.1, the languages `en` and `de`
 (month and day names; other languages fall back to English), plus the `namespace-axis`
-and `infoset-dtd` features. Not claimed yet: `higherOrderFunctions` (P3), `schemaImport` and
+and `infoset-dtd` features, and `higherOrderFunctions` (from P3). Not claimed: `schemaImport` and
 `schemaValidation` (P6), `staticTyping` (never). Known failures are listed in
 `tests/Xsl3.W3C/baselines/qt3-run.txt`; a test that expected an error passes on any error, and passes that
 raised a different code are counted separately.
@@ -35,9 +35,10 @@ raised a different code are counted separately.
 | 2026-10-20 | 21,743 | 141 | 99 | 99.4% | Focus-dependent function references with arguments (`fn:lang#1`, `fn:id#1`) keep the focus |
 | 2026-10-20 | 21,746 | 138 | 99 | 99.4% | `map:merge`, `map:put` and `array:` functions copy the reused one-item lists the generated code passes them |
 | 2026-10-21 | 21,796 | 88 | 99 | 99.6% | `fn:random-number-generator`; `fn:function-lookup` type-checks its arguments |
+| 2026-10-21 | 21,801 | 83 | 99 | 99.6% | `xml-to-json` key escapes, function arity and name corner cases |
 
-The remaining failures are mostly fn:serialize details (html doctype, CDATA, character maps),
-fn:random-number-generator and fn:function-lookup corner cases.
+The remaining failures are mostly `fn:idref`, `fn:serialize` details (html doctype, CDATA, character maps), a few
+JSON corner cases and `op-same-key`.
 
 ## XSLT 2.0 / 3.0 (xslt30-test)
 
@@ -58,8 +59,8 @@ the later rows count about 1,460 fewer tests.
 
 From P3 the harness runs the XSLT 3.0 profile: tests for "XSLT 3.0 or later" too, with higher-order functions
 and XPath 3.1 claimed (`XSL3_XSLT30_PROFILE=2.0` still runs the 2.0 one). Stylesheets with `version="3.0"` are
-no longer compiled in forwards-compatible mode. Tests that need packages, initial functions, collections or
-a schema aren't run yet (the report's "Not run" line counts them by reason).
+no longer compiled in forwards-compatible mode. Packages and initial functions run; tests that need collections,
+a schema or streaming don't (the report's "Not run" line counts them by reason).
 
 | Date | Passed | Failed | Not run | Pass rate | Notes |
 |---|---:|---:|---:|---:|---|
@@ -73,21 +74,22 @@ a schema aren't run yet (the report's "Not run" line counts them by reason).
 | 2026-10-19 | 6,880 | 701 | 444 | 90.8% | json and adaptive output, `xsl:map`, accumulators, `xsl:merge`, `on-multiple-match`, packages used alone |
 | 2026-10-19 | 7,058 | 881 | 86 | 88.9% | Package tests run (358 more): `xsl:use-package` from the test's package library, shadow attributes on the stylesheet element |
 | 2026-10-19 | 7,193 | 746 | 86 | 90.6% | Package visibility: per-package component tables, `xsl:expose`, `xsl:accept`, `xsl:override`, `xsl:original`, declared modes |
+| 2026-10-19 | 7,255 | 684 | 86 | 91.4% | The html method's own serializer, `item-separator`, json/adaptive `xsl:result-document`; 3.0 pattern forms, errors in predicate patterns as non-matches |
+| 2026-10-19 | 7,312 | 627 | 86 | 92.1% | Modes: `#current` and `xsl:next-match` follow the mode at run time, rules of several modes, `use-accumulators`; `xsl:copy` of document nodes in sequences, `document()` on sequences, json/adaptive principal results of `xsl:result-document` |
+| 2026-10-19 | 7,365 | 574 | 86 | 92.8% | `fn:current-output-uri` and the base output URI, xhtml with HTML5, serialization parameter errors, indentation after the XML declaration, `xsl:analyze-string` regexes matching "", `validation="preserve"` |
+| 2026-10-19 | 7,389 | 550 | 86 | 93.1% | Packages: decimal formats, keys and namespace aliases are local to a package; abstract attribute sets (XTDE3052); what `xsl:override` may contain |
+| 2026-10-19 | 7,404 | 535 | 86 | 93.3% | `xsl:number start-at`, required stylesheet parameters (XTDE0050), XTSE0270, XTSE1660 for `type` and strict/lax validation |
+| 2026-10-19 | 7,461 | 478 | 86 | 94.0% | Sequence normalization (zero-length text nodes from `xsl:text`, text value templates as simple content, the comment/PI separator, document copies in sequences, arrays flattened in content), `xsl:where-populated` emptiness, `xsl:next-match` from named templates, JSON character maps, empty doctype identifiers |
+| 2026-10-19 | 7,479 | 456 | 86 | 94.3% | Override checks (XTSE3060, XTSE3070), package-local accumulators, `fn:snapshot` of attributes, the built-in rule for arrays, declared signatures for references to stylesheet functions, CDATA sections and unencodable characters, SERE0015. The four tests that need the lowest package version are not applicable (Xsl3 picks the highest). |
+| 2026-10-19 | 7,512 | 423 | 86 | 94.7% | `copy-accumulators` and accumulator values of `fn:copy-of`/`fn:snapshot` copies, composite keys, `xsl:global-context-item`, XTMM9000, merged `xsl:decimal-format` declarations and `exponent-separator` |
+| 2026-10-20 | 7,545 | 390 | 86 | 95.1% | P3 exit. `unparsed-entity-uri` and `unparsed-entity-public-id` (1 and 2 arguments, from the document's DTD), focus kept by `unparsed-entity-uri#1` and friends, attribute checks (XTSE0090 for `visibility`, `package-version`, `name` and `declared-modes` where they don't belong), `required="no"` on function parameters, rule-less accumulators, `xsl:fallback` order in `xsl:analyze-string`, `current-merge-group()`/`current-merge-key()` in patterns |
 | 2026-10-20 | 7,549 | 386 | 86 | 95.1% | `fn:copy-of`/`fn:snapshot` copies keep each element's own namespace declaration; `xsl:namespace` raises XTDE0920, XTDE0925, XTDE0905 and XTDE0930, and the result tree XTDE0440 and XTDE0430, without relying on the serializer |
+| 2026-10-20 | 7,593 | 384 | 86 | 95.2% | P5 (docs/plan/p5-evaluate.md) M1: `xsl:evaluate`, with `dynamic_evaluation` claimed (the 42 `evaluate` tests that apply, and `try-027`, `system-property-014a`, now run; `error-3175a` and `system-property-014b`, which need the feature absent, no longer apply); every unit with function items has a dispatcher |
+| 2026-10-20 | 7,637 | 340 | 86 | 95.7% | P5 M2–M4: character maps (before normalization; not in CDATA, escaped URI attributes or namespace declarations; adaptive output), `parameter-document`, output declarations merged by import precedence, the xhtml `meta` element replacing the stylesheet's, cdata-section-elements written by Xsl3 (namespace declarations no longer CDATA), HTML5 prefix normalization, carriage returns as `&#xD;`, SERE0012, json-node-output-method html/xhtml, `disable-output-escaping` through sequences |
+| 2026-10-20 | 7,642 | 335 | 86 | 95.8% | P5 long tail: XTDE1480 for `xsl:result-document` in templates called in temporary output state (the tunnel frame marks it), XML declarations for nodes in adaptive output (Serialization 3.1 §10.1.6) |
 | 2026-10-21 | 7,606 | 299 | 49 | 96.2% | The `regex-classes` set no longer applies: it declares Unicode 6.0, and Xsl3's regex classes use .NET's newer tables (docs/divergences.md) |
 | 2026-10-21 | 7,695 | 330 | 49 | 95.9% | Remaining scope (docs/plan/remaining-scope.md): initial functions with raw result delivery (37 tests run that didn't), `xsl:assert` (run with assertions on and off as each test asks), the xhtml default method on the direct result path, `current-output-uri()` absent outside templates; bug-1901 not run (it compares a tree the xhtml serialization can't match) |
-| 2026-10-20 | 7,642 | 335 | 86 | 95.8% | P5 long tail: XTDE1480 for `xsl:result-document` in templates called in temporary output state (the tunnel frame marks it), XML declarations for nodes in adaptive output (Serialization 3.1 §10.1.6) |
-| 2026-10-20 | 7,637 | 340 | 86 | 95.7% | P5 M2–M4: character maps (before normalization; not in CDATA, escaped URI attributes or namespace declarations; adaptive output), `parameter-document`, output declarations merged by import precedence, the xhtml `meta` element replacing the stylesheet's, cdata-section-elements written by Xsl3 (namespace declarations no longer CDATA), HTML5 prefix normalization, carriage returns as `&#xD;`, SERE0012, json-node-output-method html/xhtml, `disable-output-escaping` through sequences |
-| 2026-10-20 | 7,593 | 384 | 86 | 95.2% | P5 (docs/plan/p5-evaluate.md) M1: `xsl:evaluate`, with `dynamic_evaluation` claimed (the 42 `evaluate` tests that apply, and `try-027`, `system-property-014a`, now run; `error-3175a` and `system-property-014b`, which need the feature absent, no longer apply); every unit with function items has a dispatcher |
-| 2026-10-20 | 7,545 | 390 | 86 | 95.1% | P3 exit. `unparsed-entity-uri` and `unparsed-entity-public-id` (1 and 2 arguments, from the document's DTD), focus kept by `unparsed-entity-uri#1` and friends, attribute checks (XTSE0090 for `visibility`, `package-version`, `name` and `declared-modes` where they don't belong), `required="no"` on function parameters, rule-less accumulators, `xsl:fallback` order in `xsl:analyze-string`, `current-merge-group()`/`current-merge-key()` in patterns |
-| 2026-10-19 | 7,512 | 423 | 86 | 94.7% | `copy-accumulators` and accumulator values of `fn:copy-of`/`fn:snapshot` copies, composite keys, `xsl:global-context-item`, XTMM9000, merged `xsl:decimal-format` declarations and `exponent-separator` |
-| 2026-10-19 | 7,479 | 456 | 86 | 94.3% | Override checks (XTSE3060, XTSE3070), package-local accumulators, `fn:snapshot` of attributes, the built-in rule for arrays, declared signatures for references to stylesheet functions, CDATA sections and unencodable characters, SERE0015. The four tests that need the lowest package version are not applicable (Xsl3 picks the highest). |
-| 2026-10-19 | 7,461 | 478 | 86 | 94.0% | Sequence normalization (zero-length text nodes from `xsl:text`, text value templates as simple content, the comment/PI separator, document copies in sequences, arrays flattened in content), `xsl:where-populated` emptiness, `xsl:next-match` from named templates, JSON character maps, empty doctype identifiers |
-| 2026-10-19 | 7,404 | 535 | 86 | 93.3% | `xsl:number start-at`, required stylesheet parameters (XTDE0050), XTSE0270, XTSE1660 for `type` and strict/lax validation |
-| 2026-10-19 | 7,389 | 550 | 86 | 93.1% | Packages: decimal formats, keys and namespace aliases are local to a package; abstract attribute sets (XTDE3052); what `xsl:override` may contain |
-| 2026-10-19 | 7,365 | 574 | 86 | 92.8% | `fn:current-output-uri` and the base output URI, xhtml with HTML5, serialization parameter errors, indentation after the XML declaration, `xsl:analyze-string` regexes matching "", `validation="preserve"` |
-| 2026-10-19 | 7,312 | 627 | 86 | 92.1% | Modes: `#current` and `xsl:next-match` follow the mode at run time, rules of several modes, `use-accumulators`; `xsl:copy` of document nodes in sequences, `document()` on sequences, json/adaptive principal results of `xsl:result-document` |
-| 2026-10-19 | 7,255 | 684 | 86 | 91.4% | The html method's own serializer, `item-separator`, json/adaptive `xsl:result-document`; 3.0 pattern forms, errors in predicate patterns as non-matches |
+| 2026-10-21 | 7,729 | 178 | 49 | 97.7% | Remaining scope, conformance batch: `regex-group()` in called templates, `xsl:sort` attribute checks and case-order, `xsl:message` that never fails, exact rounding of doubles, `xsl:mode`/`xsl:decimal-format` merged by precedence, XTDE0045/0050/0420, XTSE0085, harness fixes (inline sources' base URI, select-only sources, html decoded by its meta charset); the 2.0 profile is at 98.7% (4,415 passed, 57 failed) |
 
 ### P5 exit sets
 
@@ -103,11 +105,6 @@ claimed. Measured on 2026-10-20 (Release, .NET 10):
 | `disable-output-escaping` | 25 | 0 | 100.0% | 64.0% |
 | **Together** | **454** | **3** | **99.3%** | 88.0% |
 
-The three failures: `<a />` rather than `<a/>` (output-0285, -0311) and the xhtml default method on the direct
-result path (output-0130), both from P4's fast path to .NET's writer. The 2.0 profile went from 96.3% to 96.7%
-(4,439 passed, 151 failed).
+The three failures at P5's exit: `<a />` rather than `<a/>` (output-0285, -0311, recorded as implementation-defined
+in docs/divergences.md) and the xhtml default method on the direct result path (output-0130, fixed since).
 
-| Suite | Feature | Pass | Fail | Not applicable |
-|---|---|---|---|---|
-| W3C `xslt30-test` | | | | |
-| W3C `qt3tests` (XPath subset) | | | | |

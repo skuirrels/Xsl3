@@ -33,10 +33,17 @@ namespace Xsl3.XPath31.Functions
             Define("fn:random-number-generator($seed as xs:anyAtomicType?) as map(xs:string, item())", (c, a) => One(RandomGenerator(Seed(c, Opt(a[0])))));
         }
 
+        private static readonly ulong s_processSeed = (ulong)System.Random.Shared.NextInt64();
+
         private static ulong Seed(FunctionContext c, AtomicValue? seed)
         {
             // A seed's value and type, hashed stably (string.GetHashCode is randomized per process).
-            string text = seed == null ? "\u0001" + c.CurrentDateTime.ToString() : seed.Type.Name + "\u0001" + seed.Value;
+            if (seed == null)
+            {
+                // One random seed per transformation (per process for XPath evaluated outside one).
+                return c.Runtime?.RandomSeed ?? s_processSeed;
+            }
+            string text = seed.Type.Name + "\u0001" + seed.Value;
             ulong hash = 14695981039346656037UL; // FNV-1a
             foreach (char ch in text)
             {
@@ -54,14 +61,16 @@ namespace Xsl3.XPath31.Functions
             return z ^ (z >> 31);
         }
 
-        private static readonly SequenceTypeTest s_generatorType = ResolveType("map(xs:string, item())");
+        // Resolved on first use: the signature types it needs are initialized in another part of this class.
+        private static SequenceTypeTest? s_generatorType;
+        private static SequenceTypeTest GeneratorType => s_generatorType ??= ResolveType("map(xs:string, item())");
 
         /// <summary>The map of a generator in state <paramref name="state"/>: number, next() and permute($arg).</summary>
         private static XdmMap RandomGenerator(ulong state)
         {
             ulong numberState = state;
             double number = (Next(ref numberState) >> 11) * (1.0 / (1UL << 53));
-            var next = new NativeFunction(System.Array.Empty<SequenceTypeTest>(), s_generatorType,
+            var next = new NativeFunction(System.Array.Empty<SequenceTypeTest>(), GeneratorType,
                 _ => One(RandomGenerator(numberState)), "the next function of a random number generator");
             var permute = new NativeFunction(new[] { SequenceTypeTest.AnySequence }, SequenceTypeTest.AnySequence, a =>
             {

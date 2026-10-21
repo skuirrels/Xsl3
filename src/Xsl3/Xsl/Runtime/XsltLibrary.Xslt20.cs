@@ -411,35 +411,56 @@ namespace Xsl3.Runtime
             }
             System.IO.TextWriter output = handler != null
                 ? handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant())
-                : new System.IO.StreamWriter(opener!(uri), settings.Encoding);
-            if (raw)
+                : new System.IO.StreamWriter(Open(opener!, uri), settings.Encoding);
+            // The file is closed whatever happens, so an error caught by xsl:try doesn't leave it open.
+            try
             {
-                if (extras?.RawMethod is "json" or "adaptive")
+                if (raw)
                 {
-                    ItemSerializer.Write(document, extras, output);
+                    if (extras?.RawMethod is "json" or "adaptive")
+                    {
+                        ItemSerializer.Write(document, extras, output);
+                    }
+                    else
+                    {
+                        System.Xml.XmlWriterSettings s = settings.Clone();
+                        s.CloseOutput = false;
+                        ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(output, ws));
+                    }
+                    output.Dispose();
+                    return Sequences.Empty;
                 }
-                else
+                if (text)
                 {
-                    System.Xml.XmlWriterSettings s = settings.Clone();
-                    s.CloseOutput = false;
-                    ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(output, ws));
+                    output.Write(doc.Value);
+                    output.Dispose();
+                    return Sequences.Empty;
                 }
-                output.Dispose();
-                return Sequences.Empty;
+                settings.CloseOutput = true;
+                using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(output, s), settings, extras))
+                {
+                    WriteChildren(w, doc);
+                    w.Flush();
+                }
             }
-            if (text)
+            finally
             {
-                output.Write(doc.Value);
                 output.Dispose();
-                return Sequences.Empty;
-            }
-            settings.CloseOutput = true;
-            using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(output, s), settings, extras))
-            {
-                WriteChildren(w, doc);
-                w.Flush();
             }
             return Sequences.Empty;
+        }
+
+        // A secondary result's file: a file system failure is the error of a result that can't be written.
+        private static System.IO.Stream Open(System.Func<string, System.IO.Stream> opener, string uri)
+        {
+            try
+            {
+                return opener(uri);
+            }
+            catch (System.Exception e) when (e is System.IO.IOException or System.UnauthorizedAccessException)
+            {
+                throw new XdmException("XTDE1480", $"The secondary result {uri} can't be written: {e.Message}");
+            }
         }
 
         private static void WriteChildren(System.Xml.XmlWriter w, XPathNavigator doc)

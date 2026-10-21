@@ -603,4 +603,67 @@ public class Xslt30Tests
             <xsl:template match="/"><o><xsl:value-of select="format-number(1234.123, '&#110001;000&#110000;000')"/></o></xsl:template>
             """));
     }
+
+    /// <summary>Arities no function can have answer false, quickly (an int.MaxValue arity once looped for ever).</summary>
+    [Fact]
+    public void FunctionAvailableWithImpossibleArities() =>
+        Assert.Equal("<o>false false true false</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="function-available('abs', 2147483647), function-available('abs', -5),
+              function-available('abs', 1), function-available('abs', 1e300)"/></o></xsl:template>
+            """));
+
+    /// <summary>Rounding at a precision beyond the value's digits, or of values below 1 to many places.</summary>
+    [Fact]
+    public void RoundingEdgeCases() =>
+        Assert.Equal("<o>1.0E20 1.23E-25 1.235E-25 1.5</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="round(1e20, 10), round-half-to-even(1.23456e-25, 27), round(1.23456e-25, 28), round(xs:decimal('1.5'), 10)"/></o></xsl:template>
+            """));
+
+    [Fact]
+    public void InvalidCaseOrderIsXTDE0030()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><o><xsl:perform-sort select="('b', 'a')"><xsl:sort select="." case-order="{'sideways'}"/></xsl:perform-sort></o></xsl:template>
+            """));
+        Assert.Contains("XTDE0030", e.ToString());
+    }
+
+    /// <summary>An EQName error code is written with doubled braces in the attribute value template.</summary>
+    [Fact]
+    public void AssertWithAnEQNameErrorCode()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:template match='/'><out><xsl:try>" +
+                            "<xsl:assert test='(1, 2) = 3' error-code='Q{{urn:x}}E1'/><xsl:catch errors='Q{urn:x}E1' select=\"'caught'\"/></xsl:try></out></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)), new XsltSettings { EnableAssertions = true }, null);
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+        Assert.EndsWith("<out>caught</out>", sw.ToString());
+    }
+
+    /// <summary>An error the stylesheet raises itself inside a non-terminating message still ends the transformation.</summary>
+    [Fact]
+    public void FnErrorInAMessageStillFails()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><xsl:message><xsl:sequence select="error(QName('urn:x', 'E2'))"/></xsl:message><o/></xsl:template>
+            """));
+        Assert.Contains("E2", e.ToString());
+    }
+
+    [Fact]
+    public void CaseOrderWithAComputedLang() =>
+        Assert.Equal("<o>a B b</o>", Run("""
+            <xsl:template match="/"><xsl:variable name="l" select="'en'"/><o><xsl:perform-sort select="('b', 'B', 'a')"><xsl:sort select="." lang="{$l}" case-order="upper-first"/></xsl:perform-sort></o></xsl:template>
+            """));
+
+    /// <summary>group-starting-with has no grouping key, in its sort keys too (XTDE1071).</summary>
+    [Fact]
+    public void NoGroupingKeyInSortsOfStartingWith()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><o><xsl:for-each-group select="1 to 4" group-starting-with=".[. mod 2 = 1]"><xsl:sort select="current-grouping-key()"/><xsl:value-of select="."/></xsl:for-each-group></o></xsl:template>
+            """));
+        Assert.Contains("XTDE1071", e.ToString());
+    }
 }

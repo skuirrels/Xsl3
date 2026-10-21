@@ -2820,7 +2820,7 @@ namespace Xsl3.Xslt
                 "element-available" => X31(nameof(XsltLibrary.X31ElementAvailable), T.Item, name, context),
                 "type-available" => X31(nameof(XsltLibrary.X31TypeAvailable), T.Item, name, context),
                 _ => X31(nameof(XsltLibrary.X31FunctionAvailable), T.Item, name,
-                    args.Count > 1 ? X31(nameof(XsltLibrary.X31Integer), T.DoubleX, Box(compile(args[1]))) : _f.Double(-1), context),
+                    args.Count > 1 ? X31(nameof(XsltLibrary.X31Integer), T.DoubleX, Box(compile(args[1]))) : _f.Double(double.NaN), context),
             };
         }
 
@@ -2912,7 +2912,9 @@ namespace Xsl3.Xslt
             if (sort.CaseOrder != null && sort.V2?.Collation == null)
             {
                 // case-order picks the UCA collation for lang with caseFirst set.
-                collation = _f.StrConcat(_f.String(Collation.UcaPrefix + "?fallback=yes;caseFirst="), CompileStringAvt(sort.CaseOrder)!, _f.String(";lang="), lang);
+                // (lang compiled again: one QIL node can't be in two places.)
+                collation = _f.StrConcat(_f.String(Collation.UcaPrefix + "?fallback=yes;caseFirst="), CompileStringAvt(sort.CaseOrder)!, _f.String(";lang="),
+                    sort.Lang != null ? CompileStringAvt(sort.Lang)! : _f.String(""));
             }
             // Known statically: an invalid lang (XTSE0020) or an unknown collation (XTDE1035), raised even when there
             // is nothing to sort.
@@ -3050,20 +3052,26 @@ namespace Xsl3.Xslt
                 ? XPath31Compiler.SameDepth(X31(nameof(XsltLibrary.X31GroupMemberNodes), T.NodeNotRtfS, of))
                 : X31(nameof(XsltLibrary.X31GroupMembers), T.ItemS, of);
             _currentGroupFactory = () => Members(g);
-            _currentGroupingKeyFactory = () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, g);
+            // group-starting-with and group-ending-with have no grouping key: it is absent (XTDE1071), in sort keys too.
+            System.Func<QilNode> noKey = () => X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1071"), _f.String("current-grouping-key() is absent with group-starting-with or group-ending-with"));
+            _currentGroupingKeyFactory = kind >= 2 ? noKey : () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, g);
+            bool savedGroupSort = _groupSort31;
             _groupSort31 = true;
-            _curLoop.Sort(CompileSorts31(content, ref curLoopSaved));
-            _groupSort31 = false;
+            try
+            {
+                _curLoop.Sort(CompileSorts31(content, ref curLoopSaved));
+            }
+            finally
+            {
+                _groupSort31 = savedGroupSort;
+            }
             var current = (QilIterator)_curLoop.GetCurrent()!;
             if (current != g)
             {
                 _focusOverrides[current] = it => X31(nameof(XsltLibrary.X31GroupFirst), T.Item, it);
             }
             _currentGroupFactory = () => Members(current);
-            // group-starting-with and group-ending-with have no grouping key: it is absent (XTDE1071).
-            _currentGroupingKeyFactory = kind >= 2
-                ? () => X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1071"), _f.String("current-grouping-key() is absent with group-starting-with or group-ending-with"))
-                : () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, current);
+            _currentGroupingKeyFactory = kind >= 2 ? noKey : () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, current);
 
             QilNode result = CompileInstructions(content);
             result = WrapLoopBody(node.ElemNameLi, result, node.EndTagLi);

@@ -181,9 +181,9 @@ namespace Xsl3.XPath31.Functions
 
         private static decimal RoundDecimal(decimal x, long precision, bool halfToEven)
         {
-            if (precision >= 28)
+            if (precision >= 28 || precision >= x.Scale)
             {
-                return x;
+                return x; // nothing to round (and x × 10^precision could overflow)
             }
             if (precision >= 0)
             {
@@ -251,7 +251,7 @@ namespace Xsl3.XPath31.Functions
             double result;
             // Rounding works on the double's own value, not its shortest form: to 29 digits, -13.65e0 is
             // -13.650000000000000355271367880.
-            if (System.Math.Abs(x) < 7.9e27 && decimal.TryParse(x.ToString("E28", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal dx) && dx != 0)
+            if (System.Math.Abs(x) < 7.9e27 && decimal.TryParse(x.ToString("E28", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal dx) && dx != 0 && dx.Scale < 28)
             {
                 decimal rounded = RoundDecimal(dx, precision, halfToEven);
                 // Unchanged, the double itself; else parsed back (the decimal-to-double conversion isn't correctly rounded).

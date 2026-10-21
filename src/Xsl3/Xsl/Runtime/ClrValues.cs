@@ -17,8 +17,17 @@ namespace Xsl3.Runtime
     internal static class ClrValues
     {
         /// <summary>The value as an XDM sequence; false for the values stock's rules handle (strings, booleans, nodes).</summary>
-        public static bool TryConvert(object value, out IList<XPathItem> items)
+        public static bool TryConvert(object value, out IList<XPathItem> items) => TryConvert(value, out items, 0);
+
+        // Collections nested deeper than this are refused: they are most likely cyclic.
+        private const int MaxDepth = 256;
+
+        private static bool TryConvert(object value, out IList<XPathItem> items, int depth)
         {
+            if (depth > MaxDepth)
+            {
+                throw new XdmException("XPTY0004", $"A parameter value nests collections more than {MaxDepth} deep (a cycle?)");
+            }
             switch (value)
             {
                 case IList<XPathItem> sequence:
@@ -41,9 +50,9 @@ namespace Xsl3.Runtime
                 var entries = new List<KeyValuePair<AtomicValue, IList<XPathItem>>>();
                 foreach (DictionaryEntry entry in dictionary)
                 {
-                    AtomicValue key = entry.Key is string s ? AtomicValue.OfString(s) : Atomic(entry.Key)
+                    AtomicValue key = entry.Key is string s ? AtomicValue.OfString(s) : entry.Key is bool b ? AtomicValue.OfBoolean(b) : Atomic(entry.Key)
                         ?? throw new XdmException("XPTY0004", $"A map key can't be a {entry.Key.GetType().Name}");
-                    entries.Add(new(key, entry.Value == null ? System.Array.Empty<XPathItem>() : Sequence(entry.Value)));
+                    entries.Add(new(key, entry.Value == null ? System.Array.Empty<XPathItem>() : Sequence(entry.Value, depth + 1)));
                 }
                 items = new XPathItem[] { XdmMap.Of(entries) };
                 return true;
@@ -53,9 +62,11 @@ namespace Xsl3.Runtime
                 var list = new List<XPathItem>();
                 foreach (object? member in enumerable)
                 {
+                    // An endless enumerable is stopped by the transformation's cancellation or timeout.
+                    XmlQueryRuntime.Cancellation.ThrowIfCancellationRequested();
                     if (member != null)
                     {
-                        list.AddRange(Sequence(member));
+                        list.AddRange(Sequence(member, depth + 1));
                     }
                 }
                 items = list;
@@ -66,13 +77,13 @@ namespace Xsl3.Runtime
         }
 
         // A member of a map or sequence: also strings, booleans and nodes.
-        private static IList<XPathItem> Sequence(object value) => value switch
+        private static IList<XPathItem> Sequence(object value, int depth) => value switch
         {
             string s => new XPathItem[] { AtomicValue.OfString(s) },
             bool b => new XPathItem[] { AtomicValue.OfBoolean(b) },
             XPathNavigator n => new XPathItem[] { n },
             IXPathNavigable n => new XPathItem[] { n.CreateNavigator()! },
-            _ => TryConvert(value, out IList<XPathItem> items) ? items : throw new XdmException("XPTY0004", $"A {value.GetType().Name} has no XDM value"),
+            _ => TryConvert(value, out IList<XPathItem> items, depth) ? items : throw new XdmException("XPTY0004", $"A {value.GetType().Name} has no XDM value"),
         };
 
         private static AtomicValue? Atomic(object value) => value switch
@@ -90,7 +101,7 @@ namespace Xsl3.Runtime
                 _ => null,
             })),
             System.DateOnly d => new DateTimeValue(AtomicTypes.Date, new XsDateTime(d.Year, d.Month, d.Day, 0, 0, 0m, null)),
-            System.TimeOnly t => new DateTimeValue(AtomicTypes.Time, new XsDateTime(1972, 12, 31, t.Hour, t.Minute, t.Second + t.Millisecond / 1000m + t.Microsecond / 1_000_000m, null)),
+            System.TimeOnly t => new DateTimeValue(AtomicTypes.Time, new XsDateTime(1972, 12, 31, t.Hour, t.Minute, t.Second + (decimal)(t.Ticks % System.TimeSpan.TicksPerSecond) / System.TimeSpan.TicksPerSecond, null)),
             System.TimeSpan s => new DurationValue(AtomicTypes.DayTimeDuration, new XsDuration(0, (decimal)s.Ticks / System.TimeSpan.TicksPerSecond)),
             System.Uri u => new StringValue(AtomicTypes.AnyUri, u.OriginalString),
             byte[] b => new BinaryValue(AtomicTypes.Base64Binary, b),

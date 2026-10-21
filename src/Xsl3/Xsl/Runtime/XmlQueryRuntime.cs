@@ -59,6 +59,21 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: the seed of fn:random-number-generator() without an argument: one per transformation.
+        private ulong? _randomSeed;
+        internal ulong RandomSeed => _randomSeed ??= (ulong)System.Random.Shared.NextInt64();
+
+        // Xsl3: XsltSettings.EnableDocumentFunction for the running transformation (fn:doc, fn:unparsed-text and the
+        // like, SPEC §21.1); null outside a transformation (XPath evaluated directly, with its own resolver).
+        [System.ThreadStatic]
+        private static bool? t_documentFunctions;
+
+        internal static bool? DocumentFunctions
+        {
+            get => t_documentFunctions;
+            set => t_documentFunctions = value;
+        }
+
         // Xsl3: where xsl:result-document writes secondary results (SPEC §21.1, EnableResultDocument): given the
         // absolute URI and the output method, a writer for the serialization. Null: secondary results are refused.
         [System.ThreadStatic]

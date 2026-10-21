@@ -71,6 +71,62 @@ public class SettingsTests
         Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(directory)!, "escaped.xml")));
     }
 
+    /// <summary>Hrefs that would leave the base output directory: absolute, a sibling with the same prefix, a symbolic link.</summary>
+    [Theory]
+    [InlineData("abs")]
+    [InlineData("sibling")]
+    [InlineData("link")]
+    public void ResultDocumentsCantEscape(string kind)
+    {
+        string root = Directory.CreateTempSubdirectory("xsl3-").FullName;
+        string directory = Path.Combine(root, "out"), outside = Path.Combine(root, "out-evil");
+        Directory.CreateDirectory(directory);
+        Directory.CreateDirectory(outside);
+        string href = kind switch
+        {
+            "abs" => new Uri(Path.Combine(outside, "a.xml")).AbsoluteUri,
+            "sibling" => "../out-evil/a.xml",
+            _ => "link/a.xml",
+        };
+        if (kind == "link")
+        {
+            Directory.CreateSymbolicLink(Path.Combine(directory, "link"), outside);
+        }
+        XslCompiledTransform transform = Load("<xsl:template match='/'><xsl:result-document href='" + href + "'><x/></xsl:result-document></xsl:template>",
+            new XsltSettings { EnableResultDocument = true });
+        transform.BaseOutputUri = new Uri(Path.Combine(directory, "main.xml"));
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(transform));
+        Assert.Contains("XTDE1480", e.ToString());
+        Assert.False(File.Exists(Path.Combine(outside, "a.xml")));
+    }
+
+    /// <summary>A base output URI naming a directory (no file name) confines results to that directory, not its parent.</summary>
+    [Fact]
+    public void ResultDocumentsUnderABaseDirectory()
+    {
+        string root = Directory.CreateTempSubdirectory("xsl3-").FullName;
+        string directory = Path.Combine(root, "out");
+        Directory.CreateDirectory(directory);
+        XslCompiledTransform transform = Load("<xsl:template match='/'><xsl:result-document href='../escaped.xml'><x/></xsl:result-document></xsl:template>",
+            new XsltSettings { EnableResultDocument = true });
+        transform.BaseOutputUri = new Uri(directory);
+        Assert.ThrowsAny<Exception>(() => Run(transform));
+        Assert.False(File.Exists(Path.Combine(root, "escaped.xml")));
+    }
+
+    /// <summary>Settings changed after Load don't change the loaded transform; invalid values are refused when set.</summary>
+    [Fact]
+    public void SettingsAreTakenAtLoad()
+    {
+        var settings = new XsltSettings();
+        XslCompiledTransform transform = Load("<xsl:template match='/'><out><xsl:value-of select=\"environment-variable('XSL3_SETTINGS_TEST')\"/></out></xsl:template>", settings);
+        Environment.SetEnvironmentVariable("XSL3_SETTINGS_TEST", "visible");
+        settings.EnableEnvironmentVariables = true;
+        Assert.Equal("<out></out>", Run(transform));
+        Assert.Throws<ArgumentOutOfRangeException>(() => settings.Timeout = TimeSpan.Zero);
+        Assert.Throws<ArgumentOutOfRangeException>(() => settings.DedicatedThreadStackSize = -1);
+    }
+
     [Fact]
     public void EnvironmentVariablesOnlyWhenEnabled()
     {
@@ -188,5 +244,17 @@ public class SettingsTests
         arguments.AddParam("u", "", new Uri("http://example.com/"));
         arguments.AddParam("b", "", new byte[] { 1, 2 });
         Assert.Equal("<out>true true true PT2H true 3 3 true true</out>", Run(transform, arguments));
+    }
+
+    /// <summary>A parameter value that contains itself is refused, not followed until the stack overflows.</summary>
+    [Fact]
+    public void CyclicParameterValuesAreRefused()
+    {
+        var list = new System.Collections.ArrayList();
+        list.Add(list);
+        var arguments = new XsltArgumentList();
+        arguments.AddParam("p", "", list);
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(Load("""<xsl:param name="p"/><xsl:template match="/"><out><xsl:value-of select="count($p)"/></out></xsl:template>"""), arguments));
+        Assert.Contains("XPTY0004", e.ToString());
     }
 }
