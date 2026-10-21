@@ -20,8 +20,8 @@ namespace Xsl3.Runtime
         public const string TypesFieldName = "ebTypes";
 
         // Format version marker to support versioning: (major << 8) | minor
-        // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B).
-        private const int CurrentFormatVersion = (0 << 8) | 1;
+        // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B); 2 the stylesheet frames.
+        private const int CurrentFormatVersion = (0 << 8) | 2;
 
         private readonly XmlWriterSettings _defaultWriterSettings;
         private readonly IList<WhitespaceRule>? _whitespaceRules;
@@ -196,6 +196,14 @@ namespace Xsl3.Runtime
                 string dispatcher = dataReader.ReadString();
                 DispatcherName = dispatcher.Length > 0 ? dispatcher : null;
             }
+            if ((formatVersion & 0xff) >= 2 && dataReader.ReadInt32() is int frames and > 0)
+            {
+                Frames = new Dictionary<string, int>(frames);
+                for (int idx = 0; idx < frames; idx++)
+                {
+                    Frames[dataReader.ReadString()] = dataReader.ReadInt32();
+                }
+            }
 
             Debug.Assert(formatVersion != CurrentFormatVersion || dataReader.Read() == -1, "Extra data at the end of the stream");
             dataReader.Dispose();
@@ -348,6 +356,15 @@ namespace Xsl3.Runtime
                 Xsl3.XPath31.ConstantSerializer.Write(dataWriter, Constants);
             }
             dataWriter.Write(DispatcherName ?? "");
+            dataWriter.Write(Frames?.Count ?? 0);
+            if (Frames != null)
+            {
+                foreach (KeyValuePair<string, int> frame in Frames)
+                {
+                    dataWriter.Write(frame.Key);
+                    dataWriter.Write(frame.Value);
+                }
+            }
 
             dataWriter.Dispose();
             data = dataStream.ToArray();
@@ -364,6 +381,12 @@ namespace Xsl3.Runtime
         /// library can call them (folds, sort keys, …).
         /// </summary>
         public System.Func<XmlQueryRuntime, System.Xml.XPath.XPathItem, IList<System.Xml.XPath.XPathItem>>? Dispatcher { get; set; }
+
+        /// <summary>
+        /// Xsl3: the stylesheet frames (XsltFrame constants) of templates and functions by the names of the methods they
+        /// compiled to, for the stylesheet stack of a dynamic error without tracing.
+        /// </summary>
+        public Dictionary<string, int>? Frames { get; set; }
 
         /// <summary>Xsl3 (Sink B): in a saved assembly, the name of the dispatcher's method, bound when it is loaded.</summary>
         public string? DispatcherName { get; set; }

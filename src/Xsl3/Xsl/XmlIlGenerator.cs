@@ -168,6 +168,18 @@ namespace Xsl3
             staticData.Xslt2 = _qil.Xslt2;
             staticData.CompactTree = _qil.CompactTree;
             staticData.Constants = Xsl3.XPath31.ConstantPool.Compilation;
+            if (_qil.Frames != null)
+            {
+                // Xsl3: the frames by the names their templates and functions compiled to (4.5).
+                staticData.Frames = new Dictionary<string, int>();
+                foreach (KeyValuePair<QilFunction, int> frame in _qil.Frames)
+                {
+                    if (XmlILAnnotation.Write(frame.Key).FunctionBinding is MethodInfo method)
+                    {
+                        staticData.Frames[method.Name] = frame.Value;
+                    }
+                }
+            }
 
             // Create static constructor that initializes XmlQueryStaticData instance at runtime
             if (typeBldr != null)

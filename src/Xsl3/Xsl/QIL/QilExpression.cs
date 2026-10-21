@@ -123,6 +123,12 @@ namespace Xsl3.Qil
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path.</summary>
         public bool Xslt2 { get; set; }
 
+        /// <summary>
+        /// Xsl3: the stylesheet frame (an XsltFrame constant) of each template and function, for the stylesheet stack of a
+        /// dynamic error when tracing isn't compiled in.
+        /// </summary>
+        public System.Collections.Generic.Dictionary<QilFunction, int>? Frames { get; set; }
+
         /// <summary>Xsl3: the stylesheet has xsl:result-document instructions (XSLT 2.0+).</summary>
         public bool ResultDocuments { get; set; }
 

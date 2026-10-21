@@ -258,6 +258,7 @@ namespace Xsl3.Xslt
                     qil.ResultDocuments = _resultDocuments31 || compiler.XhtmlHtmlLiteral && compiler.Output.Method == null;
                     qil.Xslt2 = true;
                     qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
+                    qil.Frames = _frames31;
                 }
             }
 
@@ -866,9 +867,13 @@ namespace Xsl3.Xslt
                 body = _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"),
                     _f.String($"The abstract {(tmpl is Template ? "template" : "attribute set")} {abstractName.LocalName} isn't overridden")), tmpl.Function.XmlType!);
             }
-            if (IsV2 && _compiler.Settings.EnableTracing && tmpl is Template { IsFunction: false } traced)
+            if (IsV2 && tmpl is Template { IsFunction: false } traced)
             {
-                body = Traced31(body, tmpl.Function.XmlType!, "template", traced.Name, traced.Match, traced.Match != null ? traced.Mode : null, tmpl.SourceLine);
+                int frame = Frame31(tmpl.Function, "template", traced.Name, traced.Match, traced.Match != null ? traced.Mode : null, tmpl.SourceLine);
+                if (_compiler.Settings.EnableTracing)
+                {
+                    body = Traced31(body, tmpl.Function.XmlType!, frame);
+                }
             }
             tmpl.Function.Definition = body;
             _currentTemplateRule = null;

@@ -93,8 +93,9 @@ to the base output URI's directory), environment variables (`EnableEnvironmentVa
 
 A dynamic error is an `XsltDynamicException` with the error's `Code` (a `QName`: `err:XTDE0640`, a stylesheet's own
 from `fn:error`, or `Q{http://xsl3/err}cancelled`, `recursion-limit`, `output-limit`, `extension-error`), its
-`Description` and `ErrorObject`. With `XsltSettings.EnableTracing`, its `StylesheetStack` lists the templates and
-functions that were running, and an `IXsltTraceListener` sees each start and end.
+`Description` and `ErrorObject`. Its `StylesheetStack` lists the templates and functions that were running, innermost
+first. Without tracing it is read from the .NET stack and leaves out functions that were inlined or tail-called; with
+`XsltSettings.EnableTracing` it is complete, and an `IXsltTraceListener` sees each start and end.
 
 ## Extension functions
 

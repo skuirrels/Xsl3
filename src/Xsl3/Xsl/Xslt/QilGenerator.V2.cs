@@ -2173,13 +2173,25 @@ namespace Xsl3.Xslt
         /// A template's or function's body with calls to the trace listener around it (XsltSettings.EnableTracing): the
         /// frame enters the stylesheet stack before the body and leaves it after.
         /// </summary>
-        private QilNode Traced31(QilNode body, XmlQueryType type, string kind, QilName? name, string? match, QilName? mode, ISourceLineInfo? line)
+        private QilNode Traced31(QilNode body, XmlQueryType type, int frame)
+        {
+            QilNode id = _f.Double(frame);
+            return _f.TypeAssert(_f.Sequence(X31(nameof(XsltLibrary.X31TraceEnter), T.ItemS, id), Box(body), X31(nameof(XsltLibrary.X31TraceLeave), T.ItemS, id)), type);
+        }
+
+        // The frame of each template and function: without tracing, the stylesheet stack of a dynamic error is read from
+        // the .NET stack, by the names of the methods they compile to.
+        private Dictionary<QilFunction, int>? _frames31;
+
+        /// <summary>A template's or function's frame, registered for <paramref name="function"/>; its constant's id.</summary>
+        private int Frame31(QilFunction function, string kind, QilName? name, string? match, QilName? mode, ISourceLineInfo? line)
         {
             var frame = new XsltFrame(kind, name == null ? null : new QName(name.NamespaceUri, name.LocalName, name.Prefix), match,
                 mode is { LocalName.Length: > 0 } ? new QName(mode.NamespaceUri, mode.LocalName, mode.Prefix) : null,
                 line?.Uri, line?.Start.Line ?? 0, line?.Start.Pos ?? 0);
-            QilNode id = _f.Double(ConstantPool.Add(frame));
-            return _f.TypeAssert(_f.Sequence(X31(nameof(XsltLibrary.X31TraceEnter), T.ItemS, id), Box(body), X31(nameof(XsltLibrary.X31TraceLeave), T.ItemS, id)), type);
+            int id = ConstantPool.Add(frame);
+            (_frames31 ??= new Dictionary<QilFunction, int>())[function] = id;
+            return id;
         }
 
         // How many xsl:try bodies the instructions being compiled are in: they record their lines ($err:line-number).
@@ -3428,8 +3440,9 @@ namespace Xsl3.Xslt
                     result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"The abstract function {functionName.LocalName} isn't overridden"));
                     prologue = null;
                 }
+                int frame = Frame31(function.Function!, "function", functionName, null, null, function.SourceLine);
                 function.Function!.Definition = _compiler.Settings.EnableTracing
-                    ? Traced31(prologue ?? result, T.ItemS, "function", functionName, null, null, function.SourceLine)
+                    ? Traced31(prologue ?? result, T.ItemS, frame)
                     : prologue ?? result;
                 _noFocus = savedNoFocus;
                 _temporaryOutput31--;

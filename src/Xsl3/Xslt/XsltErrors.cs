@@ -40,8 +40,9 @@ namespace Xsl3
         public XdmValue ErrorObject { get; }
 
         /// <summary>
-        /// The templates and functions that were running, innermost first, when the stylesheet was loaded with
-        /// <see cref="XsltSettings.EnableTracing"/>; otherwise empty.
+        /// The templates and functions that were running, innermost first. Complete when the stylesheet was compiled with
+        /// <see cref="XsltSettings.EnableTracing"/>; otherwise read from the .NET stack, without the frames the JIT
+        /// inlined or a tail call replaced. Empty for 1.0 stylesheets.
         /// </summary>
         public IReadOnlyList<XsltFrame> StylesheetStack { get; private init; } = Array.Empty<XsltFrame>();
 

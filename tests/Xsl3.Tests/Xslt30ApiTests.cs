@@ -240,9 +240,21 @@ public class Xslt30ApiTests
         Assert.Equal(new[] { "fail", "t", null }, e.StylesheetStack.Select(f => f.Name?.LocalName));
         Assert.Equal("doc", e.StylesheetStack[2].Match);
         Assert.True(e.StylesheetStack[0].LineNumber > 0);
-        // Without tracing there is no stack.
-        Assert.Empty(Assert.Throws<XsltDynamicException>(() => Compile(
-            "<xsl:template match='doc'><xsl:value-of select='1 div 0'/></xsl:template>").CreateTransformer().ApplyTemplates(Parse("<doc/>"), new StringWriter())).StylesheetStack);
+    }
+
+    /// <summary>Without tracing, the stylesheet stack is read from the .NET one: the templates and functions not inlined.</summary>
+    [Fact]
+    public void DynamicErrorsCarryTheStylesheetStackWithoutTracing()
+    {
+        XsltExecutable executable = Compile(
+            "<xsl:function name='f:fail'><xsl:param name='x'/><xsl:sequence select='$x div 0'/></xsl:function>" +
+            "<xsl:template match='doc'><out><xsl:apply-templates/><xsl:call-template name='t'/></out></xsl:template>" +
+            "<xsl:template name='t'><xsl:value-of select='f:fail(count(//*) - 1)'/></xsl:template>");
+        XsltDynamicException e = Assert.Throws<XsltDynamicException>(() => executable.CreateTransformer().ApplyTemplates(Parse("<doc/>"), new StringWriter()));
+        Assert.Equal("FOAR0001", e.Code.LocalName);
+        Assert.Contains(e.StylesheetStack, f => f.Name?.LocalName == "t" && f.LineNumber > 0);
+        Assert.Contains(e.StylesheetStack, f => f.Match == "doc");
+        Assert.True(e.StylesheetStack.ToList().FindIndex(f => f.Name?.LocalName == "t") < e.StylesheetStack.ToList().FindIndex(f => f.Match == "doc"));
     }
 
     /// <summary>Explain writes the QIL the stylesheet compiles to, with its template rules as functions.</summary>
@@ -323,6 +335,22 @@ public class Xslt30ApiTests
         {
             File.Delete(file);
         }
+    }
+
+    /// <summary>A saved assembly keeps the frames its methods map to: a dynamic error carries the stylesheet stack.</summary>
+    [Fact]
+    public void SavedAssembliesKeepTheStylesheetStack()
+    {
+        var saved = new MemoryStream();
+        new XslCompiledTransform().CompileToAssembly(XmlReader.Create(new StringReader(
+            $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:template match='/'><out><xsl:call-template name='t'/></out></xsl:template>" +
+            "<xsl:template name='t'><xsl:value-of select='1 div (count(//*) - 1)'/></xsl:template></xsl:stylesheet>")),
+            null, null, "Xsl3.Tests.Frames", "Frames.Stylesheet", saved);
+        var transform = new XslCompiledTransform();
+        transform.Load(System.Reflection.Assembly.Load(saved.ToArray()).GetType("Frames.Stylesheet", throwOnError: true)!, null);
+        Exception e = Assert.ThrowsAny<Exception>(() => transform.Transform(XmlReader.Create(new StringReader("<a/>")), null, new StringWriter()));
+        XsltDynamicException error = XsltDynamicException.From(e)!;
+        Assert.Equal(new[] { "t", null }, error.StylesheetStack.Select(f => f.Name?.LocalName));
     }
 #endif
 

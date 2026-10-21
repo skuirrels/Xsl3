@@ -167,13 +167,40 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: records the stylesheet stack on an exception leaving the transformation; never handles it.</summary>
         internal bool AttachStylesheetStack(System.Exception e)
         {
-            if (TraceStack.Count > 0 && !e.Data.Contains(XsltDynamicException.StackKey))
+            if (e.Data.Contains(XsltDynamicException.StackKey))
+            {
+                return false;
+            }
+            if (TraceStack.Count > 0)
             {
                 var frames = TraceStack.ToArray();
                 System.Array.Reverse(frames);
                 e.Data[XsltDynamicException.StackKey] = frames;
             }
+            else if (_frames != null && StackOfMethods(e) is { Length: > 0 } frames)
+            {
+                e.Data[XsltDynamicException.StackKey] = frames;
+            }
             return false;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<string, int>? _frames;
+
+        /// <summary>
+        /// Xsl3 (4.5): without tracing, the stylesheet stack read from the .NET one: the templates and functions by the
+        /// names of their methods. Frames the JIT inlined or a tail call replaced are missing.
+        /// </summary>
+        private XsltFrame[] StackOfMethods(System.Exception e)
+        {
+            var frames = new System.Collections.Generic.List<XsltFrame>();
+            foreach (System.Diagnostics.StackFrame frame in new System.Diagnostics.StackTrace(e, false).GetFrames())
+            {
+                if (frame.GetMethod()?.Name is string name && _frames!.TryGetValue(name, out int id))
+                {
+                    frames.Add((XsltFrame)Xsl3.XPath31.ConstantPool.Get(Constants, id));
+                }
+            }
+            return frames.ToArray();
         }
 
         /// <summary>Xsl3: the lines of the instructions in xsl:try bodies being evaluated, innermost last ($err:line-number).</summary>
@@ -266,6 +293,7 @@ namespace Xsl3.Runtime
             IsXslt2 = data.Xslt2;
             UseCompactTree = data.CompactTree;
             Constants = data.Constants;
+            _frames = data.Frames;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;

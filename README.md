@@ -172,8 +172,10 @@ XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows
   registers extension functions for 2.0+ stylesheets (`RegisterExtensionFunction(name, arity, args => …)`).
 - An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
   [docs/plan/api.md](docs/plan/api.md).
-- With `XsltSettings.EnableTracing`, a transformer's `TraceListener` (an `IXsltTraceListener`) sees every template
-  and function start and end, and an `XsltDynamicException` carries the `StylesheetStack` that was running.
+- An `XsltDynamicException` carries the `StylesheetStack` of templates and functions that was running. With
+  `XsltSettings.EnableTracing` it is complete, and a transformer's `TraceListener` (an `IXsltTraceListener`) sees
+  every template and function start and end; without it, the stack is read from the .NET one and leaves out
+  functions that were inlined or tail-called.
   `XsltExecutable.Explain` writes the optimized QIL the stylesheet compiles to.
 - `XsltCompiler.CompileAssociatedStylesheet(document)` compiles the stylesheet a document names in its
   `<?xml-stylesheet?>` processing instruction, embedded in it (`href="#id"`) or not.

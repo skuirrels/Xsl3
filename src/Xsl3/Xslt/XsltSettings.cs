@@ -65,8 +65,9 @@ namespace Xsl3
         /// </summary>
         /// <summary>
         /// Xsl3: compiles calls to an <see cref="IXsltTraceListener"/> into the entry and exit of every template and
-        /// stylesheet function of an XSLT 2.0+ stylesheet, and records the stylesheet stack for
-        /// <see cref="XsltDynamicException.StylesheetStack"/>. Off by default: it costs time and stops tail calls.
+        /// stylesheet function of an XSLT 2.0+ stylesheet, and records the complete stylesheet stack for
+        /// <see cref="XsltDynamicException.StylesheetStack"/> (without it, the stack is read from the .NET one and leaves
+        /// out inlined and tail-called frames). Off by default: it costs time and stops tail calls.
         /// </summary>
         public bool EnableTracing { get; set; }
 
