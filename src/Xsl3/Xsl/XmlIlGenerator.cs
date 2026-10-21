@@ -385,20 +385,55 @@ namespace Xsl3
             ConstructorInfo cctor;
 
             staticData.GetObjectData(out data, out ebTypes);
-            fldInitData = _module!.DefineInitializedData($"__{XmlQueryStaticData.DataFieldName}", data);
-            fldData = _module.DefineField(XmlQueryStaticData.DataFieldName, typeof(object));
-            fldTypes = _module.DefineField(XmlQueryStaticData.TypesFieldName, typeof(Type[]));
+            // Xsl3 (Sink B): initialized data fields hold less than 0x3f0000 bytes each; larger static data (a big
+            // stylesheet's constants) goes in pieces, copied into one array.
+            const int Piece = 0x3e0000;
+            if (data.Length > Piece)
+            {
+                fldData = _module!.DefineField(XmlQueryStaticData.DataFieldName, typeof(object));
+                fldTypes = _module.DefineField(XmlQueryStaticData.TypesFieldName, typeof(Type[]));
+                cctor = _module.DefineTypeInitializer();
+                _helper!.MethodBegin(cctor, null, false);
+                LocalBuilder locData = _helper.DeclareLocal("$$$data", typeof(byte[]));
+                _helper.LoadInteger(data.Length);
+                _helper.Emit(OpCodes.Newarr, typeof(byte));
+                _helper.Emit(OpCodes.Stloc, locData);
+                for (int offset = 0, piece = 0; offset < data.Length; offset += Piece, piece++)
+                {
+                    int length = Math.Min(Piece, data.Length - offset);
+                    // Buffer.BlockCopy(new byte[length] { s_initData<piece> }, 0, data, offset, length);
+                    fldInitData = _module.DefineInitializedData($"__{XmlQueryStaticData.DataFieldName}{piece}", data.AsSpan(offset, length).ToArray());
+                    _helper.LoadInteger(length);
+                    _helper.Emit(OpCodes.Newarr, typeof(byte));
+                    _helper.Emit(OpCodes.Dup);
+                    _helper.Emit(OpCodes.Ldtoken, fldInitData);
+                    _helper.Call(XmlILMethods.InitializeArray);
+                    _helper.LoadInteger(0);
+                    _helper.Emit(OpCodes.Ldloc, locData);
+                    _helper.LoadInteger(offset);
+                    _helper.LoadInteger(length);
+                    _helper.Call(typeof(Buffer).GetMethod(nameof(Buffer.BlockCopy))!);
+                }
+                _helper.Emit(OpCodes.Ldloc, locData);
+                _helper.Emit(OpCodes.Stsfld, fldData);
+            }
+            else
+            {
+                fldInitData = _module!.DefineInitializedData($"__{XmlQueryStaticData.DataFieldName}", data);
+                fldData = _module.DefineField(XmlQueryStaticData.DataFieldName, typeof(object));
+                fldTypes = _module.DefineField(XmlQueryStaticData.TypesFieldName, typeof(Type[]));
 
-            cctor = _module.DefineTypeInitializer();
-            _helper!.MethodBegin(cctor, null, false);
+                cctor = _module.DefineTypeInitializer();
+                _helper!.MethodBegin(cctor, null, false);
 
-            // s_data = new byte[s_initData.Length] { s_initData };
-            _helper.LoadInteger(data.Length);
-            _helper.Emit(OpCodes.Newarr, typeof(byte));
-            _helper.Emit(OpCodes.Dup);
-            _helper.Emit(OpCodes.Ldtoken, fldInitData);
-            _helper.Call(XmlILMethods.InitializeArray);
-            _helper.Emit(OpCodes.Stsfld, fldData);
+                // s_data = new byte[s_initData.Length] { s_initData };
+                _helper.LoadInteger(data.Length);
+                _helper.Emit(OpCodes.Newarr, typeof(byte));
+                _helper.Emit(OpCodes.Dup);
+                _helper.Emit(OpCodes.Ldtoken, fldInitData);
+                _helper.Call(XmlILMethods.InitializeArray);
+                _helper.Emit(OpCodes.Stsfld, fldData);
+            }
 
             if (ebTypes != null)
             {

@@ -60,6 +60,26 @@ if (command == "compile")
         .CompileToAssembly(reader, settings, new XmlUrlResolver(), Path.GetFileNameWithoutExtension(input!), "Compiled.Stylesheet", dll);
     return 0;
 }
+if (command == "jitall")
+{
+    // jitall out.dll: JIT-compiles every method of a saved assembly, naming the ones the runtime rejects.
+    Type saved = System.Reflection.Assembly.LoadFrom(stylesheet).GetType("Compiled.Stylesheet", throwOnError: true)!;
+    int bad = 0;
+    foreach (System.Reflection.MethodInfo method in saved.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.DeclaredOnly))
+    {
+        try
+        {
+            System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(method.MethodHandle);
+        }
+        catch (Exception e)
+        {
+            bad++;
+            Console.WriteLine($"{method.Name}: {e.GetType().Name}: {e.Message}");
+        }
+    }
+    Console.WriteLine($"{bad} method(s) rejected");
+    return bad == 0 ? 0 : 1;
+}
 if (command == "runcompiled")
 {
     // XSL3_DEV_COLLECTIBLE=1: into a collectible load context, as the W3C runner's round trip does.

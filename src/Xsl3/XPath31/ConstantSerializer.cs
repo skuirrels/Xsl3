@@ -15,7 +15,7 @@ namespace Xsl3.XPath31
     /// <summary>
     /// Saves a stylesheet's constant table with its compiled form, and reads it back (Sink B, docs/plan/p4-sink-b.md
     /// decision 3): a versioned binary format over the closed set of kinds the compiler puts in the table. A kind it
-    /// doesn't know, or a value that can't be saved (a function item among static parameter values), raises
+    /// doesn't know, or a value that can't be saved (an inline function item among static parameter values), raises
     /// <see cref="System.NotSupportedException"/> when saving.
     /// </summary>
     internal static class ConstantSerializer
@@ -129,12 +129,13 @@ namespace Xsl3.XPath31
                     w.Write((byte)Kind.ResultFormat);
                     WriteResultFormat(w, format);
                     break;
-                case Dictionary<string, ResultFormat> formats:
+                case Dictionary<(string, string), ResultFormat> formats:
                     w.Write((byte)Kind.ResultFormats);
                     w.Write(formats.Count);
-                    foreach (var (name, format) in formats)
+                    foreach (var ((uri, local), format) in formats)
                     {
-                        w.Write(name);
+                        w.Write(uri);
+                        w.Write(local);
                         WriteResultFormat(w, format);
                     }
                     break;
@@ -259,10 +260,10 @@ namespace Xsl3.XPath31
                     return ReadResultFormat(r);
                 case Kind.ResultFormats:
                 {
-                    var formats = new Dictionary<string, ResultFormat>();
+                    var formats = new Dictionary<(string, string), ResultFormat>();
                     for (int i = r.ReadInt32(); i > 0; i--)
                     {
-                        formats[r.ReadString()] = ReadResultFormat(r);
+                        formats[(r.ReadString(), r.ReadString())] = ReadResultFormat(r);
                     }
                     return formats;
                 }
@@ -369,21 +370,304 @@ namespace Xsl3.XPath31
                     WriteNullable(w, document.BaseURI);
                     w.Write(document.InnerXml);
                     break;
+                case XPathNavigator node:
+                    // Any other node: its tree, from the root (a document or a parentless node), and the way down to it.
+                    w.Write((byte)2);
+                    WriteNode(w, node);
+                    break;
+                case MapItem map:
+                    w.Write((byte)3);
+                    w.Write(map.Count);
+                    foreach (var (key, value) in map.Entries)
+                    {
+                        WriteAtomic(w, key);
+                        WriteItems(w, value);
+                    }
+                    break;
+                case ArrayItem array:
+                    w.Write((byte)4);
+                    w.Write(array.Members.Count);
+                    foreach (IList<XPathItem> member in array.Members)
+                    {
+                        WriteItems(w, member);
+                    }
+                    break;
+                case FunctionItem { Name: QName name } function when FunctionLibrary.Find(name.NamespaceUri, name.LocalName, function.Arity) != null &&
+                    function is LibraryFunction or Runtime.CompiledFunction { Captured.Count: 0 }:
+                    // A reference to a built-in function (xs:date#1): found again by its name and arity.
+                    w.Write((byte)5);
+                    WriteName(w, name);
+                    w.Write(function.Arity);
+                    break;
                 default:
-                    throw new System.NotSupportedException($"A compiled stylesheet can't be saved with {item} as a static value");
+                    throw new System.NotSupportedException($"A compiled stylesheet can't be saved with {(item is FunctionItem f ? f.Describe() : item.ToString())} as a static value");
             }
+        }
+
+        private static void WriteItems(BinaryWriter w, IList<XPathItem> items)
+        {
+            w.Write(items.Count);
+            foreach (XPathItem item in items)
+            {
+                WriteItem(w, item);
+            }
+        }
+
+        private static IList<XPathItem> ReadItems(BinaryReader r)
+        {
+            var items = new XPathItem[r.ReadInt32()];
+            for (int i = 0; i < items.Length; i++)
+            {
+                items[i] = ReadItem(r);
+            }
+            return items;
         }
 
         private static XPathItem ReadItem(BinaryReader r)
         {
-            if (r.ReadByte() == 1)
+            switch (r.ReadByte())
             {
-                string? baseUri = ReadNullable(r);
-                using XmlReader reader = XmlReader.Create(new StringReader(r.ReadString()),
-                    new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment, DtdProcessing = DtdProcessing.Ignore }, baseUri);
-                return Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
+                case 1:
+                {
+                    string? baseUri = ReadNullable(r);
+                    using XmlReader reader = XmlReader.Create(new StringReader(r.ReadString()),
+                        new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment, DtdProcessing = DtdProcessing.Ignore }, baseUri);
+                    return Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
+                }
+                case 2:
+                    return ReadNode(r);
+                case 3:
+                {
+                    var entries = new List<KeyValuePair<AtomicValue, IList<XPathItem>>>();
+                    for (int i = r.ReadInt32(); i > 0; i--)
+                    {
+                        entries.Add(new(ReadAtomic(r), ReadItems(r)));
+                    }
+                    return MapItem.Of(entries);
+                }
+                case 4:
+                {
+                    var members = new List<IList<XPathItem>>();
+                    for (int i = r.ReadInt32(); i > 0; i--)
+                    {
+                        members.Add(ReadItems(r));
+                    }
+                    return ArrayItem.Of(members);
+                }
+                case 5:
+                {
+                    QName name = ReadName(r);
+                    int arity = r.ReadInt32();
+                    return new LibraryFunction(FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity)!, arity,
+                        new FunctionContext(FunctionContext.LocalTimezoneMinutes, (a, b) => a.ComparePosition(b) switch
+                        {
+                            XmlNodeOrder.Before => -1,
+                            XmlNodeOrder.After => 1,
+                            _ => 0,
+                        }));
+                }
+                default:
+                    return (XPathItem)ReadValue(r)!;
             }
-            return (XPathItem)ReadValue(r)!;
+        }
+
+        // A node's tree: element, attribute, namespace, text, comment and PI records, from the root down.
+        private const byte TreeElement = 1, TreeEnd = 2, TreeAttribute = 3, TreeNamespace = 4, TreeText = 5, TreeComment = 6, TreePI = 7, TreeDone = 0;
+
+        private static void WriteNode(BinaryWriter w, XPathNavigator node)
+        {
+            XPathNavigator root = node.Clone();
+            root.MoveToRoot();
+            w.Write(root.NodeType == XPathNodeType.Root);
+            WriteNullable(w, root.BaseURI);
+            WriteTree(w, root);
+            w.Write(TreeDone);
+
+            // The way from the root to the node: child positions, attribute positions, namespace prefixes.
+            var steps = new List<(byte, int, string)>();
+            XPathNavigator at = node.Clone();
+            while (true)
+            {
+                XPathNavigator here = at.Clone();
+                if (!at.MoveToParent())
+                {
+                    break;
+                }
+                switch (here.NodeType)
+                {
+                    case XPathNodeType.Attribute:
+                        steps.Add((1, Position(at.Clone(), here), ""));
+                        break;
+                    case XPathNodeType.Namespace:
+                        steps.Add((2, 0, here.LocalName));
+                        break;
+                    default:
+                        int index = 0;
+                        while (here.MoveToPrevious())
+                        {
+                            index++;
+                        }
+                        steps.Add((0, index, ""));
+                        break;
+                }
+            }
+            steps.Reverse();
+            w.Write(steps.Count);
+            foreach (var (kind, index, prefix) in steps)
+            {
+                w.Write(kind);
+                w.Write(index);
+                w.Write(prefix);
+            }
+        }
+
+        private static int Position(XPathNavigator element, XPathNavigator attribute)
+        {
+            int index = 0;
+            for (bool more = element.MoveToFirstAttribute(); more && !element.IsSamePosition(attribute); more = element.MoveToNextAttribute())
+            {
+                index++;
+            }
+            return index;
+        }
+
+        private static void WriteTree(BinaryWriter w, XPathNavigator node)
+        {
+            switch (node.NodeType)
+            {
+                case XPathNodeType.Root:
+                    WriteChildren(w, node);
+                    break;
+                case XPathNodeType.Element:
+                    w.Write(TreeElement);
+                    w.Write(node.Prefix);
+                    w.Write(node.LocalName);
+                    w.Write(node.NamespaceURI);
+                    w.Write(node.BaseURI);
+                    if (node.MoveToFirstNamespace(XPathNamespaceScope.Local))
+                    {
+                        do
+                        {
+                            WriteTree(w, node);
+                        }
+                        while (node.MoveToNextNamespace(XPathNamespaceScope.Local));
+                        node.MoveToParent();
+                    }
+                    if (node.MoveToFirstAttribute())
+                    {
+                        do
+                        {
+                            WriteTree(w, node);
+                        }
+                        while (node.MoveToNextAttribute());
+                        node.MoveToParent();
+                    }
+                    WriteChildren(w, node);
+                    w.Write(TreeEnd);
+                    break;
+                case XPathNodeType.Attribute:
+                    w.Write(TreeAttribute);
+                    w.Write(node.Prefix);
+                    w.Write(node.LocalName);
+                    w.Write(node.NamespaceURI);
+                    w.Write(node.Value);
+                    break;
+                case XPathNodeType.Namespace:
+                    w.Write(TreeNamespace);
+                    w.Write(node.LocalName);
+                    w.Write(node.Value);
+                    break;
+                case XPathNodeType.Comment:
+                    w.Write(TreeComment);
+                    w.Write(node.Value);
+                    break;
+                case XPathNodeType.ProcessingInstruction:
+                    w.Write(TreePI);
+                    w.Write(node.LocalName);
+                    w.Write(node.Value);
+                    break;
+                default:
+                    w.Write(TreeText);
+                    w.Write((byte)node.NodeType);
+                    w.Write(node.Value);
+                    break;
+            }
+        }
+
+        private static void WriteChildren(BinaryWriter w, XPathNavigator node)
+        {
+            if (node.MoveToFirstChild())
+            {
+                do
+                {
+                    WriteTree(w, node);
+                }
+                while (node.MoveToNext());
+                node.MoveToParent();
+            }
+        }
+
+        private static XPathNavigator ReadNode(BinaryReader r)
+        {
+            bool document = r.ReadBoolean();
+            string baseUri = ReadNullable(r) ?? "";
+            var builder = new Tree.CompactDocument.Builder(new NameTable(), baseUri, fragment: !document, small: true);
+            for (byte record = r.ReadByte(); record != TreeDone; record = r.ReadByte())
+            {
+                switch (record)
+                {
+                    case TreeElement:
+                        builder.StartElement(r.ReadString(), r.ReadString(), r.ReadString(), r.ReadString());
+                        break;
+                    case TreeEnd:
+                        builder.EndElement(emptyTag: false);
+                        break;
+                    case TreeAttribute:
+                        builder.Attribute(r.ReadString(), r.ReadString(), r.ReadString(), r.ReadString());
+                        break;
+                    case TreeNamespace:
+                        builder.NamespaceDeclaration(r.ReadString(), r.ReadString());
+                        break;
+                    case TreeComment:
+                        builder.Comment(r.ReadString());
+                        break;
+                    case TreePI:
+                        builder.ProcessingInstruction(r.ReadString(), r.ReadString());
+                        break;
+                    default:
+                        var type = (XPathNodeType)r.ReadByte();
+                        builder.Text(r.ReadString(), type);
+                        break;
+                }
+            }
+            XPathNavigator node = builder.Finish().CreateNavigator();
+            for (int steps = r.ReadInt32(); steps > 0; steps--)
+            {
+                byte kind = r.ReadByte();
+                int index = r.ReadInt32();
+                string prefix = r.ReadString();
+                switch (kind)
+                {
+                    case 1:
+                        node.MoveToFirstAttribute();
+                        for (; index > 0; index--)
+                        {
+                            node.MoveToNextAttribute();
+                        }
+                        break;
+                    case 2:
+                        node.MoveToNamespace(prefix);
+                        break;
+                    default:
+                        node.MoveToFirstChild();
+                        for (; index > 0; index--)
+                        {
+                            node.MoveToNext();
+                        }
+                        break;
+                }
+            }
+            return node;
         }
 
         private static void WriteAtomic(BinaryWriter w, AtomicValue a)

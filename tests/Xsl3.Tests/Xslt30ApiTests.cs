@@ -337,6 +337,40 @@ public class Xslt30ApiTests
         }
     }
 
+    /// <summary>
+    /// Static values a saved assembly keeps: maps, arrays, nodes inside a tree and parentless ones, references to built-in
+    /// functions; and the named output definitions a computed format looks up.
+    /// </summary>
+    [Fact]
+    public void SavedAssembliesKeepStaticValuesAndOutputDefinitions()
+    {
+        string stylesheet = $$"""
+            <xsl:stylesheet version="3.0" xmlns:xsl="{{Xsl}}">
+              <xsl:variable name="map" static="yes" select="map { 'a': [1, (2, 3)], 'b': 'two' }"/>
+              <xsl:variable name="attribute" static="yes" select="parse-xml('&lt;r&gt;&lt;a x=&quot;1&quot;/&gt;&lt;a x=&quot;2&quot;/&gt;&lt;/r&gt;')//a[2]/@x"/>
+              <xsl:variable name="element" static="yes" select="parse-xml-fragment('&lt;e k=&quot;v&quot;&gt;text&lt;i/&gt;&lt;/e&gt;')/e"/>
+              <xsl:variable name="function" static="yes" select="upper-case#1"/>
+              <xsl:output name="plain" method="text"/>
+              <xsl:template match="/">
+                <out><xsl:value-of select="array:size($map?a), $map?a?2, $map?b, string($attribute), name($attribute/..), count($attribute/../preceding-sibling::*),
+                  $element/@k, string($element), exists($element/../..), $function('x')" xmlns:array="http://www.w3.org/2005/xpath-functions/array"/></out>
+                <xsl:result-document href="plain.txt" format="{'plain'}">text</xsl:result-document>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+        var settings = new XsltSettings { EnableResultDocument = true };
+        var saved = new MemoryStream();
+        new XslCompiledTransform().CompileToAssembly(XmlReader.Create(new StringReader(stylesheet)), settings, null, "Xsl3.Tests.Values", "Values.Stylesheet", saved);
+        var transform = new XslCompiledTransform();
+        transform.Load(System.Reflection.Assembly.Load(saved.ToArray()).GetType("Values.Stylesheet", throwOnError: true)!, settings);
+        var results = new Dictionary<string, StringWriter>();
+        var text = new StringWriter();
+        transform.TransformTo(Tree.CompactDocument.Load(new StringReader("<doc/>")).CreateNavigator(), null, text, null, new Uri("file:///out/main.xml"),
+            (href, _) => results[href] = new StringWriter());
+        Assert.Equal("<out>2 2 3 two 2 a 1 v text false X</out>", text.ToString()[(text.ToString().IndexOf("?>") + 2)..]);
+        Assert.Equal("text", Assert.Single(results).Value.ToString());
+    }
+
     /// <summary>A saved assembly keeps the frames its methods map to: a dynamic error carries the stylesheet stack.</summary>
     [Fact]
     public void SavedAssembliesKeepTheStylesheetStack()

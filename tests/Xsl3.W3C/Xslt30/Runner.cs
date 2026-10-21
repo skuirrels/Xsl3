@@ -450,9 +450,10 @@ public sealed class Runner
             }
             // Some stylesheets declare entities in an internal DTD subset.
             // (An embedded stylesheet, named with a fragment identifier, is compiled through a module that includes it.)
-            using (XmlReader stylesheetReader = stylesheet.Contains('#')
+            XmlReader StylesheetReader() => stylesheet.Contains('#')
                 ? XmlReader.Create(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver })
-                : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
+                : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver });
+            using (XmlReader stylesheetReader = StylesheetReader())
             {
                 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
@@ -464,7 +465,17 @@ public sealed class Runner
                 {
                     // (On stderr, so that a crash in saved code names its test.)
                     Console.Error.WriteLine("xslt30 saved round trip: " + test.Id);
-                    transform = RoundTrip(transform, stylesheetReader, settings, resolver);
+                    try
+                    {
+                        transform = RoundTrip(transform, stylesheetReader, settings, resolver);
+                    }
+                    catch (NotSupportedException)
+                    {
+                        // A stylesheet CompileToAssembly refuses (a static value it can't save, such as a constructor
+                        // function reference): it runs as loaded from source.
+                        using XmlReader again = StylesheetReader();
+                        transform.Load(again, settings, resolver);
+                    }
                 }
                 else
                 {

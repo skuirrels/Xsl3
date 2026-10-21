@@ -59,6 +59,9 @@ namespace Xsl3.IlGen
 
             // Xsl3 (Sink B): a saved assembly can carry symbols: sequence points to the stylesheet's lines.
             _emitSymbols = emitSymbols;
+#if NET9_0_OR_GREATER
+            Persisted = typeBldr.Module is ModuleBuilder { Assembly: PersistedAssemblyBuilder };
+#endif
             _useLRE = false;
             // Index all methods added to this module by unique name
             _methods = new Hashtable();
@@ -82,6 +85,9 @@ namespace Xsl3.IlGen
             return document;
         }
 #endif
+
+        /// <summary>Xsl3 (Sink B): the methods go into a saved assembly (PersistedAssemblyBuilder).</summary>
+        public bool Persisted { get; }
 
         public bool EmitSymbols
         {

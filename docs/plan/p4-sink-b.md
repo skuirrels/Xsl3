@@ -132,7 +132,26 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
   published with `PublishAot=true`, warnings as errors, and run in CI (`native-aot` job). On osx-arm64 the binary is
   11 MB and prints the expected report.
 - [x] A sampled W3C subset runs through the saved-assembly round trip: CI sets `XSL3_W3C_SAVED=10` (about one test in
-  ten); locally, `XSL3_W3C_SAVED=1` sends the whole xslt30-test suite through it with unchanged results.
+  ten); locally, `XSL3_W3C_SAVED=1` sends the whole xslt30-test suite through it.
+
+Correction (2026-10-21): an earlier version of this list said the whole suite ran through saved assemblies with
+unchanged results. It didn't: measured on 2026-10-21, 164 tests failed that pass from source, and CI's one-in-ten
+sample caught 18 of them. The causes, all fixed:
+
+- The named output definitions (for a computed `format`) became keyed by namespace and local name, and the constant
+  serializer still expected string keys (148 tests).
+- Static values other than atomic values and documents couldn't be saved: maps, arrays, nodes inside a tree,
+  parentless nodes, references to built-in functions. They are now saved (a node as its tree and the way down to it).
+  A reference to a constructor function (`xs:date#1`) still can't be, and `CompileToAssembly` refuses it.
+- PersistedAssemblyBuilder's IL generator misplaced the instruction after a short branch in one method of as-0501 (the
+  runtime rejected it as an invalid program; in-memory compilation is unaffected). Saved assemblies use long branches.
+- Static data over 4 MB (docbook-002) didn't fit one initialized data field; it is split into pieces.
+- `CompileToAssembly` didn't allow `fn:transform` in static expressions with `EnableEvaluate`, as `Load` does.
+
+Now every test gives the same result from a saved assembly as from source, except override-v-008, override-v-009 and
+strip-space-023. Those three fail on the internal entry points the round trip uses, not because of the saved assembly:
+they pass through the public 3.0 API. `Xsl3.Dev jitall` JIT-compiles every method of a saved assembly to find one the
+runtime rejects.
 
 A finding from CI: a saved assembly loaded into a *collectible* `AssemblyLoadContext` crashes with an
 `AccessViolationException` in its `Execute` method on Linux (arm64 and x64) once tiered PGO has optimized Xsl3's

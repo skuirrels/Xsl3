@@ -360,7 +360,17 @@ namespace Xsl3
             Reset();
             settings ??= XsltSettings.Default;
             using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
-            CompileXsltToQil(stylesheet, settings, stylesheetResolver, stylesheetResolver);
+            // Static expressions may call fn:transform only with EnableEvaluate, as when loading.
+            bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+            XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+            try
+            {
+                CompileXsltToQil(stylesheet, settings, stylesheetResolver, stylesheetResolver);
+            }
+            finally
+            {
+                XmlQueryRuntime.DynamicTransforms = savedDynamic;
+            }
             if (GetFirstError() is CompilerError error)
             {
                 throw new XslLoadException(error);
