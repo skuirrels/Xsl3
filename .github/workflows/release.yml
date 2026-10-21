@@ -2,7 +2,7 @@ name: Release
 
 # Publishes the Xsl3 package to nuget.org when a version tag is pushed: v0.1.0, v0.1.0-alpha, v1.2.3-beta.4, ...
 # The package version is the tag without its "v". nuget.org trusts this workflow file (trusted publishing), so no
-# API key is stored in the repository; set the repository variable NUGET_USER to the nuget.org account name.
+# API key is stored in the repository; set the variable NUGET_USER on the nuget environment to the nuget.org account name.
 
 on:
   push:
@@ -39,10 +39,6 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Tag $GITHUB_REF_NAME isn't v<major>.<minor>.<patch>[-<prerelease>]"
-            exit 1
-          fi
-          if [ -z "${{ vars.NUGET_USER }}" ]; then
-            echo "::error::Set the repository variable NUGET_USER to the nuget.org account name"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -87,6 +83,14 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
+
+      # NUGET_USER is a variable of the nuget environment, so only this job sees it.
+      - name: Check the nuget.org account
+        run: |
+          if [ -z "${{ vars.NUGET_USER }}" ]; then
+            echo "::error::Set the variable NUGET_USER (on the nuget environment or the repository) to the nuget.org account name"
+            exit 1
+          fi
 
       - name: NuGet login (trusted publishing)
         id: login
