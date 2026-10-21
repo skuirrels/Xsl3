@@ -419,8 +419,8 @@ namespace Xsl3.Xslt
                     return X31(nameof(XsltLibrary.X31AccumulatorValue), T.ItemS, AccumulatorItems31(), _f.Double(_accumulatorTable31),
                         String31(compile(args[0])), _f.Double(NameContext31()), Box(compile(new XPath31.ContextItemExpr())),
                         _f.Boolean(name.LocalName == "accumulator-after"), _f.Double(_package31));
-                case ("copy-of", 0) when _compiler.Schemas != null:
-                case ("copy-of", 1) when _compiler.Schemas != null:
+                case ("copy-of", 0) when _compiler.Settings.SchemaAware:
+                case ("copy-of", 1) when _compiler.Settings.SchemaAware:
                     // Xsl3 (P6): with schemas, the copies keep their type annotations (as validation="preserve").
                     return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])), _f.True());
                 case ("copy-of", 0):
@@ -429,7 +429,7 @@ namespace Xsl3.Xslt
                     return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
                 case ("snapshot", 0):
                 case ("snapshot", 1):
-                    return X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]));
+                    return X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]), _f.Boolean(_compiler.Settings.SchemaAware));
                 case ("function-available", 1):
                 case ("function-available", 2):
                 case ("element-available", 1):

@@ -9,7 +9,6 @@ docbook/docbook-004
 document/document-2401
 document/document-2402
 id/id-001
-import-schema/import-schema-076
 import-schema/import-schema-177
 import/import-1201
 match/match-187
@@ -35,4 +34,3 @@ validation/validation-0108
 validation/validation-0201
 validation/validation-0202
 validation/validation-0214
-validation/validation-1203

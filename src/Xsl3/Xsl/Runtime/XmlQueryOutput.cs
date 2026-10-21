@@ -547,6 +547,13 @@ namespace Xsl3.Runtime
             if (_cntNmsp != 0)
                 WriteCachedNamespaces();
 
+            if (_runtime.PendingAnyType)
+            {
+                // Xsl3 (P6): an element a constructor with validation="preserve" made is xs:anyType.
+                _runtime.PendingAnyType = false;
+                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.AnnotateElement(Xsl3.Schema.SchemaTypes.AnyType, false);
+            }
+
             Writer!.StartElementContent();
             _xstate = XmlState.WithinContent;
         }

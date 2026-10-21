@@ -153,6 +153,9 @@ namespace Xsl3.Runtime
 
         private bool _preserveAnnotations;
 
+        /// <summary>Xsl3 (P6): the element a constructor with validation="preserve" starts next is annotated xs:anyType.</summary>
+        internal bool PendingAnyType { get; set; }
+
         /// <summary>Xsl3 (P6): the constructors being evaluated that preserve (true) or strip (false) type annotations.</summary>
         internal Stack<bool>? AnnotationScopes { get; set; }
 

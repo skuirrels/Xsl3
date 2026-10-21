@@ -1010,7 +1010,8 @@ namespace Xsl3.Xslt
                     // Xsl3 (P6): validation="preserve" or "strip" on a constructor: the nodes copied into it keep, or lose,
                     // their type annotations, whatever the stylesheet's default-validation.
                     result = _f.Sequence(
-                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(kept == "preserve" ? 1 : 0)),
+                        // (2: the element it makes is itself annotated xs:anyType, XSLT 3.0 §25.4.2.)
+                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(kept == "preserve" ? nodeType == XslNodeType.Document ? 1 : 2 : 0)),
                         result,
                         XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(-1)));
                 }
