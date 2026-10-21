@@ -131,7 +131,8 @@ namespace Xsl3.Runtime
         public bool TypeAvailable(string name)
         {
             var (ns, local) = Resolve(name, "", "XTDE1428");
-            return ns == QName.Ns.Xs && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
+            // xs:dateTimeStamp is XSD 1.1's; the xsd-version property is 1.0.
+            return ns == QName.Ns.Xs && local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
         }
     }
 

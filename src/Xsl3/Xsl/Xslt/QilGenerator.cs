@@ -870,7 +870,7 @@ namespace Xsl3.Xslt
         private QilNode CompileInstructions(IList<XslNode> instructions, int from, QilList content)
         {
             Debug.Assert(instructions != null);
-            if (IsV2 && from == 0 && content.Count == 0 && HasOnEmpty31(instructions))
+            if (IsV2 && from == 0 && content.Count == 0 && !ReferenceEquals(instructions, _onEmptyList31) && HasOnEmpty31(instructions))
             {
                 return CompileWithOnEmpty31(instructions);
             }

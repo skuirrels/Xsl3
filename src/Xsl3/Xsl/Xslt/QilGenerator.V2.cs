@@ -643,7 +643,14 @@ namespace Xsl3.Xslt
                 case XslNodeType.Catch:
                     return ReportXPath31Error("XTSE0010", "xsl:catch is only allowed in xsl:try");
                 case XslNodeType.OnEmpty or XslNodeType.OnNonEmpty:
-                    // Outside a sequence constructor with other instructions (handled by CompileWithOnEmpty31).
+                    if (_onEmptyList31 != null && _onEmptyList31.Contains(node))
+                    {
+                        // In a sequence constructor with other instructions (CompileWithOnEmpty31): deferred.
+                        XslNode deferred = node;
+                        return X31(nameof(XsltLibrary.X31Deferred), T.Item, _f.Boolean(node.NodeType == XslNodeType.OnEmpty),
+                            Lift31(_ => SelectOrContent31(deferred, deferred.Select), 0));
+                    }
+                    // Alone: xsl:on-empty is the sequence, xsl:on-non-empty nothing.
                     return node.NodeType == XslNodeType.OnEmpty ? SelectOrContent31(node, node.Select) : _f.Sequence();
                 case XslNodeType.Number:
                     return CompileNumber31((Number)node);
@@ -2343,23 +2350,34 @@ namespace Xsl3.Xslt
                         break;
                 }
             }
-            QilIterator result = _f.Let(Box(CompileInstructions(others)));
-            QilNode CompileAll(List<XslNode> nodes)
+            // The instructions in their order, so xsl:on-empty and xsl:on-non-empty see the variables before them: each
+            // becomes a deferred item (its value lifted into a function), which X31OnEmpty keeps or drops once the rest
+            // of the sequence is known.
+            var inOrder = new List<XslNode>();
+            foreach (XslNode n in instructions)
             {
-                QilList list = InstructionList();
-                foreach (XslNode n in nodes)
+                if (n.NodeType is not (XslNodeType.LiteralAttribute or XslNodeType.UseAttributeSet))
                 {
-                    EnterScope(n);
-                    list.Add(SelectOrContent31(n, n.Select));
-                    ExitScope();
+                    inOrder.Add(n);
                 }
-                return list;
             }
-            QilNode whenEmpty = CompileAll(onEmpty);
-            QilNode whenNonEmpty = _f.Sequence(CompileAll(before), result, CompileAll(after));
-            QilNode chosen = _f.Loop(result, _f.Conditional(X31(nameof(XsltLibrary.X31Vacuous), T.BooleanX, result), whenEmpty, whenNonEmpty));
+            IList<XslNode>? savedList = _onEmptyList31;
+            _onEmptyList31 = inOrder;
+            QilNode items;
+            try
+            {
+                items = Box(CompileInstructions(inOrder));
+            }
+            finally
+            {
+                _onEmptyList31 = savedList;
+            }
+            QilNode chosen = X31(nameof(XsltLibrary.X31OnEmpty), T.ItemS, items);
             return attributes.Count == 0 ? chosen : _f.Sequence(CompileInstructions(attributes), chosen);
         }
+
+        // The sequence constructor whose xsl:on-empty and xsl:on-non-empty are being compiled as deferred items.
+        private IList<XslNode>? _onEmptyList31;
 
         // xsl:where-populated: the content without the items deemed empty (XSLT 3.0 §8.4.1).
         private QilNode CompileWherePopulated31(XslNode node) =>

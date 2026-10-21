@@ -136,7 +136,7 @@ namespace Xsl3.XPath31
             _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
             _namespaces = sc.CreateResolver();
             _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
-                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)));
+                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
         }
 
         // The StaticInfo id passed to runtime calls that read the static context.

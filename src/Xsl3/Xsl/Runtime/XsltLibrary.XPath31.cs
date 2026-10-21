@@ -156,11 +156,12 @@ namespace Xsl3.Runtime
             IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
             var opv = (ValueComparisonOp)(int)op;
             IComparer<string> collation = X31ContextFor(sc).DefaultCollation;
+            System.Xml.IXmlNamespaceResolver? namespaces = ((StaticInfo)Constant((int)sc)).Namespaces;
             foreach (XPathItem x in a)
             {
                 foreach (XPathItem y in b)
                 {
-                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv, collation))
+                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv, collation, namespaces))
                     {
                         return true;
                     }
@@ -171,7 +172,7 @@ namespace Xsl3.Runtime
 
         // xs:untypedAtomic is cast to the other operand's type: xs:double against a numeric, xs:string against
         // xs:untypedAtomic or xs:string, else the other type itself.
-        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op, IComparer<string> collation)
+        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op, IComparer<string> collation, System.Xml.IXmlNamespaceResolver? namespaces = null)
         {
             bool ux = x.Type.Primitive == Primitive.UntypedAtomic, uy = y.Type.Primitive == Primitive.UntypedAtomic;
             if (ux && uy)
@@ -181,11 +182,11 @@ namespace Xsl3.Runtime
             }
             else if (ux)
             {
-                x = Casting.Cast(x, y.Type.IsNumeric ? AtomicTypes.Double : y.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(y.Type.Primitive));
+                x = Casting.Cast(x, y.Type.IsNumeric ? AtomicTypes.Double : y.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(y.Type.Primitive), namespaces);
             }
             else if (uy)
             {
-                y = Casting.Cast(y, x.Type.IsNumeric ? AtomicTypes.Double : x.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(x.Type.Primitive));
+                y = Casting.Cast(y, x.Type.IsNumeric ? AtomicTypes.Double : x.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(x.Type.Primitive), namespaces);
             }
             return Comparison.Compare(x, y, op, Tz, collation);
         }

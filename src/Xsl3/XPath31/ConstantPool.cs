@@ -88,7 +88,11 @@ namespace Xsl3.XPath31
     /// The parts of an expression's static context that functions and operators read at run time (XPath 3.1
     /// §2.1.1): compiled code passes its id with every call that needs them.
     /// </summary>
-    internal sealed record StaticInfo(string? BaseUri, string DefaultCollation, Functions.DecimalFormatTable DecimalFormats);
+    internal sealed record StaticInfo(string? BaseUri, string DefaultCollation, Functions.DecimalFormatTable DecimalFormats)
+    {
+        /// <summary>The in-scope namespaces, for casts of untyped values to xs:QName in comparisons.</summary>
+        public System.Xml.IXmlNamespaceResolver? Namespaces { get; init; }
+    }
 
     internal enum CastKind
     {

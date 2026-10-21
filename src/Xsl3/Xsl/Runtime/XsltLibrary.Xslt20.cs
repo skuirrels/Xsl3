@@ -264,6 +264,53 @@ namespace Xsl3.Runtime
         // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty
 
         /// <summary>Whether a sequence has only vacuous items (XSLT 3.0 §8.4.2): zero-length strings and text nodes, documents without children, empty arrays.</summary>
+        /// <summary>An xsl:on-empty (or xsl:on-non-empty) whose value waits for the rest of its sequence constructor.</summary>
+        internal sealed class DeferredItem(bool onEmpty, XdmFunction value) : AtomicValue(AtomicTypes.String)
+        {
+            public readonly bool OnEmpty = onEmpty;
+            public readonly XdmFunction Body = value;
+
+            public override string Value => "";
+
+            public override object ClrValue => "";
+        }
+
+        public XPathItem X31Deferred(bool onEmpty, IList<XPathItem> value) => new DeferredItem(onEmpty, (XdmFunction)value[0]);
+
+        /// <summary>
+        /// A sequence constructor with xsl:on-empty or xsl:on-non-empty (XSLT 3.0 §8.4.2–3): when the other items are
+        /// all vacuous, the values of the xsl:on-empty instructions; otherwise the items, with each xsl:on-non-empty's value
+        /// in its place.
+        /// </summary>
+        public IList<XPathItem> X31OnEmpty(IList<XPathItem> items)
+        {
+            bool vacuous = true;
+            foreach (XPathItem item in items)
+            {
+                if (item is not DeferredItem && !IsVacuous(item))
+                {
+                    vacuous = false;
+                    break;
+                }
+            }
+            var result = new List<XPathItem>();
+            foreach (XPathItem item in items)
+            {
+                if (item is DeferredItem deferred)
+                {
+                    if (deferred.OnEmpty == vacuous)
+                    {
+                        result.AddRange(CallFunction(deferred.Body));
+                    }
+                }
+                else if (!vacuous)
+                {
+                    result.Add(item);
+                }
+            }
+            return result;
+        }
+
         public bool X31Vacuous(IList<XPathItem> items)
         {
             foreach (XPathItem item in items)
