@@ -455,13 +455,12 @@ Measured on 2026-10-21 (Apple M-series, .NET 10, Release, input parsed once into
 | json | 0.07 ms | 178 | 0.020 ms | 9.14 ms | 18,073 |
 
 The cold start (the first compile and transform in a process, Xsl3's own JIT included) is 129 ms. The first run of
-the suite found three things, now fixed:
+the suite found two things, now fixed:
 
 | Finding | Before | After | Change |
 |---|---:|---:|---|
 | recursion, 1 MB | 101 ms | 1.15 ms | `$items[$i]` with a predicate that can't depend on the focus is evaluated once and selects by index (`X31Subscript`); a sequence already converted to a parameter's type is passed on to it without being checked again (`CoercedSequence`) |
 | Compile allocation | 106.8 KB (identity) | 97.6 KB | The scan for `position()` and `last()` stopped following a template's back-reference to its module, and caches each AST type's fields |
-| Saved assemblies | | | The micro suite is not run from saved assemblies; see docs/plan/p4-sink-b.md for what the full round trip found |
 
 regex is the slowest per byte: `xsl:analyze-string` and `replace` per order allocate 6.7 KB each. That one is left
 for a profile.
