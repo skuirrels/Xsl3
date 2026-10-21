@@ -46,6 +46,12 @@ namespace Xsl3.XPath31
         /// <summary>The default collation URI (XPath 3.1 §2.1.1); FOCH0002 at evaluation if it isn't supported.</summary>
         public string DefaultCollation { get; set; } = Collation.CodepointUri;
 
+        /// <summary>
+        /// XPath 1.0 compatibility mode (XPath 2.0 §2.1.1): set for expressions in a region of a stylesheet whose
+        /// [xsl:]version is below 2.0 (XSLT 3.0 §3.9, backwards-compatible behaviour).
+        /// </summary>
+        public bool BackwardsCompatible { get; set; }
+
         /// <summary>The unnamed decimal format used by fn:format-number#2.</summary>
         public XPathDecimalFormat DefaultDecimalFormat { get; set; } = XPathDecimalFormat.Default;
 
@@ -413,7 +419,9 @@ namespace Xsl3.XPath31
                 case BinaryExpr b:
                     return Binary(b);
                 case UnaryExpr u:
-                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, Items(Build(u.Operand)), u.Minus ? _f.True() : _f.False());
+                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, CompatNumeric(Items(Build(u.Operand))), u.Minus ? _f.True() : _f.False());
+                case CompatArgument c:
+                    return Call(nameof(XsltLibrary.X31CompatArgument), T.ItemS, Items(Build(c.Operand)), _f.Double(c.Kind));
                 case IfExpr i:
                     return _f.Conditional(Bool(Build(i.Condition)), Items(Build(i.Then)), Items(Build(i.Else)));
                 case ForExpr f:
@@ -437,6 +445,16 @@ namespace Xsl3.XPath31
                     return SimpleMap(m);
                 case FilterExpr fe:
                     return Filter(fe);
+                case FunctionCall c when _sc.BackwardsCompatible:
+                    try
+                    {
+                        return FunctionCall(c, c.Name, c.Arguments);
+                    }
+                    catch (XPathStaticException x) when (x.Code == "XPST0017" && _types.Expand(c.Name, _sc.DefaultFunctionNamespace).NamespaceUri != QName.Ns.Fn)
+                    {
+                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called.
+                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPST0017"), _f.String(x.Message));
+                    }
                 case FunctionCall c:
                     return FunctionCall(c, c.Name, c.Arguments);
                 case ArrowExpr { FunctionName: LexicalQName name } a:
@@ -578,6 +596,8 @@ namespace Xsl3.XPath31
                     return _f.Or(Bool(Build(b.Left)), Bool(Build(b.Right)));
                 case BinaryOp.And:
                     return _f.And(Bool(Build(b.Left)), Bool(Build(b.Right)));
+                case >= BinaryOp.GeneralEq and <= BinaryOp.GeneralGe when _sc.BackwardsCompatible:
+                    return Call(nameof(XsltLibrary.X31CompatGeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.GeneralEq when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
                     // $x = (a to b): a range test, not a comparison with each integer of the range.
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
@@ -593,6 +613,8 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31NodeCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.Is));
                 case BinaryOp.StringConcat:
                     return Call(nameof(XsltLibrary.X31StringConcat), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)));
+                case BinaryOp.Range when _sc.BackwardsCompatible:
+                    return Call(nameof(XsltLibrary.X31Range), T.ItemS, Build(new CompatArgument(b.Left, 3) { Span = b.Left.Span }), Build(new CompatArgument(b.Right, 3) { Span = b.Right.Span }));
                 case BinaryOp.Range:
                     return Call(nameof(XsltLibrary.X31Range), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)));
                 case BinaryOp.Union: case BinaryOp.Intersect: case BinaryOp.Except:
@@ -607,7 +629,7 @@ namespace Xsl3.XPath31
                         BinaryOp.IntegerDivide => ArithmeticOp.IntegerDivide,
                         _ => ArithmeticOp.Modulo,
                     };
-                    return Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double((int)op));
+                    return Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, CompatNumeric(Items(Build(b.Left))), CompatNumeric(Items(Build(b.Right))), _f.Double((int)op));
             }
         }
 
@@ -821,6 +843,36 @@ namespace Xsl3.XPath31
             "root", "node-name", "has-children", "base-uri", "document-uri", "generate-id", "path", "nilled",
         };
 
+        // An operand of arithmetic in XPath 1.0 compatibility mode: its first item as a number (XPath 2.0 §3.4).
+        private QilNode CompatNumeric(QilNode operand) =>
+            _sc.BackwardsCompatible ? Call(nameof(XsltLibrary.X31CompatNumeric), T.ItemS, operand) : operand;
+
+        /// <summary>
+        /// In XPath 1.0 compatibility mode, an argument of a built-in function that expects one item: its first item,
+        /// as a string or number where those are expected (XPath 2.0 §3.1.5).
+        /// </summary>
+        private sealed record CompatArgument(Expr Operand, int Kind) : Expr;
+
+        private IReadOnlyList<Expr> CompatArguments(QName name, IReadOnlyList<Expr> args)
+        {
+            if (!_sc.BackwardsCompatible || name.NamespaceUri != QName.Ns.Fn || FunctionLibrary.Find(name.NamespaceUri, name.LocalName, args.Count) is not FunctionDefinition def)
+            {
+                return args;
+            }
+            var converted = new List<Expr>(args.Count);
+            for (int i = 0; i < args.Count; i++)
+            {
+                SequenceTypeTest type = def.Parameters[Math.Min(i, def.Parameters.Count - 1)].Type;
+                bool single = type.Cardinality is Cardinality.ExactlyOne or Cardinality.ZeroOrOne;
+                int kind = !single ? 0
+                    : type.Item is AtomicTypeTest atomic ? atomic.Type == AtomicTypes.String ? 1 : atomic.Type == AtomicTypes.Double ? 2 : 3
+                    : type.Item is NumericTest ? 2
+                    : type.Item != null ? 4 : 0;
+                converted.Add(kind == 0 ? args[i] : new CompatArgument(args[i], kind) { Span = args[i].Span });
+            }
+            return converted;
+        }
+
         private QilNode FunctionCall(Expr call, LexicalQName lexicalName, IReadOnlyList<Expr> args)
         {
             if (args.Any(a => a is ArgumentPlaceholder))
@@ -828,6 +880,7 @@ namespace Xsl3.XPath31
                 return PartialApplication(call, null, lexicalName, args);
             }
             QName name = _types.Expand(lexicalName, _sc.DefaultFunctionNamespace);
+            args = CompatArguments(name, args);
             if (HigherOrderFunction(name, args) is QilNode hof)
             {
                 return hof;

@@ -246,6 +246,88 @@ namespace Xsl3.Runtime
             return One(Xdm.Arithmetic.Apply((ArithmeticOp)(int)op, a, b, Tz));
         }
 
+        // ------------------------------------------------------------ XPath 1.0 compatibility mode (XPath 2.0 §3)
+
+        // fn:number of one atomic value: NaN when it isn't castable to xs:double.
+        private static AtomicValue CompatDouble(AtomicValue v) =>
+            v.Type.IsNumeric ? v : Casting.IsCastable(v, AtomicTypes.Double) ? Casting.Cast(v, AtomicTypes.Double) : AtomicValue.OfDouble(double.NaN);
+
+        /// <summary>
+        /// An operand of an arithmetic operator in XPath 1.0 compatibility mode (XPath 2.0 §3.4): its first atomized
+        /// item as an xs:double (fn:number); NaN for the empty sequence.
+        /// </summary>
+        public IList<XPathItem> X31CompatNumeric(IList<XPathItem> operand)
+        {
+            if (operand.Count == 0)
+            {
+                return One(AtomicValue.OfDouble(double.NaN));
+            }
+            AtomicValue v = CompatDouble(Sequences.Atomize(operand[0]));
+            return One(v.Type.Primitive == Primitive.Double ? v : Casting.Cast(v, AtomicTypes.Double));
+        }
+
+        /// <summary>
+        /// A function argument in XPath 1.0 compatibility mode (XPath 2.0 §3.1.5) where one atomic value is expected:
+        /// its first item, as fn:string (<paramref name="kind"/> 1, for xs:string), fn:number (2, for xs:double and
+        /// xs:numeric) or atomized (3).
+        /// </summary>
+        public IList<XPathItem> X31CompatArgument(IList<XPathItem> argument, double kind)
+        {
+            XPathItem? first = argument.Count == 0 ? null : argument[0];
+            return (int)kind switch
+            {
+                1 => One(AtomicValue.OfString(first == null ? "" : first is XPathNavigator n ? n.Value : Sequences.Atomize(first).Value)),
+                2 => One(first == null ? AtomicValue.OfDouble(double.NaN) : CompatDouble(Sequences.Atomize(first))),
+                4 => first == null ? Sequences.Empty : One(first),
+                _ => first == null ? Sequences.Empty : One(Sequences.Atomize(first)),
+            };
+        }
+
+        /// <summary>The atomized items as xs:string values (backwards-compatible key values).</summary>
+        public IList<XPathItem> X31CompatStrings(IList<XPathItem> items)
+        {
+            IList<XPathItem> atomized = Sequences.Atomize(items);
+            var result = new XPathItem[atomized.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = AtomicValue.OfString(atomized[i].Value);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// A general comparison in XPath 1.0 compatibility mode (XPath 2.0 §3.5.2): a boolean operand makes the other
+        /// its effective boolean value; &lt;, &lt;=, &gt; and &gt;= compare numbers; a number compared with anything
+        /// else compares it as a number.
+        /// </summary>
+        public bool X31CompatGeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
+        {
+            bool relational = (ValueComparisonOp)(int)op is not (ValueComparisonOp.Eq or ValueComparisonOp.Ne);
+            if (left is [AtomicValue { Type.Primitive: Primitive.Boolean }] || right is [AtomicValue { Type.Primitive: Primitive.Boolean }])
+            {
+                left = One(AtomicValue.OfBoolean(Sequences.EffectiveBooleanValue(left)));
+                right = One(AtomicValue.OfBoolean(Sequences.EffectiveBooleanValue(right)));
+            }
+            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
+            foreach (XPathItem x in a)
+            {
+                foreach (XPathItem y in b)
+                {
+                    AtomicValue p = (AtomicValue)x, q = (AtomicValue)y;
+                    if (relational || p.Type.IsNumeric || q.Type.IsNumeric)
+                    {
+                        p = CompatDouble(p);
+                        q = CompatDouble(q);
+                    }
+                    if (X31GeneralCompare(One(p), One(q), op, sc))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         public IList<XPathItem> X31Unary(IList<XPathItem> operand, bool minus)
         {
             AtomicValue? a = Sequences.AtomizeOptional(operand, "the operand of a unary operator");

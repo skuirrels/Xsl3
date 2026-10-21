@@ -247,6 +247,11 @@ namespace Xsl3.Xslt
             {
                 return CompileEvaluate31(name, args, compile);
             }
+            if (args.Count == 1 && XsltNameContext.IsNodeSetFunction(name.NamespaceUri, name.LocalName))
+            {
+                // exsl:node-set and msxsl:node-set: the identity, temporary trees being nodes already.
+                return compile(args[0]);
+            }
             if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])
             {
                 // Documents of xsl:source-document or xsl:merge-source, and the accumulators applicable to them.
@@ -288,7 +293,9 @@ namespace Xsl3.Xslt
                 case ("key", 3):
                     // Without a third argument, the context item of the expression (not of the instruction).
                     return CompileKey31(args[0] is XPath31.StringLiteral s ? _f.String(s.Value) : String31(compile(args[0])),
-                        compile(args[1]), compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
+                        // Backwards-compatible behaviour: the key values are compared as strings (XSLT 3.0 §20.2.2).
+                        Backwards31 ? X31(nameof(XsltLibrary.X31CompatStrings), T.ItemS, compile(args[1])) : compile(args[1]),
+                        compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
                 case ("document", 1):
                 case ("document", 2):
                     return CompileFnDocument31(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);
@@ -397,6 +404,7 @@ namespace Xsl3.Xslt
                 BaseUri = StaticBaseUri31(),
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
+                BackwardsCompatible = _xslVersion == XslVersion.BackwardsCompatible,
             };
             // In XSLT the statically known namespaces are the stylesheet's namespaces in scope, and xml (XSLT 3.0 §5.4.1).
             sc.Namespaces.Clear();
@@ -484,6 +492,12 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Whether the instruction being compiled is in a backwards-compatible region (XSLT 3.0 §3.9).
+        private bool Backwards31 => _xslVersion == XslVersion.BackwardsCompatible;
+
+        // The first item of an expression's value, for backwards-compatible behaviour.
+        private static string FirstItem31(string expression) => $"({expression})[1]";
+
         private QilNode ReportXPath31Error(string code, string message)
         {
             if (_xslVersion != XslVersion.ForwardsCompatible)
@@ -506,6 +520,11 @@ namespace Xsl3.Xslt
                 if (ast == null)
                 {
                     return _f.String("");
+                }
+                if (Backwards31)
+                {
+                    // Backwards-compatible behaviour: only the first item (XSLT 3.0 §5.6.1).
+                    ast = new XPath31.FilterExpr(ast, new XPath31.IntegerLiteral(1)) { Span = ast.Span };
                 }
                 return XPath31Compiler.CompileEmbeddedString(ast, StaticContext31(), _f, this);
             }
@@ -568,7 +587,8 @@ namespace Xsl3.Xslt
                 {
                     string? separator = node.V2?.Separator;
                     QilNode sep = separator == null ? _f.String(node.Select != null ? " " : "") : CompileStringAvt(separator)!;
-                    QilNode value = SimpleContent31(SelectOrContent31(node, node.Select), sep);
+                    // Backwards-compatible behaviour: only the first item of select, unless there is a separator (XSLT 3.0 §11.4.2).
+                    QilNode value = SimpleContent31(SelectOrContent31(node, node.Select is string s && Backwards31 && separator == null ? FirstItem31(s) : node.Select), sep);
                     return node.NodeType == XslNodeType.ValueOf ? _f.TextCtor(value) : _f.RawTextCtor(value);
                 }
                 case XslNodeType.CopyOf:
@@ -862,7 +882,8 @@ namespace Xsl3.Xslt
             if (num.Value != null)
             {
                 // value="…": the numbers are formatted with the format tokens (XSLT 3.0 §12.3).
-                return _f.TextCtor(X31(nameof(XsltLibrary.X31NumberFormat), T.StringX,
+                // Backwards-compatible behaviour: the first item as a number, NaN written as it is (XSLT 3.0 §12.1).
+                return _f.TextCtor(X31(Backwards31 ? nameof(XsltLibrary.X31CompatNumberFormat) : nameof(XsltLibrary.X31NumberFormat), T.StringX,
                     Box(CompileXPath31(value)), format, groupingSeparator, groupingSize, ordinal, lang, startAt));
             }
 
@@ -1108,8 +1129,9 @@ namespace Xsl3.Xslt
         // Compiling a named template's body (not within an instruction that clears the current template rule).
         private bool _inNamedTemplate31;
 
+        // (xsl:apply-imports too: both depend on the current template rule.)
         private static bool UsesNextMatch31(IList<XslNode>? content) =>
-            content != null && content.Any(n => n.NodeType == XslNodeType.NextMatch || UsesNextMatch31(n.Content));
+            content != null && content.Any(n => n.NodeType is XslNodeType.NextMatch or XslNodeType.ApplyImports || UsesNextMatch31(n.Content));
 
         // In a template rule's body, the tunnel frame recording the rule (null when no named template needs it).
         private QilIterator? WithCurrentRule31(Template? rule)
@@ -1135,6 +1157,25 @@ namespace Xsl3.Xslt
                     ? ApplyInCurrentMode31(_compiler.Root!, CopyArgs31(args), r)
                     : InvokeApplyFunction(_compiler.Root!, r.Mode, CopyArgs31(args), nextMatchBelow: r);
                 result = _f.Conditional(_f.Eq(rule, _f.Double(i)), next, result);
+            }
+            return _f.Loop(rule, result);
+        }
+
+        // xsl:apply-imports in a named template: the imports of the caller's current template rule's module, in its mode.
+        private QilNode ApplyImportsFromCaller31(List<XslNode> args)
+        {
+            QilIterator rule = _f.Let(X31(nameof(XsltLibrary.X31TunnelRule), T.DoubleX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
+            QilNode result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0560"), _f.String("xsl:apply-imports is used where there is no current template rule"));
+            for (int i = _rules31.Count - 1; i >= 0; i--)
+            {
+                Template r = _rules31[i];
+                if (r.Sheet == null)
+                {
+                    continue;
+                }
+                XslNode applyImports = AstFactory.ApplyImports(r.Mode, r.Sheet, XslVersion.Current);
+                applyImports.SetContent(CopyArgs31(args).Cast<XslNode>().ToList());
+                result = _f.Conditional(_f.Eq(rule, _f.Double(i)), GenerateApply(r.Sheet, applyImports), result);
             }
             return _f.Loop(rule, result);
         }
@@ -1483,8 +1524,12 @@ namespace Xsl3.Xslt
         }
 
         // xsl:call-template: a non-tunnel xsl:with-param must name a parameter of the template (XTSE0680).
-        private void CheckWithParams31(IList<XslNode> withParams, Template tmpl)
+        private void CheckWithParams31(IList<XslNode> withParams, Template tmpl, XslNode call)
         {
+            if (call.XslVersion == XslVersion.BackwardsCompatible)
+            {
+                return; // backwards-compatible behaviour: parameters the template doesn't declare are ignored (XTSE0680)
+            }
             foreach (XslNode withParam in withParams)
             {
                 if (withParam.NodeType != XslNodeType.WithParam || withParam.V2?.Tunnel == true)
@@ -3001,7 +3046,7 @@ namespace Xsl3.Xslt
         private void CompileSort31(Sort sort, QilList keyList, ref LoopFocus parentLoop)
         {
             EnterScope(sort);
-            QilNode select = sort.Select != null ? CompileXPath31(sort.Select) : CompileInstructions(sort.Content);
+            QilNode select = sort.Select != null ? CompileXPath31(Backwards31 ? FirstItem31(sort.Select) : sort.Select) : CompileInstructions(sort.Content);
             // The keys of one sort must be comparable (XTDE1030): checked from the first item's (position 1) on.
             QilNode position = GetCurrentPosition();
 

@@ -25,8 +25,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,810 passed, 74 failed (99.7%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,453 passed, 37 failed (99.2%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,849 passed, 76 failed, 49 not run (99.0%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,560 passed, 37 failed (99.2%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,959 passed, 77 failed, 49 not run (99.0%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -75,8 +75,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**: backwards-compatible processing of `version="1.0"` regions in 2.0+ stylesheets, unparsed entities
-  of temporary trees (a document's own are read from its DTD).
+- **XSLT 3.0**: unparsed entities of temporary trees (a document's own are read from its DTD).
 - **API**: the XSLT 3.0 API is new in this branch (below). Extension functions for 2.0+ stylesheets and the W3C
   runner on the public API are still to do.
 - **Known gaps**:
@@ -215,6 +214,14 @@ A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out
 `MaxRecursionDepth`, raises `Q{http://xsl3/err}recursion-limit` instead of crashing the process; one that writes too
 much raises `Q{http://xsl3/err}output-limit`. An extension function's .NET exception is
 `Q{http://xsl3/err}extension-error`. `XsltArgumentList.TraceHandler` receives `fn:trace` calls.
+
+### XSLT 1.0 stylesheets on the 3.0 processor
+
+A stylesheet whose principal module says `version="1.0"` runs on stock's 1.0 engine, with byte-identical results.
+`XsltSettings.VersionMode = XsltVersionMode.BackwardsCompatible` runs it on the 3.0 processor instead, in the
+backwards-compatible mode XSLT 3.0 §3.9 defines: XPath 2.0+ syntax and functions, with XPath 1.0's conversions in
+comparisons, arithmetic and function arguments, and the first item of `xsl:value-of` and attribute value templates.
+Regions marked `version="1.0"` inside 2.0+ stylesheets always run that way.
 
 ## Building and testing
 

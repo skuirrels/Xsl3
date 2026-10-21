@@ -451,6 +451,35 @@ public class Xslt30Tests
             "<xsl:template match='/'><out><xsl:for-each select='//g'><n b=\"{accumulator-before('count')}\" a=\"{accumulator-after('count')}\"/></xsl:for-each></out></xsl:template>",
             "<doc><g><i/><i/></g><g><i/></g></doc>"));
 
+    /// <summary>
+    /// A version="1.0" region of a 2.0+ stylesheet runs in backwards-compatible mode (XSLT 3.0 §3.9): value-of and
+    /// attribute value templates take the first item, comparisons and arithmetic follow XPath 1.0's conversions.
+    /// </summary>
+    [Fact]
+    public void VersionOneRegionsAreBackwardsCompatible() =>
+        Assert.Equal("<o a=\"1\"><c>1|true|true|NaN|c</c><d>1 2 3</d></o>", Run("""
+            <xsl:template match="/">
+              <o a="{1 to 3}" xsl:version="1.0"><c><xsl:value-of select="1 to 3"/>|<xsl:value-of select="'1' = 1"/>|<xsl:value-of select="true() = 'x'"/>|<xsl:value-of select="'a' + 1"/>|<xsl:value-of select="substring('abc', '3')"/></c><d xsl:version="2.0"><xsl:value-of select="1 to 3"/></d></o>
+            </xsl:template>
+            """));
+
+    /// <summary>
+    /// XsltVersionMode.BackwardsCompatible runs a version="1.0" stylesheet on the 3.0 processor; the default
+    /// (Legacy) keeps stock's 1.0 engine, which doesn't know XPath 2.0 syntax.
+    /// </summary>
+    [Fact]
+    public void VersionModeChoosesTheProcessorForVersionOneStylesheets()
+    {
+        string stylesheet = $"<xsl:stylesheet version='1.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select='(1 to 3)[2]'/>|<xsl:value-of select='system-property(\"xsl:version\")'/></o></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)), new XsltSettings { VersionMode = XsltVersionMode.BackwardsCompatible }, null);
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+        Assert.Equal("<o>2|3.0</o>", sw.ToString());
+        Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(stylesheet))));
+    }
+
     /// <summary>The initial mode's xsl:mode names the accumulators applicable to the source document; by default none (XTDE3362).</summary>
     [Fact]
     public void AccumulatorsTheInitialModeDoesNotNameAreXTDE3362()

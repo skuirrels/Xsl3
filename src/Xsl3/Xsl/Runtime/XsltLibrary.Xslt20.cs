@@ -569,6 +569,21 @@ namespace Xsl3.Runtime
         /// separators between them; the nth number uses the nth token (the last one again when there are fewer
         /// tokens) and the separator before it. Each number is formatted as format-integer formats it.
         /// </summary>
+        /// <summary>
+        /// xsl:number value="…" with backwards-compatible behaviour (XSLT 3.0 §12.1): the first item as fn:number has it;
+        /// a value that isn't a non-negative finite number is written as a string (NaN, Infinity).
+        /// </summary>
+        public string X31CompatNumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang, string startAt)
+        {
+            AtomicValue n = (AtomicValue)X31CompatNumeric(values)[0];
+            double d = n.ValueAsDouble;
+            if (double.IsNaN(d) || double.IsInfinity(d) || d < 0)
+            {
+                return double.IsNaN(d) ? "NaN" : d > 0 ? "Infinity" : double.IsInfinity(d) ? "-Infinity" : Lexical.DoubleToString(d);
+            }
+            return X31NumberFormat(Sequences.One(n), format, groupingSeparator, groupingSize, ordinal, lang, startAt);
+        }
+
         public string X31NumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang, string startAt)
         {
             if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))

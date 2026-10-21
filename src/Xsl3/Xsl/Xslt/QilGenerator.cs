@@ -768,7 +768,17 @@ namespace Xsl3.Xslt
                     {
                         _scope.AddVariable(arg.Name!, arg);
                     }
+                    // Xsl3: the default is evaluated in the template: its current template rule, through the tunnel
+                    // argument for a named template (xsl:apply-imports, xsl:next-match).
+                    (Template? savedRule, bool savedNamed, QilNode? savedTunnel) = (_currentTemplateRule, _inNamedTemplate31, _currentTunnel);
+                    if (IsV2)
+                    {
+                        _currentTemplateRule = tmpl.Match != null ? tmpl : null;
+                        _inNamedTemplate31 = tmpl.Match == null;
+                        _currentTunnel = func.Arguments.Cast<QilParameter>().FirstOrDefault(a => a.Name!.Equals(_nameTunnel));
+                    }
                     func.Definition = CompileVarParValue(par);
+                    (_currentTemplateRule, _inNamedTemplate31, _currentTunnel) = (savedRule, savedNamed, savedTunnel);
                     SetLineInfo(func.Definition, par.SourceLine);
                     ExitScope();
                     ExitScope();
@@ -1466,6 +1476,29 @@ namespace Xsl3.Xslt
             Debug.Assert(node.NodeType == XslNodeType.ApplyImports);
             Debug.Assert(!_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each");
 
+            if (IsV2 && _currentTemplateRule == null)
+            {
+                // Xsl3: in a named template, the caller's current template rule decides (XSLT 3.0 §6.8).
+                if (!(_callerRule31 && _inNamedTemplate31))
+                {
+                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0560"), _f.String("xsl:apply-imports is used where there is no current template rule"));
+                }
+                int scope = _varHelper.StartVariables();
+                var args = new List<XslNode>();
+                foreach (VarPar withParam in node.Content)
+                {
+                    CompileWithParam(withParam);
+                    if (withParam.Value is not (QilIterator or QilLiteral))
+                    {
+                        QilIterator let = _f.Let(withParam.Value!);
+                        _varHelper.AddVariable(let);
+                        withParam.Value = let;
+                    }
+                    args.Add(withParam);
+                }
+                return _varHelper.FinishVariables(ApplyImportsFromCaller31(args), scope);
+            }
+
             if (IsV2 && node.Content.Count > 0)
             {
                 // Xsl3: xsl:apply-imports with xsl:with-param (XSLT 2.0).
@@ -1518,7 +1551,7 @@ namespace Xsl3.Xslt
                     if (IsV2 && node != _compiler.StartApplyTemplates)
                     {
                         // (Parameters supplied to the initial template that it doesn't declare are ignored.)
-                        CheckWithParams31(content, tmpl);
+                        CheckWithParams31(content, tmpl, node);
                     }
                     result = _invkGen.GenerateInvoke(tmpl.Function, AddRemoveImplicitArgs(node.Content, tmpl.Flags)!);
                 }

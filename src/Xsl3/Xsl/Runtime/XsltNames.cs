@@ -104,9 +104,17 @@ namespace Xsl3.Runtime
             };
         }
 
+        /// <summary>exsl:node-set and msxsl:node-set, which 2.0+ stylesheets get as the identity (temporary trees are nodes).</summary>
+        internal static bool IsNodeSetFunction(string ns, string local) =>
+            local == "node-set" && ns is "http://exslt.org/common" or "urn:schemas-microsoft-com:xslt";
+
         public bool FunctionAvailable(string name, int? arity)
         {
             var (ns, local) = Resolve(name, QName.Ns.Fn, "XTDE1400");
+            if (arity is null or 1 && IsNodeSetFunction(ns, local))
+            {
+                return true;
+            }
             // With an arity, just that one (concat takes any number of arguments); without, any up to 10.
             for (int n = arity ?? 0; n <= (arity ?? 10); n++)
             {

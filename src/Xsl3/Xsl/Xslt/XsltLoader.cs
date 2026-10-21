@@ -1763,7 +1763,9 @@ namespace Xsl3.Xslt
             }
 
             // Template without match considered to not have mode and can't call xsl:apply-imports
-            _input.CanHaveApplyImports = (match != null);
+            // Xsl3: in 2.0+ a named template can: the current template rule is its caller's (XSLT 3.0 §6.8).
+            _input.CanHaveApplyImports = (match != null) || V2;
+            _curTemplate.Sheet = _curStylesheet;
 
             SetInfo(_curTemplate,
                 LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo
@@ -2054,6 +2056,13 @@ namespace Xsl3.Xslt
         private XslNode? XslApplyImports()
         {
             ContextInfo ctxInfo = _input.GetAttributes();
+            if (!_input.CanHaveApplyImports && V2 && _input.BackwardCompatibility)
+            {
+                // Xsl3: backwards-compatible behaviour: an error only if evaluated without a current template rule.
+                _input.SkipNode();
+                return SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
+                    "error(QName('http://www.w3.org/2005/xqt-errors', 'err:XTDE0560'), 'xsl:apply-imports has no current template rule here')", XslVersion.Current), ctxInfo.lineInfo);
+            }
             if (!_input.CanHaveApplyImports)
             {
                 ReportError(/*[XT_015]*/SR.Xslt_InvalidApplyImports);
@@ -2877,25 +2886,9 @@ namespace Xsl3.Xslt
                 }
             }
 
-            // Xsl3: xsl:version below 2.0 asks for backwards-compatible behaviour, which Xsl3 doesn't have inside a 2.0+
-            // stylesheet: evaluating the element is XTDE0160 (XSLT 3.0 §3.9). (Whole 1.0 stylesheets run on the 1.0 engine.)
-            bool backwards = false;
-            for (int i = 1; V2 && !asStylesheet && _input.MoveToLiteralAttribute(i); i++)
-            {
-                if (_input.IsXsltNamespace() && _input.LocalName == "version" && double.TryParse(_input.Value.Trim(), System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out double version) && version < 2.0)
-                {
-                    backwards = true;
-                }
-            }
-
+            // Xsl3: xsl:version below 2.0 asks for backwards-compatible behaviour (XSLT 3.0 §3.9): the scope manager marks
+            // the region, and its nodes carry XslVersion.BackwardsCompatible.
             content = LoadEndTag(LoadInstructions(content));
-            if (backwards)
-            {
-                return SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
-                    "error(QName('http://www.w3.org/2005/xqt-errors', 'err:XTDE0160'), 'Backwards-compatible behaviour (xsl:version below 2.0) is not supported in an XSLT 2.0+ stylesheet')",
-                    XslVersion.Current), ctxInfo.lineInfo);
-            }
             return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
         }
 
@@ -3686,6 +3679,10 @@ namespace Xsl3.Xslt
         internal static XslNode SetInfo(XslNode to, List<XslNode>? content, ContextInfo info)
         {
             Debug.Assert(to != null);
+            if (info.backwards && to.XslVersion == XslVersion.Current)
+            {
+                to.XslVersion = XslVersion.BackwardsCompatible; // Xsl3: nodes made with XslVersion.Current
+            }
             to.Namespaces = info.nsList;
             SetContent(to, content);
             SetLineInfo(to, info.lineInfo);

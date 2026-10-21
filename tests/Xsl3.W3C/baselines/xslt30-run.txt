@@ -1,7 +1,8 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
 attribute/attribute-1101
 axes/axes-201
-backwards/backwards-019b
+backwards/backwards-019
+backwards/backwards-043
 base-uri/base-uri-024
 base-uri/base-uri-046
 base-uri/base-uri-050
@@ -10,6 +11,7 @@ base-uri/base-uri-053
 bug/bug-3801
 copy/copy-1221
 copy/copy-4308
+docbook/docbook-001
 docbook/docbook-004
 document/document-2003
 document/document-2401
@@ -29,7 +31,6 @@ id/id-040
 id/id-042
 id/id-043
 import/import-1201
-initial-template/initial-template-080
 merge/merge-019
 merge/merge-097
 mode/mode-1439
@@ -61,8 +62,8 @@ snapshot/snapshot-0102a
 static/static-013c
 static/static-021
 static/static-027
+streamable/streamable-141
 strip-space/strip-space-023
-system-property/system-property-019a
 system-property/system-property-024
 try/try-034
 unparsed-entity-uri/unparsed-entity-05

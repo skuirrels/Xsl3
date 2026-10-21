@@ -14,6 +14,7 @@ namespace Xsl3.Xslt
         Version10 = 0,
         ForwardsCompatible = 1,
         Current = Version10,
+        BackwardsCompatible = 2, // Xsl3: a region of a 2.0+ stylesheet with [xsl:]version below 2.0 (XSLT 3.0 §3.9)
     }
 
     // RootLevel is underdeveloped consept currently. I plane to move here more collections from Compiler.

@@ -283,6 +283,7 @@ public sealed class Runner
                 transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
                     EnableEvaluate = true,
+                    VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
                 }, resolver);
             }
