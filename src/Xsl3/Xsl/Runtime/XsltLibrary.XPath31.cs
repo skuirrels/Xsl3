@@ -453,6 +453,22 @@ namespace Xsl3.Runtime
             return false;
         }
 
+        /// <summary>
+        /// $x &lt; (a to b) and the like: some integer of the range compares so with $x exactly when its last one does
+        /// (for &lt; and &lt;=) or its first one (for &gt; and &gt;=), so the range isn't materialised (RangeExpr-409d).
+        /// </summary>
+        public bool X31RangeCompare(IList<XPathItem> items, IList<XPathItem> lo, IList<XPathItem> hi, double op, double sc)
+        {
+            var start = (IntegerValue?)Coerce(lo, AtomicTypes.Integer, "to");
+            var end = (IntegerValue?)Coerce(hi, AtomicTypes.Integer, "to");
+            if (start == null || end == null || start.Integer > end.Integer)
+            {
+                return false;
+            }
+            BigInteger bound = (ValueComparisonOp)(int)op is ValueComparisonOp.Lt or ValueComparisonOp.Le ? end.Integer : start.Integer;
+            return X31GeneralCompare(items, Sequences.One(AtomicValue.OfInteger(bound)), op, sc);
+        }
+
         public IList<XPathItem> X31Range(IList<XPathItem> left, IList<XPathItem> right)
         {
             var start = (IntegerValue?)Coerce(left, AtomicTypes.Integer, "to");

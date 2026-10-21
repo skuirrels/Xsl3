@@ -199,6 +199,11 @@ namespace Xsl3.Runtime
             return X31CallRuntime(call);
         }
 
+        /// <summary>The function of a partial application, f(a, ?): a single function item of the call's arity (XPTY0004).</summary>
+        public IList<XPathItem> X31PartialTarget(IList<XPathItem> function, double arity) =>
+            function.Count == 1 && function[0] is FunctionItem f && f.Arity == (int)arity ? function
+                : throw Err.XPTY0004($"A partial application with {arity} arguments needs a function of arity {arity}, not {Coercion.Describe(function)}");
+
         /// <summary>fn:fold-left and fn:fold-right (and the array: ones, whose members arrive wrapped).</summary>
         public IList<XPathItem> X31Fold(IList<XPathItem> items, IList<XPathItem> zero, IList<XPathItem> function, bool left, bool wrapped)
         {

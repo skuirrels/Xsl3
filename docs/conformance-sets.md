@@ -280,25 +280,25 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21866 passed, 18 failed, 99 not run; 99.9% of those run (87 passes raised a different error code)**
+**QT3 (XPath 3.1): 21883 passed, 1 failed, 99 not run; 100.0% of those run (72 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
-| feature higherOrderFunctions | 1826 | 14 | 0 | 99.2% |
+| feature higherOrderFunctions | 1840 | 0 | 0 | 100.0% |
 | feature infoset-dtd | 27 | 0 | 0 | 100.0% |
 | feature namespace-axis | 36 | 0 | 0 | 100.0% |
 | spec XP20 | 7 | 0 | 0 | 100.0% |
 | spec XP20+ | 360 | 0 | 1 | 100.0% |
 | spec XP30 | 7 | 0 | 0 | 100.0% |
-| spec XP30+ | 4068 | 10 | 5 | 99.8% |
+| spec XP30+ | 4078 | 0 | 5 | 100.0% |
 | spec XP31 | 91 | 0 | 0 | 100.0% |
-| spec XP31+ | 2523 | 7 | 22 | 99.7% |
+| spec XP31+ | 2529 | 1 | 22 | 100.0% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | app-FunctxFn | 407 | 0 | 0 | 100.0% |
-| app-UseCaseJSON | 1 | 3 | 0 | 25.0% |
-| app-UseCaseNLP | 0 | 1 | 0 | 0.0% |
+| app-UseCaseJSON | 4 | 0 | 0 | 100.0% |
+| app-UseCaseNLP | 1 | 0 | 0 | 100.0% |
 | app-UseCaseSEQ | 1 | 0 | 0 | 100.0% |
 | app-UseCaseSTRING | 1 | 0 | 0 | 100.0% |
 | app-spec-examples | 550 | 0 | 0 | 100.0% |
@@ -374,12 +374,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-for-each-pair | 47 | 0 | 0 | 100.0% |
 | fn-format-date | 130 | 0 | 0 | 100.0% |
 | fn-format-dateTime | 78 | 0 | 0 | 100.0% |
-| fn-format-integer | 70 | 1 | 0 | 98.6% |
+| fn-format-integer | 71 | 0 | 0 | 100.0% |
 | fn-format-number | 248 | 0 | 0 | 100.0% |
 | fn-format-time | 88 | 0 | 0 | 100.0% |
-| fn-function-arity | 18 | 1 | 0 | 94.7% |
-| fn-function-lookup | 654 | 4 | 0 | 99.4% |
-| fn-function-name | 21 | 1 | 0 | 95.5% |
+| fn-function-arity | 19 | 0 | 0 | 100.0% |
+| fn-function-lookup | 658 | 0 | 0 | 100.0% |
+| fn-function-name | 22 | 0 | 0 | 100.0% |
 | fn-generate-id | 18 | 0 | 0 | 100.0% |
 | fn-has-children | 35 | 0 | 0 | 100.0% |
 | fn-head | 8 | 0 | 0 | 100.0% |
@@ -504,7 +504,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | misc-AppendixA4 | 9 | 0 | 0 | 100.0% |
 | misc-CombinedErrorCodes | 2 | 0 | 0 | 100.0% |
 | misc-ErrorsAndOptimization | 6 | 0 | 0 | 100.0% |
-| misc-HigherOrderFunctions | 46 | 2 | 0 | 95.8% |
+| misc-HigherOrderFunctions | 48 | 0 | 0 | 100.0% |
 | misc-Surrogates | 17 | 0 | 0 | 100.0% |
 | misc-UCACollation | 73 | 0 | 0 | 100.0% |
 | misc-XMLEdition | 1 | 0 | 0 | 100.0% |
@@ -584,7 +584,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | op-time-equal | 52 | 0 | 0 | 100.0% |
 | op-time-greater-than | 38 | 0 | 0 | 100.0% |
 | op-time-less-than | 38 | 0 | 0 | 100.0% |
-| op-to | 165 | 1 | 0 | 99.4% |
+| op-to | 166 | 0 | 0 | 100.0% |
 | op-union | 20 | 0 | 8 | 100.0% |
 | op-yearMonthDuration-greater-than | 28 | 0 | 0 | 100.0% |
 | op-yearMonthDuration-less-than | 28 | 0 | 0 | 100.0% |
@@ -619,14 +619,14 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | prod-GeneralComp.ne | 89 | 0 | 0 | 100.0% |
 | prod-IfExpr | 29 | 0 | 0 | 100.0% |
 | prod-InlineFunctionExpr | 29 | 0 | 0 | 100.0% |
-| prod-InstanceofExpr | 272 | 1 | 0 | 99.6% |
+| prod-InstanceofExpr | 273 | 0 | 0 | 100.0% |
 | prod-LetClause | 23 | 0 | 0 | 100.0% |
 | prod-Literal | 118 | 0 | 0 | 100.0% |
 | prod-Lookup | 102 | 0 | 0 | 100.0% |
 | prod-MapConstructor | 22 | 0 | 0 | 100.0% |
 | prod-MapTest | 44 | 0 | 0 | 100.0% |
 | prod-NameTest | 51 | 0 | 0 | 100.0% |
-| prod-NamedFunctionRef | 540 | 2 | 0 | 99.6% |
+| prod-NamedFunctionRef | 542 | 0 | 0 | 100.0% |
 | prod-NodeTest | 29 | 0 | 0 | 100.0% |
 | prod-OrExpr | 329 | 0 | 0 | 100.0% |
 | prod-ParenthesizedExpr | 14 | 0 | 0 | 100.0% |

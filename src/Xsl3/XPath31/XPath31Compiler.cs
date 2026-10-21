@@ -374,6 +374,10 @@ namespace Xsl3.XPath31
         private static bool UsesLast(Expr e) => e switch
         {
             FunctionCall { Name: { Prefix: null or "fn", LocalName: "last" }, Arguments.Count: 0 } => true,
+            // last#0 keeps the focus it is made in; function-lookup may make it.
+            NamedFunctionRef { Name: { LocalName: "last" } name, Arity: var arity } when arity.IsZero && (name.Prefix is null or "fn" || name.BracedUri == QName.Ns.Fn) => true,
+            FunctionCall { Name: { Prefix: null or "fn", LocalName: "function-lookup" } } => true,
+            DynamicFunctionCall d => UsesLast(d.Function) || d.Arguments.Any(UsesLast),
             // last() inside a nested path step or predicate refers to that inner focus
             PathExpr p => UsesLast(p.Left),
             SimpleMapExpr m => UsesLast(m.Left),
@@ -609,6 +613,14 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
                 case BinaryOp.GeneralEq when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
+                case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
+                case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
+                {
+                    // (a to b) < $x is $x > (a to b).
+                    BinaryOp mirrored = b.Op switch { BinaryOp.GeneralLt => BinaryOp.GeneralGt, BinaryOp.GeneralLe => BinaryOp.GeneralGe, BinaryOp.GeneralGt => BinaryOp.GeneralLt, _ => BinaryOp.GeneralLe };
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(mirrored - BinaryOp.GeneralEq), StaticId());
+                }
                 case BinaryOp.GeneralEq: case BinaryOp.GeneralNe: case BinaryOp.GeneralLt:
                 case BinaryOp.GeneralLe: case BinaryOp.GeneralGt: case BinaryOp.GeneralGe:
                     return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());

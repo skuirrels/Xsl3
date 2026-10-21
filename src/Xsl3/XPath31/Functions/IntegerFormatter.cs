@@ -20,6 +20,7 @@ namespace Xsl3.XPath31.Functions
 
         private readonly Kind _kind;
         private readonly bool _ordinal;
+        private readonly string? _ordinalVariant; // o(-er): the ending a language's ordinal takes
         private readonly int _zero;            // the zero digit of the digit family (decimal)
         private readonly int _mandatory;       // number of mandatory digits (decimal)
         private readonly List<(int Position, string Separator)> _grouping = new(); // positions from the right
@@ -60,6 +61,7 @@ namespace Xsl3.XPath31.Functions
                     {
                         int close = modifier.IndexOf(')', i);
                         if (close < 0 || close == i + 1) throw new XdmException(error, $"Invalid format modifier '{modifier}'");
+                        _ordinalVariant = modifier[(i + 1)..close];
                         i = close + 1;
                     }
                 }
@@ -191,9 +193,9 @@ namespace Xsl3.XPath31.Functions
                 Kind.RomanUpper => Roman(abs) ?? FormatDecimalPlain(abs),
                 Kind.WordsLower or Kind.WordsUpper or Kind.WordsTitle when GermanWords.Applies(language) => _kind switch
                 {
-                    Kind.WordsLower => GermanWords.ToWords(abs, _ordinal),
-                    Kind.WordsUpper => GermanWords.ToWords(abs, _ordinal).ToUpperInvariant(),
-                    _ => GermanWords.TitleCase(GermanWords.ToWords(abs, _ordinal)),
+                    Kind.WordsLower => GermanWords.ToWords(abs, _ordinal, _ordinalVariant),
+                    Kind.WordsUpper => GermanWords.ToWords(abs, _ordinal, _ordinalVariant).ToUpperInvariant(),
+                    _ => GermanWords.TitleCase(GermanWords.ToWords(abs, _ordinal, _ordinalVariant)),
                 },
                 Kind.WordsLower => Words.ToWords(abs, _ordinal),
                 Kind.WordsUpper => Words.ToWords(abs, _ordinal).ToUpperInvariant(),
@@ -389,7 +391,7 @@ namespace Xsl3.XPath31.Functions
         public static bool Applies(string? language) =>
             language != null && (language.Equals("de", StringComparison.OrdinalIgnoreCase) || language.StartsWith("de-", StringComparison.OrdinalIgnoreCase));
 
-        public static string ToWords(BigInteger n, bool ordinal)
+        public static string ToWords(BigInteger n, bool ordinal, string? variant = null)
         {
             string words = Cardinal(n, alone: true);
             if (!ordinal)
@@ -398,12 +400,11 @@ namespace Xsl3.XPath31.Functions
             }
             int last = (int)(n % 100);
             // Up to nineteen the ordinal adds -te (erste, dritte, siebte, achte); from twenty, -ste.
-            if (n.IsZero || last is 0 or >= 20)
-            {
-                return words + "ste";
-            }
-            string stem = words[..^s_units[last].Length];
-            return stem + (last switch { 1 => "erste", 3 => "dritte", 7 => "siebte", 8 => "achte", _ => s_units[last] + "te" });
+            string ordinalWords = n.IsZero || last is 0 or >= 20
+                ? words + "ste"
+                : words[..^s_units[last].Length] + (last switch { 1 => "erste", 3 => "dritte", 7 => "siebte", 8 => "achte", _ => s_units[last] + "te" });
+            // o(-er), o(-en), o(-es): the inflected ending in place of -e (erster, ersten, erstes).
+            return variant is ['-', _, ..] ? ordinalWords[..^1] + variant[1..] : ordinalWords;
         }
 
         // alone: "eins" for one standing alone; "ein" inside a word (einundzwanzig, einhundert).

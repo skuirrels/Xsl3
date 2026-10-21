@@ -204,7 +204,8 @@ public sealed class Runner
             {
                 if (r.Uri == relativeUri)
                 {
-                    return new System.Uri(r.Uri, System.UriKind.RelativeOrAbsolute).IsAbsoluteUri ? new System.Uri(r.Uri) : base.ResolveUri(baseUri, relativeUri);
+                    // A relative resource URI (json-doc("mildred.json")) names the resource's file wherever the base is.
+                    return new System.Uri(r.Uri, System.UriKind.RelativeOrAbsolute).IsAbsoluteUri ? new System.Uri(r.Uri) : new System.Uri(Path.GetFullPath(r.File));
                 }
             }
             return base.ResolveUri(baseUri, relativeUri);
