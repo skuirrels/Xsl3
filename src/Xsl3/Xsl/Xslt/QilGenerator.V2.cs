@@ -2822,7 +2822,14 @@ namespace Xsl3.Xslt
             QilNode patterns = CompilePattern31(pattern);
             QilIterator e = _f.For(_f.DescendantOrSelf(_f.Root(context)));
             QilNode candidates = e;
-            if (pattern.Contains('@') || pattern.Contains('$') || pattern.Contains('(') || pattern.Contains("attribute") || pattern.Contains("node"))
+            if (pattern.Contains("namespace"))
+            {
+                // A pattern that can match namespace nodes (XSLT 3.0): each element's, then its attributes.
+                QilIterator a = _f.For(_f.Content(e));
+                QilIterator ns = _f.For(_f.XPathNamespace(e));
+                candidates = _f.Loop(e, _f.Sequence(e, _f.Loop(ns, ns), _f.Filter(a, _f.IsType(a, T.Attribute))));
+            }
+            else if (pattern.Contains('@') || pattern.Contains('$') || pattern.Contains('(') || pattern.Contains("attribute") || pattern.Contains("node"))
             {
                 // A pattern that can match attributes: they follow their element in document order.
                 QilIterator a = _f.For(_f.Content(e));
