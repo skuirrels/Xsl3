@@ -359,6 +359,64 @@ namespace Xsl3.Tree
         }
 
         /// <summary>The element whose DTD ID is the value, or None.</summary>
-        internal int LookupId(string id) => _ids != null && _ids.TryGetValue(id, out int element) ? element : None;
+        internal int LookupId(string id)
+        {
+            if (_ids == null && _idsFrom != null)
+            {
+                _ids = IdsFrom(_idsFrom);
+                _idsFrom = null;
+            }
+            return _ids != null && _ids.TryGetValue(id, out int element) ? element : None;
+        }
+
+        /// <summary>
+        /// Xsl3: the tree this one copies with whitespace stripped (XSLT 3.0 §4.3), whose ID attributes (its DTD's,
+        /// which the copy can't see) are found on first use: the elements of the two trees are the same, in order.
+        /// </summary>
+        internal System.Xml.XPath.XPathNavigator? _idsFrom;
+
+        internal void SetIdSource(System.Xml.XPath.XPathNavigator source)
+        {
+            if (_ids == null)
+            {
+                _idsFrom = source.Clone();
+            }
+        }
+
+        private Dictionary<string, int>? IdsFrom(System.Xml.XPath.XPathNavigator source)
+        {
+            Dictionary<string, int>? ids = null;
+            System.Xml.XPath.XPathNavigator root = source.Clone();
+            root.MoveToRoot();
+            System.Xml.XPath.XPathNodeIterator elements = root.SelectDescendants(System.Xml.XPath.XPathNodeType.Element, matchSelf: false);
+            int element = 0;
+            System.Xml.XPath.XPathNavigator probe = root.Clone();
+            while (elements.MoveNext())
+            {
+                // The copy's next element, in document order.
+                do
+                {
+                    element++;
+                }
+                while (element < _kind.Length && Kind(element) != (int)System.Xml.XPath.XPathNodeType.Element);
+                System.Xml.XPath.XPathNavigator e = elements.Current!;
+                System.Xml.XPath.XPathNavigator attribute = e.Clone();
+                if (!attribute.MoveToFirstAttribute())
+                {
+                    continue;
+                }
+                do
+                {
+                    // An attribute is an ID if the source finds its element by its value.
+                    string value = attribute.Value;
+                    if (value.Length > 0 && probe.MoveToId(value) && probe.IsSamePosition(e))
+                    {
+                        (ids ??= new Dictionary<string, int>()).TryAdd(value, element);
+                    }
+                }
+                while (attribute.MoveToNextAttribute());
+            }
+            return ids;
+        }
     }
 }

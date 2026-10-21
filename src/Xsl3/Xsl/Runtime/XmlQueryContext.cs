@@ -235,7 +235,12 @@ namespace Xsl3.Runtime
                     {
                         // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
                         using XmlReader copy = loaded.ReadSubtree();
-                        return BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        if (tree is Xsl3.Tree.CompactNavigator compact)
+                        {
+                            compact.Document.SetIdSource(loaded); // its DTD's IDs, which the copy can't read
+                        }
+                        return tree;
                     }
                     throw new XslTransformException(SR.XmlIl_CantStripNav, string.Empty);
                 }

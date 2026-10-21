@@ -595,7 +595,10 @@ public sealed class Runner
             e.Attributes().Where(a => !a.IsNamespaceDeclaration).OrderBy(a => a.Name.ToString()).Select(a => new XAttribute(a.Name, a.Value)),
             e.Nodes().Select(n => n is XElement c ? Normalize(c) : n));
 
-    private static string Trim(string s) => s.Length > 160 ? s[..157].ReplaceLineEndings(" ") + "..." : s.ReplaceLineEndings(" ");
+    private static string Trim(string s) => s.Length > TrimLength ? s[..(TrimLength - 3)].ReplaceLineEndings(" ") + "..." : s.ReplaceLineEndings(" ");
+
+    // XSL3_W3C_DETAIL=n shows more of each failure in the report.
+    private static readonly int TrimLength = int.TryParse(Environment.GetEnvironmentVariable("XSL3_W3C_DETAIL"), out int n) ? n : 160;
 
     private static string OneLine(string s) => Trim(s);
 
