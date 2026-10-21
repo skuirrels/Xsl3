@@ -190,6 +190,8 @@ namespace Xsl3.Runtime
         /// Xsl3 (4.5): without tracing, the stylesheet stack read from the .NET one: the templates and functions by the
         /// names of their methods. Frames the JIT inlined or a tail call replaced are missing.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+            Justification = "A frame whose method metadata was trimmed has no method: the stack then leaves it out, as it does inlined frames.")]
         private XsltFrame[] StackOfMethods(System.Exception e)
         {
             var frames = new System.Collections.Generic.List<XsltFrame>();
