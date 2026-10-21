@@ -536,8 +536,14 @@ instruction, so each was compiled again every time. Then the names pool got a pe
 | Transform, 150 KB book | 6,599 ms, 1,958 MB | 1,247 ms, 1,554 MB |
 | Transform, 301 KB book | 14,957 ms, 3,893 MB | 2,332 ms, 3,088 MB |
 
-The allocation is the next thing to work on: `docbook --alloc-types` puts item arrays, navigators, node arrays, string
-dictionaries and the output objects of DocBook's many small temporary trees at the top.
+Then the allocation, on 2026-10-21, guided by `docbook --alloc-types`: a sequence allocates its item array on its first
+item, four slots and growing, not sixteen up front (most sequences hold none or one); the run time keeps finished
+`XmlQueryOutput` objects for the next temporary tree or sequence; `xsl:evaluate` builds the target's static context
+only when the expression isn't cached; and the XTDE0430 check reads the pending namespace declarations instead of
+copying the scope into a dictionary. 301 KB book: 3,088 MB to 2,426 MB a run (−21%), 2.3 to 2.5 s (within this
+machine's noise). The micro benchmarks allocate up to 22% less (recursion 1 MB), with no time regression
+(`eng/perf-gate.sh`, geometric mean 0.96). What is left at the top is navigators, the node arrays of the temporary
+trees, and the trees themselves.
 
 ## Where the rest of the time goes
 

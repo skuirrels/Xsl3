@@ -1292,7 +1292,25 @@ namespace Xsl3.Runtime
             _stkOutput.Push(_output);
 
             // Create new writers
+            // Xsl3 (perf): 2.0+ reuses the outputs of finished constructions (DocBook xslTNG makes hundreds of thousands).
+            if (IsXslt2 && _freeOutputs is { Count: > 0 } free)
+            {
+                output = _output = free.Pop();
+                output.Reset(new XmlCachedSequenceWriter(compact: true), null);
+                return;
+            }
             output = _output = new XmlQueryOutput(this, new XmlCachedSequenceWriter(compact: IsXslt2));
+        }
+
+        // Xsl3 (perf): outputs of finished nested constructions, to reuse (2.0+).
+        private Stack<XmlQueryOutput>? _freeOutputs;
+
+        private void Release(XmlQueryOutput finished)
+        {
+            if (IsXslt2 && (_freeOutputs ??= new Stack<XmlQueryOutput>()).Count < 64)
+            {
+                _freeOutputs.Push(finished);
+            }
         }
 
         /// <summary>
@@ -1304,6 +1322,7 @@ namespace Xsl3.Runtime
             IList<XPathItem> seq = ((XmlCachedSequenceWriter)_output.SequenceWriter!).ResultSequence;
 
             // Restore previous XmlQueryOutput
+            Release(_output);
             output = _output = _stkOutput.Pop();
 
             return seq;
@@ -1318,6 +1337,12 @@ namespace Xsl3.Runtime
             _stkOutput.Push(_output);
 
             // Create new XmlQueryOutput over an Rtf writer
+            if (IsXslt2 && _freeOutputs is { Count: > 0 } free)
+            {
+                output = _output = free.Pop();
+                output.Reset(null, new XmlEventCache(baseUri, true));
+                return;
+            }
             output = _output = new XmlQueryOutput(this, new XmlEventCache(baseUri, true));
         }
 
@@ -1331,6 +1356,7 @@ namespace Xsl3.Runtime
             events = (XmlEventCache)_output.Writer!;
 
             // Restore previous XmlQueryOutput
+            Release(_output);
             output = _output = _stkOutput.Pop();
 
             // Return Rtf as an RtfNavigator
