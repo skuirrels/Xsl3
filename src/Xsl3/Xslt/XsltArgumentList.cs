@@ -40,6 +40,12 @@ namespace Xsl3
         /// </summary>
         public Action<string, string>? TraceHandler { get; set; }
 
+        /// <summary>
+        /// Xsl3: receives the entry and exit of templates and stylesheet functions, for stylesheets loaded with
+        /// <see cref="XsltSettings.EnableTracing"/>.
+        /// </summary>
+        public IXsltTraceListener? TraceListener { get; set; }
+
         public object? GetParam(string name, string namespaceUri)
         {
             return _parameters[new XmlQualifiedName(name, namespaceUri)];

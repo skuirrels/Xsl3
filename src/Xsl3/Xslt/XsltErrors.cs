@@ -39,6 +39,26 @@ namespace Xsl3
         /// <summary>The error object <c>fn:error</c> was given, or the empty sequence.</summary>
         public XdmValue ErrorObject { get; }
 
+        /// <summary>
+        /// The templates and functions that were running, innermost first, when the stylesheet was loaded with
+        /// <see cref="XsltSettings.EnableTracing"/>; otherwise empty.
+        /// </summary>
+        public IReadOnlyList<XsltFrame> StylesheetStack { get; private init; } = Array.Empty<XsltFrame>();
+
+        internal const string StackKey = "Xsl3.StylesheetStack";
+
+        private static IReadOnlyList<XsltFrame> StackOf(Exception e)
+        {
+            for (Exception? x = e; x != null; x = x.InnerException)
+            {
+                if (x.Data[StackKey] is XsltFrame[] frames)
+                {
+                    return frames;
+                }
+            }
+            return Array.Empty<XsltFrame>();
+        }
+
         private static readonly Regex s_xsl3Code = new(@"^Q\{(http://xsl3/err)\}([\w-]+): ", RegexOptions.CultureInvariant);
 
         /// <summary>The API's form of an exception a run raised: a dynamic error, or null for other exceptions.</summary>
@@ -50,10 +70,10 @@ namespace Xsl3
             }
             if (e is XslTransformException && s_xsl3Code.Match(e.Message) is { Success: true } limit)
             {
-                return new XsltDynamicException(new QName(limit.Groups[1].Value, limit.Groups[2].Value, "xsl3"), e.Message[limit.Length..], null, e);
+                return new XsltDynamicException(new QName(limit.Groups[1].Value, limit.Groups[2].Value, "xsl3"), e.Message[limit.Length..], null, e) { StylesheetStack = StackOf(e) };
             }
             return XsltLibrary.DynamicError(e) is (QName code, string description, var value)
-                ? new XsltDynamicException(code, description, XdmValue.Wrap(value), e)
+                ? new XsltDynamicException(code, description, XdmValue.Wrap(value), e) { StylesheetStack = StackOf(e) }
                 : null;
         }
     }

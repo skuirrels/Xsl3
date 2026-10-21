@@ -161,6 +161,21 @@ namespace Xsl3.Runtime
             t_cancellation.ThrowIfCancellationRequested();
         }
 
+        /// <summary>Xsl3: the templates and functions running, innermost last (XsltSettings.EnableTracing).</summary>
+        internal readonly System.Collections.Generic.List<XsltFrame> TraceStack = new();
+
+        /// <summary>Xsl3: records the stylesheet stack on an exception leaving the transformation; never handles it.</summary>
+        internal bool AttachStylesheetStack(System.Exception e)
+        {
+            if (TraceStack.Count > 0 && !e.Data.Contains(XsltDynamicException.StackKey))
+            {
+                var frames = TraceStack.ToArray();
+                System.Array.Reverse(frames);
+                e.Data[XsltDynamicException.StackKey] = frames;
+            }
+            return false;
+        }
+
         /// <summary>Xsl3: the lines of the instructions in xsl:try bodies being evaluated, innermost last ($err:line-number).</summary>
         internal readonly System.Collections.Generic.List<int> TryLines = new();
 

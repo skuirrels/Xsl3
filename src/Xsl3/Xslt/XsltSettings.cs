@@ -64,6 +64,13 @@ namespace Xsl3
         /// used, and otherwise evaluating the instruction raises XTDE3175. <see cref="TrustedXslt"/> turns it on.
         /// </summary>
         /// <summary>
+        /// Xsl3: compiles calls to an <see cref="IXsltTraceListener"/> into the entry and exit of every template and
+        /// stylesheet function of an XSLT 2.0+ stylesheet, and records the stylesheet stack for
+        /// <see cref="XsltDynamicException.StylesheetStack"/>. Off by default: it costs time and stops tail calls.
+        /// </summary>
+        public bool EnableTracing { get; set; }
+
+        /// <summary>
         /// Xsl3: how a stylesheet whose principal module has <c>version="1.0"</c> runs: <see cref="XsltVersionMode.Legacy"/>
         /// (the default) gives stock's results; <see cref="XsltVersionMode.BackwardsCompatible"/> runs it on the 3.0
         /// processor, as the XSLT 3.0 specification describes. Regions with <c>version="1.0"</c> inside 2.0+ stylesheets

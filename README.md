@@ -170,6 +170,9 @@ XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows
 - `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`).
 - An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
   [docs/plan/api.md](docs/plan/api.md).
+- With `XsltSettings.EnableTracing`, a transformer's `TraceListener` (an `IXsltTraceListener`) sees every template
+  and function start and end, and an `XsltDynamicException` carries the `StylesheetStack` that was running.
+  `XsltExecutable.Explain` writes the optimized QIL the stylesheet compiles to.
 - `XsltCompiler.CompileAssociatedStylesheet(document)` compiles the stylesheet a document names in its
   `<?xml-stylesheet?>` processing instruction, embedded in it (`href="#id"`) or not.
 
@@ -214,6 +217,16 @@ A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out
 `MaxRecursionDepth`, raises `Q{http://xsl3/err}recursion-limit` instead of crashing the process; one that writes too
 much raises `Q{http://xsl3/err}output-limit`. An extension function's .NET exception is
 `Q{http://xsl3/err}extension-error`. `XsltArgumentList.TraceHandler` receives `fn:trace` calls.
+
+### The `xsl3` command line
+
+`src/Xsl3.Cli` is a .NET tool, `xsl3` (not on nuget.org yet; see [its readme](src/Xsl3.Cli/README.md)):
+
+```bash
+xsl3 transform -xsl:style.xsl -s:input.xml -o:output.html title=Report --trace
+```
+
+`xsl3 explain -xsl:style.xsl` prints the optimized QIL the stylesheet compiles to.
 
 ### XSLT 1.0 stylesheets on the 3.0 processor
 

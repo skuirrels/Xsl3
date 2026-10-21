@@ -195,6 +195,63 @@ public class Xslt30ApiTests
         }
     }
 
+    private sealed class Recorder : IXsltTraceListener
+    {
+        public readonly List<string> Events = new();
+
+        public void Enter(XsltFrame frame) => Events.Add("+" + (frame.Name?.LocalName ?? frame.Match));
+
+        public void Leave(XsltFrame frame) => Events.Add("-" + (frame.Name?.LocalName ?? frame.Match));
+    }
+
+    /// <summary>With EnableTracing, a trace listener sees templates and functions start and end.</summary>
+    [Fact]
+    public void TraceListenersSeeTemplatesAndFunctions()
+    {
+        var compiler = new XsltCompiler { Settings = new XsltSettings { EnableTracing = true } };
+        XsltExecutable executable = Compile(
+            "<xsl:function name='f:twice'><xsl:param name='x'/><xsl:sequence select='$x * 2'/></xsl:function>" +
+            "<xsl:template match='doc'><out><xsl:call-template name='t'/></out></xsl:template>" +
+            "<xsl:template name='t'><xsl:value-of select='f:twice(21)'/></xsl:template>", compiler);
+        var recorder = new Recorder();
+        Xslt30Transformer transformer = executable.CreateTransformer();
+        transformer.TraceListener = recorder;
+        var text = new StringWriter();
+        transformer.ApplyTemplates(Parse("<doc/>"), text);
+        Assert.Equal("<out>42</out>", text.ToString());
+        Assert.Equal(new[] { "+doc", "+t", "+twice", "-twice", "-t", "-doc" }, recorder.Events);
+    }
+
+    /// <summary>With EnableTracing, a dynamic error carries the templates and functions that were running.</summary>
+    [Fact]
+    public void DynamicErrorsCarryTheStylesheetStack()
+    {
+        var compiler = new XsltCompiler { Settings = new XsltSettings { EnableTracing = true } };
+        XsltExecutable executable = Compile(
+            "<xsl:function name='f:fail'><xsl:param name='x'/><xsl:sequence select='$x div 0'/></xsl:function>" +
+            "<xsl:template match='doc'><out><xsl:call-template name='t'/></out></xsl:template>" +
+            "<xsl:template name='t'><xsl:value-of select='f:fail(1)'/></xsl:template>", compiler);
+        XsltDynamicException e = Assert.Throws<XsltDynamicException>(() => executable.CreateTransformer().ApplyTemplates(Parse("<doc/>"), new StringWriter()));
+        Assert.Equal("FOAR0001", e.Code.LocalName);
+        Assert.Equal(new[] { "fail", "t", null }, e.StylesheetStack.Select(f => f.Name?.LocalName));
+        Assert.Equal("doc", e.StylesheetStack[2].Match);
+        Assert.True(e.StylesheetStack[0].LineNumber > 0);
+        // Without tracing there is no stack.
+        Assert.Empty(Assert.Throws<XsltDynamicException>(() => Compile(
+            "<xsl:template match='doc'><xsl:value-of select='1 div 0'/></xsl:template>").CreateTransformer().ApplyTemplates(Parse("<doc/>"), new StringWriter())).StylesheetStack);
+    }
+
+    /// <summary>Explain writes the QIL the stylesheet compiles to, with its template rules as functions.</summary>
+    [Fact]
+    public void ExplainWritesTheCompiledForm()
+    {
+        var text = new StringWriter();
+        Compile("<xsl:template match='doc'><out/></xsl:template>").Explain(text);
+        Assert.StartsWith("<", text.ToString().TrimStart());
+        Assert.Contains("<QilExpression", text.ToString());
+        Assert.Contains("match=&quot;doc&quot;", text.ToString());
+    }
+
     [Fact]
     public void AnExecutableServesManyTransformersAndEntryPoints()
     {

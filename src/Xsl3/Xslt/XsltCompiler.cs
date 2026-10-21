@@ -253,6 +253,34 @@ namespace Xsl3
             }
         }
 
+        /// <summary>
+        /// Writes what the stylesheet compiles to for its default entry point, for diagnosis (SPEC §21.3): the query
+        /// intermediate language (QIL) as XML, after optimization unless <paramref name="optimized"/> is false. Template
+        /// rules appear as functions, and each mode's matching as the function that dispatches to them. The format is
+        /// internal and changes between versions.
+        /// </summary>
+        public void Explain(TextWriter output, bool optimized = true)
+        {
+            ArgumentNullException.ThrowIfNull(output);
+            var compiler = new Xslt.Compiler(_settings, debug: false, scriptAssemblyPath: null)
+            {
+                StaticParameters = _staticParameters,
+                Packages = _packages,
+            };
+            using var constants = XPath31.ConstantPool.Use(new XPath31.ConstantTable());
+            Qil.QilExpression qil;
+            using (XmlReader reader = _open())
+            {
+                compiler.Compile(reader, _resolver, _resolver, out qil);
+            }
+            if (optimized)
+            {
+                qil = new IlGen.XmlILOptimizerVisitor(qil, !qil.IsDebug).Optimize();
+            }
+            using XmlWriter writer = XmlWriter.Create(output, new XmlWriterSettings { Indent = true, OmitXmlDeclaration = true, CloseOutput = false });
+            new Qil.QilXmlWriter(writer).ToXml(qil);
+        }
+
         /// <summary>The output properties of the stylesheet's unnamed output definition (<c>xsl:output</c>).</summary>
         public XmlWriterSettings? OutputSettings => Principal().OutputSettings;
     }
@@ -315,6 +343,9 @@ namespace Xsl3
 
         /// <summary>Receives <c>fn:trace</c> output: the value's text and the label.</summary>
         public Action<string, string>? TraceHandler { get; set; }
+
+        /// <summary>Receives the entry and exit of templates and functions, when the settings had <see cref="XsltSettings.EnableTracing"/>.</summary>
+        public IXsltTraceListener? TraceListener { get; set; }
 
         /// <summary>
         /// Receives each secondary result (<c>xsl:result-document</c>): given its absolute URI, returns the writer it is
@@ -449,7 +480,7 @@ namespace Xsl3
 
         private XsltArgumentList Arguments(Run run)
         {
-            var arguments = new XsltArgumentList { CancellationToken = CancellationToken, TraceHandler = TraceHandler };
+            var arguments = new XsltArgumentList { CancellationToken = CancellationToken, TraceHandler = TraceHandler, TraceListener = TraceListener };
             foreach (var (name, value) in StylesheetParameters)
             {
                 arguments.AddParam(name.LocalName, name.NamespaceUri, (value ?? XdmValue.Empty).Items);

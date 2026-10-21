@@ -396,6 +396,9 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Fire the XsltMessageEncounteredEvent, passing the specified text as the message.
         /// </summary>
+        /// <summary>Xsl3: the trace listener of the argument list, for stylesheets compiled with EnableTracing.</summary>
+        internal IXsltTraceListener? TraceListener => _argList?.TraceListener;
+
         /// <summary>Xsl3: fn:trace, to XsltArgumentList.TraceHandler if there is one.</summary>
         internal void OnTrace(string label, IList<XPathItem> value)
         {

@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Xsl3/Xsl3.csproj" />
+    <Project Path="src/Xsl3.Cli/Xsl3.Cli.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Xsl3.Dev/Xsl3.Dev.csproj" />

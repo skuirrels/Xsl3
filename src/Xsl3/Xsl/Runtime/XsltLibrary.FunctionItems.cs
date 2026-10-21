@@ -258,6 +258,28 @@ namespace Xsl3.Runtime
             }
         }
 
+        /// <summary>A template or function starts (XsltSettings.EnableTracing).</summary>
+        public IList<XPathItem> X31TraceEnter(double frameId)
+        {
+            var frame = (XsltFrame)Constant((int)frameId);
+            _runtime.TraceStack.Add(frame);
+            _runtime.ExternalContext.TraceListener?.Enter(frame);
+            return Sequences.Empty;
+        }
+
+        /// <summary>A template or function ends (XsltSettings.EnableTracing).</summary>
+        public IList<XPathItem> X31TraceLeave(double frameId)
+        {
+            var frame = (XsltFrame)Constant((int)frameId);
+            List<XsltFrame> stack = _runtime.TraceStack;
+            if (stack.Count > 0)
+            {
+                stack.RemoveAt(stack.Count - 1);
+            }
+            _runtime.ExternalContext.TraceListener?.Leave(frame);
+            return Sequences.Empty;
+        }
+
         /// <summary>An instruction in an xsl:try body starts: its line is the catch's $err:line-number until it ends.</summary>
         public IList<XPathItem> X31TryEnter(double line)
         {
