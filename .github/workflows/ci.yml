@@ -49,6 +49,14 @@ jobs:
           eng/fetch-w3c.sh
           dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
 
+      # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is
+      # generated: in the job summary and the test-results artifact.
+      - name: Conformance report
+        if: always() && matrix.os == 'ubuntu-latest'
+        run: |
+          eng/conformance-report.sh tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports artifacts/test-results/conformance-sets.md
+          cat artifacts/test-results/conformance-sets.md >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

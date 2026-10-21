@@ -36,6 +36,7 @@ public class Qt3RunTests
         var runner = new Runner();
         var failures = new Dictionary<string, string>(StringComparer.Ordinal);
         var perSet = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // pass, fail, not run
+        var perFeature = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // the same, by spec and feature
         int wrongErrorCode = 0;
 
         // XSL3_QT3_SETS=fn-format-date,fn-format-time runs only those test sets (prefixes), for quick iteration;
@@ -46,6 +47,14 @@ public class Qt3RunTests
             Outcome outcome = runner.Run(test);
             int[] counts = perSet.TryGetValue(test.Set.Name, out int[]? c) ? c : perSet[test.Set.Name] = new int[3];
             counts[(int)outcome.Kind]++;
+            foreach (Dependency d in test.EffectiveDependencies.Where(d => d.Satisfied && d.Type is "spec" or "feature"))
+            {
+                foreach (string value in d.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(v => d.Type != "spec" || v.StartsWith("XP", StringComparison.Ordinal)))
+                {
+                    string key = $"{d.Type} {value}";
+                    (perFeature.TryGetValue(key, out int[]? f) ? f : perFeature[key] = new int[3])[(int)outcome.Kind]++;
+                }
+            }
             if (outcome.Kind == OutcomeKind.Fail)
             {
                 failures[test.Id] = outcome.Detail.ReplaceLineEndings(" ");
@@ -59,7 +68,7 @@ public class Qt3RunTests
         int pass = perSet.Values.Sum(v => v[0]), fail = perSet.Values.Sum(v => v[1]), notRun = perSet.Values.Sum(v => v[2]);
         string summary = $"QT3 (XPath 3.1): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} passes raised a different error code)";
         _output.WriteLine(summary);
-        WriteReport(summary, perSet, failures);
+        WriteReport(summary, perSet, perFeature, failures);
 
         if (sets != null)
         {
@@ -69,14 +78,21 @@ public class Qt3RunTests
         Assert.True(problems.Length == 0, problems);
     }
 
-    private static void WriteReport(string summary, SortedDictionary<string, int[]> perSet, Dictionary<string, string> failures)
+    private static void WriteReport(string summary, SortedDictionary<string, int[]> perSet, SortedDictionary<string, int[]> perFeature, Dictionary<string, string> failures)
     {
         var sb = new StringBuilder();
         sb.AppendLine("# " + summary).AppendLine();
+        // The specs and features tests depend on (a test counts under each of its own and its set's dependencies).
+        sb.AppendLine("| Dependency | Passed | Failed | Not run | Pass rate |").AppendLine("|---|---:|---:|---:|---:|");
+        foreach (var (feature, c) in perFeature)
+        {
+            sb.AppendLine($"| {feature} | {c[0]} | {c[1]} | {c[2]} | {Rate(c)} |");
+        }
+        sb.AppendLine();
         sb.AppendLine("| Test set | Passed | Failed | Not run | Pass rate |").AppendLine("|---|---:|---:|---:|---:|");
         foreach (var (set, c) in perSet)
         {
-            sb.AppendLine($"| {set} | {c[0]} | {c[1]} | {c[2]} | {(c[0] + c[1] == 0 ? "" : $"{100.0 * c[0] / (c[0] + c[1]):F1}%")} |");
+            sb.AppendLine($"| {set} | {c[0]} | {c[1]} | {c[2]} | {Rate(c)} |");
         }
         sb.AppendLine().AppendLine("## Failures").AppendLine();
         foreach (var (id, reason) in failures.OrderBy(kv => kv.Key, StringComparer.Ordinal))
@@ -87,4 +103,6 @@ public class Qt3RunTests
         Directory.CreateDirectory(dir);
         File.WriteAllText(Path.Combine(dir, "qt3-run.md"), sb.ToString());
     }
+
+    private static string Rate(int[] c) => c[0] + c[1] == 0 ? "" : $"{100.0 * c[0] / (c[0] + c[1]):F1}%";
 }

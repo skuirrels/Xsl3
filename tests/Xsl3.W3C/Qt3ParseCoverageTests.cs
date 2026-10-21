@@ -61,7 +61,7 @@ public class Qt3ParseCoverageTests
                     failure = "parsed, but XPST0003 was expected";
                 }
             }
-            catch (XPathStaticException e) when (!expectSyntaxError)
+            catch (XPathStaticException e) when (!expectSyntaxError && errors?.Contains(e.Code) != true)
             {
                 failure = e.Message;
             }

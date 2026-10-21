@@ -14,8 +14,9 @@ namespace Xsl3.W3C;
 
 /// <summary>
 /// Runs every xslt30-test case that applies to what Xsl3 claims (<see cref="Xslt30.Profile.Xslt30"/> in P3) and
-/// compares the failures with baselines/xslt30-run.txt. The report goes to w3c-reports/xslt30-run.md next
-/// to the test binaries; docs/conformance.md summarises it.
+/// compares the failures with baselines/xslt30-run.txt. The report (per test set and per feature) goes to
+/// w3c-reports/xslt30-run.md next to the test binaries (xslt30-run-2.0.md for the 2.0 profile);
+/// eng/conformance-report.sh assembles the reports into docs/conformance-sets.md.
 /// </summary>
 public class Xslt30RunTests
 {
@@ -37,6 +38,7 @@ public class Xslt30RunTests
         var runner = new Xslt30.Runner();
         var failures = new Dictionary<string, string>(StringComparer.Ordinal);
         var perSet = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // pass, fail, not run
+        var perFeature = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // the same, by spec and feature
         int wrongErrorCode = 0;
         var notRunReasons = new SortedDictionary<string, int>(StringComparer.Ordinal);
         // XSL3_XSLT30_TRACE=file appends each test id before running it, to find a test that crashes the process.
@@ -59,6 +61,14 @@ public class Xslt30RunTests
             Outcome outcome = runner.Run(test);
             int[] counts = perSet.TryGetValue(test.Set.Name, out int[]? c) ? c : perSet[test.Set.Name] = new int[3];
             counts[(int)outcome.Kind]++;
+            foreach (Xslt30.Dependency d in test.EffectiveDependencies.Where(d => d.Satisfied && d.Type is "spec" or "feature"))
+            {
+                foreach (string value in d.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string key = $"{d.Type} {value}";
+                    (perFeature.TryGetValue(key, out int[]? f) ? f : perFeature[key] = new int[3])[(int)outcome.Kind]++;
+                }
+            }
             if (outcome.Kind == OutcomeKind.Fail)
             {
                 failures[test.Id] = outcome.Detail.ReplaceLineEndings(" ");
@@ -76,7 +86,7 @@ public class Xslt30RunTests
         int pass = perSet.Values.Sum(v => v[0]), fail = perSet.Values.Sum(v => v[1]), notRun = perSet.Values.Sum(v => v[2]);
         string summary = $"xslt30-test (XSLT {(p2 ? "2.0" : "3.0")} profile): {pass} passed, {fail} failed, {notRun} not run; {100.0 * pass / Math.Max(1, pass + fail):F1}% of those run ({wrongErrorCode} expected errors passed without a matching code)";
         _output.WriteLine(summary);
-        WriteReport(summary, perSet, failures, notRunReasons);
+        WriteReport(p2 ? "xslt30-run-2.0.md" : "xslt30-run.md", summary, perSet, perFeature, failures, notRunReasons);
         if (sets != null || p2)
         {
             return;
@@ -85,15 +95,23 @@ public class Xslt30RunTests
         Assert.True(problems.Length == 0, problems);
     }
 
-    private static void WriteReport(string summary, SortedDictionary<string, int[]> perSet, Dictionary<string, string> failures, SortedDictionary<string, int> notRunReasons)
+    private static void WriteReport(string file, string summary, SortedDictionary<string, int[]> perSet, SortedDictionary<string, int[]> perFeature,
+        Dictionary<string, string> failures, SortedDictionary<string, int> notRunReasons)
     {
         var sb = new StringBuilder();
         sb.AppendLine("# " + summary).AppendLine();
         sb.AppendLine("Not run: " + string.Join(", ", notRunReasons.Select(kv => $"{kv.Key} ({kv.Value})"))).AppendLine();
+        // The specs and features tests depend on (a test counts under each of its own and its set's dependencies).
+        sb.AppendLine("| Dependency | Passed | Failed | Not run | Pass rate |").AppendLine("|---|---:|---:|---:|---:|");
+        foreach (var (feature, c) in perFeature)
+        {
+            sb.AppendLine($"| {feature} | {c[0]} | {c[1]} | {c[2]} | {Rate(c)} |");
+        }
+        sb.AppendLine();
         sb.AppendLine("| Test set | Passed | Failed | Not run | Pass rate |").AppendLine("|---|---:|---:|---:|---:|");
         foreach (var (set, c) in perSet)
         {
-            sb.AppendLine($"| {set} | {c[0]} | {c[1]} | {c[2]} | {(c[0] + c[1] == 0 ? "" : $"{100.0 * c[0] / (c[0] + c[1]):F1}%")} |");
+            sb.AppendLine($"| {set} | {c[0]} | {c[1]} | {c[2]} | {Rate(c)} |");
         }
         sb.AppendLine().AppendLine("## Failures").AppendLine();
         foreach (var (id, reason) in failures.OrderBy(kv => kv.Key, StringComparer.Ordinal))
@@ -102,6 +120,8 @@ public class Xslt30RunTests
         }
         string dir = Path.Combine(AppContext.BaseDirectory, "w3c-reports");
         Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "xslt30-run.md"), sb.ToString());
+        File.WriteAllText(Path.Combine(dir, file), sb.ToString());
     }
+
+    private static string Rate(int[] c) => c[0] + c[1] == 0 ? "" : $"{100.0 * c[0] / (c[0] + c[1]):F1}%";
 }
