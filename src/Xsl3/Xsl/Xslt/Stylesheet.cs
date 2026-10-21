@@ -27,6 +27,11 @@ namespace Xsl3.Xslt
     {
         private readonly Compiler _compiler;
         public List<Uri> ImportHrefs = new List<Uri>();
+
+        // Xsl3: the declarations seen so far at this import precedence (includes too), and the count when each
+        // xsl:import was seen: the tree order of static variable declarations (XTSE3450).
+        public int Declarations;
+        public List<int> ImportPositions = new List<int>();
         public List<XslNode>? GlobalVarPars = new List<XslNode>();
 
         // xsl:attribute-set/@name -> AttributeSet

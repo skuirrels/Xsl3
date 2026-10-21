@@ -101,6 +101,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,959 | 77 | 49 | 99.0% | `backwards_compatibility` claimed: the runner loads with `XsltSettings.VersionMode = BackwardsCompatible`, so 1.0 stylesheets run on the 3.0 processor in backwards-compatible mode, as do `version="1.0"` regions (XPath 1.0 compatibility mode, first items for `xsl:value-of`, AVTs, sort keys and `xsl:number`, keys compared as strings, undeclared with-params, unknown extension functions as dynamic errors). Also `xsl:apply-imports` in named templates and `exsl:node-set`. 110 more tests run; `backwards` 45 of 47, `xpath-compat` and `xslt-compat` all; the 2.0 profile is at 99.2% (4,560 passed, 37 failed) |
 | 2026-10-21 | 7,962 | 74 | 49 | 99.1% | The runner on the public 3.0 API (`XsltCompiler`, `Xslt30Transformer`): `override-v-008`, `override-v-009` and `strip-space-023` pass that the internal entry points failed; the 2.0 profile is at 99.2% (4,561 passed, 36 failed) |
 | 2026-10-21 | 7,967 | 69 | 49 | 99.1% | `fn:idref` (id-039, -040, -042, -043); the harness loads sources as Xsl3's own tree; the 2.0 profile is at 99.3% (4,566 passed, 31 failed) |
+| 2026-10-21 | 7,970 | 66 | 49 | 99.2% | XTDE3086 for `xsl:global-context-item use="required"` without a global context item; XTSE3450 for a static variable whose value differs from one declared earlier at a lower import precedence (tree order of declarations across imports) |
 
 ### P5 exit sets
 

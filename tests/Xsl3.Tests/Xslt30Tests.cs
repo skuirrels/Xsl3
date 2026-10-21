@@ -969,4 +969,36 @@ public class Xslt30Tests
             </xsl:template>
             """, input).Replace(" </o>", "</o>"));
     }
+
+    /// <summary>
+    /// XTSE3450: a static variable declared with another value earlier in the stylesheet at a lower import precedence
+    /// (an import before it) is an error; declared first at the higher precedence (before the import), it isn't.
+    /// </summary>
+    [Fact]
+    public void StaticVariablesMustAgreeWithLowerPrecedenceOnesBeforeThem()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "xsl3-static-" + System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "imported.xsl"), $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:variable name='v' static='yes' select='1'/></xsl:stylesheet>");
+            string Load(string body)
+            {
+                string main = Path.Combine(dir, "main.xsl");
+                File.WriteAllText(main, $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>{body}<xsl:template match='/'><out v='{{$v}}'/></xsl:template></xsl:stylesheet>");
+                var transform = new XslCompiledTransform();
+                transform.Load(main, XsltSettings.Default, new XmlUrlResolver());
+                var text = new StringWriter();
+                transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, text);
+                return text.ToString();
+            }
+            Assert.Contains("v=\"2\"", Load("<xsl:variable name='v' static='yes' select='2'/><xsl:import href='imported.xsl'/>"));
+            Assert.Contains("XTSE3450", Assert.ThrowsAny<XsltException>(() => Load("<xsl:import href='imported.xsl'/><xsl:variable name='v' static='yes' select='2'/>")).Message);
+            Assert.Contains("v=\"1\"", Load("<xsl:import href='imported.xsl'/><xsl:variable name='v' static='yes' select='1'/>"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

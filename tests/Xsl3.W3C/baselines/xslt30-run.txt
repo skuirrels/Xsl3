@@ -17,12 +17,10 @@ document/document-2401
 document/document-2402
 error/error-1500a
 error/error-2210a
-error/error-3450a
 expose/expose-926
 forwards/forwards-008
 function-lookup/function-lookup-005
 global-context-item/glob-cxt-item-003
-global-context-item/glob-cxt-item-012
 global-context-item/glob-cxt-item-013
 id/id-001
 import/import-1201
@@ -65,6 +63,5 @@ use-package/use-package-106
 use-package/use-package-108
 use-package/use-package-108b
 use-when/use-when-0136
-use-when/use-when-0138
 use-when/use-when-0407a
 validation/validation-0102b

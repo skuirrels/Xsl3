@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 7967 passed, 69 failed, 49 not run; 99.1% of those run (1631 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 7970 passed, 66 failed, 49 not run; 99.2% of those run (1634 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -23,7 +23,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
 | spec XSLT20+ | 2676 | 25 | 11 | 99.1% |
-| spec XSLT30+ | 3400 | 38 | 38 | 98.9% |
+| spec XSLT30+ | 3403 | 35 | 38 | 99.0% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -69,7 +69,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | document | 61 | 3 | 0 | 95.3% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 508 | 3 | 0 | 99.4% |
+| error | 509 | 2 | 0 | 99.6% |
 | evaluate | 42 | 0 | 0 | 100.0% |
 | expand-text | 59 | 0 | 0 | 100.0% |
 | expose | 41 | 1 | 0 | 97.6% |
@@ -84,7 +84,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | function | 88 | 0 | 0 | 100.0% |
 | function-available | 10 | 0 | 0 | 100.0% |
 | function-lookup | 7 | 1 | 0 | 87.5% |
-| global-context-item | 11 | 3 | 0 | 78.6% |
+| global-context-item | 12 | 2 | 0 | 85.7% |
 | higher-order-functions | 75 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
@@ -153,7 +153,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 46 | 3 | 0 | 93.9% |
-| use-when | 96 | 3 | 0 | 97.0% |
+| use-when | 97 | 2 | 0 | 98.0% |
 | validation | 5 | 1 | 0 | 83.3% |
 | variable | 107 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |

@@ -353,6 +353,11 @@ namespace Xsl3.Xslt
                 // Xsl3: xsl:global-context-item use="required" as="…": the global context item must be of the type.
                 result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), requiredType, "XTTE0590")), result);
             }
+            if (IsV2 && _compiler.GlobalContextItem is ("required", _))
+            {
+                // Xsl3: use="required" and no global context item supplied: XTDE3086, whether or not anything uses it.
+                result = _f.Sequence(X31(nameof(XsltLibrary.X31RequireGlobalContextItem), T.ItemS, GetCurrentNode()), result);
+            }
             if (IsV2 && _compiler.PackageInfos.Count <= 1)
             {
                 // Xsl3: a required stylesheet parameter must be supplied even if it is never used (XTDE0050). (With

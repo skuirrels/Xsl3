@@ -84,6 +84,7 @@ namespace Xsl3.Xslt
                     if (!_documentUriInUse.Contains(location.ToString()) && !_curStylesheet!.ImportHrefs.Contains(location))
                     {
                         _curStylesheet!.ImportHrefs.Add(location);
+                        _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
                     }
                 }
                 used = new UsedPackage(id, line);

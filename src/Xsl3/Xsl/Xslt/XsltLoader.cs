@@ -389,6 +389,7 @@ namespace Xsl3.Xslt
                         {
                             _packageId = package;
                         }
+                        _importPath.Add(_curStylesheet.ImportPositions[i]);
                         try
                         {
                             _curStylesheet.Imports[i] = LoadStylesheet(importHrefs[i], /*include:*/false);
@@ -396,6 +397,7 @@ namespace Xsl3.Xslt
                         finally
                         {
                             _packageId = savedPackage;
+                            _importPath.RemoveAt(_importPath.Count - 1);
                         }
                     }
                 }
@@ -572,6 +574,7 @@ namespace Xsl3.Xslt
                     switch (_input.NodeType)
                     {
                         case XmlNodeType.Element:
+                            _curStylesheet!.Declarations++;
                             if (_inOverride && !(_input.IsXsltNamespace() && _input.LocalName is "template" or "function" or "variable" or "param" or "attribute-set"))
                             {
                                 // XSLT 3.0 §3.5.3.4: only those components can be overridden.
@@ -736,6 +739,7 @@ namespace Xsl3.Xslt
                 else
                 {
                     _curStylesheet!.ImportHrefs.Add(uri);
+                    _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
                 }
             }
             else
@@ -2923,6 +2927,58 @@ namespace Xsl3.Xslt
 
         // Xsl3: a static variable or parameter (XSLT 3.0 §9.6): its value is computed now, from a supplied static
         // parameter or from select, and serves use-when, shadow attributes and the stylesheet.
+        // Xsl3: the import positions above the module being loaded (ImportPositions), from the principal module down.
+        private readonly List<int> _importPath = new List<int>();
+
+        // Xsl3: the static variables declared so far: where in the tree of modules, and their values.
+        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value)>> _staticDeclarations = new();
+
+        /// <summary>
+        /// XTSE3450 (XSLT 3.0 §9.6): a static variable must have the same value as one of the same name declared earlier
+        /// in tree order with lower import precedence: one in a module that isn't the later one's own or an ancestor of it.
+        /// A declaration's path is the positions of the imports above its module and its position in the module.
+        /// </summary>
+        private void CheckStaticConsistency(Xsl3.Xdm.QName name, VarPar var, IList<System.Xml.XPath.XPathItem> value)
+        {
+            int[] path = new int[_importPath.Count + 1];
+            _importPath.CopyTo(path);
+            path[^1] = _curStylesheet!.Declarations;
+            if (!_staticDeclarations.TryGetValue(name, out var declarations))
+            {
+                _staticDeclarations[name] = declarations = new();
+            }
+            foreach (var (package, otherPath, otherValue) in declarations)
+            {
+                if (package != _packageId)
+                {
+                    continue;
+                }
+                bool otherFirst = TreeOrder(otherPath, path) < 0;
+                int[] earlier = otherFirst ? otherPath : path, later = otherFirst ? path : otherPath;
+                // The earlier one's module is the later one's or an ancestor of it: the same or higher precedence.
+                bool ancestor = earlier.Length <= later.Length && earlier.AsSpan(0, earlier.Length - 1).SequenceEqual(later.AsSpan(0, earlier.Length - 1));
+                if (!ancestor && !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
+                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b))))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE3450: the static variable ${var.Name!.QualifiedName} is declared with another value at a lower import precedence earlier in the stylesheet");
+                    break;
+                }
+            }
+            declarations.Add((_packageId, path, value));
+        }
+
+        private static int TreeOrder(int[] a, int[] b)
+        {
+            for (int i = 0; i < a.Length && i < b.Length; i++)
+            {
+                if (a[i] != b[i])
+                {
+                    return a[i] < b[i] ? -1 : 1;
+                }
+            }
+            return a.Length - b.Length;
+        }
+
         private int? EvaluateStatic(VarPar var)
         {
             var name = new Xsl3.Xdm.QName(var.Name!.NamespaceUri, var.Name.LocalName);
@@ -2973,10 +3029,11 @@ namespace Xsl3.Xslt
                 }
             }
             int id = Xsl3.XPath31.ConstantPool.Add(value);
-            if (_compiler.StaticValues.ContainsKey(name) && !_input.ForwardCompatibility)
+            CheckStaticConsistency(name, var, value);
+            if (_compiler.StaticValues.TryGetValue(name, out int earlier) && !_input.ForwardCompatibility)
             {
-                // A static variable can't be redeclared at the same precedence (XTSE3450); a lower one is ignored.
-                return _compiler.StaticValues[name];
+                // The declaration loaded first stays (the importing module's are loaded before its imports).
+                return earlier;
             }
             _compiler.StaticValues[name] = id;
             return id;
