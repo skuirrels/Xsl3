@@ -22,7 +22,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
 | W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 3.0 profile | 8,014 passed, 22 failed, 49 not run (99.7%) | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 3.0 profile | 8,805 passed, 62 failed, 42 not run (99.3%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
 | W3C xslt30-test, 2.0 profile | 4,588 passed, 9 failed (99.8%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
@@ -36,7 +36,7 @@ rest depend on features Xsl3 doesn't claim yet:
 | Feature | Tests that need it | Workstream |
 |---|---:|---|
 | `streaming` | 2,983 | 7 (P7) |
-| `schema_aware` | 933 | 6 (P6) |
+| `schema_aware` | 933 | 6 (claimed 2026-10-21 with `XsltSettings.SchemaAware`) |
 | `backwards_compatibility` | 122 | 4 (claimed 2026-10-21) |
 | `XML_1.1` | 65 | 4 (decide, probably declare unsupported) |
 | `xsl-stylesheet-processing-instruction` | 18 | 4 (claimed 2026-10-21) |

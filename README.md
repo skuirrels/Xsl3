@@ -26,7 +26,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,588 passed, 9 failed (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 8,014 passed, 22 failed, 49 not run (99.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,805 passed, 62 failed, 42 not run (99.3%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -99,9 +99,10 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   - Sink B (`Xsl3.Build`, saved assemblies) and NativeAOT are in; still to do: the SaxonCS-HE comparison, and
     template dispatch tables if a stylesheet with hundreds of rules shows the need (measured: 17 ns per element for
     200 extra rules).
-- **Schema-awareness (P6)**: in progress behind `XsltSettings.SchemaAware` (off by default). With it, 95% of the
-  xslt30-test cases that need a schema-aware processor pass: `xsl:import-schema`, schema types, typed input from a
-  validating reader, and validation of constructed nodes (docs/plan/p6-schema.md).
+- **Schema-awareness (P6)**: claimed in the xslt30-test 3.0 profile, with `XsltSettings.SchemaAware` on (it is off
+  by default). 95% of the cases that need a schema-aware processor pass: `xsl:import-schema`, schema types, typed input
+  from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
+  System.Xml.Schema.
 - **Later phases**: streaming (P7) hasn't started.
 - **Packaging**: alpha prereleases only (0.8.0-alpha is the latest). The XSLT 3.0 API (`XsltCompiler`,
   `Xslt30Transformer`) is in since 0.8.0-alpha, beside `XslCompiledTransform`; both may change before 1.0, and what

@@ -38,18 +38,14 @@ public sealed class Profile
             "backwards_compatibility",
             // P5: xsl:evaluate (the runner enables it with XsltSettings.EnableEvaluate).
             "dynamic_evaluation",
+            // P6: schema-awareness (the runner turns on XsltSettings.SchemaAware, loads the environments' schemas and
+            // validates their sources; docs/plan/p6-schema.md).
+            "schema_aware",
         },
     };
 
-    /// <summary>
-    /// P6 in progress (docs/plan/p6-schema.md): the 3.0 profile with schema-awareness, for measuring the tests that need
-    /// it (XSL3_XSLT30_PROFILE=sa runs only those). Not claimed until they pass.
-    /// </summary>
-    public static Profile SchemaAware { get; } = new()
-    {
-        Specs = Xslt30.Specs,
-        Features = new HashSet<string>(Xslt30.Features.Append("schema_aware"), StringComparer.Ordinal),
-    };
+    /// <summary>P6 (docs/plan/p6-schema.md): the 3.0 profile; XSL3_XSLT30_PROFILE=sa runs only the tests that need schema-awareness.</summary>
+    public static Profile SchemaAware => Xslt30;
 
     public bool Applies(TestCase test) => test.EffectiveDependencies.All(Meets);
 

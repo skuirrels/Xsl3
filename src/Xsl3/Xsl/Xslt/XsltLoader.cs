@@ -45,7 +45,9 @@ namespace Xsl3.Xslt
             // Xsl3: static expressions read documents (doc('') in a shadow attribute) as document() does: through the
             // stylesheet's resolver, when EnableDocumentFunction allows it.
             XmlResolver? savedStaticResolver = UseWhen.Resolver;
+            bool savedSchemaAware = UseWhen.SchemaAware;
             UseWhen.Resolver = compiler.Settings.EnableDocumentFunction ? xmlResolver : null;
+            UseWhen.SchemaAware = compiler.Settings.SchemaAware;
             try
             {
                 LoadCore(compiler, stylesheet, xmlResolver, origResolver);
@@ -53,6 +55,7 @@ namespace Xsl3.Xslt
             finally
             {
                 UseWhen.Resolver = savedStaticResolver;
+                UseWhen.SchemaAware = savedSchemaAware;
             }
         }
 

@@ -29,7 +29,7 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 6.3 | Validation of input: the API's (a validating `XmlReader` into a compact tree keeps the annotations), `validation` on `xsl:source-document`, `doc()`/`document()` by `default-validation`; a type-annotation store in the compact tree; typed values from annotations (`data()`, atomization, comparisons), list and union types, schema normalized values; `type` and `nilled` accessors | Done except `doc()` and the accessors |
 | 6.4 | Validation of output: `validation` and `type` on literal result elements, `xsl:element`, `xsl:attribute`, `xsl:copy`, `xsl:copy-of`, `xsl:document`, `xsl:result-document`; `default-validation`; XTTE1510–XTTE1555 | Done except `validation="preserve"` on `xsl:copy`, and `default-validation` per module (one value per stylesheet here; constructed elements stay untyped rather than xs:anyType). Temporary trees keep their children's annotations (XSLT 3.0 §9.4) |
 | 6.5 | Patterns with schema types (`match="element(*, T)"`, `schema-element()`), `xsl:mode typed`, `input-type-annotations="strip"` | Done |
-| 6.6 | Claim `schema_aware` in `Profile.cs` at ≥ 95%; benchmarks show no cost without schemas | |
+| 6.6 | Claim `schema_aware` in `Profile.cs` at ≥ 95%; benchmarks show no cost without schemas | Done (2026-10-21): claimed in the 3.0 profile at 95.0%; the micro suite's geometric mean is within 4% of the commit before P6. `XsltSettings.SchemaAware` stays off by default (the owner's call) |
 
 ## How it works
 

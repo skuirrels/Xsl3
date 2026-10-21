@@ -114,7 +114,7 @@ namespace Xsl3.XPath31
                     WriteSequenceType(w, t);
                     break;
                 case XsltNameContext n:
-                    NoSchema(n.SchemaAware);
+                    NoSchema(n.Schemas != null);
                     w.Write((byte)Kind.NameContext);
                     WriteStringMap(w, n.Namespaces);
                     w.Write(n.StylesheetFunctions.Count);

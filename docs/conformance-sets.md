@@ -6,37 +6,38 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8014 passed, 22 failed, 49 not run; 99.7% of those run (193 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8805 passed, 62 failed, 42 not run; 99.3% of those run (216 expected errors passed without a matching code)**
 
-Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
+Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | feature XPath_3.1 | 96 | 1 | 1 | 99.0% |
 | feature backwards_compatibility | 115 | 2 | 0 | 98.3% |
 | feature disabling_output_escaping | 30 | 0 | 0 | 100.0% |
-| feature dtd | 78 | 1 | 0 | 98.7% |
+| feature dtd | 79 | 1 | 0 | 98.8% |
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
-| feature higher_order_functions | 219 | 1 | 0 | 99.5% |
+| feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
+| feature schema_aware | 803 | 41 | 2 | 95.1% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
-| spec XSLT10+ | 1889 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 2695 | 6 | 11 | 99.8% |
-| spec XSLT30+ | 3425 | 13 | 38 | 99.6% |
+| spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
+| spec XSLT20+ | 3240 | 29 | 7 | 99.1% |
+| spec XSLT30+ | 3668 | 30 | 35 | 99.2% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | accept | 50 | 0 | 0 | 100.0% |
 | accessor | 52 | 0 | 0 | 100.0% |
-| accumulator | 67 | 0 | 0 | 100.0% |
+| accumulator | 68 | 3 | 0 | 95.8% |
 | analyze-string | 53 | 0 | 0 | 100.0% |
 | apply-imports | 1 | 0 | 0 | 100.0% |
-| apply-templates | 37 | 0 | 0 | 100.0% |
+| apply-templates | 37 | 1 | 0 | 97.4% |
 | arrays | 62 | 0 | 0 | 100.0% |
-| as | 100 | 0 | 0 | 100.0% |
+| as | 187 | 0 | 0 | 100.0% |
 | assert | 10 | 0 | 0 | 100.0% |
-| attribute | 23 | 0 | 0 | 100.0% |
+| attribute | 30 | 0 | 0 | 100.0% |
 | attribute-set | 49 | 0 | 0 | 100.0% |
 | available-system-properties | 29 | 0 | 0 | 100.0% |
 | avt | 35 | 0 | 0 | 100.0% |
@@ -47,16 +48,16 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | bug | 82 | 0 | 1 | 100.0% |
 | built-in-templates | 5 | 0 | 0 | 100.0% |
 | call-template | 41 | 0 | 0 | 100.0% |
-| castable | 7 | 0 | 0 | 100.0% |
-| catalog | 5 | 0 | 0 | 100.0% |
+| castable | 9 | 0 | 0 | 100.0% |
+| catalog | 6 | 0 | 2 | 100.0% |
 | character-map | 29 | 0 | 0 | 100.0% |
 | choose | 55 | 0 | 0 | 100.0% |
 | collations | 43 | 0 | 0 | 100.0% |
 | collection | 0 | 0 | 6 |  |
 | construct-node | 34 | 0 | 0 | 100.0% |
 | context-item | 31 | 0 | 0 | 100.0% |
-| copy | 131 | 1 | 0 | 99.2% |
-| copy-of | 10 | 0 | 0 | 100.0% |
+| copy | 146 | 2 | 0 | 98.6% |
+| copy-of | 13 | 0 | 0 | 100.0% |
 | core-function | 90 | 0 | 0 | 100.0% |
 | current | 1 | 0 | 0 | 100.0% |
 | current-output-uri | 17 | 0 | 0 | 100.0% |
@@ -69,9 +70,9 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | document | 62 | 2 | 0 | 96.9% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 511 | 0 | 0 | 100.0% |
-| evaluate | 42 | 0 | 0 | 100.0% |
-| expand-text | 59 | 0 | 0 | 100.0% |
+| error | 530 | 1 | 0 | 99.8% |
+| evaluate | 56 | 0 | 0 | 100.0% |
+| expand-text | 62 | 0 | 0 | 100.0% |
 | expose | 42 | 0 | 0 | 100.0% |
 | expression | 105 | 0 | 0 | 100.0% |
 | extension-functions | 7 | 0 | 0 | 100.0% |
@@ -85,38 +86,39 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | function-available | 10 | 0 | 0 | 100.0% |
 | function-lookup | 8 | 0 | 0 | 100.0% |
 | global-context-item | 14 | 0 | 0 | 100.0% |
-| higher-order-functions | 75 | 0 | 0 | 100.0% |
+| higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 0 | 0 | 1 |  |
+| import-schema | 195 | 8 | 0 | 96.1% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |
 | initial-template | 6 | 0 | 0 | 100.0% |
 | innermost | 2 | 0 | 0 | 100.0% |
 | iterate | 44 | 0 | 0 | 100.0% |
-| json-to-xml | 53 | 0 | 0 | 100.0% |
+| json-to-xml | 59 | 0 | 0 | 100.0% |
 | key | 99 | 0 | 0 | 100.0% |
 | load-xquery-module | 4 | 0 | 0 | 100.0% |
 | lre | 35 | 0 | 0 | 100.0% |
 | maps | 50 | 0 | 0 | 100.0% |
-| match | 183 | 0 | 0 | 100.0% |
-| math | 154 | 0 | 0 | 100.0% |
-| merge | 60 | 1 | 16 | 98.4% |
+| match | 281 | 5 | 0 | 98.3% |
+| math | 155 | 0 | 0 | 100.0% |
+| merge | 66 | 1 | 11 | 98.5% |
 | message | 45 | 0 | 0 | 100.0% |
 | mode | 139 | 0 | 2 | 100.0% |
-| namespace | 204 | 3 | 0 | 98.6% |
+| namespace | 205 | 3 | 0 | 98.6% |
 | namespace-alias | 25 | 1 | 0 | 96.2% |
 | next-match | 40 | 0 | 0 | 100.0% |
 | node | 32 | 0 | 0 | 100.0% |
-| nodetest | 3 | 0 | 0 | 100.0% |
+| nodetest | 38 | 0 | 0 | 100.0% |
 | normalize-unicode | 18 | 0 | 0 | 100.0% |
+| notation | 22 | 1 | 0 | 95.7% |
 | number | 158 | 0 | 0 | 100.0% |
 | on-empty | 72 | 0 | 0 | 100.0% |
 | on-non-empty | 14 | 0 | 0 | 100.0% |
 | outermost | 26 | 0 | 0 | 100.0% |
 | output | 221 | 0 | 1 | 100.0% |
-| override | 99 | 0 | 0 | 100.0% |
+| override | 100 | 2 | 0 | 98.0% |
 | package | 53 | 0 | 19 | 100.0% |
 | package-version | 35 | 0 | 0 | 100.0% |
 | param | 31 | 0 | 0 | 100.0% |
@@ -131,37 +133,55 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | select | 157 | 0 | 0 | 100.0% |
 | seqtor | 72 | 0 | 0 | 100.0% |
 | sequence | 88 | 0 | 0 | 100.0% |
+| sf-avg | 1 | 0 | 0 | 100.0% |
 | sf-unparsed-entity-uri | 8 | 0 | 0 | 100.0% |
 | shadow | 8 | 0 | 0 | 100.0% |
+| si-LRE | 21 | 0 | 0 | 100.0% |
+| si-apply-templates | 1 | 1 | 0 | 50.0% |
+| si-copy | 27 | 0 | 0 | 100.0% |
+| si-copy-of | 25 | 0 | 0 | 100.0% |
+| si-document | 25 | 0 | 0 | 100.0% |
+| si-element | 21 | 0 | 0 | 100.0% |
 | si-iterate | 1 | 0 | 0 | 100.0% |
+| si-result-document | 24 | 1 | 0 | 96.0% |
 | snapshot | 18 | 1 | 0 | 94.7% |
 | sort | 80 | 0 | 0 | 100.0% |
+| source-document | 12 | 0 | 0 | 100.0% |
 | static | 49 | 1 | 0 | 98.0% |
 | stream-available | 6 | 0 | 0 | 100.0% |
 | streamable | 0 | 1 | 0 | 0.0% |
 | string | 136 | 0 | 0 | 100.0% |
-| strip-space | 26 | 0 | 0 | 100.0% |
-| strip-type-annotations | 3 | 0 | 0 | 100.0% |
+| strip-space | 28 | 0 | 0 | 100.0% |
+| strip-type-annotations | 24 | 0 | 0 | 100.0% |
+| sx-GeneralComp-eq | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-ge | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-gt | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-le | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-lt | 2 | 0 | 0 | 100.0% |
+| sx-GeneralComp-ne | 2 | 0 | 0 | 100.0% |
 | system-property | 23 | 0 | 0 | 100.0% |
 | template | 6 | 0 | 0 | 100.0% |
 | transform | 9 | 0 | 0 | 100.0% |
-| try | 34 | 1 | 0 | 97.1% |
+| treat-as | 4 | 0 | 0 | 100.0% |
+| try | 36 | 1 | 0 | 97.3% |
 | tunnel | 58 | 0 | 0 | 100.0% |
-| type | 58 | 0 | 1 | 100.0% |
-| type-available | 3 | 0 | 0 | 100.0% |
+| type | 75 | 0 | 0 | 100.0% |
+| type-available | 5 | 0 | 0 | 100.0% |
+| type-expr | 4 | 0 | 0 | 100.0% |
+| type-functions | 11 | 0 | 0 | 100.0% |
 | unparsed-entity-uri | 11 | 1 | 0 | 91.7% |
 | unparsed-text | 2 | 0 | 0 | 100.0% |
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 47 | 2 | 0 | 95.9% |
 | use-when | 99 | 0 | 0 | 100.0% |
-| validation | 5 | 1 | 0 | 83.3% |
-| variable | 107 | 0 | 0 | 100.0% |
+| validation | 39 | 17 | 0 | 69.6% |
+| variable | 108 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
 | where-populated | 27 | 0 | 0 | 100.0% |
 | whitespace | 28 | 0 | 0 | 100.0% |
 | xml-to-json | 114 | 0 | 0 | 100.0% |
 | xpath-compat | 18 | 0 | 0 | 100.0% |
-| xpath-default-namespace | 20 | 0 | 2 | 100.0% |
+| xpath-default-namespace | 26 | 0 | 0 | 100.0% |
 | xsl-document | 25 | 0 | 0 | 100.0% |
 | xslt-compat | 13 | 0 | 0 | 100.0% |
 
@@ -280,7 +300,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21884 passed, 0 failed, 99 not run; 100.0% of those run (72 passes raised a different error code)**
+**QT3 (XPath 3.1): 21884 passed, 0 failed, 99 not run; 100.0% of those run (67 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|

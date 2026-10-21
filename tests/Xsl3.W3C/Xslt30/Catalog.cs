@@ -164,8 +164,11 @@ public sealed class TestEnvironment
     /// <summary>A schema the environment supplies (P6): for validating sources, or for xsl:import-schema to find by namespace.</summary>
     public sealed record Schema(string? File, string? Uri, string? Role, string XsdVersion);
 
-    /// <summary>Whether the runner is schema-aware (the sa profile, XSL3_XSLT30_PROFILE=sa): it then honours schemas and validation.</summary>
-    public static bool SchemaAware { get; } = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") == "sa";
+    /// <summary>
+    /// Whether the runner is schema-aware: in the 3.0 profile (P6 claims schema_aware there), not the 2.0 one. It then
+    /// honours schemas and validation.
+    /// </summary>
+    public static bool SchemaAware { get; } = Environment.GetEnvironmentVariable("XSL3_XSLT30_PROFILE") != "2.0";
 
     private TestEnvironment(XElement element, string baseDirectory)
     {

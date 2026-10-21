@@ -295,11 +295,22 @@ namespace Xsl3.Xslt
             }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            string? validation = ParseValidationAttribute(7, /*defVal:*/false);
+            XmlQualifiedName? type = ParseTypeAttribute(8);
+            if (validation != null && type != null)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1505: xsl:merge-source can't have both a validation and a type attribute");
+            }
             if (forEachSource != null)
             {
-                // The documents, with their applicable accumulators.
+                // The documents, with their applicable accumulators; validated as validation or type asks (Xsl3, P6).
                 string? accumulators = ParseStringAttribute(5, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
-                forEachSource = ApplicableAccumulators31($"({forEachSource}) ! doc(.)", accumulators);
+                string documents = $"({forEachSource}) ! doc(.)";
+                if (validation is "strict" or "lax" || type != null && type is not { Name: "untyped", Namespace: XmlReservedNs.NsXs })
+                {
+                    documents = $"Q{{{Runtime.SourceDocuments.Namespace}}}validate({documents}, '{validation ?? ""}', '{(type == null ? "" : $"Q{{{type.Namespace}}}{type.Name}")}')";
+                }
+                forEachSource = ApplicableAccumulators31(documents, accumulators);
             }
             string? select = ParseStringAttribute(3, "select");
             ParseYesNoAttribute(4, "streamable");
