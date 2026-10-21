@@ -100,6 +100,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 
 ## Using it
 
+Guides: [getting started with the XSLT 3.0 API](docs/getting-started.md) and [moving from System.Xml.Xsl](docs/migration.md).
+
 Xsl3 keeps `XslCompiledTransform`'s API, so switching is a `using` change:
 
 ```diff

@@ -37,7 +37,7 @@ choices for the W3C suites.
 |---|---|---|
 | Schema-awareness (XSLT 3.0 §27.3) | `xsl:import-schema` raises XTSE1650; `validation="strict"`/`"lax"` and `type` raise XTSE1660; `schema-element()` and `schema-attribute()` raise XPST0008 | P6 |
 | Streaming (§27.4) | `streamable="yes"` is checked and otherwise ignored: the input is read into a tree | P7 |
-| Backwards-compatible behaviour (§3.9) | not claimed: whole 1.0 stylesheets run on the XSLT 1.0 engine, byte for byte as stock, but the 1.0 rules for a `version="1.0"` region inside a 2.0+ stylesheet are incomplete (the 122 `backwards_compatibility` tests don't run) | remaining-scope 4.6 |
+| Backwards-compatible behaviour (§3.9) | claimed: `version="1.0"` regions of 2.0+ stylesheets run in backwards-compatible mode, and whole 1.0 stylesheets do with `XsltSettings.VersionMode = BackwardsCompatible`; by default (`Legacy`) a 1.0 stylesheet runs on the XSLT 1.0 engine, byte for byte as stock. Gaps: an `xsl:key` defined in both modes (backwards-043), `exsl:document` | remaining-scope 4.6 |
 | `fn:transform` | not available (XPST0017) | remaining-scope 5 |
 | `fn:random-number-generator` | the unseeded generator is seeded once per transformation, so its numbers differ between runs | |
 | XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | not planned |
