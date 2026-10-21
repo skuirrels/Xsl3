@@ -914,8 +914,9 @@ namespace Xsl3.Xslt
             QilNode frame = _currentTunnel != null ? _currentTunnel : _f.TypeAssert(_f.Sequence(), T.ItemS);
             if (_temporaryOutput31 > 0 || _currentTunnel == null && FocusAbsent)
             {
-                // Templates called from a function body or the content of a variable or parameter are in temporary
-                // output state: no current output URI, and xsl:result-document is an error (XTDE1480).
+                // Templates called from a function body, or the content of a variable, parameter, sort or merge key, key
+                // or accumulator rule, are in temporary output state: no current output URI, and xsl:result-document is
+                // an error (XTDE1480; result-document-1137 to -1144).
                 frame = X31(nameof(XsltLibrary.X31TunnelSetOutput), T.ItemS, frame, _f.String(XsltLibrary.TemporaryOutput));
             }
             for (int i = from; i < args.Count;)
@@ -1676,6 +1677,20 @@ namespace Xsl3.Xslt
         // While compiling a variable's content: a temporary tree, where xsl:result-document is an error (XTDE1480).
         private int _temporaryOutput31;
 
+        // Content compiled in temporary output state (XSLT 3.0 §25.2).
+        private QilNode TemporaryOutput31(System.Func<QilNode> compile)
+        {
+            _temporaryOutput31++;
+            try
+            {
+                return compile();
+            }
+            finally
+            {
+                _temporaryOutput31--;
+            }
+        }
+
         private Output? ResolveOutputName(string lexical)
         {
             lexical = lexical.Trim();
@@ -1869,7 +1884,7 @@ namespace Xsl3.Xslt
                         EnterScope(key);
                         // data-type="number": each key value is converted as by number() (XSLT 3.0 §15.3).
                         string? keySelect = key.V2?.DataType == "number" && key.Select != null ? $"data(({key.Select})) ! number(.)" : key.Select;
-                        keys.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(SelectOrContent31(key, keySelect))));
+                        keys.Add(X31(nameof(XsltLibrary.X31Wrap), T.Item, Box(keySelect != null ? SelectOrContent31(key, keySelect) : TemporaryOutput31(() => SelectOrContent31(key, keySelect)))));
                         ExitScope();
                     }
                     return Box(keys);
@@ -1970,7 +1985,7 @@ namespace Xsl3.Xslt
                         try
                         {
                             _scope.AddVariable(_f.QName("value"), own[1]);
-                            return SelectOrContent31(rule, rule.Select);
+                            return rule.Select != null ? SelectOrContent31(rule, rule.Select) : TemporaryOutput31(() => SelectOrContent31(rule, rule.Select));
                         }
                         finally
                         {
@@ -3250,7 +3265,7 @@ namespace Xsl3.Xslt
         // xsl:key's use (or content): the key values of the node in focus, as the strings key() compares.
         private QilNode CompileKeyUse31(Key key)
         {
-            QilNode values = Box(key.Use != null ? CompileXPath31(key.Use) : CompileInstructions(key.Content));
+            QilNode values = Box(key.Use != null ? CompileXPath31(key.Use) : TemporaryOutput31(() => CompileInstructions(key.Content)));
             if (_stringKeys31.Contains(key.Name!))
             {
                 values = X31(nameof(XsltLibrary.X31StringValues), T.ItemS, values);
@@ -3392,7 +3407,7 @@ namespace Xsl3.Xslt
         private void CompileSort31(Sort sort, QilList keyList, ref LoopFocus parentLoop)
         {
             EnterScope(sort);
-            QilNode select = sort.Select != null ? CompileXPath31(Backwards31 ? FirstItem31(sort.Select) : sort.Select) : CompileInstructions(sort.Content);
+            QilNode select = sort.Select != null ? CompileXPath31(Backwards31 ? FirstItem31(sort.Select) : sort.Select) : TemporaryOutput31(() => CompileInstructions(sort.Content));
             // The keys of one sort must be comparable (XTDE1030): checked from the first item's (position 1) on.
             QilNode position = GetCurrentPosition();
 

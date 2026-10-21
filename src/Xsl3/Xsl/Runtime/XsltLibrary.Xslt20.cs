@@ -176,6 +176,11 @@ namespace Xsl3.Runtime
                         // to its items (P6).
                         run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(item)).Select(a => a.Value)));
                     }
+                    else if (item is FunctionItem function)
+                    {
+                        // A map or function in the content of a node (XSLT 3.0 §5.7.1).
+                        throw new XdmException("XTDE0450", $"{function.Describe()} can't be in the content of a node");
+                    }
                     else
                     {
                         run.Append(Sequences.Atomize(item).Value);
