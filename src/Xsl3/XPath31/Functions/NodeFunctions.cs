@@ -66,12 +66,27 @@ namespace Xsl3.XPath31.Functions
                 {
                     return Bool(false);
                 }
+                // A streaming processor can only tell that the document starts well: it exists and its first
+                // element can be read (XSLT 3.0 §18.2.6 lets the answer be true then). The rest isn't read.
+                string uri = S(a[0]);
+                XmlResolver? resolver = c.Runtime?.ExternalContext.DataSources;
+                if (uri.Contains('#') || resolver == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
+                {
+                    return Bool(false);
+                }
                 try
                 {
-                    Doc(S(a[0]), c);
-                    return Bool(true);
+                    System.Uri? baseUri = c.StaticBaseUri is { Length: > 0 } b ? resolver.ResolveUri(null, b) : null;
+                    System.Uri resolved = resolver.ResolveUri(baseUri, uri);
+                    using var stream = resolver.GetEntity(resolved, null, typeof(System.IO.Stream)) as System.IO.Stream;
+                    if (stream == null)
+                    {
+                        return Bool(false);
+                    }
+                    using XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore }, resolved.AbsoluteUri);
+                    return Bool(reader.MoveToContent() == XmlNodeType.Element);
                 }
-                catch (XdmException e) when (e.Code is "FODC0002" or "FODC0005")
+                catch (Exception e) when (e is XmlException or System.IO.IOException or UnauthorizedAccessException or System.Net.WebException or UriFormatException)
                 {
                     return Bool(false);
                 }
