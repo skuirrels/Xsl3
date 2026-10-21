@@ -18,7 +18,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
-    <ProjectReference Include="..\..\src\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" />
+    <!-- The compiler runs on the build machine: built for no runtime identifier, whatever this project is published for. -->
+    <ProjectReference Include="..\..\src\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
     <XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />
   </ItemGroup>
 
