@@ -1,7 +1,6 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
 accept/accept-916
 accessor/accessor-008
-accumulator/accumulator-040
 apply-templates/conflict-resolution-1603
 attribute/attribute-1101
 axes/axes-201
@@ -9,15 +8,9 @@ backwards/backwards-019b
 base-uri/base-uri-024
 base-uri/base-uri-046
 base-uri/base-uri-050
-base-uri/base-uri-051
-base-uri/base-uri-051a
-base-uri/base-uri-051b
 base-uri/base-uri-052
 base-uri/base-uri-053
-bug/bug-1301
-bug/bug-2401
 bug/bug-3801
-choose/choose-0106
 context-item/context-item-009
 copy/copy-1221
 copy/copy-3002
@@ -26,7 +19,6 @@ docbook/docbook-004
 document/document-2003
 document/document-2401
 document/document-2402
-error/error-0160a
 error/error-1500a
 error/error-2210a
 error/error-3040a
@@ -57,8 +49,6 @@ id/id-040
 id/id-042
 id/id-043
 import/import-1201
-include/include-0102
-include/include-0103
 initial-mode/initial-mode-004
 initial-template/initial-template-002
 initial-template/initial-template-003
@@ -66,7 +56,6 @@ initial-template/initial-template-004
 initial-template/initial-template-080
 key/key-087
 key/key-090
-maps/maps-017
 merge/merge-019
 merge/merge-067
 merge/merge-097
@@ -84,8 +73,6 @@ next-match/next-match-026
 next-match/next-match-039
 number/number-2506
 number/number-4501
-on-empty/on-empty-114b
-on-non-empty/on-non-empty-007
 output/output-0285
 output/output-0311
 override/override-f-029
@@ -100,8 +87,6 @@ param/param-0116
 param/param-0301
 resolve-uri/resolve-uri-021
 select/select-6101
-select/select-6201
-sequence/sequence-0601
 sf-unparsed-entity-uri/sf-unparsed-entity-06
 snapshot/snapshot-0102a
 static/static-013c
@@ -118,7 +103,6 @@ try/try-019
 try/try-021
 try/try-022
 try/try-034
-type-available/type-available-0151
 unparsed-entity-uri/unparsed-entity-05
 unparsed-entity-uri/unparsed-entity-06
 unparsed-entity-uri/unparsed-entity-50
