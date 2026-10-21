@@ -224,12 +224,14 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
+            var output = _runtime.SaveOutput();
             try
             {
                 return Copy(CallFunction((XdmFunction)tryFunction[0]));
             }
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
+                _runtime.RestoreOutput(output);
                 var errors = (List<List<string>>)ConstantPool.Get((int)errorsId);
                 for (int i = 0; i < errors.Count; i++)
                 {
@@ -247,14 +249,68 @@ namespace Xsl3.Runtime
         /// <summary>A pattern's condition, lifted: an error evaluating it is a non-match (XSLT 3.0 §5.5.4).</summary>
         public bool X31PatternTry(IList<XPathItem> test)
         {
+            var output = _runtime.SaveOutput();
             try
             {
                 return Sequences.EffectiveBooleanValue(CallFunction((XdmFunction)test[0]));
             }
             catch (System.Exception e) when (DynamicError(e) != null)
             {
+                _runtime.RestoreOutput(output);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// The text of a non-terminating xsl:message (XSLT 3.0 §23.1): its content as the serializer would show it, with
+        /// attributes, maps and functions described rather than refused, and an error in the content reported in the
+        /// message rather than ending the transformation.
+        /// </summary>
+        public string X31MessageText(IList<XPathItem> body)
+        {
+            var output = _runtime.SaveOutput();
+            IList<XPathItem> items;
+            try
+            {
+                items = CallFunction((XdmFunction)body[0]);
+            }
+            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _))
+            {
+                _runtime.RestoreOutput(output);
+                return $"[the content of xsl:message raised {code.LocalName}: {description}]";
+            }
+            var sb = new System.Text.StringBuilder();
+            bool atomic = false;
+            foreach (XPathItem item in items)
+            {
+                switch (item)
+                {
+                    case XPathNavigator { NodeType: XPathNodeType.Root } document:
+                        sb.Append(document.InnerXml);
+                        break;
+                    case XPathNavigator { NodeType: XPathNodeType.Attribute } attribute:
+                        sb.Append(attribute.Name).Append("=\"").Append(attribute.Value).Append('"');
+                        break;
+                    case XPathNavigator { NodeType: XPathNodeType.Namespace } ns:
+                        sb.Append(ns.Name.Length == 0 ? "xmlns" : "xmlns:" + ns.Name).Append("=\"").Append(ns.Value).Append('"');
+                        break;
+                    case XPathNavigator node:
+                        sb.Append(node.OuterXml);
+                        break;
+                    case XdmFunction function:
+                        sb.Append(function.Describe());
+                        break;
+                    default:
+                        if (atomic)
+                        {
+                            sb.Append(' ');
+                        }
+                        sb.Append(item.Value);
+                        break;
+                }
+                atomic = item is not XPathNavigator and not XdmFunction;
+            }
+            return sb.ToString();
         }
 
         /// <summary>A captured number (a position) back as a double.</summary>

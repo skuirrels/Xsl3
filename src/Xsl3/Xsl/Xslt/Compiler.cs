@@ -136,8 +136,9 @@ namespace Xsl3.Xslt
                 // Xsl3: the merged declarations of each decimal format must give distinct characters (XTSE1300).
                 foreach (DecimalFormatDecl format in DecimalFormats)
                 {
-                    var signs = new[] { format.Characters[0], format.Characters[1], format.Characters[2], format.Characters[3], format.Characters[5], format.Characters[6], format.ExponentSeparator };
-                    if (System.Linq.Enumerable.Count(System.Linq.Enumerable.Distinct(signs)) != signs.Length || format.Characters[4] is var zero && System.Linq.Enumerable.Any(signs, c => c >= zero && c <= zero + 9))
+                    int[] cp = format.CodePoints;
+                    var signs = new[] { cp[0], cp[1], cp[2], cp[3], cp[5], cp[6], format.Exponent };
+                    if (System.Linq.Enumerable.Count(System.Linq.Enumerable.Distinct(signs)) != signs.Length || cp[4] is var zero && System.Linq.Enumerable.Any(signs, c => c >= zero && c <= zero + 9))
                     {
                         ReportError(format.Line ?? SourceLineInfo.NoSource, SR.Xml_UserException, $"XTSE1300: the characters of the decimal format {format.Name} are not distinct");
                     }
@@ -535,6 +536,9 @@ namespace Xsl3.Xslt
         public readonly char[] Characters;
         public int ImportPrecedence; // Xsl3: in 2.0 a definition of higher import precedence wins
         public char ExponentSeparator = 'e'; // Xsl3: XSLT 3.0
+        // Xsl3: in 2.0 the characters as code points (one may be outside the BMP), with the exponent separator.
+        public readonly int[] CodePoints;
+        public int Exponent = 'e';
         public readonly HashSet<int> Specified = new(); // Xsl3: the attributes (by number) declarations gave
         public ISourceLineInfo? Line; // Xsl3: the first declaration
 
@@ -547,6 +551,7 @@ namespace Xsl3.Xslt
             this.InfinitySymbol = infinitySymbol;
             this.NanSymbol = nanSymbol;
             this.Characters = characters.ToCharArray();
+            this.CodePoints = System.Array.ConvertAll(this.Characters, c => (int)c);
         }
     }
 

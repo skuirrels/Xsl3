@@ -474,6 +474,12 @@ namespace Xsl3.Runtime
             foreach (XPathItem item in Sequences.Atomize(values))
             {
                 var a = (AtomicValue)item;
+                if (a is IntegerValue { Integer.Sign: >= 0 } integer)
+                {
+                    // Integers beyond a double's precision stay exact.
+                    numbers.Add(integer.Integer);
+                    continue;
+                }
                 double d = a.Type.IsNumeric ? Numeric.ToDouble(a) : ToNumber(a);
                 if (double.IsNaN(d) || double.IsInfinity(d) || d < 0)
                 {
@@ -670,6 +676,26 @@ namespace Xsl3.Runtime
         /// <summary>The current template rule a tunnel frame carries, or -1 (absent).</summary>
         public double X31TunnelRule(IList<XPathItem> frame) =>
             frame.Count != 0 && ((TunnelFrame)frame[0]).Find(RuleEntry, "") is { } entry ? Numeric.ToDouble((AtomicValue)entry.ParamValue[0]) : -1;
+
+        // The current captured substrings travel with the tunnel parameters into called templates (XSLT 3.0 §5.4.4):
+        // the xsl:analyze-string segment, or none.
+        private const string MatchEntry = "\u0001xsl3-match";
+
+        /// <summary>The tunnel frame with <paramref name="segment"/>'s captured substrings as the current ones.</summary>
+        public IList<XPathItem> X31TunnelSetMatch(IList<XPathItem> frame, XPathItem segment) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], MatchEntry, "", Sequences.One(segment)) };
+
+        /// <summary>The tunnel frame with no current captured substrings.</summary>
+        public IList<XPathItem> X31TunnelClearMatch(IList<XPathItem> frame) =>
+            frame.Count == 0 || ((TunnelFrame)frame[0]).Find(MatchEntry, "") == null
+                ? frame
+                : new XPathItem[] { new TunnelFrame((TunnelFrame)frame[0], MatchEntry, "", Sequences.Empty) };
+
+        /// <summary>regex-group() in a template called from xsl:matching-substring: from the tunnel frame.</summary>
+        public XPathItem X31TunnelGroup(IList<XPathItem> frame, IList<XPathItem> n) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(MatchEntry, "") is { ParamValue.Count: 1 } entry
+                ? X31SegmentGroup(entry.ParamValue[0], n)
+                : AtomicValue.OfString("");
 
         // The current output URI travels with the tunnel parameters, set by xsl:result-document.
         private const string OutputEntry = "\u0001xsl3-output";

@@ -536,4 +536,71 @@ public class Xslt30Tests
         transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, bytes);
         Assert.Contains("<example><![CDATA[foo ]]>&#xAA;<![CDATA[ bar]]></example>", System.Text.Encoding.ASCII.GetString(bytes.ToArray()));
     }
+
+    /// <summary>A template called from xsl:matching-substring sees its captured substrings; a function doesn't (XSLT 3.0 §5.4.4).</summary>
+    [Fact]
+    public void RegexGroupInCalledTemplates() =>
+        Assert.Equal("<o>a|b||</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="d" select="doc"/>
+              <o><xsl:analyze-string select="'ab'" regex="(a)(b)"><xsl:matching-substring><xsl:call-template name="t"/>|<xsl:apply-templates select="$d"/>|<xsl:value-of select="f:g()" xmlns:f="urn:f"/></xsl:matching-substring></xsl:analyze-string>|<xsl:call-template name="t"/></o>
+            </xsl:template>
+            <xsl:template name="t"><xsl:value-of select="regex-group(1)"/></xsl:template>
+            <xsl:template match="doc"><xsl:value-of select="regex-group(2)"/></xsl:template>
+            <xsl:function name="f:g" xmlns:f="urn:f"><xsl:sequence select="regex-group(1)"/></xsl:function>
+            """));
+
+    /// <summary><c>$x = (a to b)</c> is a range test: the same answers as comparing with each integer, without building the range.</summary>
+    [Theory]
+    [InlineData("5", "true")]
+    [InlineData("5.0", "true")]
+    [InlineData("5.5", "false")]
+    [InlineData("xs:double('NaN')", "false")]
+    [InlineData("1e300", "false")]
+    [InlineData("xs:untypedAtomic('7')", "true")]
+    [InlineData("(0, 2000000)", "true")]
+    [InlineData("()", "false")]
+    public void GeneralComparisonWithARange(string value, string expected) =>
+        Assert.Equal($"<o>{expected}</o>", Run($"<xsl:template match='/'><o><xsl:value-of select=\"({value}) = (1 to 2000000)\"/></o></xsl:template>"));
+
+    /// <summary>Rounding works on the double's own value (F&amp;O 3.1 §4.4.4–5), beyond decimal's range too.</summary>
+    [Fact]
+    public void RoundingDoubles() =>
+        Assert.Equal("<o>-13.7 150.01 250.03 1.0E-98 5.0E101 3567.812</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="round(-1.365e1, 1), round-half-to-even(150.015e0, 2), round-half-to-even(250.025e0, 2),
+              round(9.9e-99, 99), round(45e100, -101), round-half-to-even(3.567812E+3, 4294967296)"/></o></xsl:template>
+            """));
+
+    [Fact]
+    public void SortCaseOrder() =>
+        Assert.Equal("<o>a,B,b,C,c|a,b,B,c,C</o>", Run("""
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:value-of select="string-join(f:sort('upper-first'), ',')"/>|<xsl:value-of select="string-join(f:sort('lower-first'), ',')"/></o></xsl:template>
+            <xsl:function name="f:sort" xmlns:f="urn:f"><xsl:param name="case"/>
+              <xsl:perform-sort select="('c', 'B', 'a', 'C', 'b')"><xsl:sort select="." lang="en" case-order="{$case}"/></xsl:perform-sort></xsl:function>
+            """));
+
+    /// <summary>A message that holds a map, or fails, doesn't end the transformation (XSLT 3.0 §23.1).</summary>
+    [Fact]
+    public void NonTerminatingMessagesNeverFail() =>
+        Assert.Equal("<o>done</o>", Run("""
+            <xsl:template match="/"><xsl:message select="map{1: 2}"/><xsl:message><xsl:attribute name="a" select="1"/></xsl:message>
+              <xsl:message select="1 div 0"/><o>done</o></xsl:template>
+            """));
+
+    [Fact]
+    public void NumberOfHugeIntegers() =>
+        Assert.Equal("<o>1881676371789154860897069003</o>", Run("""
+            <xsl:template match="/"><o><xsl:number value="1234567890 * 1234567890 * 1234567890 + 3"/></o></xsl:template>
+            """));
+
+    /// <summary>Decimal format characters may be outside the BMP.</summary>
+    [Fact]
+    public void DecimalFormatOutsideTheBmp()
+    {
+        string decimalSeparator = char.ConvertFromUtf32(110000), groupingSeparator = char.ConvertFromUtf32(110001);
+        Assert.Equal($"<o>1{groupingSeparator}234{decimalSeparator}123</o>", Run("""
+            <xsl:decimal-format decimal-separator="&#110000;" grouping-separator="&#110001;"/>
+            <xsl:template match="/"><o><xsl:value-of select="format-number(1234.123, '&#110001;000&#110000;000')"/></o></xsl:template>
+            """));
+    }
 }

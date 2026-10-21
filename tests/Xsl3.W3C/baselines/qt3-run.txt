@@ -7,7 +7,6 @@ app-spec-examples/fo-test-fn-parse-json-007
 array-sort/array-sort-collation-4
 array-sort/array-sort-collation-5
 fn-format-integer/format-integer-032
-fn-function-arity/fn-function-arity-016
 fn-function-arity/fn-function-arity-017
 fn-function-lookup/fn-function-lookup-369
 fn-function-lookup/fn-function-lookup-371
@@ -19,7 +18,6 @@ fn-function-lookup/fn-function-lookup-759
 fn-function-lookup/fn-function-lookup-762
 fn-function-lookup/fn-function-lookup-765
 fn-function-lookup/fn-function-lookup-800
-fn-function-name/fn-function-name-017
 fn-function-name/fn-function-name-018
 fn-idref/fn-idref-dtd-12
 fn-idref/fn-idref-dtd-13
@@ -60,15 +58,12 @@ fn-serialize/serialize-xml-120b
 fn-sort/fn-sort-collation-4
 fn-sort/fn-sort-collation-5
 fn-xml-to-json/xml-to-json-017
-fn-xml-to-json/xml-to-json-D-504
-fn-xml-to-json/xml-to-json-D-507
 map-call/map-call-018
 map-contains/map-contains-018
 map-get/map-get-018
 map-merge/map-merge-011
 map-merge/map-merge-012
 map-put/map-put-012
-misc-HigherOrderFunctions/hof-025
 misc-HigherOrderFunctions/xqhof8
 misc-HigherOrderFunctions/xqhof9
 op-same-key/same-key-001

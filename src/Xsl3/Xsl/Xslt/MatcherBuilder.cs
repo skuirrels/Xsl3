@@ -185,7 +185,8 @@ namespace Xsl3.Xslt
             }
 
             XmlNodeKindFlags nodeKinds = isType.Right.XmlType!.NodeKinds;
-            if (!BitOperations.IsPow2((uint)nodeKinds))
+            // Xsl3: namespace nodes have no bucket of their own, so their kind test stays (match="namespace::*" in 2.0+).
+            if (!BitOperations.IsPow2((uint)nodeKinds) || nodeKinds == XmlNodeKindFlags.Namespace)
             {
                 return;
             }

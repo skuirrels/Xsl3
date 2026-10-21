@@ -95,5 +95,34 @@ namespace Xsl3.Xslt
             }
             return _f.Invoke(entry.Function.Function!, actual);
         }
+
+        /// <summary>
+        /// The initial mode the caller named, if it is a mode with no template rules that no xsl:mode declares (XTDE0045,
+        /// XSLT 3.0 §2.3.3); null otherwise.
+        /// </summary>
+        private string? UnknownInitialMode31(XslNode start)
+        {
+            // The default mode is always eligible; packages check their entry points themselves (Packages.CheckEntryPoints).
+            if (_compiler.InitialMode == null || start is not { NodeType: XslNodeType.ApplyTemplates, Name: QilName mode } || mode.LocalName.Length == 0 ||
+                mode.Equals(_compiler.DefaultInitialMode) || _compiler.PackageInfos.Count > 1)
+            {
+                return null;
+            }
+            if (_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? decl))
+            {
+                // A declared mode is eligible unless it is private.
+                return decl.Attributes.TryGetValue("visibility", out string? visibility) && visibility.Trim() == "private" ? mode.QualifiedName : null;
+            }
+            foreach (ProtoTemplate template in _compiler.AllTemplates)
+            {
+                // A rule naming the mode, alone or in a list (mode="#all" doesn't name it).
+                if (template is Template { Match: not null } rule &&
+                    (rule.Mode.Equals(mode) || rule.V2?.Modes?.Exists(m => m.Equals(mode)) == true))
+                {
+                    return null;
+                }
+            }
+            return mode.QualifiedName;
+        }
     }
 }

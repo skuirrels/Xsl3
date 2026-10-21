@@ -138,7 +138,10 @@ namespace Xsl3.XPath31
                 KindNodeTest { Kind: ElementTest { HasName: true } or AttributeTest { HasName: true } } => 0.25,
                 KindNodeTest { Kind: ElementTest { TypeName: not null } or AttributeTest { TypeName: not null } } => 0,
                 KindNodeTest { Kind: SchemaElementTest or SchemaAttributeTest } => 0.25,
-                KindNodeTest { Kind: DocumentTest { ElementTest: not null } } => 0,
+                // document-node(E): the priority E would have (XSLT 3.0 §6.5), so document-node(element(*)) is -0.5.
+                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { HasName: true, TypeName: null } } } => 0,
+                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { HasName: true } or SchemaElementTest } } => 0.25,
+                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { TypeName: not null } } } => 0,
                 _ => -0.5,
             };
         }

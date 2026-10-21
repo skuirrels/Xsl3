@@ -576,6 +576,11 @@ namespace Xsl3.XPath31
                     return _f.Or(Bool(Build(b.Left)), Bool(Build(b.Right)));
                 case BinaryOp.And:
                     return _f.And(Bool(Build(b.Left)), Bool(Build(b.Right)));
+                case BinaryOp.GeneralEq when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
+                    // $x = (a to b): a range test, not a comparison with each integer of the range.
+                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
+                case BinaryOp.GeneralEq when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
+                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
                 case BinaryOp.GeneralEq: case BinaryOp.GeneralNe: case BinaryOp.GeneralLt:
                 case BinaryOp.GeneralLe: case BinaryOp.GeneralGt: case BinaryOp.GeneralGe:
                     return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
@@ -808,7 +813,7 @@ namespace Xsl3.XPath31
         }
 
         // Functions whose zero-argument form applies to the context item (F&O 3.1 §1.6.3).
-        private static readonly HashSet<string> s_contextFunctions = new(System.StringComparer.Ordinal)
+        internal static readonly HashSet<string> s_contextFunctions = new(System.StringComparer.Ordinal)
         {
             "string", "data", "number", "string-length", "normalize-space", "name", "local-name", "namespace-uri",
             "root", "node-name", "has-children", "base-uri", "document-uri", "generate-id", "path", "nilled",
@@ -825,7 +830,12 @@ namespace Xsl3.XPath31
             {
                 return hof;
             }
-            if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "current" or "current-group" or "current-grouping-key" or "regex-group")
+            if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName == "regex-group" && args.Count == 1)
+            {
+                // The captured substrings are cleared in a function body (XSLT 3.0 §5.4.4): a zero-length string.
+                return Call(nameof(XsltLibrary.X31StringItem), T.Item, _f.String(""));
+            }
+            if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "current" or "current-group" or "current-grouping-key")
             {
                 // XSLT's focus-dependent functions have no focus in a function body (the host's would be out of scope).
                 return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String($"{name.LocalName}() can't be used in a function body"));

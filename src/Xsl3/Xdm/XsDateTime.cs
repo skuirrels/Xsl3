@@ -17,8 +17,8 @@ namespace Xsl3.Xdm
     /// </remarks>
     internal readonly struct XsDateTime
     {
-        /// <summary>Years beyond ±10^12 overflow (FODT0001); XSD only requires four digits.</summary>
-        public const long MaxYear = 999_999_999_999;
+        /// <summary>Years beyond ±(2^31 - 1) overflow (FODT0001); XSD only requires four digits.</summary>
+        public const long MaxYear = int.MaxValue;
 
         public XsDateTime(long year, int month, int day, int hour, int minute, decimal second, int? timezoneMinutes)
         {
@@ -269,6 +269,10 @@ namespace Xsl3.Xdm
                 throw Err.FODT0001("year has too many digits in '" + s + "'");
             }
             year = long.Parse(s.AsSpan(start, length), NumberStyles.None, CultureInfo.InvariantCulture);
+            if (year > MaxYear)
+            {
+                throw Err.FODT0001("year out of range in '" + s + "'");
+            }
             if (year == 0)
             {
                 return false; // no year zero in XML Schema 1.0

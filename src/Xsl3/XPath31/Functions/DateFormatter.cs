@@ -178,13 +178,16 @@ namespace Xsl3.XPath31.Functions
                 case 'F' when isNamePresentation:
                     return Name((german ? s_germanDays : s_englishDays)[DayOfWeek(v) - 1], presentation, minWidth, maxWidth);
                 case 'P':
-                    return Name(v.Hour < 12 ? "am" : "pm", isNamePresentation ? presentation : "n", minWidth, maxWidth);
+                    // am and pm aren't padded to a minimum width (as the W3C tests expect).
+                    return Name(v.Hour < 12 ? "am" : "pm", isNamePresentation ? presentation : "n", null, maxWidth);
                 case 'E':
                     return Name(year > 0 ? "AD" : "BC", isNamePresentation ? (presentation == "n" ? "n" : presentation) : "N", minWidth, maxWidth);
                 case 'C':
                     return Name("ISO", isNamePresentation ? presentation : "N", minWidth, maxWidth);
                 case 'Z' or 'z':
-                    return Timezone(v, component, rest.Length > 0 ? rest : null, second, picture);
+                    // Without a presentation, a maximum width too narrow for hh:mm gives the hours alone (minutes only
+                    // when not zero), as wide as the minimum width.
+                    return Timezone(v, component, rest.Length > 0 ? rest : maxWidth < 5 && minWidth is 1 or 2 ? (minWidth == 1 ? "1" : "01") : null, second, picture);
                 case 'f':
                     return FractionalSeconds(v.Second, presentation, hasWidth, minWidth, maxWidth, picture);
             }

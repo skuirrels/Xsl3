@@ -942,7 +942,7 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_analyzeStringAttributes);
             string? select = ParseStringAttribute(0, "select");
-            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "", EmptyMatches = _input.LastVersion >= 3.0 };
+            var v2 = new XslNodeV2 { Regex = ParseStringAttribute(1, "regex"), Flags = ParseStringAttribute(2, "flags") ?? "", EmptyMatches = true }; // Xsl3 is a 3.0 processor: XTDE1150 is gone, even for a 2.0 stylesheet
 
             XslNode? matching = null, nonMatching = null;
             QName parentName = _input.ElementName;
@@ -1337,6 +1337,10 @@ namespace Xsl3.Xslt
                         // A set of names: compared as expanded names, in any order.
                         value = string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
                         {
+                            if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                            {
+                                return token; // already an EQName
+                            }
                             int colon = token.IndexOf(':');
                             return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
                         }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
@@ -1344,13 +1348,31 @@ namespace Xsl3.Xslt
                     decl.Attributes[_modeAttributes[i].name] = value;
                 }
             }
-            // Declarations of higher import precedence win (modules are read in decreasing precedence); those of the
-            // same precedence combine, and may not give an attribute two values (XTSE0545).
+            // Each attribute comes from the declaration of highest import precedence that gives it (modules are read
+            // in decreasing precedence); declarations of the same precedence may not give an attribute two values
+            // (XTSE0545).
             if (!_compiler.ModeDecls.TryGetValue(mode, out ModeDecl? existing))
             {
                 _compiler.ModeDecls[mode] = decl;
             }
-            else if (existing.ImportPrecedence == decl.ImportPrecedence)
+            else if (existing.ImportPrecedence != decl.ImportPrecedence)
+            {
+                foreach (var (attribute, value) in decl.Attributes)
+                {
+                    if (existing.Attributes.TryAdd(attribute, value))
+                    {
+                        if (attribute == "on-no-match")
+                        {
+                            existing.OnNoMatch = decl.OnNoMatch;
+                        }
+                        else if (attribute == "on-multiple-match")
+                        {
+                            existing.OnMultipleMatch = decl.OnMultipleMatch;
+                        }
+                    }
+                }
+            }
+            else
             {
                 foreach (var (attribute, value) in decl.Attributes)
                 {

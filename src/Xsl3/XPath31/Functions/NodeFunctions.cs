@@ -19,7 +19,8 @@ namespace Xsl3.XPath31.Functions
         {
             Define("fn:document-uri($arg as node()?) as xs:anyURI?", (c, a) =>
                 Node(a[0]) is XPathNavigator n && n.NodeType == XPathNodeType.Root && n is not XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } && n is not Xsl3.Tree.CompactNavigator { Document.NoDocumentUri: true } ? Uri(n.BaseURI) : Empty);
-            Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator n ? Uri(BaseUri(n)) : Empty);
+            // A namespace node has no base URI (XDM 3.1 §6.4.2).
+            Define("fn:base-uri($arg as node()?) as xs:anyURI?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: not XPathNodeType.Namespace } n ? Uri(BaseUri(n)) : Empty);
             Define("fn:generate-id($arg as node()?) as xs:string", (c, a) =>
                 Str(Node(a[0]) is XPathNavigator n ? (c.Runtime?.GenerateId(n) ?? "id" + n.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture)) : ""));
             Define("fn:nilled($arg as node()?) as xs:boolean?", (c, a) => Node(a[0]) is XPathNavigator { NodeType: XPathNodeType.Element } ? Bool(false) : Empty);
@@ -57,6 +58,24 @@ namespace Xsl3.XPath31.Functions
 
             // ---------------------------------------------------------- documents and text resources
             Define("fn:doc($uri as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(Doc(S(a[0]), c)));
+            // XSLT 3.0 §18.2.6: whether xsl:source-document streamable="yes" would succeed, which it does (without
+            // streaming) whenever the document can be read.
+            Define("fn:stream-available($uri as xs:string?) as xs:boolean", (c, a) =>
+            {
+                if (a[0].Count == 0)
+                {
+                    return Bool(false);
+                }
+                try
+                {
+                    Doc(S(a[0]), c);
+                    return Bool(true);
+                }
+                catch (XdmException)
+                {
+                    return Bool(false);
+                }
+            });
             Define("fn:doc-available($uri as xs:string?) as xs:boolean", (c, a) =>
             {
                 if (a[0].Count == 0) return Bool(false);

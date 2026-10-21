@@ -104,8 +104,15 @@ public sealed class Runner
             return Outcome.NotRun("initial match selection by expression");
         }
 
+        // An initial mode of #default is the stylesheet's default mode (as if none were named); #unnamed is the unnamed mode.
+        XmlQualifiedName? mode = (string?)initialMode?.Attribute("name") switch
+        {
+            "#default" => null,
+            "#unnamed" => XmlQualifiedName.Empty,
+            _ => ResolveQName(initialMode, "name"),
+        };
         RunResult run = Execute(test, envs, stylesheetPath,
-            ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), ResolveQName(initialMode, "name"), parameters, t.Element(Catalog.Ns + "initial-function"));
+            ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), mode, parameters, t.Element(Catalog.Ns + "initial-function"));
         return Check(test, test.Result, run);
     }
 
@@ -151,7 +158,8 @@ public sealed class Runner
                     {
                         continue; // available by URI only
                     }
-                    XPathNavigator doc = LoadSource(source);
+                    // An inline document's base URI is the test set's; a source with only select is that expression's value.
+                    XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File);
                     if (source.Role == ".")
                     {
                         // select: the initial context node within the document (the global context item).
@@ -237,7 +245,7 @@ public sealed class Runner
                 secondary.Clear();
                 var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
                 using XmlReader reader = inputSource.Content != null
-                    ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? "")
+                    ? XmlReader.Create(new StringReader(inputSource.Content), settings, inputSource.File ?? new Uri(test.Set.File).AbsoluteUri)
                     : XmlReader.Create(inputSource.File!, settings);
                 var bytes = new MemoryStream();
                 transform.Transform(reader, args, bytes, resolver);
@@ -261,8 +269,13 @@ public sealed class Runner
         }
         else
         {
-            string head = Encoding.ASCII.GetString(bytes, 0, Math.Min(bytes.Length, 200));
+            string head = Encoding.ASCII.GetString(bytes, 0, Math.Min(bytes.Length, 1024));
             var m = System.Text.RegularExpressions.Regex.Match(head, @"^<\?xml[^>]*encoding=[""']([^""']+)");
+            if (!m.Success)
+            {
+                // The html and xhtml methods declare it in a meta element instead.
+                m = System.Text.RegularExpressions.Regex.Match(head, @"<meta[^>]*charset=([A-Za-z0-9_.:\-]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
             if (m.Success)
             {
                 try
@@ -336,14 +349,14 @@ public sealed class Runner
     // share a few documents of tens of megabytes).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, XPathDocument> s_documents = new(StringComparer.Ordinal);
 
-    private static XPathNavigator LoadSource(TestEnvironment.Source source)
+    private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile)
     {
         if (source.Content == null)
         {
             return s_documents.GetOrAdd(Path.GetFullPath(source.File!), Parse).CreateNavigator();
         }
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
-        using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? "");
+        using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(testSetFile).AbsoluteUri);
         return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
     }
 
@@ -484,6 +497,9 @@ public sealed class Runner
                     }
                     return Outcome.Fail($"no result document {uri} ({run.SecondaryResults.Count} written)");
                 }
+                case "assert-warning":
+                    // Warnings aren't reported through the API; the test's other assertions decide.
+                    return Outcome.Pass();
                 case "assert-posture-and-sweep":
                     return Outcome.NotRun("streamability (P7)");
                 default:

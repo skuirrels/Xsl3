@@ -140,9 +140,21 @@ namespace Xsl3.Runtime
             }
             if (!_sortCollations.TryGetValue((collation, lang), out Collation? c))
             {
-                _sortCollations[(collation, lang)] = c = collation.Length > 0
-                    ? Collation.Resolve(collation)
-                    : Collation.Resolve(Collation.UcaPrefix + "?lang=" + lang + ";fallback=yes");
+                // lang must be an xs:language (XTDE0030); an unknown collation is XTDE1035.
+                if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))
+                {
+                    throw new XdmException("XTDE0030", $"'{lang}' is not a valid value of the lang attribute of xsl:sort");
+                }
+                try
+                {
+                    _sortCollations[(collation, lang)] = c = collation.Length > 0
+                        ? Collation.Resolve(collation)
+                        : Collation.Resolve(Collation.UcaPrefix + "?lang=" + lang + ";fallback=yes");
+                }
+                catch (XdmException e) when (e.Code == "FOCH0002" && collation.Length > 0)
+                {
+                    throw new XdmException("XTDE1035", $"The collation '{collation}' of xsl:sort is not supported");
+                }
             }
             return c;
         }

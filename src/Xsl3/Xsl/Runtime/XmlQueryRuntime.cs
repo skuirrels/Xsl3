@@ -145,6 +145,19 @@ namespace Xsl3.Runtime
         private XmlQueryOutput _output;
         private readonly Stack<XmlQueryOutput> _stkOutput;
 
+        // Xsl3: the output state before xsl:try's body; an error leaves the constructions it was in the middle of
+        // pushed on the stack, and the catch restores this.
+        internal (int Depth, XmlQueryOutput Output) SaveOutput() => (_stkOutput.Count, _output);
+
+        internal void RestoreOutput((int Depth, XmlQueryOutput Output) saved)
+        {
+            while (_stkOutput.Count > saved.Depth)
+            {
+                _stkOutput.Pop();
+            }
+            _output = saved.Output;
+        }
+
 
         //-----------------------------------------------
         // Constructors

@@ -1158,6 +1158,13 @@ namespace Xsl3.Xslt
                                 ctxInfo.nsList = new NsDecl(ctxInfo.nsList, /*prefix:*/null, list[idx]); // null means that this Exlusion NS
                                 if (extensions)
                                 {
+                                    // Xsl3: a reserved namespace can't be an extension namespace (XTSE0085).
+                                    if (_compiler.Version != 1 && list[idx] is XmlReservedNs.NsXslt or "http://www.w3.org/2001/XMLSchema" or "http://www.w3.org/2005/xpath-functions"
+                                        or "http://www.w3.org/2005/xpath-functions/math" or "http://www.w3.org/2005/xpath-functions/map" or "http://www.w3.org/2005/xpath-functions/array"
+                                        or "http://www.w3.org/2005/xqt-errors" or "http://www.w3.org/2001/XMLSchema-instance" or XmlReservedNs.NsXml)
+                                    {
+                                        ReportError(SR.Xml_UserException, $"XTSE0085: the reserved namespace {list[idx]} can't be an extension namespace");
+                                    }
                                     _scopeManager.AddExNamespace(list[idx]);                         // At Load time we need to know Extencion namespaces to ignore such literal elements.
                                 }
                             }
