@@ -118,8 +118,14 @@ namespace Xsl3.Runtime
                     return true;
                 }
             }
-            // xs:T#1 constructor functions
-            return ns == QName.Ns.Xs && arity is null or 1 && AtomicTypes.Find(ns, local) is { IsAbstract: false };
+            // The focus-dependent functions with their argument, compiled rather than in the library.
+            if (ns == QName.Ns.Fn && arity is null or 1 && local is "lang" or "id" or "element-with-id" or "idref")
+            {
+                return true;
+            }
+            // xs:T#1 constructor functions, the list types and xs:error among them
+            return ns == QName.Ns.Xs && arity is null or 1 && (local == "error"
+                || XPath31.StaticTypeResolver.FindCastTarget(new QName(ns, local, "xs")) is var (type, _) && !type.IsAbstract);
         }
 
         public bool ElementAvailable(string name)
@@ -156,6 +162,10 @@ namespace Xsl3.Runtime
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
         public XPathItem X31AbsentFocus() => AbsentItem.Instance;
+
+        /// <summary>xs:error($arg): () for (), FORG0001 for anything else (xs:error has no values).</summary>
+        public IList<XPathItem> X31CastToError(IList<XPathItem> value) =>
+            value.Count == 0 ? System.Array.Empty<XPathItem>() : throw new XdmException("FORG0001", "No value can be cast to xs:error");
 
         /// <summary>
         /// Xsl3: the focus of a named template called with no context item (XSLT 3.0 §10.1.2): its string value is ""

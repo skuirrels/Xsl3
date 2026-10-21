@@ -844,6 +844,11 @@ namespace Xsl3.XPath31
             }
 
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).
+            if (name.NamespaceUri == QName.Ns.Xs && name.LocalName == "error" && args.Count == 1)
+            {
+                // xs:error (XPath 3.1 §3.1.5.1): a union type with no members: () casts to (), anything else is FORG0001.
+                return Call(nameof(XsltLibrary.X31CastToError), T.ItemS, Items(Build(args[0])));
+            }
             if (name.NamespaceUri == QName.Ns.Xs)
             {
                 var found = StaticTypeResolver.FindCastTarget(name);

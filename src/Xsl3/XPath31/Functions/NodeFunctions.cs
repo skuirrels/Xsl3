@@ -91,6 +91,14 @@ namespace Xsl3.XPath31.Functions
                     return Bool(false);
                 }
             });
+            // F&O 3.1 §14.6.6-7: the default collection is empty-handed (FODC0002); a collection URI names a directory of
+            // the file system, whose .xml files are its documents (in name order). Gated like fn:doc.
+            Define("fn:collection() as item()*", (c, a) => throw new XdmException("FODC0002", "There is no default collection"));
+            Define("fn:collection($arg as xs:string?) as item()*", (c, a) =>
+                CollectionUris(a[0].Count == 0 ? null : S(a[0]), c).Select(uri => (XPathItem)Doc(uri, c)).ToList());
+            Define("fn:uri-collection() as xs:anyURI*", (c, a) => throw new XdmException("FODC0002", "There is no default resource collection"));
+            Define("fn:uri-collection($arg as xs:string?) as xs:anyURI*", (c, a) =>
+                CollectionUris(a[0].Count == 0 ? null : S(a[0]), c).Select(uri => (XPathItem)new StringValue(AtomicTypes.AnyUri, uri)).ToList());
             Define("fn:doc-available($uri as xs:string?) as xs:boolean", (c, a) =>
             {
                 if (a[0].Count == 0) return Bool(false);
@@ -348,6 +356,25 @@ namespace Xsl3.XPath31.Functions
         {
             int[] order = SortOrder(input.Select(item => Sequences.Atomize(Sequences.One(item))).ToList(), c);
             return order.Select(i => input[i]).ToList();
+        }
+
+        private static IEnumerable<string> CollectionUris(string? uri, FunctionContext c)
+        {
+            if (uri == null)
+            {
+                throw new XdmException("FODC0002", "There is no default collection");
+            }
+            if (c.Runtime == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
+            {
+                throw new XdmException("FODC0002", $"Collection '{uri}' can't be retrieved" + (c.Runtime == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
+            }
+            System.Uri resolved = c.StaticBaseUri is { Length: > 0 } b && System.Uri.TryCreate(b, System.UriKind.Absolute, out System.Uri? baseUri)
+                ? new System.Uri(baseUri, uri) : new System.Uri(uri, System.UriKind.RelativeOrAbsolute);
+            if (!resolved.IsAbsoluteUri || !resolved.IsFile || !System.IO.Directory.Exists(resolved.LocalPath))
+            {
+                throw new XdmException("FODC0002", $"Collection '{uri}' isn't a directory of documents");
+            }
+            return System.IO.Directory.EnumerateFiles(resolved.LocalPath, "*.xml").Order(System.StringComparer.Ordinal).Select(f => new System.Uri(f).AbsoluteUri).ToList();
         }
 
         private static XPathNavigator Doc(string uri, FunctionContext c)
