@@ -287,7 +287,7 @@ namespace Xsl3.Runtime
             }
             catch (TargetInvocationException e)
             {
-                throw new XslTransformException(e.InnerException, SR.XmlIl_ExtensionError, _name);
+                throw Marked(new XslTransformException(e.InnerException, SR.XmlIl_ExtensionError, _name));
             }
             catch (Exception e)
             {
@@ -295,8 +295,17 @@ namespace Xsl3.Runtime
                 {
                     throw;
                 }
-                throw new XslTransformException(e, SR.XmlIl_ExtensionError, _name);
+                throw Marked(new XslTransformException(e, SR.XmlIl_ExtensionError, _name));
             }
+        }
+
+        /// <summary>Xsl3: marks an extension function's failure, which xsl:try sees as Q{http://xsl3/err}extension-error.</summary>
+        internal const string ExtensionErrorKey = "Xsl3.ExtensionError";
+
+        private static XslTransformException Marked(XslTransformException e)
+        {
+            e.Data[ExtensionErrorKey] = true;
+            return e;
         }
 
         /// <summary>

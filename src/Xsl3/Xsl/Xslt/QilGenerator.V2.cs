@@ -1145,6 +1145,11 @@ namespace Xsl3.Xslt
                 // accumulator values; in a sequence they are the items themselves (copied again only into content).
                 return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(select));
             }
+            if (node.V2?.CopyNamespaces == TriState.False)
+            {
+                // copy-namespaces="no": copies with only the namespaces their names need, then copied as usual.
+                select = X31(nameof(XsltLibrary.X31CopyWithoutNamespaces), T.ItemS, Box(select));
+            }
             return CopyItems31(select);
         }
 
@@ -1278,17 +1283,29 @@ namespace Xsl3.Xslt
         {
             QilNode current = GetCurrentNode();
             _outputScope.InvalidateAllPrefixes();
+            if (copy.V2?.CopyNamespaces == TriState.False)
+            {
+                // copy-namespaces="no": an element is made by its name, with only the namespaces names need. (The
+                // content is compiled once for each branch: a QIL node can't be in two places.)
+                QilIterator e;
+                return _f.Loop(e = _f.Let(current),
+                    _f.Conditional(_f.IsType(e, T.Element),
+                        _f.ElementCtor(_f.NameOf(_f.TypeAssert(e, T.Element)), ContentNodes(CompileInstructions(copy.Content))),
+                        CopyOther31(e, copy)));
+            }
             if (current.XmlType!.IsSubtypeOf(T.NodeNotRtf))
             {
                 return _f.XsltCopy(current, ContentNodes(CompileInstructions(copy.Content)));
             }
             QilIterator c;
-            // An atomic context item is copied as itself; a node with XsltCopy.
-            return _f.Loop(c = _f.Let(current),
-                _f.Conditional(_f.IsType(c, T.Node),
-                    _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), ContentNodes(CompileInstructions(copy.Content))),
-                    _f.TypeAssert(c, T.AnyAtomicType)));
+            return _f.Loop(c = _f.Let(current), CopyOther31(c, copy));
         }
+
+        // An atomic context item is copied as itself; a node with XsltCopy.
+        private QilNode CopyOther31(QilIterator c, XslNode copy) =>
+            _f.Conditional(_f.IsType(c, T.Node),
+                _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), ContentNodes(CompileInstructions(copy.Content))),
+                _f.TypeAssert(c, T.AnyAtomicType));
 
         private QilNode CompileNamespace31(XslNode node)
         {
@@ -3174,6 +3191,9 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Memo functions, numbered process-wide (a number keys a function's results in the run-time cache).
+        private static int s_memoFunctions31;
+
         private void CompileFunctions31()
         {
             foreach (var ((functionName, functionArity), (function, _)) in _compiler.Functions)
@@ -3220,6 +3240,18 @@ namespace Xsl3.Xslt
                 for (int i = coerced.Count - 1; i >= 0; i--)
                 {
                     result = _f.Loop(coerced[i].Item1, result);
+                }
+                if (function.V2 is { NewEachTime: "no" } or { Cache: true, NewEachTime: not "yes" })
+                {
+                    // A memo function (XSLT 3.0 §10.3.2): one result per argument values, for this transformation.
+                    QilNode key = X31(nameof(XsltLibrary.X31MemoKey), T.Item, _f.Double(System.Threading.Interlocked.Increment(ref s_memoFunctions31)));
+                    foreach (QilNode argument in function.Function!.Arguments)
+                    {
+                        key = X31(nameof(XsltLibrary.X31MemoKeyAdd), T.Item, key, Box(argument));
+                    }
+                    QilIterator k = _f.Let(key);
+                    result = _f.Loop(k, _f.Conditional(X31(nameof(XsltLibrary.X31MemoHas), T.BooleanX, k),
+                        X31(nameof(XsltLibrary.X31MemoGet), T.ItemS, k), X31(nameof(XsltLibrary.X31MemoPut), T.ItemS, k, result)));
                 }
                 if (PackageComponents.IsAbstractWithoutOverride(_compiler, 'F', function, functionName, functionArity))
                 {

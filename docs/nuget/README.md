@@ -41,7 +41,7 @@ Targets .NET 8 and .NET 10.
 |---|---|
 | XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
 | XPath 3.1 | 99.6% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,729 of the 7,907 applicable W3C xslt30-test cases pass (97.7%); 98.7% of the XSLT 2.0 profile |
+| XSLT 2.0 / 3.0 | 7,738 of the 7,907 applicable W3C xslt30-test cases pass (97.9%); 98.7% of the XSLT 2.0 profile |
 | Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value

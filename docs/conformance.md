@@ -90,6 +90,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,606 | 299 | 49 | 96.2% | The `regex-classes` set no longer applies: it declares Unicode 6.0, and Xsl3's regex classes use .NET's newer tables (docs/divergences.md) |
 | 2026-10-21 | 7,695 | 330 | 49 | 95.9% | Remaining scope (docs/plan/remaining-scope.md): initial functions with raw result delivery (37 tests run that didn't), `xsl:assert` (run with assertions on and off as each test asks), the xhtml default method on the direct result path, `current-output-uri()` absent outside templates; bug-1901 not run (it compares a tree the xhtml serialization can't match) |
 | 2026-10-21 | 7,729 | 178 | 49 | 97.7% | Remaining scope, conformance batch: `regex-group()` in called templates, `xsl:sort` attribute checks and case-order, `xsl:message` that never fails, exact rounding of doubles, `xsl:mode`/`xsl:decimal-format` merged by precedence, XTDE0045/0050/0420, XTSE0085, harness fixes (inline sources' base URI, select-only sources, html decoded by its meta charset); the 2.0 profile is at 98.7% (4,415 passed, 57 failed) |
+| 2026-10-21 | 7,738 | 169 | 49 | 97.9% | Memo functions (`new-each-time="no"`, `cache="yes"`), `copy-namespaces="no"` on `xsl:copy` and `xsl:copy-of`; the 2.0 profile is at 98.7% (4,416 passed, 56 failed) |
 
 ### P5 exit sets
 

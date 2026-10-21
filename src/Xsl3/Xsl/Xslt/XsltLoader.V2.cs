@@ -1190,7 +1190,8 @@ namespace Xsl3.Xslt
             var function = new Template(name, /*match:*/null, nullMode, double.NaN, _input.XslVersion);
             function.IsFunction = true;
             PackageDeclaration(function, functionVisibility);
-            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime };
+            bool cache = ParseYesNoAttribute(7, "cache") == TriState.True;
+            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;

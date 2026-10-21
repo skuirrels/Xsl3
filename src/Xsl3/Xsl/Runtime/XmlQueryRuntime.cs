@@ -59,6 +59,16 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: XsltSettings.EnableExtensionFunctions for the running transformation; on outside one.
+        [System.ThreadStatic]
+        private static bool t_noExtensionFunctions;
+
+        internal static bool ExtensionFunctions
+        {
+            get => !t_noExtensionFunctions;
+            set => t_noExtensionFunctions = !value;
+        }
+
         // Xsl3: the seed of fn:random-number-generator() without an argument: one per transformation.
         private ulong? _randomSeed;
         internal ulong RandomSeed => _randomSeed ??= (ulong)System.Random.Shared.NextInt64();
@@ -127,6 +137,30 @@ namespace Xsl3.Runtime
             t_cancellation.ThrowIfCancellationRequested();
         }
 
+        // Xsl3: the nesting of templates and functions, counted when XsltSettings.MaxRecursionDepth is set (SPEC §21.2).
+        [System.ThreadStatic]
+        private static int t_depth;
+
+        internal static int Depth
+        {
+            get => t_depth;
+            set => t_depth = value;
+        }
+
+        /// <summary>On entry, with MaxRecursionDepth: one level deeper, at most <paramref name="max"/>.</summary>
+        public static void EnterFunctionCounted(int max)
+        {
+            EnterFunction();
+            if (++t_depth > max)
+            {
+                t_depth--;
+                throw new System.InsufficientExecutionStackException($"The transformation nested templates and functions more than {max} deep (XsltSettings.MaxRecursionDepth)");
+            }
+        }
+
+        /// <summary>On return (or before a tail call), with MaxRecursionDepth.</summary>
+        public static void ExitFunctionCounted() => t_depth--;
+
         // Early-Bound Library Objects
         private readonly XmlQueryContext _ctxt;
         private XsltLibrary? _xsltLib;
@@ -162,15 +196,17 @@ namespace Xsl3.Runtime
 
         // Xsl3: the output state before xsl:try's body; an error leaves the constructions it was in the middle of
         // pushed on the stack, and the catch restores this.
-        internal (int Depth, XmlQueryOutput Output) SaveOutput() => (_stkOutput.Count, _output);
+        // Xsl3: the state an error caught by xsl:try unwinds to: the output stack and the call depth.
+        internal (int Depth, XmlQueryOutput Output, int Calls) SaveOutput() => (_stkOutput.Count, _output, t_depth);
 
-        internal void RestoreOutput((int Depth, XmlQueryOutput Output) saved)
+        internal void RestoreOutput((int Depth, XmlQueryOutput Output, int Calls) saved)
         {
             while (_stkOutput.Count > saved.Depth)
             {
                 _stkOutput.Pop();
             }
             _output = saved.Output;
+            t_depth = saved.Calls;
         }
 
 

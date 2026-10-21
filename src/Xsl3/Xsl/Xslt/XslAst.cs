@@ -108,6 +108,7 @@ namespace Xsl3.Xslt
         public string? StartAt; // xsl:number/@start-at (XSLT 3.0)
         public string? ErrorCode; // xsl:message: the error a terminating message raises
         public string? NewEachTime; // xsl:function/@new-each-time, normalized: yes, no or maybe
+        public bool Cache; // xsl:function/@cache="yes": results may be remembered (with new-each-time other than yes)
         public string? Select;
         public bool Tunnel, Required;
         public bool HasContent;

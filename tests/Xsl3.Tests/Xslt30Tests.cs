@@ -666,4 +666,26 @@ public class Xslt30Tests
             """));
         Assert.Contains("XTDE1071", e.ToString());
     }
+
+    /// <summary>A memo function (XSLT 3.0 §10.3.2) returns the same nodes for the same arguments, and makes naive recursion fast.</summary>
+    [Fact]
+    public void MemoFunctions() =>
+        Assert.Equal("<o>3 12586269025</o>", Run("""
+            <xsl:function name="f:e" xmlns:f="urn:f" new-each-time="no"><xsl:param name="n"/><e><xsl:value-of select="$n"/></e></xsl:function>
+            <xsl:function name="f:fib" xmlns:f="urn:f" cache="yes" as="xs:integer"><xsl:param name="n" as="xs:integer"/>
+              <xsl:sequence select="if ($n lt 2) then $n else f:fib($n - 1) + f:fib($n - 2)"/></xsl:function>
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:value-of select="count((1, 2, 1, 3, 2) ! f:e(.) | ()), f:fib(50)"/></o></xsl:template>
+            """));
+
+    /// <summary>copy-namespaces="no" keeps only the namespaces the copied names need (XSLT 3.0 §11.9.1–2).</summary>
+    [Fact]
+    public void CopyNamespacesNo()
+    {
+        string result = Run("""
+            <xsl:template match="/"><o><xsl:copy-of select="a:e" copy-namespaces="no" xmlns:a="urn:a"/><xsl:for-each select="*"><xsl:copy copy-namespaces="no"/></xsl:for-each></o></xsl:template>
+            """, "<a:e xmlns:a='urn:a' xmlns:b='urn:b' xmlns:unused='urn:u' b:x='1'><c/></a:e>");
+        Assert.DoesNotContain("urn:u", result);
+        Assert.Contains("xmlns:b=\"urn:b\"", result);
+        Assert.EndsWith("<a:e xmlns:a=\"urn:a\" /></o>", result);
+    }
 }

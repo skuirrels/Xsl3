@@ -126,6 +126,9 @@ namespace Xsl3.Qil
         /// <summary>Xsl3: the stylesheet has xsl:result-document instructions (XSLT 2.0+).</summary>
         public bool ResultDocuments { get; set; }
 
+        /// <summary>Xsl3: XsltSettings.MaxRecursionDepth: count template and function nesting up to it (0: don't count).</summary>
+        public int MaxRecursionDepth { get; set; }
+
         /// <summary>Xsl3 (P4): build the documents the transform parses as compact trees (always for 2.0+).</summary>
         public bool CompactTree { get; set; }
 

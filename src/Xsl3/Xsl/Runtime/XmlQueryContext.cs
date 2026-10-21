@@ -260,8 +260,14 @@ namespace Xsl3.Runtime
             Justification = XsltArgumentList.ExtensionObjectSuppresion)]
         public object? GetLateBoundObject(string namespaceUri)
         {
-            return _argList?.GetExtensionObject(namespaceUri);
+            return ExtensionObject(namespaceUri);
         }
+
+        // Xsl3: none when XsltSettings.EnableExtensionFunctions is off.
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+            Justification = XsltArgumentList.ExtensionObjectSuppresion)]
+        private object? ExtensionObject(string namespaceUri) =>
+            XmlQueryRuntime.ExtensionFunctions ? _argList?.GetExtensionObject(namespaceUri) : null;
 
         /// <summary>
         /// Return true if the late bound object identified by "namespaceUri" contains a method that matches "name".
@@ -274,7 +280,7 @@ namespace Xsl3.Runtime
             if (_argList == null)
                 return false;
 
-            instance = _argList.GetExtensionObject(namespaceUri);
+            instance = ExtensionObject(namespaceUri);
             if (instance == null)
                 return false;
 
@@ -295,7 +301,7 @@ namespace Xsl3.Runtime
             object? objRet;
 
             // Get external object instance from argument list (throw if either the list or the instance doesn't exist)
-            instance = _argList?.GetExtensionObject(namespaceUri);
+            instance = ExtensionObject(namespaceUri);
             if (instance == null)
                 throw new XslTransformException(SR.XmlIl_UnknownExtObj, namespaceUri);
 
@@ -360,6 +366,20 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Fire the XsltMessageEncounteredEvent, passing the specified text as the message.
         /// </summary>
+        /// <summary>Xsl3: fn:trace, to XsltArgumentList.TraceHandler if there is one.</summary>
+        internal void OnTrace(string label, IList<XPathItem> value)
+        {
+            if (_argList?.TraceHandler is Action<string, string> handler)
+            {
+                handler(label, string.Join(", ", System.Linq.Enumerable.Select(value, item => item switch
+                {
+                    XPathNavigator node => node.NodeType == XPathNodeType.Root ? node.InnerXml : node.OuterXml,
+                    Xdm.XdmFunction function => function.Describe(),
+                    _ => item.Value,
+                })));
+            }
+        }
+
         public void OnXsltMessageEncountered(string message)
         {
             _argList?.xsltMessageEncountered?.Invoke(this, new XmlILQueryEventArgs(message));

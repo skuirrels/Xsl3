@@ -242,8 +242,17 @@ namespace Xsl3.IlGen
             _helper.MethodBegin(methFunc, ndFunc.SourceLine, useWriter);
 
             // Xsl3: templates and functions recurse; turn imminent stack exhaustion into a catchable error
-            // instead of a process crash (SPEC §21.2).
-            _helper.Call(XmlILMethods.EnsureSufficientExecutionStack);
+            // instead of a process crash (SPEC §21.2). With MaxRecursionDepth, the depth is counted too.
+            _helper.CountDepth = _qil.MaxRecursionDepth > 0;
+            if (_helper.CountDepth)
+            {
+                _helper.LoadInteger(_qil.MaxRecursionDepth);
+                _helper.Call(XmlILMethods.EnterFunctionCounted);
+            }
+            else
+            {
+                _helper.Call(XmlILMethods.EnsureSufficientExecutionStack);
+            }
 
             foreach (QilIterator iter in ndFunc.Arguments)
             {
@@ -286,6 +295,11 @@ namespace Xsl3.IlGen
 
             EndNestedIterator(ndFunc);
 
+            if (_helper.CountDepth)
+            {
+                _helper.Call(XmlILMethods.ExitFunctionCounted);
+                _helper.CountDepth = false;
+            }
             _helper.MethodEnd();
         }
 

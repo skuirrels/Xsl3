@@ -116,6 +116,10 @@ namespace Xsl3
                 // The message goes in as an argument: as the format string, its braces would break string.Format.
                 throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}recursion-limit: the transformation recursed too deeply for the available stack");
             }
+            catch (OutputLimit.ExceededException e)
+            {
+                throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}output-limit: " + e.Message);
+            }
             catch (System.OperationCanceledException e)
             {
                 throw new XslTransformException(e, SR.Xml_UserException, "Q{http://xsl3/err}cancelled: the transformation was cancelled");

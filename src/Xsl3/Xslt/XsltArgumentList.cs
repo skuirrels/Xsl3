@@ -33,6 +33,13 @@ namespace Xsl3
         /// </summary>
         public System.Threading.CancellationToken CancellationToken { get; set; }
 
+        /// <summary>
+        /// Xsl3: receives each <c>fn:trace</c> call of a 2.0+ stylesheet (F&amp;O 3.1 §3.2.1): its label ("" without
+        /// one) and its value, written out (nodes as XML, atomic values as strings, separated by ", "). Without a
+        /// handler, <c>fn:trace</c> just returns its value.
+        /// </summary>
+        public Action<string, string>? TraceHandler { get; set; }
+
         public object? GetParam(string name, string namespaceUri)
         {
             return _parameters[new XmlQualifiedName(name, namespaceUri)];

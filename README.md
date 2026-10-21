@@ -25,8 +25,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,796 passed, 88 failed (99.6%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,415 passed, 57 failed (98.7%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,729 passed, 178 failed, 49 not run (97.7%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,416 passed, 56 failed (98.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,738 passed, 169 failed, 49 not run (97.9%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -173,15 +173,20 @@ What a stylesheet can reach beyond its input and output is off unless you turn i
 | `XsltSettings.EnableResultDocument` | off | `xsl:result-document` writing files, only under `XslCompiledTransform.BaseOutputUri` (the results file for `Transform(string, string)`) |
 | `XsltSettings.EnableEnvironmentVariables` | off | `fn:environment-variable` and `fn:available-environment-variables` |
 | `XsltSettings.EnableAssertions` | off | `xsl:assert` (ignored when off) |
+| `XsltSettings.EnableExtensionFunctions` | on, as stock | calls to `XsltArgumentList.AddExtensionObject` objects (1.0 stylesheets) |
 
 Limits:
 - `XsltSettings.Timeout` stops a transformation that runs too long.
 - `XsltArgumentList.CancellationToken` cancels one from outside.
+- `XsltSettings.MaxRecursionDepth` caps the nesting of template and function calls (tail calls don't count).
+- `XsltSettings.MaxOutputBytes` caps the principal result written to a `Stream` or `TextWriter`.
 - `XsltSettings.UseDedicatedThread` (with `DedicatedThreadStackSize`, 64 MB by default) runs each transformation on a
   thread with a large stack, for stylesheets that recurse deeply.
 
-A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out of stack raises
-`Q{http://xsl3/err}recursion-limit` instead of crashing the process.
+A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out of stack, or past
+`MaxRecursionDepth`, raises `Q{http://xsl3/err}recursion-limit` instead of crashing the process; one that writes too
+much raises `Q{http://xsl3/err}output-limit`. An extension function's .NET exception is
+`Q{http://xsl3/err}extension-error`. `XsltArgumentList.TraceHandler` receives `fn:trace` calls.
 
 ## Building and testing
 

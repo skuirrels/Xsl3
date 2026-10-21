@@ -315,7 +315,11 @@ namespace Xsl3
 
         // The writer for the Stream and TextWriter overloads: upstream's raw writer chain, unless serialization
         // parameters beyond XmlWriterSettings (Runtime.OutputExtras) are to be applied in front of a normal writer.
-        private XmlWriter CreateResultWriter(Stream results) =>
+        private XmlWriter CreateResultWriter(Stream results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedStream(results, max) : results);
+
+        private XmlWriter CreateResultWriter(TextWriter results) => CreateLimitedWriter(_settings?.MaxOutputBytes is long max ? new OutputLimit.LimitedTextWriter(results, max) : results);
+
+        private XmlWriter CreateLimitedWriter(Stream results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, null, results)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
@@ -323,7 +327,7 @@ namespace Xsl3
                     : new PrincipalResult(s => XmlWriter.Create(results, s), OutputSettings ?? s_defaultWriterSettings, _command.StaticData.OutputExtras)
                 : XmlWriterSettingsInternals.CreateRawWriter(OutputSettings ?? s_defaultWriterSettings, results);
 
-        private XmlWriter CreateResultWriter(TextWriter results) =>
+        private XmlWriter CreateLimitedWriter(TextWriter results) =>
             _command?.StaticData.OutputExtras is { RawMethod: not null } raw ? new RawResultWriter(raw, OutputSettings ?? s_defaultWriterSettings, results, null)
             : _command?.StaticData.Xslt2 == true
                 ? DirectPrincipalSettings() is XmlWriterSettings direct
@@ -588,6 +592,8 @@ namespace Xsl3
                 Func<string, Stream>? savedOpener = XmlQueryRuntime.ResultDocumentOpener;
                 bool savedEnvironment = XmlQueryRuntime.EnvironmentVariables;
                 bool? savedDocuments = XmlQueryRuntime.DocumentFunctions;
+                int savedDepth = XmlQueryRuntime.Depth;
+                bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
                 try
                 {
                     if (token.CanBeCanceled)
@@ -605,6 +611,8 @@ namespace Xsl3
                         : null;
                     XmlQueryRuntime.EnvironmentVariables = settings.EnableEnvironmentVariables;
                     XmlQueryRuntime.DocumentFunctions = settings.EnableDocumentFunction;
+                    XmlQueryRuntime.Depth = 0;
+                    XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
                     transform();
                 }
                 finally
@@ -614,6 +622,8 @@ namespace Xsl3
                     XmlQueryRuntime.ResultDocumentOpener = savedOpener;
                     XmlQueryRuntime.EnvironmentVariables = savedEnvironment;
                     XmlQueryRuntime.DocumentFunctions = savedDocuments;
+                    XmlQueryRuntime.Depth = savedDepth;
+                    XmlQueryRuntime.ExtensionFunctions = savedExtensions;
                 }
             }
             if (!settings.UseDedicatedThread)

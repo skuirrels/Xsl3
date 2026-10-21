@@ -257,4 +257,81 @@ public class SettingsTests
         Exception e = Assert.ThrowsAny<Exception>(() => Run(Load("""<xsl:param name="p"/><xsl:template match="/"><out><xsl:value-of select="count($p)"/></out></xsl:template>"""), arguments));
         Assert.Contains("XPTY0004", e.ToString());
     }
+
+    private const string Nested = """
+        <xsl:template match="/"><out><xsl:value-of select="f:depth(500)" xmlns:f="urn:f"/></out></xsl:template>
+        <xsl:function name="f:depth" xmlns:f="urn:f"><xsl:param name="n"/><xsl:sequence select="if ($n eq 0) then 0 else 1 + f:depth($n - 1)"/></xsl:function>
+        """;
+
+    /// <summary>MaxRecursionDepth counts nested calls (SPEC §21.2); tail calls don't nest.</summary>
+    [Fact]
+    public void MaxRecursionDepth()
+    {
+        Assert.Equal("<out>500</out>", Run(Load(Nested, new XsltSettings { MaxRecursionDepth = 1000 })));
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(Load(Nested, new XsltSettings { MaxRecursionDepth = 100 })));
+        Assert.Contains("recursion-limit", e.ToString());
+
+        const string tail = """
+            <xsl:template match="/"><out><xsl:call-template name="loop"><xsl:with-param name="n" select="5000"/></xsl:call-template></out></xsl:template>
+            <xsl:template name="loop"><xsl:param name="n"/><xsl:choose><xsl:when test="$n eq 0">done</xsl:when>
+              <xsl:otherwise><xsl:call-template name="loop"><xsl:with-param name="n" select="$n - 1"/></xsl:call-template></xsl:otherwise></xsl:choose></xsl:template>
+            """;
+        Assert.Equal("<out>done</out>", Run(Load(tail, new XsltSettings { MaxRecursionDepth = 100 })));
+    }
+
+    /// <summary>A depth reached inside xsl:try and abandoned by an error is given back.</summary>
+    [Fact]
+    public void MaxRecursionDepthAfterACaughtError() =>
+        Assert.Equal("<out>caught caught caught</out>", Run(Load("""
+            <xsl:template match="/"><out><xsl:value-of select="for $i in 1 to 3 return f:try()" xmlns:f="urn:f"/></out></xsl:template>
+            <xsl:function name="f:try" xmlns:f="urn:f"><xsl:try><xsl:sequence select="f:fail(40)"/><xsl:catch select="'caught'"/></xsl:try></xsl:function>
+            <xsl:function name="f:fail" xmlns:f="urn:f"><xsl:param name="n"/><xsl:sequence select="if ($n eq 0) then error() else f:fail($n - 1)"/></xsl:function>
+            """, new XsltSettings { MaxRecursionDepth = 100 })));
+
+    [Fact]
+    public void MaxOutputBytes()
+    {
+        const string body = """<xsl:template match="/"><out><xsl:value-of select="string-join(for $i in 1 to 1000 return 'abcdefghij')"/></out></xsl:template>""";
+        Assert.Equal(10011, Run(Load(body, new XsltSettings { MaxOutputBytes = 20000 })).Length);
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(Load(body, new XsltSettings { MaxOutputBytes = 5000 })));
+        Assert.Contains("MaxOutputBytes", e.ToString());
+        var stream = new MemoryStream();
+        Assert.ThrowsAny<Exception>(() => Load(body, new XsltSettings { MaxOutputBytes = 5000 }).Transform(XmlReader.Create(new StringReader("<doc/>")), null, stream));
+        Assert.True(stream.Length <= 5000);
+    }
+
+    public sealed class Extension
+    {
+        public string Hello() => "hi";
+    }
+
+    /// <summary>
+    /// Extension objects are called unless EnableExtensionFunctions is off. (Only 1.0 stylesheets call them: in 2.0+ an
+    /// unknown function is XPST0017 when compiled, before any extension object is known.)
+    /// </summary>
+    [Fact]
+    public void ExtensionFunctionsCanBeTurnedOff()
+    {
+        string stylesheet = $"<xsl:stylesheet version='1.0' xmlns:xsl='{Xsl}' xmlns:e='urn:e' exclude-result-prefixes='e'><xsl:output omit-xml-declaration='yes'/>" +
+                            "<xsl:template match='/'><out><xsl:choose><xsl:when test=\"function-available('e:Hello')\"><xsl:value-of select='e:Hello()'/></xsl:when>" +
+                            "<xsl:otherwise>none</xsl:otherwise></xsl:choose></out></xsl:template></xsl:stylesheet>";
+        var arguments = new XsltArgumentList();
+        arguments.AddExtensionObject("urn:e", new Extension());
+        foreach (bool enabled in new[] { true, false })
+        {
+            var transform = new XslCompiledTransform();
+            transform.Load(XmlReader.Create(new StringReader(stylesheet)), new XsltSettings { EnableExtensionFunctions = enabled }, null);
+            Assert.Equal(enabled ? "<out>hi</out>" : "<out>none</out>", Run(transform, arguments));
+        }
+    }
+
+    /// <summary>fn:trace reaches XsltArgumentList.TraceHandler with its label and value.</summary>
+    [Fact]
+    public void TraceHandler()
+    {
+        var traces = new System.Collections.Generic.List<string>();
+        var arguments = new XsltArgumentList { TraceHandler = (label, value) => traces.Add(label + "=" + value) };
+        Assert.Equal("<out>3</out>", Run(Load("""<xsl:template match="/"><out><xsl:value-of select="count(trace((1, 'a', doc), 'items'))"/></out></xsl:template>"""), arguments));
+        Assert.Equal(new[] { "items=1, a, <doc />" }, traces);
+    }
 }

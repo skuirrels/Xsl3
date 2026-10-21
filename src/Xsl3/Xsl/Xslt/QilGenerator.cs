@@ -243,6 +243,7 @@ namespace Xsl3.Xslt
                 qil.GlobalVariableList = _gloVars;
                 qil.WhitespaceRules = compiler.WhitespaceRules;
                 qil.IsDebug = IsDebug;
+                qil.MaxRecursionDepth = compiler.Settings.MaxRecursionDepth;
                 qil.DefaultWriterSettings = compiler.Output.Settings;
                 if (IsV2)
                 {

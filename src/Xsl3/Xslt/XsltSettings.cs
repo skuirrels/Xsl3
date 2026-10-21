@@ -109,6 +109,50 @@ namespace Xsl3
         }
         private int _dedicatedThreadStackSize = 64 * 1024 * 1024;
 
+        /// <summary>
+        /// Xsl3: whether the extension objects of <see cref="XsltArgumentList.AddExtensionObject"/> are called (SPEC
+        /// §21.1). On by default, as stock; off, their functions are unknown, as if none had been added.
+        /// </summary>
+        public bool EnableExtensionFunctions { get; set; } = true;
+
+        /// <summary>
+        /// Xsl3: the deepest nesting of template and function calls a transformation may reach (SPEC §21.2); beyond
+        /// it, the transformation stops with <c>Q{http://xsl3/err}recursion-limit</c>. 0, the default: no count, only
+        /// the stack probe at every call that stops a transformation before the stack runs out. Tail calls don't add to
+        /// the depth. Set before <c>Load</c>: the counting is compiled in.
+        /// </summary>
+        public int MaxRecursionDepth
+        {
+            get => _maxRecursionDepth;
+            set
+            {
+                ArgumentOutOfRangeException.ThrowIfNegative(value);
+                _maxRecursionDepth = value;
+            }
+        }
+        private int _maxRecursionDepth;
+
+        /// <summary>
+        /// Xsl3: the most bytes a transformation may write to its principal result, counted as UTF-8 for a
+        /// <c>TextWriter</c> (SPEC §21.1); beyond it, the transformation stops with
+        /// <c>Q{http://xsl3/err}output-limit</c>. Null, the default: no limit. Applies to the <c>Stream</c> and
+        /// <c>TextWriter</c> overloads of <c>Transform</c>; an <c>XmlWriter</c> the caller supplies is the caller's to
+        /// limit.
+        /// </summary>
+        public long? MaxOutputBytes
+        {
+            get => _maxOutputBytes;
+            set
+            {
+                if (value is long n && n <= 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), n, "The output limit must be positive.");
+                }
+                _maxOutputBytes = value;
+            }
+        }
+        private long? _maxOutputBytes;
+
         /// <summary>Xsl3: a copy, so a transform keeps the settings it was loaded with.</summary>
         internal XsltSettings Clone() => (XsltSettings)MemberwiseClone();
 

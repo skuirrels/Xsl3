@@ -326,6 +326,9 @@ namespace Xsl3.Runtime
                 case XdmException x:
                     return (x.Name ?? new QName(XdmException.ErrorNamespace, x.Code, "err"), x.Description ?? Describe(x.Message, x.Code),
                         x.ErrorObject ?? System.Array.Empty<XPathItem>());
+                case XslTransformException when e.Data.Contains(XmlExtensionFunction.ExtensionErrorKey):
+                    // An extension function's .NET exception (SPEC §16.7).
+                    return (new QName("http://xsl3/err", "extension-error", "xsl3"), (e.InnerException ?? e).Message, System.Array.Empty<XPathItem>());
                 case XslTransformException or System.Xml.XmlException or System.FormatException or System.OverflowException or System.DivideByZeroException:
                     string message = e.Message;
                     var m = System.Text.RegularExpressions.Regex.Match(message, @"^([A-Z]{4}[0-9]{4})\b");

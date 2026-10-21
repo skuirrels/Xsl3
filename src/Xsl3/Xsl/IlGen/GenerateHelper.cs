@@ -171,6 +171,8 @@ namespace Xsl3.IlGen
     {
         // Xsl3: stack depth guard at template and function entry
         public static readonly MethodInfo EnsureSufficientExecutionStack = typeof(XmlQueryRuntime).GetMethod(nameof(XmlQueryRuntime.EnterFunction))!;
+        public static readonly MethodInfo EnterFunctionCounted = typeof(XmlQueryRuntime).GetMethod(nameof(XmlQueryRuntime.EnterFunctionCounted))!;
+        public static readonly MethodInfo ExitFunctionCounted = typeof(XmlQueryRuntime).GetMethod(nameof(XmlQueryRuntime.ExitFunctionCounted))!;
 
         // Iterators
         public static readonly MethodInfo AncCreate = typeof(AncestorIterator).GetMethod("Create")!;
@@ -523,6 +525,9 @@ namespace Xsl3.IlGen
         // SxS note: Using hardcoded "dump.il" is an SxS issue. Since we are doing this ONLY in debug builds
         // and only for tracing purposes and MakeVersionSafeName does not seem to be able to handle file
         // extensions correctly I decided to suppress the SxS message (as advised by SxS guys).
+        // Xsl3: emitting a template or function body that counts its depth (XsltSettings.MaxRecursionDepth).
+        public bool CountDepth;
+
         public void MethodBegin(MethodBase methInfo, ISourceLineInfo? sourceInfo, bool initWriters)
         {
             _methInfo = methInfo;
@@ -805,6 +810,11 @@ namespace Xsl3.IlGen
 
         public void TailCall(MethodInfo meth)
         {
+            // Xsl3: with MaxRecursionDepth, the caller's frame ends here.
+            if (CountDepth)
+            {
+                Call(XmlILMethods.ExitFunctionCounted);
+            }
             Emit(OpCodes.Tailcall);
             Call(meth);
             Emit(OpCodes.Ret);
