@@ -254,6 +254,23 @@ namespace Xsl3.Xslt
 
         private Stylesheet LoadStylesheet(Uri uri, bool include)
         {
+            if (V2 && uri.IsAbsoluteUri && uri.Fragment.Length > 1)
+            {
+                // Xsl3: an embedded stylesheet module (XSLT 3.0 §3.12): the element of the document with that id.
+                string id = Uri.UnescapeDataString(uri.Fragment[1..]);
+                using XmlReader document = CreateReader(new Uri(uri.GetLeftPart(UriPartial.Query)), _xmlResolver);
+                while (document.Read())
+                {
+                    if (document.NodeType == XmlNodeType.Element
+                        && (document.GetAttribute("id") == id || document.GetAttribute("id", XmlReservedNs.NsXml) == id))
+                    {
+                        using XmlReader embedded = document.ReadSubtree();
+                        embedded.Read();
+                        return LoadStylesheet(embedded, include);
+                    }
+                }
+                throw new XslLoadException(SR.Xslt_CantResolve, uri.ToString());
+            }
             using (XmlReader reader = CreateReader(uri, _xmlResolver))
             {
                 return LoadStylesheet(reader, include);
@@ -690,7 +707,7 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(0, "href"))
             {
                 // Resolve href right away using the current BaseUri (it might change later)
-                Uri uri = ResolveUri(_input.Value, _input.BaseUri!);
+                Uri uri = ResolveUri(_input.Value, (V2 ? _input.StaticBaseUri : null) ?? _input.BaseUri!); // Xsl3: xml:base applies in 2.0+
 
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
@@ -718,7 +735,7 @@ namespace Xsl3.Xslt
 
             if (_input.MoveToXsltAttribute(0, "href"))
             {
-                Uri uri = ResolveUri(_input.Value, _input.BaseUri!);
+                Uri uri = ResolveUri(_input.Value, (V2 ? _input.StaticBaseUri : null) ?? _input.BaseUri!); // Xsl3: xml:base applies in 2.0+
 
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
