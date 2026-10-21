@@ -366,19 +366,27 @@ namespace Xsl3.Runtime
             _ => false,
         };
 
+        // Deemed empty (XSLT 3.0 §8.4.1): a document or element without children, another node whose string value is
+        // "", an atomic value that is "" as a string, an empty map, an array whose members' items are all deemed empty.
+        private static bool DeemedEmpty(XPathItem item) => item switch
+        {
+            XPathNavigator { NodeType: XPathNodeType.Element or XPathNodeType.Root } n => !n.HasChildren,
+            XPathNavigator { NodeType: XPathNodeType.Namespace } => false,
+            XPathNavigator n => n.Value.Length == 0,
+            XdmArray a => a.Members.All(m => m.All(DeemedEmpty)),
+            XdmMap m => m.Count == 0,
+            XdmFunction => false,
+            AtomicValue v => v.Value.Length == 0,
+            _ => false,
+        };
+
         /// <summary>xsl:where-populated: the items without those deemed empty (also elements without children).</summary>
         public IList<XPathItem> X31Populated(IList<XPathItem> items)
         {
             var result = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
-                // Deemed empty (XSLT 3.0 §8.4.1): a document or element without children, another node whose string
-                // value is "", an atomic value that is "" as a string, an empty map.
-                bool empty = IsVacuous(item) || item is XPathNavigator { NodeType: XPathNodeType.Element, HasChildren: false } ||
-                    item is XPathNavigator { NodeType: not (XPathNodeType.Element or XPathNodeType.Root or XPathNodeType.Namespace) } node && node.Value.Length == 0 ||
-                    item is AtomicValue atomic && atomic.Value.Length == 0 ||
-                    item is XdmMap { Count: 0 };
-                if (!empty)
+                if (!DeemedEmpty(item))
                 {
                     result.Add(item is XPathNavigator n ? n.Clone() : item);
                 }

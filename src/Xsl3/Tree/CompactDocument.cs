@@ -76,6 +76,14 @@ namespace Xsl3.Tree
         /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
         internal bool NoDocumentUri { get; set; }
 
+        private static long s_created;
+
+        /// <summary>
+        /// When the tree was created, relative to the process's other compact trees: nodes of different trees are in
+        /// the order their trees were created, as constructed nodes are expected to be (XDM 3.1 §2.4).
+        /// </summary>
+        internal readonly long Created = System.Threading.Interlocked.Increment(ref s_created);
+
         private CompactDocument()
         {
         }

@@ -91,7 +91,19 @@ namespace Xsl3.Runtime
             else if (defaultDataSource != null)
             {
                 _defaultDataSource = ConstructDocument(defaultDataSource, null, null);
+                if (runtime.IsXslt2 && _defaultDataSource?.Clone() is { } root && MoveToRoot(root) &&
+                    Uri.TryCreate(root.BaseURI, UriKind.Absolute, out Uri? inputUri))
+                {
+                    // Xsl3: doc() of the input document's URI is the input document (fn:doc is stable).
+                    _dataSourceCache[inputUri] = root;
+                }
             }
+        }
+
+        private static bool MoveToRoot(XPathNavigator navigator)
+        {
+            navigator.MoveToRoot();
+            return navigator.NodeType == XPathNodeType.Root;
         }
 
 

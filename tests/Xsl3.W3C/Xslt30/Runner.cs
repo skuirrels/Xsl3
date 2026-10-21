@@ -238,6 +238,14 @@ public sealed class Runner
             // (It may come from a used package.)
             // The initial function's arguments (XSLT 3.0 §2.3.4), as parameters the transformation reads.
             var functionArguments = initialFunction?.Elements(Catalog.Ns + "param").ToList() ?? new List<XElement>();
+            // The initial template's or mode's parameters, likewise.
+            var initialParameters = new List<(XmlQualifiedName, bool)>();
+            foreach (XElement p in (test.TestElement.Element(Catalog.Ns + "initial-template") ?? test.TestElement.Element(Catalog.Ns + "initial-mode"))?.Elements(Catalog.Ns + "param") ?? [])
+            {
+                XmlQualifiedName name = XslCompiledTransform.InitialParameter(initialParameters.Count + 1);
+                args.AddParam(name.Name, name.Namespace, Evaluate((string?)p.Attribute("select") ?? "()", p, input));
+                initialParameters.Add((ResolveQName(p, "name")!, (string?)p.Attribute("tunnel") is "yes" or "true" or "1"));
+            }
             for (int i = 0; i < functionArguments.Count; i++)
             {
                 XmlQualifiedName name = XslCompiledTransform.InitialFunctionArgument(i + 1);
@@ -251,10 +259,12 @@ public sealed class Runner
             }
             var transform = new XslCompiledTransform
             {
-                InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters, Packages = packages,
+                InitialTemplate = initialTemplate, InitialMode = initialMode, InitialParameters = initialParameters.Count > 0 ? initialParameters : null, StaticParameters = staticParameters, Packages = packages,
                 InitialFunction = ResolveQName(initialFunction, "name"), InitialFunctionArity = functionArguments.Count,
                 // An initial function's result is delivered raw unless the test asks for its serialization.
-                RawResult = initialFunction != null && test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
+                // (So is a result the test asks for as a sequence, not a tree.)
+                RawResult = (initialFunction != null || test.TestElement.Element(Catalog.Ns + "output")?.Attribute("tree") is { Value: "no" }) &&
+                    test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
             // Some stylesheets declare entities in an internal DTD subset.
             using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
@@ -632,8 +642,12 @@ public sealed class Runner
         {
             parts.Add($"{x.GetType().Name}: {x.Message}");
         }
+        if (TrimLength > 1000 && e is NullReferenceException or InvalidCastException or IndexOutOfRangeException)
+        {
+            parts.Add(e.StackTrace ?? ""); // (XSL3_W3C_DETAIL above 1000: where an engine bug is)
+        }
         string all = string.Join(" <- ", parts).ReplaceLineEndings(" ");
-        return all.Length > 500 ? all[..497] + "..." : all;
+        return all.Length > Math.Max(500, TrimLength) ? all[..(Math.Max(500, TrimLength) - 3)] + "..." : all;
     }
 
     /// <summary>Maps the URIs an environment gives documents to their files.</summary>

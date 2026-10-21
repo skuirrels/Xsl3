@@ -536,7 +536,8 @@ namespace Xsl3.Xslt
             }
             if (!compiler.PackageInfos[package].Visible.TryGetValue((kind, name.NamespaceUri, name.LocalName, arity), out PackageComponent? component))
             {
-                return name;
+                // A used package can't see the functions of the packages that use it.
+                return kind == 'F' && package > 0 ? null : name;
             }
             if (component.Visibility == "hidden")
             {

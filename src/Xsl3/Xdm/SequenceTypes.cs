@@ -134,6 +134,12 @@ namespace Xsl3.Xdm
         /// <summary>For document-node(element(...)): the test the document element must pass.</summary>
         public NodeKindTest? DocumentElement { get; }
 
+        /// <summary>The local name of the xs: type in element(N, T) or attribute(N, T); null without one.</summary>
+        public string? TypeName { get; init; }
+
+        /// <summary>Whether the test admits nilled elements: element(N) and element(N, T?).</summary>
+        public bool Nillable { get; init; } = true;
+
         public override bool Matches(XPathItem item)
         {
             if (item is not XPathNavigator nav)
@@ -308,6 +314,20 @@ namespace Xsl3.Xdm
             return cardinality && Item(a.Item, b.Item);
         }
 
+        // Whether the xs: type a derives from the xs: type b, as far as the built-in types go.
+        private static bool TypeDerives(string a, string b)
+        {
+            if (a == b || b == "anyType")
+            {
+                return true;
+            }
+            if (b == "anySimpleType")
+            {
+                return a != "untyped";
+            }
+            return a != "anySimpleType" && AtomicTypes.Find(QName.Ns.Xs, a) is AtomicType at && AtomicTypes.Find(QName.Ns.Xs, b) is AtomicType bt && at.DerivesFrom(bt);
+        }
+
         public static bool Item(ItemTest? a, ItemTest? b)
         {
             if (b is null or AnyItemTest)
@@ -326,7 +346,9 @@ namespace Xsl3.Xdm
                     return y.Type == AtomicTypes.AnyAtomicType;
                 case (NodeKindTest x, NodeKindTest y):
                     return (y.Kind == null || x.Kind == y.Kind) && (y.LocalName == null || x.LocalName == y.LocalName) &&
-                        (y.NamespaceUri == null || x.NamespaceUri == y.NamespaceUri) && (y.DocumentElement == null || x.DocumentElement != null && Item(x.DocumentElement, y.DocumentElement));
+                        (y.NamespaceUri == null || x.NamespaceUri == y.NamespaceUri) && (y.DocumentElement == null || x.DocumentElement != null && Item(x.DocumentElement, y.DocumentElement)) &&
+                        (y.TypeName == null || TypeDerives(x.TypeName ?? (x.Kind == XPathNodeType.Attribute ? "anySimpleType" : "anyType"), y.TypeName)) &&
+                        (y.Nillable || !x.Nillable || x.Kind is not (XPathNodeType.Element or null));
                 case (MapTest x, MapTest y):
                     return y.KeyType == null || x.KeyType != null && x.KeyType.DerivesFrom(y.KeyType) && Sequence(x.ValueType!, y.ValueType!);
                 case (ArrayTest x, ArrayTest y):

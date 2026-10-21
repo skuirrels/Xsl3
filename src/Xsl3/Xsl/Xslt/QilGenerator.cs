@@ -136,6 +136,10 @@ namespace Xsl3.Xslt
         {
             Debug.Assert(compiler != null);
             _compiler = compiler;
+            if (IsV2 && !IsDebug)
+            {
+                _scope.Referenced = new HashSet<QilIterator>(ReferenceEqualityComparer.Instance);
+            }
             _functions = _f.FunctionList();
             _extPars = _f.GlobalParameterList();
             _gloVars = _f.GlobalVariableList();
@@ -377,7 +381,22 @@ namespace Xsl3.Xslt
             _initialCall31 = true;
             try
             {
-                return CompileCallTemplate(call);
+                QilNode result = CompileCallTemplate(call);
+                if (IsV2 && ResolveComponent31('T', call.Name!, -1) is QilName called && _compiler.NamedTemplates.TryGetValue(called, out Template? tmpl))
+                {
+                    // A required parameter of the initial template must be supplied, even if it isn't used (XTDE0700).
+                    foreach (XslNode p in tmpl.Content)
+                    {
+                        if (p is { NodeType: XslNodeType.Param, V2.Required: true } &&
+                            !call.Content.Any(w => w.Name!.Equals(p.Name) && (w.V2?.Tunnel ?? false) == p.V2.Tunnel))
+                        {
+                            result = _f.Sequence(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0700"),
+                                _f.String($"The initial template's required parameter ${p.Name!.QualifiedName} was not supplied")), result);
+                            break;
+                        }
+                    }
+                }
+                return result;
             }
             finally
             {
@@ -940,13 +959,22 @@ namespace Xsl3.Xslt
                 }
 
                 result = SetDebugNs(result, nsList);
+                if (IsV2 && _tryBody31 > 0 && node.SourceLine is { Start.Line: > 0 } line &&
+                    nodeType is not (XslNodeType.Variable or XslNodeType.LiteralAttribute or XslNodeType.UseAttributeSet or XslNodeType.Text))
+                {
+                    // Xsl3: in an xsl:try body, the instruction's line is recorded while it runs ($err:line-number).
+                    result = TryLine31(line, result);
+                }
                 if (nodeType == XslNodeType.Variable)
                 {
                     QilIterator var = _f.Let(result);
                     var.DebugName = node.Name!.ToString();
                     _scope.AddVariable(node.Name, var);
                     // Process all remaining instructions in the recursive call
-                    result = _f.Loop(var, CompileInstructions(instructions, i + 1));
+                    QilNode rest = CompileInstructions(instructions, i + 1);
+                    // Xsl3: a 2.0+ local variable nothing refers to isn't evaluated (XSLT 3.0 §9.11), so that,
+                    // for example, its errors and circularities don't arise.
+                    result = _scope.Referenced is { } referenced && !referenced.Contains(var) ? rest : _f.Loop(var, rest);
                     i = instructions.Count;
                 }
 
@@ -1487,8 +1515,9 @@ namespace Xsl3.Xslt
                     : _compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl))
                 {
                     Debug.Assert(tmpl.Function != null, "All templates should be already compiled");
-                    if (IsV2)
+                    if (IsV2 && node != _compiler.StartApplyTemplates)
                     {
+                        // (Parameters supplied to the initial template that it doesn't declare are ignored.)
                         CheckWithParams31(content, tmpl);
                     }
                     result = _invkGen.GenerateInvoke(tmpl.Function, AddRemoveImplicitArgs(node.Content, tmpl.Flags)!);

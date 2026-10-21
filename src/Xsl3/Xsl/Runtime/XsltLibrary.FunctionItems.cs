@@ -225,6 +225,8 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
             var output = _runtime.SaveOutput();
+            List<int> lines = _runtime.TryLines;
+            int mark = lines.Count;
             try
             {
                 return Copy(CallFunction((XdmFunction)tryFunction[0]));
@@ -232,6 +234,8 @@ namespace Xsl3.Runtime
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
                 _runtime.RestoreOutput(output);
+                int line = lines.Count > mark ? lines[^1] : 0;
+                lines.RemoveRange(mark, lines.Count - mark);
                 var errors = (List<List<string>>)Constant((int)errorsId);
                 for (int i = 0; i < errors.Count; i++)
                 {
@@ -239,11 +243,37 @@ namespace Xsl3.Runtime
                     {
                         IList<XPathItem> none = System.Array.Empty<XPathItem>();
                         return Copy(CallFunction((XdmFunction)catchFunctions[i], Sequences.One(new QNameValue(AtomicTypes.QName, code)),
-                            Sequences.One(AtomicValue.OfString(description)), value, module.Length == 0 ? none : Sequences.One(AtomicValue.OfString(module)), none, none, none));
+                            Sequences.One(AtomicValue.OfString(description)), value, module.Length == 0 ? none : Sequences.One(AtomicValue.OfString(module)),
+                            line > 0 ? Sequences.One(AtomicValue.OfInteger(line)) : none, none, none));
                     }
                 }
                 throw;
             }
+            finally
+            {
+                if (lines.Count > mark)
+                {
+                    lines.RemoveRange(mark, lines.Count - mark);
+                }
+            }
+        }
+
+        /// <summary>An instruction in an xsl:try body starts: its line is the catch's $err:line-number until it ends.</summary>
+        public IList<XPathItem> X31TryEnter(double line)
+        {
+            _runtime.TryLines.Add((int)line);
+            return Sequences.Empty;
+        }
+
+        /// <summary>An instruction in an xsl:try body ends.</summary>
+        public IList<XPathItem> X31TryExit()
+        {
+            List<int> lines = _runtime.TryLines;
+            if (lines.Count > 0)
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+            return Sequences.Empty;
         }
 
         /// <summary>A pattern's condition, lifted: an error evaluating it is a non-match (XSLT 3.0 §5.5.4).</summary>

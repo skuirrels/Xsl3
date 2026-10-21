@@ -36,6 +36,7 @@ raised a different code are counted separately.
 | 2026-10-20 | 21,746 | 138 | 99 | 99.4% | `map:merge`, `map:put` and `array:` functions copy the reused one-item lists the generated code passes them |
 | 2026-10-21 | 21,796 | 88 | 99 | 99.6% | `fn:random-number-generator`; `fn:function-lookup` type-checks its arguments |
 | 2026-10-21 | 21,801 | 83 | 99 | 99.6% | `xml-to-json` key escapes, function arity and name corner cases |
+| 2026-10-21 | 21,810 | 74 | 99 | 99.7% | `fn:collection` and `fn:uri-collection` over a directory of documents, FODC0004 for invalid collection URIs, `xs:error`, `function-available` for list-type constructors |
 
 The remaining failures are mostly `fn:idref`, `fn:serialize` details (html doctype, CDATA, character maps), a few
 JSON corner cases and `op-same-key`.
@@ -91,6 +92,8 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,695 | 330 | 49 | 95.9% | Remaining scope (docs/plan/remaining-scope.md): initial functions with raw result delivery (37 tests run that didn't), `xsl:assert` (run with assertions on and off as each test asks), the xhtml default method on the direct result path, `current-output-uri()` absent outside templates; bug-1901 not run (it compares a tree the xhtml serialization can't match) |
 | 2026-10-21 | 7,729 | 178 | 49 | 97.7% | Remaining scope, conformance batch: `regex-group()` in called templates, `xsl:sort` attribute checks and case-order, `xsl:message` that never fails, exact rounding of doubles, `xsl:mode`/`xsl:decimal-format` merged by precedence, XTDE0045/0050/0420, XTSE0085, harness fixes (inline sources' base URI, select-only sources, html decoded by its meta charset); the 2.0 profile is at 98.7% (4,415 passed, 57 failed) |
 | 2026-10-21 | 7,738 | 169 | 49 | 97.9% | Memo functions (`new-each-time="no"`, `cache="yes"`), `copy-namespaces="no"` on `xsl:copy` and `xsl:copy-of`; the 2.0 profile is at 98.7% (4,416 passed, 56 failed) |
+| 2026-10-21 | 7,805 | 102 | 49 | 98.7% | `fn:transform`, `inherit-namespaces="no"`, absent initial context items, DTDs read for 2.0+ documents, base URIs from external entities, embedded stylesheet modules, IDs kept through whitespace stripping, keys on namespace nodes, collections, XTDE0430/0905; the 2.0 profile is at 99.1% |
+| 2026-10-21 | 7,831 | 76 | 49 | 99.0% | Hardening target met. Initial template and mode parameters (tunnel ones too), `$err:line-number`, local variables nothing refers to aren't evaluated, accumulator applicability (`use-accumulators` of the initial mode and of `xsl:source-document`, none by default), XTSE3040/3051/3080 package checks, `element(*)` default priority, element types in function-type subtyping, temporary trees in creation order, arrays deemed empty, `xsl:context-item` optional by default; the 2.0 profile is at 99.2% (4,435 passed, 37 failed) |
 
 ### P5 exit sets
 

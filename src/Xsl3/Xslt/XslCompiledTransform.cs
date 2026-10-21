@@ -181,6 +181,7 @@ namespace Xsl3
             {
                 InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
                 InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
+                InitialParameters = InitialParameters,
             };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             _qil.CompactTree = UseCompactTree;
@@ -215,6 +216,14 @@ namespace Xsl3
         // Xsl3: entry points for the XSLT 3.0 API (and the W3C harness), set before Load. The public
         // XsltCompiler/Xslt30Transformer API of SPEC §7.2 will supply these.
         internal XmlQualifiedName? InitialTemplate { get; set; }
+
+        /// <summary>
+        /// The initial template's or mode's parameters (XSLT 3.0 §2.3.4), tunnel ones too: the value of the n-th is the
+        /// parameter named <see cref="InitialParameter"/>(n).
+        /// </summary>
+        internal System.Collections.Generic.IList<(XmlQualifiedName Name, bool Tunnel)>? InitialParameters { get; set; }
+
+        internal static XmlQualifiedName InitialParameter(int position) => InitialFunctionArguments.Parameter(position);
 
         /// <summary>
         /// The initial function (XSLT 3.0 §2.3.4) and its arity: the transformation calls it, with the arguments

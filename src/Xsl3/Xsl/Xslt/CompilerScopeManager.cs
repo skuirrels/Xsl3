@@ -315,11 +315,20 @@ namespace Xsl3.Xslt
             return -1;
         }
 
+        /// <summary>Xsl3: when set, the variables looked up (so that unreferenced local variables can be dropped).</summary>
+        public System.Collections.Generic.HashSet<V>? Referenced;
+
         [return: MaybeNull]
         public V LookupVariable(string localName, string uri)
         {
             int record = SearchVariable(localName, uri);
-            return (record < 0) ? default(V) : _records[record].value;
+            if (record < 0)
+            {
+                return default(V);
+            }
+            V value = _records[record].value;
+            Referenced?.Add(value);
+            return value;
         }
 
         public bool IsLocalVariable(string localName, string uri)

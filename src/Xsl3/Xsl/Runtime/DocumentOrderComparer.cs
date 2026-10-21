@@ -36,6 +36,15 @@ namespace Xsl3.Runtime
                 case XmlNodeOrder.After: return 1;
             }
 
+            // Xsl3: Xsl3's trees are in the order they were created, before all other trees.
+            if (navThis is Xsl3.Tree.CompactNavigator compactThis && navThat is Xsl3.Tree.CompactNavigator compactThat)
+            {
+                return compactThis.Document.Created < compactThat.Document.Created ? -1 : 1;
+            }
+            if (navThis is Xsl3.Tree.CompactNavigator != navThat is Xsl3.Tree.CompactNavigator)
+            {
+                return navThis is Xsl3.Tree.CompactNavigator ? -1 : 1;
+            }
             Debug.Assert(GetDocumentIndex(navThis) != GetDocumentIndex(navThat!));
             return GetDocumentIndex(navThis) < GetDocumentIndex(navThat!) ? -1 : 1;
         }

@@ -88,6 +88,8 @@ namespace Xsl3.Runtime
                 null => throw new XdmException("XPDY0002", $"No value supplied for ${localName}"),
                 IList<XPathItem> items => items,
                 XPathItem item => One(item),
+                // Other CLR values map to XDM values as stylesheet parameters' do.
+                _ when ClrValues.TryConvert(value, out IList<XPathItem> converted) => converted,
                 _ => throw new XdmException("XPTY0004", $"Unsupported value for ${localName}: {value.GetType()}"),
             };
         }

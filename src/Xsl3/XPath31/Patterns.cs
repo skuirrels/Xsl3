@@ -134,17 +134,18 @@ namespace Xsl3.XPath31
                 NameTest { AnyNamespace: true, LocalName: not null } => -0.25,
                 NameTest => -0.5,
                 KindNodeTest { Kind: PITest { Name: not null } } => 0,
-                KindNodeTest { Kind: ElementTest { HasName: true, TypeName: null } or AttributeTest { HasName: true, TypeName: null } } => 0,
-                KindNodeTest { Kind: ElementTest { HasName: true } or AttributeTest { HasName: true } } => 0.25,
-                KindNodeTest { Kind: ElementTest { TypeName: not null } or AttributeTest { TypeName: not null } } => 0,
                 KindNodeTest { Kind: SchemaElementTest or SchemaAttributeTest } => 0.25,
+                KindNodeTest { Kind: ElementTest el } => KindPriority(el.Name != null, el.TypeName != null),
+                KindNodeTest { Kind: AttributeTest at } => KindPriority(at.Name != null, at.TypeName != null),
                 // document-node(E): the priority E would have (XSLT 3.0 §6.5), so document-node(element(*)) is -0.5.
-                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { HasName: true, TypeName: null } } } => 0,
-                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { HasName: true } or SchemaElementTest } } => 0.25,
-                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest { TypeName: not null } } } => 0,
+                KindNodeTest { Kind: DocumentTest { ElementTest: SchemaElementTest } } => 0.25,
+                KindNodeTest { Kind: DocumentTest { ElementTest: ElementTest el } } => KindPriority(el.Name != null, el.TypeName != null),
                 _ => -0.5,
             };
         }
+
+        // element(N, T) and attribute(N, T) are 0.25; with a name or a type, 0; with neither (or *), -0.5.
+        private static double KindPriority(bool name, bool type) => name && type ? 0.25 : name || type ? 0 : -0.5;
 
         private QilNode PatternCondition(Expr alternative, QilIterator node)
         {

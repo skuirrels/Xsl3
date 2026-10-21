@@ -247,9 +247,15 @@ namespace Xsl3.Xslt
             {
                 return CompileEvaluate31(name, args, compile);
             }
-            if (name.NamespaceUri == InitialFunctionArguments.Namespace && name.LocalName == "selection" && args.Count == 0)
+            if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])
             {
-                // The initial match selection, supplied as a parameter (XslCompiledTransform.InitialMatchSelection).
+                // Documents of xsl:source-document or xsl:merge-source, and the accumulators applicable to them.
+                return X31(nameof(XsltLibrary.X31SourceDocuments), T.ItemS, Box(compile(args[0])), _f.String(accumulators.Value));
+            }
+            if (name.NamespaceUri == InitialFunctionArguments.Namespace && args.Count == 0)
+            {
+                // The initial match selection, or an initial template's or mode's parameter, supplied as a parameter
+                // (XslCompiledTransform.InitialMatchSelection, InitialParameters).
                 return X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(name.LocalName), _f.String(name.NamespaceUri));
             }
             if (name.NamespaceUri != FnNs)
@@ -635,9 +641,9 @@ namespace Xsl3.Xslt
                     {
                         return check;
                     }
-                    // A named template: use="required" (the default) is XTTE3090 without a context item; with
-                    // use="optional" there is nothing to check then.
-                    return (string?)node.Arg is null or "required"
+                    // A named template: use="required" is XTTE3090 without a context item; with use="optional" (the
+                    // default) there is nothing to check then.
+                    return (string?)node.Arg is "required"
                         ? _f.Sequence(X31(nameof(XsltLibrary.X31RequireFocus), T.ItemS, GetCurrentNode()), check)
                         : check.NodeType == QilNodeType.Sequence ? check
                         : _f.Conditional(X31(nameof(XsltLibrary.X31IsAbsent), T.BooleanX, GetCurrentNode()), _f.Sequence(), check);
@@ -950,6 +956,10 @@ namespace Xsl3.Xslt
         // (use-accumulators, as expanded names); null: all of them.
         private HashSet<string>? PrincipalAccumulators31()
         {
+            if (_compiler.InitialTemplate != null || _compiler.InitialFunction != null)
+            {
+                return null; // the global context item: all of them
+            }
             QilName? initial = _compiler.InitialMode is { } im ? _f.QName(im.Name, im.Namespace) : _compiler.DefaultInitialMode;
             foreach (var (mode, decl) in _compiler.ModeDecls)
             {
@@ -959,7 +969,8 @@ namespace Xsl3.Xslt
                     return names == "#all" ? null : new HashSet<string>(names.Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
                 }
             }
-            return null;
+            // The initial mode without use-accumulators: none apply to the principal source document (XSLT 3.0 §18.2.2).
+            return new HashSet<string>();
         }
 
         // Whether some template uses mode="#current" where its mode isn't known when it's compiled: then the
@@ -1608,7 +1619,7 @@ namespace Xsl3.Xslt
                     ReportXPath31Error("XTSE2200", "The merge sources have different numbers of merge keys");
                 }
                 spec.SortBeforeMerge.Add(source.V2!.SortBeforeMerge);
-                string? forEach = source.V2.ForEachItem ?? (source.V2.ForEachSource is string uris ? $"({uris}) ! doc(.)" : null);
+                string? forEach = source.V2.ForEachItem ?? source.V2.ForEachSource; // (the loader made it the documents)
                 QilNode sourceInputs;
                 if (forEach == null)
                 {
@@ -2102,6 +2113,12 @@ namespace Xsl3.Xslt
 
         // ------------------------------------------------------------ xsl:try, xsl:catch
 
+        // How many xsl:try bodies the instructions being compiled are in: they record their lines ($err:line-number).
+        private int _tryBody31;
+
+        private QilNode TryLine31(ISourceLineInfo line, QilNode instruction) => _f.Sequence(
+            X31(nameof(XsltLibrary.X31TryEnter), T.ItemS, _f.Double(line.Start.Line)), Box(instruction), X31(nameof(XsltLibrary.X31TryExit), T.ItemS));
+
         // The variables of xsl:catch, in the err namespace (XSLT 3.0 §8.3.1), in the order X31Try passes them.
         private static readonly string[] s_errVariables31 = { "code", "description", "value", "module", "line-number", "column-number", "additional" };
 
@@ -2129,12 +2146,15 @@ namespace Xsl3.Xslt
             {
                 // The try's variables aren't in scope in the catches.
                 _scope.EnterScope();
+                _tryBody31++;
                 try
                 {
-                    return node.Select != null ? CompileXPath31(node.Select) : CompileInstructions(body);
+                    QilNode value = node.Select != null ? CompileXPath31(node.Select) : CompileInstructions(body);
+                    return node.Select != null && node.SourceLine != null ? TryLine31(node.SourceLine, value) : value;
                 }
                 finally
                 {
+                    _tryBody31--;
                     _scope.ExitScope();
                 }
             }, 0);

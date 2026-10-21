@@ -446,9 +446,135 @@ public class Xslt30Tests
     [Fact]
     public void AccumulatorsCountElementsInDocumentOrder() =>
         Assert.Equal("<out><n b=\"0\" a=\"2\" /><n b=\"2\" a=\"3\" /></out>", Run(
+            "<xsl:mode use-accumulators='count'/>" +
             "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
             "<xsl:template match='/'><out><xsl:for-each select='//g'><n b=\"{accumulator-before('count')}\" a=\"{accumulator-after('count')}\"/></xsl:for-each></out></xsl:template>",
             "<doc><g><i/><i/></g><g><i/></g></doc>"));
+
+    /// <summary>The initial mode's xsl:mode names the accumulators applicable to the source document; by default none (XTDE3362).</summary>
+    [Fact]
+    public void AccumulatorsTheInitialModeDoesNotNameAreXTDE3362()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run(
+            "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
+            "<xsl:template match='/'><out><xsl:value-of select=\"accumulator-after('count')\"/></out></xsl:template>",
+            "<doc><i/></doc>"));
+        Assert.Contains("XTDE3362", e.ToString());
+    }
+
+    /// <summary>$err:line-number is the line of the innermost instruction of the xsl:try body that was running.</summary>
+    [Fact]
+    public void CatchSeesTheLineNumber() =>
+        Assert.Equal("<o>4</o>", Run("""
+
+            <xsl:template match="/"><o><xsl:try>
+              <xsl:if test="true()">
+                <xsl:value-of select="1 div 0"/>
+              </xsl:if>
+              <xsl:catch><xsl:value-of select="$err:line-number"/></xsl:catch>
+            </xsl:try></o></xsl:template>
+            """.Replace("\r", "")));
+
+    /// <summary>A local variable nothing refers to isn't evaluated, so its errors don't arise.</summary>
+    [Fact]
+    public void UnreferencedLocalVariablesAreNotEvaluated() =>
+        Assert.Equal("<o>3</o>", Run("""
+            <xsl:function name="f:f" xmlns:f="urn:f"><xsl:param name="a"/><xsl:variable name="unused" select="error()"/><xsl:sequence select="$a + 2"/></xsl:function>
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:variable name="x" select="error()"/><xsl:value-of select="f:f(1)"/></o></xsl:template>
+            """));
+
+    /// <summary>xsl:where-populated drops an array whose members' items are all deemed empty.</summary>
+    [Fact]
+    public void WherePopulatedDropsArraysOfEmptyItems() =>
+        Assert.Equal("<o>0 0 1</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="e" as="element()"><e/></xsl:variable>
+              <xsl:variable name="a" as="item()*"><xsl:where-populated><xsl:sequence select="[$e]"/></xsl:where-populated></xsl:variable>
+              <xsl:variable name="b" as="item()*"><xsl:where-populated><xsl:sequence select="[[$e, ''], ()]"/></xsl:where-populated></xsl:variable>
+              <xsl:variable name="c" as="item()*"><xsl:where-populated><xsl:sequence select="[$e, 1]"/></xsl:where-populated></xsl:variable>
+              <o><xsl:value-of select="count($a), count($b), count($c)"/></o>
+            </xsl:template>
+            """));
+
+    /// <summary>element(*) and document-node(element(*)) patterns have the default priority -0.5 (XSLT 3.0 §6.5).</summary>
+    [Fact]
+    public void ElementWildcardPatternsHaveTheLowestNamePriority() =>
+        Assert.Equal("<o>B</o>", Run("""
+            <xsl:template match="/"><o><xsl:apply-templates select="doc"/></o></xsl:template>
+            <xsl:template match="element(*)">A</xsl:template>
+            <xsl:template match="doc" priority="-0.4">B</xsl:template>
+            """));
+
+    /// <summary>Parentless nodes of separate temporary trees are in the order they were made.</summary>
+    [Fact]
+    public void TemporaryTreesAreInCreationOrder() =>
+        Assert.Equal("<o>3 1 2</o>", Run("""
+            <xsl:variable name="data" as="element()*"><a>3</a><a>1</a><a>2</a></xsl:variable>
+            <xsl:template match="/"><o><xsl:value-of select="$data/self::a"/></o></xsl:template>
+            """));
+
+    /// <summary>element(N) admits nilled elements and any type, so it isn't a subtype of element(N, xs:anyType).</summary>
+    [Fact]
+    public void FunctionTypesCompareElementTypesAndNillability() =>
+        Assert.Equal("<o>true false false</o>", Run("""
+            <xsl:function name="f:f" as="element(e)?" xmlns:f="urn:f"><xsl:param name="x"/><e/></xsl:function>
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:value-of select="
+              f:f#1 instance of function(item()*) as element(e)*,
+              f:f#1 instance of function(item()*) as element(e, xs:anyType)*,
+              f:f#1 instance of function(item()*) as element(*, xs:untyped)?"/></o></xsl:template>
+            """));
+
+    /// <summary>xsl:context-item's use attribute defaults to optional: a named template may run without a context item.</summary>
+    [Fact]
+    public void ContextItemIsOptionalByDefault()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:xs='http://www.w3.org/2001/XMLSchema' exclude-result-prefixes='xs'>" +
+            "<xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template name='t'><xsl:context-item as='xs:integer'/><xsl:param name='p' select='3'/><xsl:sequence select='if ($p = 3) then . else $p'/></xsl:template>" +
+            "<xsl:template name='main'><o><xsl:for-each select='1 to 2'><xsl:call-template name='t'/></xsl:for-each>" +
+            "<xsl:call-template name='t'><xsl:with-param name='p' select='6'/></xsl:call-template></o></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform { InitialTemplate = new XmlQualifiedName("main") };
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var sw = new StringWriter();
+        transform.Transform(XslCompiledTransform.AbsentInput, null, sw);
+        Assert.Equal("<o>1 2 6</o>", sw.ToString());
+    }
+
+    /// <summary>
+    /// The initial template's parameters, tunnel ones too (XSLT 3.0 §2.3.4), supplied as reserved parameters; a
+    /// required one that isn't supplied is XTDE0700 even if it's unused.
+    /// </summary>
+    [Fact]
+    public void InitialTemplateParameters()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:my='urn:my' exclude-result-prefixes='my'>" +
+            "<xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:param name='a' select='12'/><xsl:variable name='b' select='$a * 2'/>" +
+            "<xsl:template name='t'><xsl:param name='a' required='yes'/><xsl:param name='my:b' tunnel='yes'/><o><xsl:sequence select='$a, $my:b, $b'/></o></xsl:template>" +
+            "</xsl:stylesheet>";
+        string RunWith(bool supply)
+        {
+            var transform = new XslCompiledTransform
+            {
+                InitialTemplate = new XmlQualifiedName("t"),
+                InitialParameters = supply ? new List<(XmlQualifiedName, bool)> { (new XmlQualifiedName("a"), false), (new XmlQualifiedName("b", "urn:my"), true) } : null,
+            };
+            transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+            var args = new XsltArgumentList();
+            args.AddParam("a", "", 77);
+            if (supply)
+            {
+                XmlQualifiedName first = XslCompiledTransform.InitialParameter(1), second = XslCompiledTransform.InitialParameter(2);
+                args.AddParam(first.Name, first.Namespace, 1234);
+                args.AddParam(second.Name, second.Namespace, 999);
+            }
+            var sw = new StringWriter();
+            transform.Transform(XslCompiledTransform.AbsentInput, args, sw);
+            return sw.ToString();
+        }
+        Assert.Equal("<o>1234 999 154</o>", RunWith(supply: true));
+        Assert.Contains("XTDE0700", Assert.ThrowsAny<System.Exception>(() => RunWith(supply: false)).ToString());
+    }
 
     [Fact]
     public void PackagesHidePrivateComponentsAndHonourOverrides()

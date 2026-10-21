@@ -53,6 +53,11 @@ namespace Xsl3.Runtime
                 root = node.Clone();
                 root.MoveToRoot();
             }
+            if (_sourceDocumentAccumulators != null && _sourceDocumentAccumulators.TryGetValue(_runtime.GenerateId(root), out HashSet<string>? applicable) &&
+                applicable != null && !applicable.Contains(new QName(ns, local).EQName))
+            {
+                throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
+            }
             if (!info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
             {
                 XPathNavigator principal = _runtime.ExternalContext.DefaultDataSource.Clone();
@@ -72,6 +77,26 @@ namespace Xsl3.Runtime
             }
             var (before, afterValue) = values[_runtime.GenerateId(node)];
             return after ? afterValue : before;
+        }
+
+        // The documents of xsl:source-document and xsl:merge-source, by root id: the accumulators applicable to them
+        // (null: all).
+        private Dictionary<string, HashSet<string>?>? _sourceDocumentAccumulators;
+
+        /// <summary>The documents of xsl:source-document or xsl:merge-source, recorded with their use-accumulators.</summary>
+        public IList<XPathItem> X31SourceDocuments(IList<XPathItem> documents, string names)
+        {
+            foreach (XPathItem item in documents)
+            {
+                if (item is XPathNavigator node)
+                {
+                    XPathNavigator root = node.Clone();
+                    root.MoveToRoot();
+                    (_sourceDocumentAccumulators ??= new())[_runtime.GenerateId(root)] =
+                        names == "#all" ? null : new HashSet<string>(names.Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+                }
+            }
+            return documents;
         }
 
         // The trees made by xsl:copy-of copy-accumulators="yes": each copy's root, its copied node and the original.

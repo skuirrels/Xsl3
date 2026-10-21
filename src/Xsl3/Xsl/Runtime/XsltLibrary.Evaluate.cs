@@ -23,6 +23,15 @@ namespace Xsl3.Runtime
 
         /// <summary>The parameter that supplies an initial match selection (XslCompiledTransform.InitialMatchSelection).</summary>
         public static readonly System.Xml.XmlQualifiedName Selection = new("selection", Namespace);
+
+        /// <summary>The parameter that supplies initial template or mode parameter <paramref name="position"/> (from 1).</summary>
+        public static System.Xml.XmlQualifiedName Parameter(int position) => new("param" + position, Namespace);
+    }
+
+    /// <summary>Xsl3: the internal function the loader wraps xsl:source-document's documents in (XsltLibrary.X31SourceDocuments).</summary>
+    internal static class SourceDocuments
+    {
+        public const string Namespace = "urn:xsl3:source-document";
     }
 
     /// <summary>Xsl3: names shared by the parts of xsl:evaluate (docs/plan/p5-evaluate.md).</summary>

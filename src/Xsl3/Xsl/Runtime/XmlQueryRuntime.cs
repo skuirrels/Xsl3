@@ -161,6 +161,9 @@ namespace Xsl3.Runtime
             t_cancellation.ThrowIfCancellationRequested();
         }
 
+        /// <summary>Xsl3: the lines of the instructions in xsl:try bodies being evaluated, innermost last ($err:line-number).</summary>
+        internal readonly System.Collections.Generic.List<int> TryLines = new();
+
         // Xsl3: the nesting of templates and functions, counted when XsltSettings.MaxRecursionDepth is set (SPEC §21.2).
         [System.ThreadStatic]
         private static int t_depth;

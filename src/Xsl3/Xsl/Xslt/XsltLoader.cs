@@ -114,9 +114,28 @@ namespace Xsl3.Xslt
                     compiler.InitialMode is XmlQualifiedName sm ? F.QName(sm.Name, sm.Namespace, "") : compiler.DefaultInitialMode ?? nullMode,
                     $"Q{{{Runtime.InitialFunctionArguments.Namespace}}}selection()", XslVersion.Current);
             }
+            else if (compiler.InitialParameters != null)
+            {
+                // Xsl3: with parameters, the 2.0 apply-templates compiles them (applied to the initial context item).
+                compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.ApplyTemplates,
+                    compiler.InitialMode is XmlQualifiedName pm ? F.QName(pm.Name, pm.Namespace, "") : compiler.DefaultInitialMode ?? nullMode, ".", XslVersion.Current);
+            }
             else
             {
                 compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : compiler.DefaultInitialMode ?? nullMode);
+            }
+            if (compiler.InitialParameters is { } initialParameters)
+            {
+                // Xsl3: the initial template's or mode's parameters (XSLT 3.0 §2.3.4): with-params whose values are
+                // supplied as reserved run-time parameters.
+                for (int i = 0; i < initialParameters.Count; i++)
+                {
+                    (XmlQualifiedName name, bool tunnel) = initialParameters[i];
+                    XmlQualifiedName value = Runtime.InitialFunctionArguments.Parameter(i + 1);
+                    VarPar withParam = F.VarPar(XslNodeType.WithParam, F.QName(name.Name, name.Namespace, ""), $"Q{{{value.Namespace}}}{value.Name}()", XslVersion.Current);
+                    withParam.V2 = new XslNodeV2 { Tunnel = tunnel };
+                    compiler.StartApplyTemplates.AddContent(withParam);
+                }
             }
             ProcessOutputSettings();
             foreach (AttributeSet attSet in compiler.AttributeSets.Values)

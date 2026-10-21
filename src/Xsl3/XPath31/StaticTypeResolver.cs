@@ -152,12 +152,19 @@ namespace Xsl3.XPath31
                 case ElementTest e:
                 {
                     QName? name = e.Name == null ? null : Expand(e.Name, DefaultElementNamespace);
-                    return new NodeKindTest(XPathNodeType.Element, name?.NamespaceUri, name?.LocalName, anyType: AdmitsUntyped(e.TypeName, element: true));
+                    return new NodeKindTest(XPathNodeType.Element, name?.NamespaceUri, name?.LocalName, anyType: AdmitsUntyped(e.TypeName, element: true))
+                    {
+                        TypeName = e.TypeName == null ? null : Expand(e.TypeName, DefaultElementNamespace).LocalName,
+                        Nillable = e.TypeName == null || e.Nillable,
+                    };
                 }
                 case AttributeTest a:
                 {
                     QName? name = a.Name == null ? null : Expand(a.Name, "");
-                    return new NodeKindTest(XPathNodeType.Attribute, name?.NamespaceUri, name?.LocalName, anyType: AdmitsUntyped(a.TypeName, element: false));
+                    return new NodeKindTest(XPathNodeType.Attribute, name?.NamespaceUri, name?.LocalName, anyType: AdmitsUntyped(a.TypeName, element: false))
+                    {
+                        TypeName = a.TypeName == null ? null : Expand(a.TypeName, DefaultElementNamespace).LocalName,
+                    };
                 }
                 case SchemaElementTest s:
                     throw new XPathStaticException("XPST0008", $"schema-element({s.Name}): no schema is imported", -1);
