@@ -203,6 +203,13 @@ namespace Xsl3.Runtime
 
         public bool X31IsAbsent(XPathItem item) => item is AbsentItem;
 
+        /// <summary>
+        /// The global context item (XSLT 3.0 §9.7): the input's document node, or absent when the transformation was given
+        /// no input (XslCompiledTransform.AbsentInput) or xsl:global-context-item says use="absent".
+        /// </summary>
+        public XPathItem X31GlobalContextItem(XPathNavigator root, bool absentDeclared) =>
+            absentDeclared ? AbsentItem.Instance : X31InitialFocus(root);
+
         /// <summary>xsl:global-context-item use="required": XTDE3086 when the transformation was given no global context item.</summary>
         public IList<XPathItem> X31RequireGlobalContextItem(XPathItem item) =>
             X31InitialFocus(item) is AbsentItem ? throw new XdmException("XTDE3086", "The stylesheet requires a global context item, and none was supplied") : System.Array.Empty<XPathItem>();

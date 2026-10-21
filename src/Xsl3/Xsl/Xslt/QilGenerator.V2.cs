@@ -157,9 +157,16 @@ namespace Xsl3.Xslt
 
         QilNode? IXPath31Environment.ContextItem() =>
             FocusAbsent ? null
+            // The global context item may be absent: XPDY0002 where it is used.
+            : OnGlobalContextItem31 ? X31(nameof(XsltLibrary.X31Focus), T.Item, GetCurrentNode())
             // A named template's own focus may be absent (it was called with none): checked where it is used.
             : _namedFocus31 && !_curLoop.IsFocusSet && _nodeContext31 == null ? X31(nameof(XsltLibrary.X31Focus), T.Item, GetCurrentNode())
             : GetCurrentNode();
+
+        // The focus is the global context item (GetCurrentNode's last case): in a global variable or parameter, outside
+        // any instruction that sets a focus.
+        private bool OnGlobalContextItem31 =>
+            _singlFocus.IsGlobalContextItem && _nodeContext31 == null && !_curLoop.IsFocusSet && _fixedFocus31 == null && !_funcFocus.IsFocusSet;
 
         // Compiling a named template's body, whose focus may be absent at run time (XslFlags.Current from its caller).
         private bool _namedFocus31;
@@ -1134,7 +1141,16 @@ namespace Xsl3.Xslt
         // The template rule whose body is being compiled, for xsl:next-match; null where it is absent.
         private Template? _currentTemplateRule;
 
-        private readonly Dictionary<(Template, string Mode), List<QilFunction>> _nextMatchFunctions = new();
+        private readonly Dictionary<(object, string Mode), List<QilFunction>> _nextMatchFunctions = new();
+
+        // The template rules whose union alternatives are rules of their own, with their matches (CompileAndSortMatches).
+        private Dictionary<Template, List<TemplateMatch>>? _alternatives31;
+
+        // The hidden argument that tells such a template which alternative matched.
+        private static readonly QilName s_nameAlternative31 = new QilFactory().LiteralQName("alternative", "urn:xsl3:internal", "");
+
+        // While compiling an xsl:next-match from one alternative: the match it goes on below.
+        private TemplateMatch? _belowMatch31;
 
         // Inside xsl:for-each, xsl:for-each-group and xsl:analyze-string the current template rule is absent.
         private QilNode WithoutTemplateRule(System.Func<QilNode> compile)
@@ -1241,6 +1257,25 @@ namespace Xsl3.Xslt
             QilNode result = _dynamicCurrentMode31 && !HasStaticMode31(_currentTemplateRule)
                 ? ApplyInCurrentMode31(_compiler.Root!, args, _currentTemplateRule)
                 : InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, args, nextMatchBelow: _currentTemplateRule);
+            if (_alternatives31 != null && _alternatives31.TryGetValue(_currentTemplateRule, out List<TemplateMatch>? alternatives) &&
+                !(_dynamicCurrentMode31 && !HasStaticMode31(_currentTemplateRule)) &&
+                _currentTemplateRule.Function!.Arguments.Cast<QilParameter>().FirstOrDefault(a => a.Name!.Equals(s_nameAlternative31)) is QilParameter which)
+            {
+                // Below the alternative that matched (its other alternatives are rules too); by name, below them all.
+                foreach (TemplateMatch match in alternatives)
+                {
+                    _belowMatch31 = match;
+                    try
+                    {
+                        result = _f.Conditional(_f.Eq(which, _f.Double(match.Alternative)),
+                            InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, CopyArgs31(args), nextMatchBelow: _currentTemplateRule), result);
+                    }
+                    finally
+                    {
+                        _belowMatch31 = null;
+                    }
+                }
+            }
             return _varHelper.FinishVariables(result, varScope);
         }
 
@@ -1431,9 +1466,12 @@ namespace Xsl3.Xslt
 
         // An atomic context item is copied as itself; a node with XsltCopy.
         private QilNode CopyOther31(QilIterator c, XslNode copy) =>
+            _f.Conditional(X31(nameof(XsltLibrary.X31IsAbsent), T.BooleanX, c),
+                // xsl:copy without a context item (XSLT 3.0 §11.9.1).
+                _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTTE0945"), _f.String("xsl:copy is used where there is no context item")), T.ItemS),
             _f.Conditional(_f.IsType(c, T.Node),
                 _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content)))),
-                _f.TypeAssert(c, T.AnyAtomicType));
+                _f.TypeAssert(c, T.AnyAtomicType)));
 
         /// <summary>
         /// inherit-namespaces="no" (XSLT 3.0 §11.1.2): the element's children don't inherit its namespaces. A marker
@@ -2547,7 +2585,7 @@ namespace Xsl3.Xslt
         }
 
         // Functions applying the template rules of a mode to items that aren't nodes, by mode.
-        private readonly Dictionary<(StylesheetLevel, QilName, Template?), List<QilFunction>> _itemApplyFunctions31 = new();
+        private readonly Dictionary<(StylesheetLevel, QilName, object?), List<QilFunction>> _itemApplyFunctions31 = new();
 
         /// <summary>
         /// xsl:apply-templates to an item that isn't a node (XSLT 3.0 §6.8): a function per mode (and set of
@@ -2556,9 +2594,9 @@ namespace Xsl3.Xslt
         private QilNode InvokeItemApplyFunction31(StylesheetLevel sheet, QilName mode, IList<XslNode> actualArgs, XslFlags flags, Template? nextMatchBelow)
         {
             QilList invokeArgs = _f.ActualParameterList();
-            if (!_itemApplyFunctions31.TryGetValue((sheet, mode, nextMatchBelow), out List<QilFunction>? functions))
+            if (!_itemApplyFunctions31.TryGetValue((sheet, mode, (object?)_belowMatch31 ?? nextMatchBelow), out List<QilFunction>? functions))
             {
-                functions = _itemApplyFunctions31[(sheet, mode, nextMatchBelow)] = new List<QilFunction>();
+                functions = _itemApplyFunctions31[(sheet, mode, (object?)_belowMatch31 ?? nextMatchBelow)] = new List<QilFunction>();
             }
             foreach (QilFunction func in functions)
             {
@@ -2613,7 +2651,7 @@ namespace Xsl3.Xslt
                 _curLoop = saved;
                 builtin = _f.Conditional(X31(nameof(XsltLibrary.X31IsArray), T.BooleanX, current), members, builtin);
             }
-            _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
+            _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
             function.Definition = _matcherBuilder.BuildItemMatcher(current, actualArgs, builtin, decl?.OnMultipleMatch == "fail");
             if (modeFrame != null)
             {

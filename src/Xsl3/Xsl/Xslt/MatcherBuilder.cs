@@ -122,6 +122,15 @@ namespace Xsl3.Xslt
         /// <summary>Xsl3: the priority (explicit or default) of this alternative.</summary>
         public double Priority => _priority;
 
+        /// <summary>
+        /// Xsl3: which alternative of a union pattern this is, for a template rule whose alternatives are rules of their
+        /// own (no priority attribute; XSLT 3.0 §6.5) and that uses xsl:next-match; -1 otherwise.
+        /// </summary>
+        public int Alternative = -1;
+
+        /// <summary>Xsl3: the with-param that tells the template which alternative matched (QilGenerator sets it).</summary>
+        public XslNode? AlternativeArg;
+
         public QilFunction? TemplateFunction
         {
             get { return _template.Function; }
@@ -388,11 +397,22 @@ namespace Xsl3.Xslt
 
         public void CollectPatterns(StylesheetLevel sheet, QilName mode) => CollectPatterns(sheet, mode, below: null);
 
+        // Xsl3: the arguments of an invocation through an alternative that tells the template which one matched.
+        private static IList<XslNode> WithAlternative(IList<XslNode> actualArgs, TemplateMatch match)
+        {
+            if (match.AlternativeArg == null)
+            {
+                return actualArgs;
+            }
+            var args = new List<XslNode>(actualArgs) { match.AlternativeArg };
+            return args;
+        }
+
         /// <summary>
         /// Xsl3: with <paramref name="below"/>, only the template rules of lower preference than that template's (the
         /// candidates of xsl:next-match, XSLT 3.0 §6.8).
         /// </summary>
-        public void CollectPatterns(StylesheetLevel sheet, QilName mode, Template? below)
+        public void CollectPatterns(StylesheetLevel sheet, QilName mode, Template? below, TemplateMatch? belowMatch = null)
         {
             Clear();
             foreach (Stylesheet import in sheet.Imports!)
@@ -412,7 +432,7 @@ namespace Xsl3.Xslt
                 var kept = new List<TemplateMatch>();
                 foreach (TemplateMatch match in list)
                 {
-                    if (match.Template == below)
+                    if (belowMatch != null ? match == belowMatch : match.Template == below)
                     {
                         stop = true;
                         break;
@@ -551,7 +571,7 @@ namespace Xsl3.Xslt
                     TemplateMatch match = list[m];
                     if (!match.Iterator.XmlType!.IsSubtypeOf(XmlQueryTypeFactory.NodeS))
                     {
-                        QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs);
+                        QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, WithAlternative(actualArgs, match));
                         if (failOnMultipleMatch)
                         {
                             // on-multiple-match="fail", as in BuildMatcher.
@@ -604,7 +624,7 @@ namespace Xsl3.Xslt
                 for (int m = 0; m < list.Count; m++)
                 {
                     TemplateMatch match = list[m];
-                    QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, actualArgs);
+                    QilNode invoke = _invkGen.GenerateInvoke(match.TemplateFunction!, WithAlternative(actualArgs, match));
                     if (failOnMultipleMatch)
                     {
                         // Xsl3: on-multiple-match="fail" (XSLT 3.0 §6.4): another rule of the same precedence and

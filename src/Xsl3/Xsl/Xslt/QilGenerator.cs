@@ -633,6 +633,19 @@ namespace Xsl3.Xslt
                     // Xsl3: tunnel parameters travel in one implicit argument (2.0).
                     args.Add(CreateXslParam(CloneName(_nameTunnel), T.ItemS));
                 }
+                if (tmpl is Template withAlternatives && _alternatives31 != null && _alternatives31.TryGetValue(withAlternatives, out List<TemplateMatch>? alternatives))
+                {
+                    // Xsl3: which alternative of the template's union pattern matched; -1 when it is called by name.
+                    QilParameter alternative = CreateXslParam(CloneName(s_nameAlternative31), T.DoubleX);
+                    alternative.DefaultValue = _f.Double(-1);
+                    args.Add(alternative);
+                    foreach (TemplateMatch match in alternatives)
+                    {
+                        VarPar arg = AstFactory.VarPar(XslNodeType.WithParam, CloneName(s_nameAlternative31), null, XslVersion.Current);
+                        arg.Value = _f.Double(match.Alternative);
+                        match.AlternativeArg = arg;
+                    }
+                }
                 if (IsDebug && nsList != null)
                 {
                     // AttributeSet doesn't need this logic because: 1) it doesn't have args; 2) we merge them.
@@ -2498,9 +2511,20 @@ namespace Xsl3.Xslt
                         if (result.NodeType == QilNodeType.Sequence)
                         {
                             QilList filters = (QilList)result;
+                            // Xsl3: without a priority attribute the alternatives of a union are rules of their own (XSLT
+                            // 3.0 §6.5): xsl:next-match goes on below the one that matched, the template's other
+                            // alternatives included (the template learns which through a hidden argument).
+                            bool alternatives = IsV2 && !IsDebug && filters.Count > 1 && double.IsNaN(template.Priority) && modes.Count == 1 &&
+                                template.V2 is not { AllModes: true } && UsesNextMatch31(template.Content);
                             for (int idx = 0; idx < filters.Count; idx++)
                             {
-                                sheet.AddTemplateMatch(template, (QilLoop)filters[idx], mode);
+                                TemplateMatch match = sheet.AddTemplateMatch(template, (QilLoop)filters[idx], mode);
+                                if (alternatives)
+                                {
+                                    match.Alternative = idx;
+                                    (_alternatives31 ??= new Dictionary<Template, List<TemplateMatch>>()).TryAdd(template, new List<TemplateMatch>());
+                                    _alternatives31[template].Add(match);
+                                }
                             }
                         }
                         else
@@ -2592,7 +2616,15 @@ namespace Xsl3.Xslt
         private void CompileGlobalVariables()
         {
             CheckSingletonFocus();
-            _singlFocus.SetFocus(SingletonFocusType.InitialDocumentNode);
+            if (IsV2)
+            {
+                // Xsl3: the global context item, which may be absent (XSLT 3.0 §5.3.3, §9.7).
+                _singlFocus.SetGlobalFocus(_compiler.GlobalContextItem is ("absent", _));
+            }
+            else
+            {
+                _singlFocus.SetFocus(SingletonFocusType.InitialDocumentNode);
+            }
 
             foreach (VarPar par in _compiler.ExternalPars)
             {
@@ -3070,9 +3102,9 @@ namespace Xsl3.Xslt
             if (nextMatchBelow != null)
             {
                 // Xsl3: xsl:next-match functions, one family per template rule.
-                if (!_nextMatchFunctions.TryGetValue((nextMatchBelow, ModeKey31(mode)), out functionsForMode))
+                if (!_nextMatchFunctions.TryGetValue(((object?)_belowMatch31 ?? nextMatchBelow, ModeKey31(mode)), out functionsForMode))
                 {
-                    functionsForMode = _nextMatchFunctions[(nextMatchBelow, ModeKey31(mode))] = new List<QilFunction>();
+                    functionsForMode = _nextMatchFunctions[((object?)_belowMatch31 ?? nextMatchBelow, ModeKey31(mode))] = new List<QilFunction>();
                 }
             }
             else if (!sheet.ApplyFunctions.TryGetValue(mode, out functionsForMode))
@@ -3184,7 +3216,7 @@ namespace Xsl3.Xslt
                 }
 
                 // 3.2 Stylesheet templates
-                _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow);
+                _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
                 if (modeFrame != null)

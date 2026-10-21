@@ -9,7 +9,6 @@ base-uri/base-uri-052
 base-uri/base-uri-053
 bug/bug-3801
 copy/copy-1221
-copy/copy-4308
 docbook/docbook-001
 docbook/docbook-004
 document/document-2003
@@ -20,8 +19,6 @@ error/error-2210a
 expose/expose-926
 forwards/forwards-008
 function-lookup/function-lookup-005
-global-context-item/glob-cxt-item-003
-global-context-item/glob-cxt-item-013
 id/id-001
 import/import-1201
 merge/merge-019
@@ -33,11 +30,6 @@ namespace/namespace-2608
 namespace/namespace-2611
 namespace/namespace-2614
 namespace/namespace-2615
-next-match/next-match-021
-next-match/next-match-023
-next-match/next-match-025
-next-match/next-match-026
-next-match/next-match-039
 number/number-2506
 number/number-4501
 output/output-0285

@@ -56,29 +56,31 @@ namespace Xsl3.Xslt
 
         /// <param name="mode">For a template rule of several modes (Xsl3), the one this filter is for: each mode
         /// gets its own filter, since a TemplateMatch takes its filter apart.</param>
-        public void AddTemplateMatch(Template template, QilLoop filter, QilName? mode = null)
+        public TemplateMatch AddTemplateMatch(Template template, QilLoop filter, QilName? mode = null)
         {
+            var match = new TemplateMatch(template, filter);
             if (template.V2 is XslNodeV2 v2 && (v2.AllModes || v2.Modes != null))
             {
                 if (v2.AllModes)
                 {
-                    AllModesMatches.Add(new TemplateMatch(template, filter));
-                    return;
+                    AllModesMatches.Add(match);
+                    return match;
                 }
                 QilName m = mode ?? v2.Modes![0];
                 if (!TemplateMatches.TryGetValue(m, out List<TemplateMatch>? list))
                 {
                     list = TemplateMatches[m] = new List<TemplateMatch>();
                 }
-                list.Add(new TemplateMatch(template, filter));
-                return;
+                list.Add(match);
+                return match;
             }
             List<TemplateMatch>? matchesForMode;
             if (!TemplateMatches.TryGetValue(template.Mode, out matchesForMode))
             {
                 matchesForMode = TemplateMatches[template.Mode] = new List<TemplateMatch>();
             }
-            matchesForMode.Add(new TemplateMatch(template, filter));
+            matchesForMode.Add(match);
+            return match;
         }
 
         public void SortTemplateMatches()

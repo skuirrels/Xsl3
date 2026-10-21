@@ -104,6 +104,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 7,962 | 74 | 49 | 99.1% | The runner on the public 3.0 API (`XsltCompiler`, `Xslt30Transformer`): `override-v-008`, `override-v-009` and `strip-space-023` pass that the internal entry points failed; the 2.0 profile is at 99.2% (4,561 passed, 36 failed) |
 | 2026-10-21 | 7,967 | 69 | 49 | 99.1% | `fn:idref` (id-039, -040, -042, -043); the harness loads sources as Xsl3's own tree; the 2.0 profile is at 99.3% (4,566 passed, 31 failed) |
 | 2026-10-21 | 7,970 | 66 | 49 | 99.2% | XTDE3086 for `xsl:global-context-item use="required"` without a global context item; XTSE3450 for a static variable whose value differs from one declared earlier at a lower import precedence (tree order of declarations across imports) |
+| 2026-10-21 | 7,978 | 58 | 49 | 99.3% | The global context item of 2.0+ stylesheets: absent without an input or with `xsl:global-context-item use="absent"` (XPDY0002 where global variables use it, XTTE0945 for `xsl:copy`); `xsl:next-match` from an alternative of a union pattern without a priority goes on to the template's other alternatives; the 2.0 profile is at 99.4% (4,571 passed, 26 failed) |
 
 ### P5 exit sets
 

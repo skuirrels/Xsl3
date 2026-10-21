@@ -24,6 +24,10 @@ namespace Xsl3.Xslt
         // Used while compiling initial apply-templates
         InitialContextNode,
 
+        // Xsl3: the global context item of a 2.0+ stylesheet (global variables and parameters): the document node of
+        // the input, or absent (no input, or xsl:global-context-item use="absent").
+        GlobalContextItem,
+
         // Context node is specified by iterator
         // Used while compiling keys
         Iterator,
@@ -34,6 +38,7 @@ namespace Xsl3.Xslt
         private readonly XPathQilFactory _f;
         private SingletonFocusType _focusType;
         private QilIterator? _current;
+        private bool _absentDeclared;
 
         public SingletonFocus(XPathQilFactory f)
         {
@@ -47,6 +52,15 @@ namespace Xsl3.Xslt
             Debug.Assert(focusType != SingletonFocusType.Iterator);
             _focusType = focusType;
         }
+
+        /// <summary>Xsl3: the global context item, absent whatever the input when <paramref name="absentDeclared"/>.</summary>
+        public void SetGlobalFocus(bool absentDeclared)
+        {
+            _focusType = SingletonFocusType.GlobalContextItem;
+            _absentDeclared = absentDeclared;
+        }
+
+        public bool IsGlobalContextItem => _focusType == SingletonFocusType.GlobalContextItem;
 
         public void SetFocus(QilIterator? current)
         {
@@ -75,6 +89,9 @@ namespace Xsl3.Xslt
             {
                 case SingletonFocusType.InitialDocumentNode: return _f.Root(_f.XmlContext());
                 case SingletonFocusType.InitialContextNode: return _f.XmlContext();
+                case SingletonFocusType.GlobalContextItem:
+                    return Xsl3.XPath31.XPath31Compiler.Invoke(_f, nameof(Xsl3.Runtime.XsltLibrary.X31GlobalContextItem), Xsl3.XmlQueryTypeFactory.Item,
+                        _f.Root(_f.XmlContext()), _f.Boolean(_absentDeclared));
                 default:
                     Debug.Assert(_focusType == SingletonFocusType.Iterator && _current != null, "Unexpected singleton focus type");
                     return _current;

@@ -1001,4 +1001,40 @@ public class Xslt30Tests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    /// <summary>
+    /// A union pattern without a priority attribute is one template rule per alternative (XSLT 3.0 §6.5): xsl:next-match
+    /// from the alternative that matched reaches the template's other alternatives below it.
+    /// </summary>
+    [Fact]
+    public void NextMatchReachesTheOtherAlternativesOfAUnion()
+    {
+        Assert.Equal("<out><a /><a /><b /></out>", Run("""
+            <xsl:template match="/doc"><out><xsl:apply-templates select="x"/></out></xsl:template>
+            <xsl:template match="*:x | element(x)"><a/><xsl:next-match/></xsl:template>
+            <xsl:template match="node()"><b/></xsl:template>
+            """, "<doc><x/></doc>"));
+        // With a priority attribute the union is one rule.
+        Assert.Equal("<out><a /><b /></out>", Run("""
+            <xsl:template match="/doc"><out><xsl:apply-templates select="x"/></out></xsl:template>
+            <xsl:template match="*:x | element(x)" priority="1"><a/><xsl:next-match/></xsl:template>
+            <xsl:template match="node()"><b/></xsl:template>
+            """, "<doc><x/></doc>"));
+    }
+
+    /// <summary>xsl:global-context-item use="absent": a global variable that uses the context item is XPDY0002.</summary>
+    [Fact]
+    public void AnAbsentGlobalContextItemCantBeUsed()
+    {
+        Assert.Contains("XPDY0002", Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:global-context-item use="absent"/>
+            <xsl:variable name="g" select="/doc"/>
+            <xsl:template match="/"><out><xsl:copy-of select="$g"/></out></xsl:template>
+            """)).ToString());
+        Assert.Equal("<out>1</out>", Run("""
+            <xsl:global-context-item use="absent"/>
+            <xsl:variable name="g" select="1"/>
+            <xsl:template match="/"><out><xsl:value-of select="$g"/></out></xsl:template>
+            """));
+    }
 }
