@@ -59,6 +59,27 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: the package library of the running transformation (XslCompiledTransform.Packages), for fn:transform.
+        [System.ThreadStatic]
+        private static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? t_packages;
+
+        internal static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? Packages
+        {
+            get => t_packages;
+            set => t_packages = value;
+        }
+
+        // Xsl3: XsltSettings.EnableEvaluate for the running (or loading) transformation, which allows fn:transform;
+        // null outside one, where fn:transform is refused.
+        [System.ThreadStatic]
+        private static bool? t_dynamicTransforms;
+
+        internal static bool? DynamicTransforms
+        {
+            get => t_dynamicTransforms;
+            set => t_dynamicTransforms = value;
+        }
+
         // Xsl3: XsltSettings.EnableExtensionFunctions for the running transformation; on outside one.
         [System.ThreadStatic]
         private static bool t_noExtensionFunctions;

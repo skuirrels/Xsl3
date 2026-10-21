@@ -46,6 +46,7 @@ namespace Xsl3.Xslt
         public XmlQualifiedName? InitialTemplate;
         public XmlQualifiedName? InitialFunction; // Xsl3: the initial function (XSLT 3.0 §2.3.4), with its arity
         public int InitialFunctionArity;
+        public bool InitialMatchSelection; // Xsl3: apply templates to the items of the parameter InitialFunctionArguments.Selection
         public bool RawResult; // Xsl3: deliver the principal result as the raw sequence (XSLT 3.0 §2.3.6), not a tree
         public XmlQualifiedName? InitialMode;
 

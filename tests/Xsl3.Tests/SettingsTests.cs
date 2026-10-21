@@ -334,4 +334,17 @@ public class SettingsTests
         Assert.Equal("<out>3</out>", Run(Load("""<xsl:template match="/"><out><xsl:value-of select="count(trace((1, 'a', doc), 'items'))"/></out></xsl:template>"""), arguments));
         Assert.Equal(new[] { "items=1, a, <doc />" }, traces);
     }
+
+    /// <summary>fn:transform (F&amp;O 3.1 §16.4.1) runs only with EnableEvaluate (FOXT0004 otherwise).</summary>
+    [Fact]
+    public void FnTransform()
+    {
+        const string body = """
+            <xsl:variable name="inner">&lt;xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'&gt;&lt;xsl:template match='.'&gt;&lt;xsl:sequence select='. * 2'/&gt;&lt;/xsl:template&gt;&lt;/xsl:stylesheet&gt;</xsl:variable>
+            <xsl:template match="/"><out><xsl:value-of select="transform(map { 'stylesheet-text': string($inner), 'initial-match-selection': 21, 'delivery-format': 'raw' })?output"/></out></xsl:template>
+            """;
+        Exception e = Assert.ThrowsAny<Exception>(() => Run(Load(body)));
+        Assert.Contains("FOXT0004", e.ToString());
+        Assert.Equal("<out>42</out>", Run(Load(body, new XsltSettings { EnableEvaluate = true })));
+    }
 }

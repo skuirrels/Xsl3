@@ -222,7 +222,7 @@ public sealed class Runner
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
-            XPathNavigator context = input ?? EmptyDocument();
+            XPathNavigator context = input ?? XslCompiledTransform.AbsentInput;
             if (transform.RawResult)
             {
                 IList<XPathItem> items = transform.TransformToItems(context, args, resolver);

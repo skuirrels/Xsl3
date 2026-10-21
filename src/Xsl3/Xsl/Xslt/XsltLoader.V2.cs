@@ -471,6 +471,11 @@ namespace Xsl3.Xslt
             {
                 ReportError(SR.Xml_UserException, "XTSE3089: xsl:context-item with use=\"absent\" can't have an as attribute");
             }
+            else if (use is "optional" or "absent" && _curTemplate is { Name: null })
+            {
+                // A template rule always has a context item (XSLT 3.0 §10.1.2).
+                ReportError(SR.Xml_UserException, $"XTSE0020: xsl:context-item on a template without a name can only have use=\"required\", not \"{use}\"");
+            }
             CheckNoContent();
             XslNode node = F.XslNode(XslNodeType.ContextItem, null, use, _input.XslVersion);
             node.V2 = new XslNodeV2 { As = asType };

@@ -20,6 +20,9 @@ namespace Xsl3.Runtime
 
         /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1).</summary>
         public static System.Xml.XmlQualifiedName Name(int position) => new("arg" + position, Namespace);
+
+        /// <summary>The parameter that supplies an initial match selection (XslCompiledTransform.InitialMatchSelection).</summary>
+        public static readonly System.Xml.XmlQualifiedName Selection = new("selection", Namespace);
     }
 
     /// <summary>Xsl3: names shared by the parts of xsl:evaluate (docs/plan/p5-evaluate.md).</summary>

@@ -150,7 +150,17 @@ namespace Xsl3
             _settings = settings.Clone();
             // Xsl3: the stylesheet's own constants, for every unit compiled for it (ConstantPool).
             using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
-            CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
+            // Xsl3: static expressions (use-when, static variables) may call fn:transform only with EnableEvaluate.
+            bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+            XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+            try
+            {
+                CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
+            }
+            finally
+            {
+                XmlQueryRuntime.DynamicTransforms = savedDynamic;
+            }
             CompilerError? error = GetFirstError();
             if (error != null)
             {
@@ -170,7 +180,7 @@ namespace Xsl3
             var compiler = new Compiler(settings, _enableDebug, null)
             {
                 InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
-                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult,
+                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
             };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             _qil.CompactTree = UseCompactTree;
@@ -231,6 +241,19 @@ namespace Xsl3
         internal static XmlQualifiedName InitialFunctionArgument(int position) => InitialFunctionArguments.Name(position);
 
         internal XmlQualifiedName? InitialMode { get; set; }
+
+        /// <summary>
+        /// Xsl3: the initial match selection (XSLT 3.0 §2.3.3) is any sequence, supplied as the parameter
+        /// <see cref="InitialFunctionArguments.Selection"/>, rather than the input document.
+        /// </summary>
+        internal bool InitialMatchSelection { get; set; }
+
+        /// <summary>
+        /// Xsl3: an input that stands for none: an initial named template then has no context item, and an initial mode
+        /// raises XTDE0044 (XSLT 3.0 §2.3.2–3).
+        /// </summary>
+        internal static readonly XPathNavigator AbsentInput = Xsl3.Tree.CompactDocument.Load(
+            XmlReader.Create(new StringReader(""), new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment })).CreateNavigator();
 
         /// <summary>Xsl3: values of the stylesheet's static parameters (xsl:param static="yes"), set before Load.</summary>
         internal System.Collections.Generic.Dictionary<XmlQualifiedName, System.Collections.Generic.IList<XPathItem>>? StaticParameters { get; set; }
@@ -608,6 +631,8 @@ namespace Xsl3
                 bool? savedDocuments = XmlQueryRuntime.DocumentFunctions;
                 int savedDepth = XmlQueryRuntime.Depth;
                 bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
+                bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+                var savedPackages = XmlQueryRuntime.Packages;
                 try
                 {
                     if (token.CanBeCanceled)
@@ -627,6 +652,8 @@ namespace Xsl3
                     XmlQueryRuntime.DocumentFunctions = settings.EnableDocumentFunction;
                     XmlQueryRuntime.Depth = 0;
                     XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
+                    XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+                    XmlQueryRuntime.Packages = Packages ?? savedPackages;
                     transform();
                 }
                 finally
@@ -638,6 +665,8 @@ namespace Xsl3
                     XmlQueryRuntime.DocumentFunctions = savedDocuments;
                     XmlQueryRuntime.Depth = savedDepth;
                     XmlQueryRuntime.ExtensionFunctions = savedExtensions;
+                    XmlQueryRuntime.DynamicTransforms = savedDynamic;
+                    XmlQueryRuntime.Packages = savedPackages;
                 }
             }
             if (!settings.UseDedicatedThread)

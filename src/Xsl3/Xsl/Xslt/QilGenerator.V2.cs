@@ -136,7 +136,17 @@ namespace Xsl3.Xslt
         // In a function body the focus is absent, except inside instructions that set one (xsl:for-each, …).
         private bool FocusAbsent => _noFocus && !_curLoop.IsFocusSet && _nodeContext31 == null;
 
-        QilNode? IXPath31Environment.ContextItem() => FocusAbsent ? null : GetCurrentNode();
+        QilNode? IXPath31Environment.ContextItem() =>
+            FocusAbsent ? null
+            // A named template's own focus may be absent (it was called with none): checked where it is used.
+            : _namedFocus31 && !_curLoop.IsFocusSet && _nodeContext31 == null ? X31(nameof(XsltLibrary.X31Focus), T.Item, GetCurrentNode())
+            : GetCurrentNode();
+
+        // Compiling a named template's body, whose focus may be absent at run time (XslFlags.Current from its caller).
+        private bool _namedFocus31;
+
+        // Compiling the initial call of a named template (its focus is absent without an input).
+        private bool _initialCall31;
 
         QilNode IXPath31Environment.ContextPosition() =>
             FocusAbsent ? X31(nameof(XsltLibrary.X31RaiseDouble), T.DoubleX, _f.String("XPDY0002"), _f.String("The focus is absent in a function body")) : GetCurrentPosition();
@@ -228,6 +238,11 @@ namespace Xsl3.Xslt
             if (name.NamespaceUri == DynamicEvaluation.Namespace)
             {
                 return CompileEvaluate31(name, args, compile);
+            }
+            if (name.NamespaceUri == InitialFunctionArguments.Namespace && name.LocalName == "selection" && args.Count == 0)
+            {
+                // The initial match selection, supplied as a parameter (XslCompiledTransform.InitialMatchSelection).
+                return X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(name.LocalName), _f.String(name.NamespaceUri));
             }
             if (name.NamespaceUri != FnNs)
             {
@@ -599,10 +614,26 @@ namespace Xsl3.Xslt
                 case XslNodeType.MapEntry:
                     return X31(nameof(XsltLibrary.X31MapSingleton), T.Item, Box(CompileXPath31(node.V2!.NameAvt!)), Box(SelectOrContent31(node, node.Select)));
                 case XslNodeType.ContextItem:
+                {
                     // The context item a template rule or named template requires (XSLT 3.0 §10.1.2).
-                    return node.V2?.As is string contextType && !FocusAbsent
+                    if (FocusAbsent)
+                    {
+                        return _f.Sequence();
+                    }
+                    QilNode check = node.V2?.As is string contextType
                         ? X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), contextType, "XTTE0590"))
                         : _f.Sequence();
+                    if (!_namedFocus31)
+                    {
+                        return check;
+                    }
+                    // A named template: use="required" (the default) is XTTE3090 without a context item; with
+                    // use="optional" there is nothing to check then.
+                    return (string?)node.Arg is null or "required"
+                        ? _f.Sequence(X31(nameof(XsltLibrary.X31RequireFocus), T.ItemS, GetCurrentNode()), check)
+                        : check.NodeType == QilNodeType.Sequence ? check
+                        : _f.Conditional(X31(nameof(XsltLibrary.X31IsAbsent), T.BooleanX, GetCurrentNode()), _f.Sequence(), check);
+                }
                 case XslNodeType.NextIteration:
                     return CompileNextIteration31(node);
                 case XslNodeType.Break:

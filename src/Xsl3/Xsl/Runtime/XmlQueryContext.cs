@@ -60,6 +60,19 @@ namespace Xsl3.Runtime
                 // Xsl3: reader settings supplied by the XPath 3.1 API.
                 _readerSettings = new QueryReaderSettings(readerSettings);
             }
+            else if (runtime.IsXslt2)
+            {
+                // Xsl3: documents a 2.0+ stylesheet loads have their DTDs read (ID attributes, entities, element
+                // content whitespace), the external subset through the transformation's resolver, with entity
+                // expansion capped. 1.0 keeps upstream's settings, which refuse DTDs.
+                _readerSettings = new QueryReaderSettings(new XmlReaderSettings
+                {
+                    NameTable = new NameTable(),
+                    DtdProcessing = DtdProcessing.Parse,
+                    XmlResolver = ReferenceEquals(dataSources, XmlResolver.ThrowingResolver) ? null : dataSources,
+                    MaxCharactersFromEntities = 10_000_000,
+                });
+            }
             else
             {
                 // Consider allowing users to set DefaultReaderSettings in XsltArgumentList

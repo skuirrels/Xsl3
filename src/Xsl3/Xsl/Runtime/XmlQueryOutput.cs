@@ -626,7 +626,14 @@ namespace Xsl3.Runtime
             }
 
             if (_nsmgr.LookupNamespace(prefix) != ns)
+            {
+                // Xsl3: in 2.0+, two namespace nodes of one element can't bind a prefix to different URIs (XTDE0430).
+                if (_runtime.IsXslt2 && _nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).TryGetValue(prefix, out string? declared) && declared != ns)
+                {
+                    throw new Xsl3.Xdm.XdmException("XTDE0430", $"The element has two namespace nodes for the prefix '{prefix}': {declared} and {ns}");
+                }
                 AddNamespace(prefix, ns);
+            }
 
             _usedPrefixes.Add(prefix);
         }

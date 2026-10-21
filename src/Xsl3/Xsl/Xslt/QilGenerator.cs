@@ -339,7 +339,10 @@ namespace Xsl3.Xslt
                 : IsV2 && UnknownInitialMode31(applyTmpls) is string unknown
                 ? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0045"), _f.String($"The initial mode {unknown} has no template rules and isn't declared"))
                 : applyTmpls.NodeType == XslNodeType.CallTemplate
-                ? CompileCallTemplate((XslNodeEx)applyTmpls)
+                ? CompileInitialCall31((XslNodeEx)applyTmpls)
+                : IsV2 && applyTmpls.Select != null
+                ? CompileApplyTemplates31((XslNodeEx)applyTmpls)
+                : IsV2 ? _f.Sequence(X31(nameof(XsltLibrary.X31RequireInput), T.ItemS, GetCurrentNode()), GenerateApply(_compiler.Root!, applyTmpls)) // Xsl3: XTDE0044 without an input
                 : GenerateApply(_compiler.Root!, applyTmpls);
             if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
             {
@@ -366,6 +369,21 @@ namespace Xsl3.Xslt
                 return Box(result);
             }
             return _f.DocumentCtor(IsV2 ? ContentNodes(result) : result);
+        }
+
+        // Xsl3: the initial call of a named template: without an input (XslCompiledTransform.AbsentInput) it has no
+        // context item.
+        private QilNode CompileInitialCall31(XslNodeEx call)
+        {
+            _initialCall31 = true;
+            try
+            {
+                return CompileCallTemplate(call);
+            }
+            finally
+            {
+                _initialCall31 = false;
+            }
         }
 
         private QilList? EnterScope(XslNode node)
@@ -790,7 +808,16 @@ namespace Xsl3.Xslt
                 !tmpl.Content.Any(n => n.NodeType == XslNodeType.ContextItem && (string?)n.Arg == "absent") || tmpl is AttributeSet;
             List<QilIterator>? prologue = IsV2 ? BindTemplateParams31(tmpl) : null;
             QilIterator? ruleFrame = IsV2 ? WithCurrentRule31(_currentTemplateRule) : null;
+            // Xsl3: <xsl:context-item use="absent"/>: the body has no focus, however the template is invoked (XPDY0002).
+            bool savedNoFocus = _noFocus;
+            if (IsV2 && tmpl.Content.Any(n => n.NodeType == XslNodeType.ContextItem && (string?)n.Arg == "absent"))
+            {
+                _noFocus = true;
+            }
+            _namedFocus31 = IsV2 && tmpl is Template { Match: null, IsFunction: false } && (XslFlags.Current & tmpl.Flags) != 0;
             QilNode body = CompileInstructions(tmpl.Content);
+            _namedFocus31 = false;
+            _noFocus = savedNoFocus;
             if (IsV2)
             {
                 body = FinishTemplate31(tmpl, body, prologue!);
@@ -2823,7 +2850,12 @@ namespace Xsl3.Xslt
                 int pos = 0;
                 // Xsl3: in a function body the focus is absent; a called template gets an absent focus too.
                 bool absent = IsV2 && FocusAbsent;
-                if ((flags & XslFlags.Current) != 0) { SetArg(args, pos++, _nameCurrent, absent ? X31(nameof(XsltLibrary.X31AbsentFocus), T.Item) : GetCurrentNode()); }
+                if ((flags & XslFlags.Current) != 0)
+                {
+                    SetArg(args, pos++, _nameCurrent, absent ? X31(nameof(XsltLibrary.X31AbsentFocus), T.Item)
+                        : IsV2 && _initialCall31 ? X31(nameof(XsltLibrary.X31InitialFocus), T.Item, GetCurrentNode()) // Xsl3: absent without an input
+                        : GetCurrentNode());
+                }
                 if ((flags & XslFlags.Position) != 0) { SetArg(args, pos++, _namePosition, absent ? _f.Double(0) : GetCurrentPosition()); }
                 if ((flags & XslFlags.Last) != 0) { SetArg(args, pos++, _nameLast, absent ? _f.Double(0) : GetLastPosition()); }
                 if (IsV2)

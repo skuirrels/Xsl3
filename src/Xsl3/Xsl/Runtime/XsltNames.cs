@@ -154,7 +154,44 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)Constant((int)id);
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
-        public XPathItem X31AbsentFocus() => AtomicValue.OfString("");
+        public XPathItem X31AbsentFocus() => AbsentItem.Instance;
+
+        /// <summary>
+        /// Xsl3: the focus of a named template called with no context item (XSLT 3.0 §10.1.2): its string value is ""
+        /// (as the empty string stood in before), and using it as the context item is XPDY0002.
+        /// </summary>
+        internal sealed class AbsentItem : AtomicValue
+        {
+            public static readonly AbsentItem Instance = new();
+
+            private AbsentItem() : base(AtomicTypes.String)
+            {
+            }
+
+            public override string Value => "";
+
+            public override object ClrValue => "";
+        }
+
+        /// <summary>The context item of a named template's body: XPDY0002 when it is absent.</summary>
+        public XPathItem X31Focus(XPathItem item) =>
+            item is AbsentItem ? throw new XdmException("XPDY0002", "The context item is absent") : item;
+
+        /// <summary>A named template's xsl:context-item use="required": XTTE3090 when it is absent.</summary>
+        public IList<XPathItem> X31RequireFocus(XPathItem item) =>
+            item is AbsentItem ? throw new XdmException("XTTE3090", "The template requires a context item, and there is none") : System.Array.Empty<XPathItem>();
+
+        public bool X31IsAbsent(XPathItem item) => item is AbsentItem;
+
+        /// <summary>The initial context item: absent when the transformation was given XslCompiledTransform.AbsentInput.</summary>
+        public XPathItem X31InitialFocus(XPathItem item) =>
+            item is XPathNavigator node && XslCompiledTransform.AbsentInput.IsSamePosition(node) ? AbsentItem.Instance : item;
+
+        /// <summary>An initial mode with no initial match selection: XTDE0044.</summary>
+        public IList<XPathItem> X31RequireInput(XPathItem item) =>
+            item is XPathNavigator node && XslCompiledTransform.AbsentInput.IsSamePosition(node)
+                ? throw new XdmException("XTDE0044", "The transformation applies templates, but there is no initial match selection")
+                : System.Array.Empty<XPathItem>();
 
         /// <summary>The value of a yes/no attribute value template (XTDE0030 for other values).</summary>
         public bool X31YesNo(string value, string attribute) => value.Trim() switch

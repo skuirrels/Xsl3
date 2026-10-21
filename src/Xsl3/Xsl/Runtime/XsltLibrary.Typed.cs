@@ -71,6 +71,11 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XTDE0930", "A namespace node can't have an empty value");
             }
+            if (value.IndexOf('#') != value.LastIndexOf('#'))
+            {
+                // Not in xs:anyURI's lexical space: a URI has at most one fragment.
+                throw new XdmException("XTDE0905", $"'{value}' isn't a valid URI for a namespace node");
+            }
             return name;
         }
 

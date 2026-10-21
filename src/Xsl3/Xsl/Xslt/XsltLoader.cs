@@ -107,6 +107,13 @@ namespace Xsl3.Xslt
             {
                 compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.CallTemplate, F.QName(initialTemplate.Name, initialTemplate.Namespace, ""), null, XslVersion.Current);
             }
+            else if (compiler.InitialMatchSelection)
+            {
+                // Xsl3: apply templates to the items supplied as a parameter (fn:transform's initial-match-selection).
+                compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.ApplyTemplates,
+                    compiler.InitialMode is XmlQualifiedName sm ? F.QName(sm.Name, sm.Namespace, "") : compiler.DefaultInitialMode ?? nullMode,
+                    $"Q{{{Runtime.InitialFunctionArguments.Namespace}}}selection()", XslVersion.Current);
+            }
             else
             {
                 compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : compiler.DefaultInitialMode ?? nullMode);
@@ -1875,6 +1882,8 @@ namespace Xsl3.Xslt
                                     {
                                         ReportError(SR.Xml_UserException, "XTSE0010: xsl:context-item must be the first child of xsl:template");
                                     }
+                                    // Whitespace before it is stripped, even under xml:space="preserve" (XSLT 3.0 §4.3).
+                                    content.RemoveAll(n => n is Text { Hints: SerializationHints.None } t && t.NodeType == XslNodeType.Text && XmlCharType.IsOnlyWhitespace(t.Select));
                                 }
                                 else
                                 {
