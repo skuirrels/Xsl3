@@ -543,7 +543,9 @@ only when the expression isn't cached; and the XTDE0430 check reads the pending 
 copying the scope into a dictionary. 301 KB book: 3,088 MB to 2,426 MB a run (−21%), 2.3 to 2.5 s (within this
 machine's noise). The micro benchmarks allocate up to 22% less (recursion 1 MB), with no time regression
 (`eng/perf-gate.sh`, geometric mean 0.96). What is left at the top is navigators, the node arrays of the temporary
-trees, and the trees themselves.
+trees, and the trees themselves. Compiling: the XPath compiler makes its namespace resolver and its static-context
+constant only when an expression needs them, and boxing a value shares one static context, so compiling `docbook.xsl`
+allocates 139 MB, not 179 MB, and the micro benchmarks' compiles up to 23% less (geometric mean of time 0.94).
 
 ## Where the rest of the time goes
 
