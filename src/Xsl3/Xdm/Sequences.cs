@@ -82,6 +82,11 @@ namespace Xsl3.Xdm
         /// <summary>Atomises a sequence that must hold at most one item; null if empty, XPTY0004 if longer.</summary>
         public static AtomicValue? AtomizeOptional(IList<XPathItem> seq, string what)
         {
+            if (seq.Count == 1 && seq[0] is ArrayItem)
+            {
+                // An array atomizes to its members' values, possibly none (QT3 value-comparison-7: [] eq 1 is empty).
+                seq = Atomize(seq);
+            }
             if (seq.Count == 0)
             {
                 return null;

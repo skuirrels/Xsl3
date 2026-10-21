@@ -41,9 +41,10 @@ raised a different code are counted separately.
 | 2026-10-21 | 21,810 | 74 | 99 | 99.7% | `fn:collection` and `fn:uri-collection` over a directory of documents, FODC0004 for invalid collection URIs, `xs:error`, `function-available` for list-type constructors |
 | 2026-10-21 | 21,824 | 60 | 99 | 99.7% | `fn:idref` over the DTD's IDREF and IDREFS attributes; the harness gives the XPath engine Xsl3's own tree for sources, as the 2.0+ processor builds |
 | 2026-10-21 | 21,843 | 41 | 99 | 99.8% | The `fallback` option of `fn:parse-json`, `fn:json-doc` and `fn:json-to-xml`; a leading byte order mark; `json-to-xml`'s result has the static base URI and keeps carriage returns; the harness compares XML results with carriage returns kept |
+| 2026-10-21 | 21,862 | 22 | 99 | 99.9% | Map keys by `op:same-key` (a double equals a decimal only when exactly equal, QNames by namespace and local name, `use-last` keeps the last key); an empty array atomizes to no value in a value comparison; the harness maps the suite's case-blind collation to UCA at secondary strength |
 
-The remaining failures are mostly `fn:serialize` details (html doctype, CDATA, character maps), `op-same-key`
-(keys of different types that compare equal) and `fn:function-lookup` corner cases.
+The remaining failures are mostly `fn:serialize` details (html doctype, CDATA, character maps), `fn:function-lookup`
+and named function reference corner cases.
 
 ## XSLT 2.0 / 3.0 (xslt30-test)
 

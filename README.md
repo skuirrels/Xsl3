@@ -24,7 +24,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,843 passed, 41 failed (99.8%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,862 passed, 22 failed (99.9%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,566 passed, 31 failed (99.3%) |
 | W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,970 passed, 66 failed, 49 not run (99.2%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |

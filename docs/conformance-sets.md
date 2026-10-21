@@ -280,11 +280,11 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XPath 3.1 evaluation (QT3)
 
-**QT3 (XPath 3.1): 21843 passed, 41 failed, 99 not run; 99.8% of those run (87 passes raised a different error code)**
+**QT3 (XPath 3.1): 21862 passed, 22 failed, 99 not run; 99.9% of those run (87 passes raised a different error code)**
 
 | Dependency | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
-| feature higherOrderFunctions | 1820 | 20 | 0 | 98.9% |
+| feature higherOrderFunctions | 1826 | 14 | 0 | 99.2% |
 | feature infoset-dtd | 27 | 0 | 0 | 100.0% |
 | feature namespace-axis | 36 | 0 | 0 | 100.0% |
 | spec XP20 | 7 | 0 | 0 | 100.0% |
@@ -292,7 +292,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | spec XP30 | 7 | 0 | 0 | 100.0% |
 | spec XP30+ | 4068 | 10 | 5 | 99.8% |
 | spec XP31 | 91 | 0 | 0 | 100.0% |
-| spec XP31+ | 2500 | 30 | 22 | 98.8% |
+| spec XP31+ | 2519 | 11 | 22 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -317,7 +317,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | array-remove | 15 | 0 | 0 | 100.0% |
 | array-reverse | 4 | 0 | 0 | 100.0% |
 | array-size | 7 | 0 | 0 | 100.0% |
-| array-sort | 27 | 2 | 0 | 93.1% |
+| array-sort | 29 | 0 | 0 | 100.0% |
 | array-subarray | 16 | 0 | 0 | 100.0% |
 | array-tail | 5 | 0 | 0 | 100.0% |
 | fn-QName | 25 | 0 | 0 | 100.0% |
@@ -378,7 +378,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-format-number | 248 | 0 | 0 | 100.0% |
 | fn-format-time | 88 | 0 | 0 | 100.0% |
 | fn-function-arity | 18 | 1 | 0 | 94.7% |
-| fn-function-lookup | 653 | 5 | 0 | 99.2% |
+| fn-function-lookup | 654 | 4 | 0 | 99.4% |
 | fn-function-name | 21 | 1 | 0 | 95.5% |
 | fn-generate-id | 18 | 0 | 0 | 100.0% |
 | fn-has-children | 35 | 0 | 0 | 100.0% |
@@ -444,7 +444,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-seconds-from-duration | 32 | 0 | 0 | 100.0% |
 | fn-seconds-from-time | 27 | 0 | 0 | 100.0% |
 | fn-serialize | 88 | 5 | 26 | 94.6% |
-| fn-sort | 35 | 2 | 0 | 94.6% |
+| fn-sort | 37 | 0 | 0 | 100.0% |
 | fn-starts-with | 60 | 0 | 0 | 100.0% |
 | fn-static-base-uri | 5 | 0 | 0 | 100.0% |
 | fn-string | 70 | 0 | 0 | 100.0% |
@@ -476,15 +476,15 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | fn-year-from-dateTime | 27 | 0 | 0 | 100.0% |
 | fn-years-from-duration | 31 | 0 | 0 | 100.0% |
 | fn-zero-or-one | 49 | 0 | 0 | 100.0% |
-| map-call | 25 | 1 | 0 | 96.2% |
-| map-contains | 25 | 1 | 0 | 96.2% |
+| map-call | 26 | 0 | 0 | 100.0% |
+| map-contains | 26 | 0 | 0 | 100.0% |
 | map-entry | 9 | 0 | 0 | 100.0% |
 | map-find | 12 | 0 | 0 | 100.0% |
 | map-for-each | 16 | 0 | 0 | 100.0% |
-| map-get | 31 | 1 | 0 | 96.9% |
+| map-get | 32 | 0 | 0 | 100.0% |
 | map-keys | 14 | 0 | 0 | 100.0% |
-| map-merge | 30 | 2 | 0 | 93.8% |
-| map-put | 18 | 1 | 0 | 94.7% |
+| map-merge | 32 | 0 | 0 | 100.0% |
+| map-put | 19 | 0 | 0 | 100.0% |
 | map-remove | 18 | 0 | 0 | 100.0% |
 | map-size | 15 | 0 | 0 | 100.0% |
 | math-acos | 9 | 0 | 0 | 100.0% |
@@ -567,7 +567,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | op-numeric-subtract | 106 | 0 | 0 | 100.0% |
 | op-numeric-unary-minus | 62 | 0 | 0 | 100.0% |
 | op-numeric-unary-plus | 52 | 0 | 0 | 100.0% |
-| op-same-key | 4 | 6 | 0 | 40.0% |
+| op-same-key | 10 | 0 | 0 | 100.0% |
 | op-string-equal | 9 | 0 | 0 | 100.0% |
 | op-string-greater-than | 9 | 0 | 0 | 100.0% |
 | op-string-less-than | 10 | 0 | 0 | 100.0% |
@@ -639,7 +639,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | prod-StepExpr | 3 | 0 | 0 | 100.0% |
 | prod-TreatExpr | 61 | 0 | 0 | 100.0% |
 | prod-UnaryLookup | 31 | 0 | 0 | 100.0% |
-| prod-ValueComp | 93 | 2 | 1 | 97.9% |
+| prod-ValueComp | 95 | 0 | 1 | 100.0% |
 | xs-anyURI | 13 | 0 | 0 | 100.0% |
 | xs-base64Binary | 39 | 0 | 0 | 100.0% |
 | xs-double | 2 | 0 | 0 | 100.0% |

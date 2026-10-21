@@ -32,6 +32,11 @@ public sealed record Outcome(OutcomeKind Kind, string Detail = "")
 /// </summary>
 public sealed class Runner
 {
+    // The suite's case-blind collation (environments declare it with <collation uri="…"/>): UCA at secondary strength,
+    // which ignores case.
+    static Runner() => Xsl3.XPath31.Functions.Collation.Aliases["http://www.w3.org/2010/09/qt-fots-catalog/collation/caseblind"] =
+        "http://www.w3.org/2013/collation/UCA?strength=secondary";
+
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(20);
     private readonly ConcurrentDictionary<string, XPathNavigator> _documents = new();
 
