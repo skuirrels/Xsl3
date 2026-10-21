@@ -287,6 +287,42 @@ public class Xslt30ApiTests
         Assert.Equal(Run(fromSource), Run(fromAssembly));
         context.Unload();
     }
+
+    /// <summary>Compiled with debug information, a saved assembly embeds a portable PDB mapping its IL to the stylesheet's lines.</summary>
+    [Fact]
+    public void SavedAssembliesWithDebugInformationMapToStylesheetLines()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "xsl3-pdb-" + Guid.NewGuid().ToString("N") + ".xsl");
+        File.WriteAllText(file, $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>\n<xsl:template match='/'>\n<out>\n<xsl:value-of select='count(//*)'/>\n</out>\n</xsl:template>\n</xsl:stylesheet>");
+        try
+        {
+            var saved = new MemoryStream();
+            using (XmlReader reader = XmlReader.Create(file))
+            {
+                new XslCompiledTransform(enableDebug: true).CompileToAssembly(reader, null, null, "Xsl3.Tests.Debug", "Debug.Stylesheet", saved);
+            }
+            using var pe = new System.Reflection.PortableExecutable.PEReader(new MemoryStream(saved.ToArray()));
+            var embedded = pe.ReadDebugDirectory().Single(d => d.Type == System.Reflection.PortableExecutable.DebugDirectoryEntryType.EmbeddedPortablePdb);
+            using System.Reflection.Metadata.MetadataReaderProvider provider = pe.ReadEmbeddedPortablePdbDebugDirectoryData(embedded);
+            System.Reflection.Metadata.MetadataReader pdb = provider.GetMetadataReader();
+            Assert.Contains(pdb.Documents, d => pdb.GetString(pdb.GetDocument(d).Name).EndsWith(Path.GetFileName(file), StringComparison.Ordinal));
+            var lines = pdb.MethodDebugInformation.SelectMany(m => pdb.GetMethodDebugInformation(m).GetSequencePoints()).Where(p => !p.IsHidden).Select(p => p.StartLine).ToHashSet();
+            Assert.Contains(2, lines); // the template
+            Assert.Contains(4, lines); // xsl:value-of
+            // And it runs.
+            var context = new System.Runtime.Loader.AssemblyLoadContext("debug", isCollectible: true);
+            var transform = new XslCompiledTransform();
+            transform.Load(context.LoadFromStream(new MemoryStream(saved.ToArray())).GetType("Debug.Stylesheet", throwOnError: true)!, null);
+            var text = new StringWriter();
+            transform.Transform(XmlReader.Create(new StringReader("<a><b/></a>")), null, text);
+            Assert.Contains("<out>2</out>", text.ToString());
+            context.Unload();
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
 #endif
 
     [Fact]

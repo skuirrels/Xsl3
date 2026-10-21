@@ -12,14 +12,15 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
     Console.WriteLine("""
         xsl3 transform -xsl:style.xsl -s:input.xml [-o:output] [-it[:name]] [-im:mode] [--trusted] [--trace] [name=value ...]
         xsl3 explain -xsl:style.xsl [--unoptimized]
+        xsl3 compile -xsl:style.xsl -o:Style.dll [-type:Namespace.Type] [--trusted] [--version1] [--debug]
         """);
     return 0;
 }
 
 string command = args[0];
 string? stylesheet = null, source = null, output = null, mode = null;
-string? initialTemplate = null;
-bool trusted = false, trace = false, unoptimized = false;
+string? initialTemplate = null, typeName = null;
+bool trusted = false, trace = false, unoptimized = false, version1 = false, debug = false;
 var parameters = new Dictionary<QName, XdmValue>();
 for (int i = 1; i < args.Length; i++)
 {
@@ -35,6 +36,9 @@ for (int i = 1; i < args.Length; i++)
         case "--trusted": trusted = true; break;
         case "--trace": trace = true; break;
         case "--unoptimized": unoptimized = true; break;
+        case "--version1": version1 = true; break;
+        case "--debug": debug = true; break;
+        case var a when a.StartsWith("-type:", StringComparison.Ordinal): typeName = a[6..]; break;
         case var a when a.Contains('=') && !a.StartsWith('-'):
             parameters[Name(a[..a.IndexOf('=')])] = new XdmAtomicValue(a[(a.IndexOf('=') + 1)..]);
             break;
@@ -55,6 +59,14 @@ try
         ? new XsltSettings(enableDocumentFunction: true, enableScript: false) { EnableEvaluate = true, EnableResultDocument = true, EnableEnvironmentVariables = true }
         : new XsltSettings();
     settings.EnableTracing = trace;
+    if (version1)
+    {
+        settings.VersionMode = XsltVersionMode.BackwardsCompatible;
+    }
+    if (command == "compile")
+    {
+        return Compile(stylesheet, output, typeName, settings, debug);
+    }
     XsltExecutable executable = new XsltCompiler { Settings = settings }.Compile(new Uri(Path.GetFullPath(stylesheet)));
     switch (command)
     {
@@ -115,6 +127,36 @@ catch (XsltDynamicException e)
         Console.Error.WriteLine("  at " + frame);
     }
     return 1;
+}
+
+// compile: the stylesheet as a saved assembly holding one type, for XslCompiledTransform.Load(Type) (Sink B).
+static int Compile(string stylesheet, string? output, string? typeName, XsltSettings settings, bool debug)
+{
+#if NET9_0_OR_GREATER
+    if (output == null)
+    {
+        Console.Error.WriteLine("xsl3: compile needs -o:file.dll");
+        return 2;
+    }
+    string assemblyName = Path.GetFileNameWithoutExtension(output);
+    typeName ??= assemblyName;
+    using var reader = System.Xml.XmlReader.Create(new Uri(Path.GetFullPath(stylesheet)).AbsoluteUri,
+        new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Parse });
+    using FileStream file = File.Create(output);
+    try
+    {
+        new XslCompiledTransform(enableDebug: debug).CompileToAssembly(reader, settings, new System.Xml.XmlUrlResolver(), assemblyName, typeName, file);
+    }
+    catch (XsltException e)
+    {
+        Console.Error.WriteLine(e.Message);
+        return 1;
+    }
+    return 0;
+#else
+    Console.Error.WriteLine("xsl3: compile needs .NET 9 or later");
+    return 2;
+#endif
 }
 
 // A name given as Q{uri}local or local.

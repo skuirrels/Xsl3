@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Xsl3.Build: MSBuild targets that compile <XsltStylesheet> items ahead of time with Xsl3.Cli, for
+       XslCompiledTransform.Load(Type) and NativeAOT (docs/plan/p4-sink-b.md). The package carries the targets and
+       the compiler; it adds no assembly to the project but the compiled stylesheets. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>Xsl3.Build</PackageId>
+    <Version>0.0.1-alpha</Version>
+    <Description>Compiles XSLT stylesheets ahead of time for Xsl3 (XslCompiledTransform.Load(Type)), so they load without compiling and run under NativeAOT.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" />
+    <None Include="build\**" Pack="true" PackagePath="build\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE.TXT" Pack="true" PackagePath="\" />
+    <None Include="..\Xsl3.Cli\bin\$(Configuration)\net10.0\*" Pack="true" PackagePath="tools\net10.0\" />
+  </ItemGroup>
+
+</Project>

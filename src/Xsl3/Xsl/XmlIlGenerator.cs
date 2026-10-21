@@ -114,7 +114,7 @@ namespace Xsl3
             // Create module in which methods will be generated
             if (typeBldr != null)
             {
-                _module = new XmlILModule(typeBldr);
+                _module = new XmlILModule(typeBldr, emitSymbols);
             }
             else
             {

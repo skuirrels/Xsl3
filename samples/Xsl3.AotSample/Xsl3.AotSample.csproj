@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Sink B (docs/plan/p4-sink-b.md, B4): a stylesheet compiled ahead of time by Xsl3.Build's targets, loaded with
+       XslCompiledTransform.Load(Type), published with NativeAOT. CI publishes and runs it. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+    <!-- From source: the compiler is this repository's Xsl3.Cli build. -->
+    <Xsl3CompilerCommand>dotnet "$(MSBuildThisFileDirectory)../../src/Xsl3.Cli/bin/$(Configuration)/net10.0/Xsl3.Cli.dll"</Xsl3CompilerCommand>
+  </PropertyGroup>
+
+  <Import Project="..\..\src\Xsl3.Build\build\Xsl3.Build.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
+    <ProjectReference Include="..\..\src\Xsl3.Cli\Xsl3.Cli.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" />
+    <XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />
+  </ItemGroup>
+
+  <Import Project="..\..\src\Xsl3.Build\build\Xsl3.Build.targets" />
+
+</Project>

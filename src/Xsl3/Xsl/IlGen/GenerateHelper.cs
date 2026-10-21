@@ -1518,6 +1518,10 @@ namespace Xsl3.IlGen
             return _lastFileName;
         }
 
+#if NET9_0_OR_GREATER
+        private System.Diagnostics.SymbolStore.ISymbolDocumentWriter? _lastDocument;
+#endif
+
         private void MarkSequencePoint(ISourceLineInfo sourceInfo)
         {
             Debug.Assert(_module.EmitSymbols);
@@ -1546,8 +1550,21 @@ namespace Xsl3.IlGen
                 }
             }
 #endif
-            //ISymbolDocumentWriter symDoc = this.module.AddSourceDocument(sourceFile);
-            //this.ilgen.MarkSequencePoint(symDoc, sourceInfo.Start.Line, sourceInfo.Start.Pos, sourceInfo.End.Line, sourceInfo.End.Pos);
+#if NET9_0_OR_GREATER
+            // Xsl3 (Sink B): saved assemblies carry the sequence points (0xfeefee, hidden, for code without a source,
+            // in the document of the code before it).
+            if ((sourceInfo.IsNoSource || sourceFile.Length == 0 ? _lastDocument : _lastDocument = _module.SourceDocument(sourceFile)) is { } document)
+            {
+                if (sourceInfo.IsNoSource)
+                {
+                    _ilgen!.MarkSequencePoint(document, 0xfeefee, 0, 0xfeefee, 0);
+                }
+                else
+                {
+                    _ilgen!.MarkSequencePoint(document, sourceInfo.Start.Line, sourceInfo.Start.Pos, sourceInfo.End.Line, sourceInfo.End.Pos);
+                }
+            }
+#endif
             _lastSourceInfo = sourceInfo;
         }
 

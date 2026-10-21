@@ -40,8 +40,11 @@ jobs:
         run: dotnet test tests/Xsl3.Differential -c Release --no-build --logger trx --results-directory artifacts/test-results
 
       # W3C QT3 (XPath 3.1 / F&O 3.1), tracked against tests/Xsl3.W3C/baselines.
+      # About one xslt30-test case in ten compiles into a saved assembly and runs from it (Sink B round trip).
       - name: W3C tests
         if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_W3C_SAVED: "10"
         run: |
           eng/fetch-w3c.sh
           dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
@@ -51,3 +54,20 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           path: artifacts/test-results
+
+  # Sink B (docs/plan/p4-sink-b.md, B4): a stylesheet compiled ahead of time by Xsl3.Build's targets, published with
+  # NativeAOT (no warnings allowed) and run; the sample checks its own output.
+  native-aot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish the NativeAOT sample
+        run: dotnet publish samples/Xsl3.AotSample -c Release -r linux-x64 -o artifacts/aot -p:TreatWarningsAsErrors=true
+
+      - name: Run it
+        run: artifacts/aot/Xsl3.AotSample

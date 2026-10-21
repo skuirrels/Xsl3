@@ -117,14 +117,25 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
   and the dispatcher's method name, which `Load(MethodInfo, …)` binds. `Load(Type, XsltSettings)` supplies the run-time
   settings. With `XSL3_W3C_SAVED=1` every xslt30-test case compiles into a saved assembly, loads from it in its own
   load context, and runs: the results equal the from-source run (7,959 passed, 77 failed, 2026-10-21).
-- [ ] `Xsl3.Build` MSBuild task (`<XsltStylesheet Include="…"/>`) and a sample.
-- [ ] `XslCompiledTransform.Load(Type)` loads it with no compilation.
-- [ ] Portable PDBs mapping IL to stylesheet lines (SPEC §21.3), so `GenerateHelper.MarkSequencePoint` comes back.
+- [x] `Xsl3.Build` (`src/Xsl3.Build`): MSBuild props and targets that compile each `<XsltStylesheet Include="…"
+  TypeName="…"/>` with `xsl3 compile` (`src/Xsl3.Cli`, which the package carries) into an assembly the project
+  references; `samples/Xsl3.AotSample` uses them from source. An MSBuild task in-process was not needed: the compiler
+  runs as a .NET 10 tool, so projects for .NET 8 build with it too.
+- [x] `XslCompiledTransform.Load(Type)` loads it with no compilation; `Load(Type, XsltSettings)` is annotated for
+  trimming and adds the run-time settings.
+- [x] Portable PDBs: compiled with `XslCompiledTransform(enableDebug: true)` (`xsl3 compile --debug`,
+  `DebugInformation="true"`), the assembly embeds a portable PDB whose sequence points are the stylesheet's lines.
 
 ### B4: NativeAOT in CI
 
-- [ ] A sample using `Xsl3.Build` is published with `PublishAot=true` and run in CI.
-- [ ] A sampled W3C subset (about 10%) runs through the saved-assembly round trip.
+- [x] `samples/Xsl3.AotSample` (a 3.0 stylesheet with grouping, a typed function and maps, compiled by the targets) is
+  published with `PublishAot=true`, warnings as errors, and run in CI (`native-aot` job). On osx-arm64 the binary is
+  11 MB and prints the expected report.
+- [x] A sampled W3C subset runs through the saved-assembly round trip: CI sets `XSL3_W3C_SAVED=10` (about one test in
+  ten); locally, `XSL3_W3C_SAVED=1` sends the whole xslt30-test suite through it with unchanged results.
+
+Exit status (2026-10-21): the sample runs under NativeAOT with no warnings and the round trip passes. Publishing
+`Xsl3.Build` and `Xsl3.Cli` to nuget.org needs the owner's go-ahead: the release workflow packs only `Xsl3`.
 
 Exit (remaining-scope 2): the sample runs under NativeAOT with no warnings; the round trip passes; `Xsl3.Build` is
 ready to publish, with the owner's go-ahead.

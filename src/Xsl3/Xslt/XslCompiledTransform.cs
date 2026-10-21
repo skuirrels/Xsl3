@@ -346,10 +346,13 @@ namespace Xsl3
 #if NET9_0_OR_GREATER
         /// <summary>
         /// Xsl3 (Sink B): compiles a stylesheet into an assembly saved to <paramref name="output"/>, holding the public type
-        /// <paramref name="typeName"/> that <see cref="Load(Type)"/> loads without compiling (docs/plan/p4-sink-b.md).
+        /// <paramref name="typeName"/> that <see cref="Load(Type, XsltSettings)"/> loads without compiling, also under
+        /// NativeAOT (docs/plan/p4-sink-b.md). The assembly references Xsl3 and must be run with the same version of it.
+        /// Use-when expressions and static parameters are evaluated now. Needs .NET 9 or later to compile; the saved
+        /// assembly runs on .NET 8 too.
         /// </summary>
         [RequiresDynamicCode(CompilesIL)]
-        internal void CompileToAssembly(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, string assemblyName, string typeName, Stream output)
+        public void CompileToAssembly(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, string assemblyName, string typeName, Stream output)
         {
             Reset();
             settings ??= XsltSettings.Default;
@@ -365,9 +368,35 @@ namespace Xsl3
             type.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
                 new object[] { typeof(XslCompiledTransform).FullName!, s_version?.ToString() ?? "0.0.0.0" }));
+            bool symbols = _qil!.IsDebug;
+            if (symbols)
+            {
+                assembly.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(System.Diagnostics.DebuggableAttribute).GetConstructor(new[] { typeof(System.Diagnostics.DebuggableAttribute.DebuggingModes) })!,
+                    new object[] { System.Diagnostics.DebuggableAttribute.DebuggingModes.Default | System.Diagnostics.DebuggableAttribute.DebuggingModes.DisableOptimizations }));
+            }
             new XmlILGenerator().Generate(_qil!, type);
             _qil = null;
-            assembly.Save(output);
+            if (!symbols)
+            {
+                assembly.Save(output);
+                return;
+            }
+            // With debug information (XslCompiledTransform(enableDebug: true)): an embedded portable PDB maps the IL to
+            // the stylesheet's lines.
+            var metadata = assembly.GenerateMetadata(out var il, out var fieldData, out var pdb);
+            var pdbBuilder = new System.Reflection.Metadata.Ecma335.PortablePdbBuilder(pdb, metadata.GetRowCounts(), default);
+            var pdbBlob = new System.Reflection.Metadata.BlobBuilder();
+            System.Reflection.Metadata.BlobContentId pdbId = pdbBuilder.Serialize(pdbBlob);
+            var debugDirectory = new System.Reflection.PortableExecutable.DebugDirectoryBuilder();
+            debugDirectory.AddCodeViewEntry(assemblyName + ".pdb", pdbId, pdbBuilder.FormatVersion);
+            debugDirectory.AddEmbeddedPortablePdbEntry(pdbBlob, pdbBuilder.FormatVersion);
+            var pe = new System.Reflection.PortableExecutable.ManagedPEBuilder(
+                System.Reflection.PortableExecutable.PEHeaderBuilder.CreateLibraryHeader(),
+                new System.Reflection.Metadata.Ecma335.MetadataRootBuilder(metadata), il, fieldData, debugDirectoryBuilder: debugDirectory);
+            var peBlob = new System.Reflection.Metadata.BlobBuilder();
+            pe.Serialize(peBlob);
+            peBlob.WriteContentTo(output);
         }
 #endif
 
@@ -379,15 +408,23 @@ namespace Xsl3
         /// result documents, environment variables, evaluation) and its limits. Settings that act at compile time were
         /// fixed when it was compiled.
         /// </summary>
-        [RequiresUnreferencedCode("This method will get fields and types from the assembly of the passed in compiledStylesheet and call their constructors which cannot be statically analyzed")]
-        public void Load(Type compiledStylesheet, XsltSettings? settings)
+        /// <remarks>
+        /// Unlike <see cref="Load(Type)"/>, this overload is safe to trim and to use under NativeAOT: the type's static data
+        /// fields and methods are kept through its annotation, and stylesheets compiled by Xsl3 have no early-bound
+        /// extension types (they come from <c>msxsl:script</c>, which .NET doesn't support).
+        /// </remarks>
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The members Load(Type) reads are kept by the parameter's annotation; Xsl3 compiles no early-bound types (msxsl:script isn't supported).")]
+        public void Load([DynamicallyAccessedMembers(CompiledMembers)] Type compiledStylesheet, XsltSettings? settings)
         {
             Load(compiledStylesheet);
             _settings = (settings ?? XsltSettings.Default).Clone();
         }
 
+        // Xsl3: what Load(Type) reads from a compiled stylesheet's type (its static data fields, Execute and the dispatcher).
+        private const DynamicallyAccessedMemberTypes CompiledMembers = DynamicallyAccessedMemberTypes.NonPublicFields | DynamicallyAccessedMemberTypes.NonPublicMethods;
+
         [RequiresUnreferencedCode("This method will get fields and types from the assembly of the passed in compiledStylesheet and call their constructors which cannot be statically analyzed")]
-        public void Load(Type compiledStylesheet)
+        public void Load([DynamicallyAccessedMembers(CompiledMembers)] Type compiledStylesheet)
         {
             Reset();
             ArgumentNullException.ThrowIfNull(compiledStylesheet);
