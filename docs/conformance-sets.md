@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 7981 passed, 55 failed, 49 not run; 99.3% of those run (1638 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 7982 passed, 54 failed, 49 not run; 99.3% of those run (1638 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -22,7 +22,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature serialization | 364 | 6 | 0 | 98.4% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2682 | 19 | 11 | 99.3% |
+| spec XSLT20+ | 2683 | 18 | 11 | 99.3% |
 | spec XSLT30+ | 3408 | 30 | 38 | 99.1% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
@@ -42,7 +42,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | avt | 35 | 0 | 0 | 100.0% |
 | axes | 202 | 0 | 0 | 100.0% |
 | backwards | 45 | 2 | 0 | 95.7% |
-| base-uri | 50 | 5 | 0 | 90.9% |
+| base-uri | 51 | 4 | 0 | 92.7% |
 | boolean | 112 | 0 | 0 | 100.0% |
 | bug | 81 | 1 | 1 | 98.8% |
 | built-in-templates | 5 | 0 | 0 | 100.0% |
@@ -167,7 +167,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4572 passed, 25 failed, 11 not run; 99.5% of those run (634 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4573 passed, 24 failed, 11 not run; 99.5% of those run (634 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 
@@ -180,7 +180,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature serialization | 231 | 6 | 0 | 97.5% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1886 | 6 | 0 | 99.7% |
-| spec XSLT20+ | 2681 | 19 | 11 | 99.3% |
+| spec XSLT20+ | 2682 | 18 | 11 | 99.3% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -193,7 +193,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | avt | 32 | 0 | 0 | 100.0% |
 | axes | 202 | 0 | 0 | 100.0% |
 | backwards | 44 | 2 | 0 | 95.7% |
-| base-uri | 46 | 2 | 0 | 95.8% |
+| base-uri | 47 | 1 | 0 | 97.9% |
 | boolean | 112 | 0 | 0 | 100.0% |
 | bug | 81 | 1 | 1 | 98.8% |
 | built-in-templates | 4 | 0 | 0 | 100.0% |

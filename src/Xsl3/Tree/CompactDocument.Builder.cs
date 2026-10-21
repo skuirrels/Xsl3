@@ -373,6 +373,22 @@ namespace Xsl3.Tree
                 _idrefs = _idrefAttributes != null && _idrefAttributes.TryGetValue((local, prefix), out var idrefs) ? idrefs : null;
             }
 
+            /// <summary>Xsl3: gives the innermost open element a base URI of its own (a copy keeps its original's).</summary>
+            internal void SetElementBaseUri(string baseUri)
+            {
+                if (_depth == 0 || !InElement || baseUri.Length == 0)
+                {
+                    return;
+                }
+                int element = _open[_depth - 1];
+                string parentBase = _depth > 1 ? _openBase[_depth - 2] : _doc._baseUri;
+                if (baseUri != parentBase)
+                {
+                    (_doc._baseUris ??= new Dictionary<int, string>())[element] = baseUri;
+                }
+                _openBase[_depth - 1] = baseUri;
+            }
+
             internal void EndElement(bool emptyTag)
             {
                 FlushText();

@@ -188,6 +188,8 @@ namespace Xsl3.Tree
                     switch (Kind(n))
                     {
                         case (int)XPathNodeType.Element:
+                            // Xsl3: unless it is xsl:copy's copy, which keeps its original's (XmlQueryOutput, 2.0+).
+                            return _baseUris != null && _baseUris.TryGetValue(n, out string? copied) ? copied : string.Empty;
                         case (int)XPathNodeType.ProcessingInstruction:
                             return string.Empty;
                         case (int)XPathNodeType.Root:

@@ -22,8 +22,8 @@ several sessions can work in parallel without editing the same files. Measured n
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
 | W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,866 passed, 18 failed (99.9%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 3.0 profile | 7,981 passed, 55 failed, 49 not run (99.3%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 2.0 profile | 4,572 passed, 25 failed (99.5%) | ≥ 99% (met) |
+| W3C xslt30-test, 3.0 profile | 7,982 passed, 54 failed, 49 not run (99.3%) | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 2.0 profile | 4,573 passed, 24 failed (99.5%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
 | 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.86, sort 0.71, muenchian 0.97, string-recursion 0.77, key-join 0.95 (medians of three runs, 2026-10-21) | ≤ 1.0 on every pair (§19.6, met) |

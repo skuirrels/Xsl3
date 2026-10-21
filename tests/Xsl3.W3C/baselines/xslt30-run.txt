@@ -2,7 +2,6 @@
 attribute/attribute-1101
 backwards/backwards-019
 backwards/backwards-043
-base-uri/base-uri-024
 base-uri/base-uri-046
 base-uri/base-uri-050
 base-uri/base-uri-052

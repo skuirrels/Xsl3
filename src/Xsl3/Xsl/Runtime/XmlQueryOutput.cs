@@ -1153,6 +1153,12 @@ namespace Xsl3.Runtime
             {
                 Debug.Assert(navigator.NodeType == XPathNodeType.Element, "StartCopy should return true only for Element nodes.");
 
+                // Xsl3: xsl:copy's element has its original's base URI (XSLT 3.0 §11.9.1).
+                if (_runtime.IsXslt2 && (Writer is XmlAttributeCache cache ? cache.Wrapped : Writer) is Xsl3.Tree.CompactDocument.Writer tree)
+                {
+                    tree.SetElementBaseUri(Xsl3.XPath31.Functions.FunctionLibrary.BaseUri(navigator));
+                }
+
                 // Copy namespaces to output
                 CopyNamespaces(navigator, XPathNamespaceScope.ExcludeXml);
 

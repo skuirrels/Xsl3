@@ -130,7 +130,7 @@ namespace Xsl3.XPath31.Functions
 
         // The base URI with XML Base applied: xml:base on an element (or an ancestor) is resolved against the
         // base URI of its parent, and in the end against the document's.
-        private static string BaseUri(XPathNavigator n)
+        internal static string BaseUri(XPathNavigator n)
         {
             XPathNavigator nav = n.Clone();
             if (nav.NodeType is not (XPathNodeType.Element or XPathNodeType.Root))
