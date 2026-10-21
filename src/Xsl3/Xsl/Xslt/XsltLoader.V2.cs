@@ -966,7 +966,10 @@ namespace Xsl3.Xslt
                 Composite = ParseYesNoAttribute(6, "composite") == TriState.True,
             };
             int kinds = (v2.GroupBy != null ? 1 : 0) + (v2.GroupAdjacent != null ? 1 : 0) + (v2.GroupStartingWith != null ? 1 : 0) + (v2.GroupEndingWith != null ? 1 : 0);
-            CheckError(kinds != 1, /*[XTSE1080]*/SR.Xslt_InvalidAttrValue, "group-by", "(exactly one grouping attribute is required)");
+            if (kinds != 1)
+            {
+                ReportError(SR.Xml_UserException, "XTSE1080: xsl:for-each-group needs exactly one of group-by, group-adjacent, group-starting-with and group-ending-with");
+            }
             if (v2.Collation != null && v2.GroupBy == null && v2.GroupAdjacent == null)
             {
                 ReportError(SR.Xml_UserException, "XTSE1090: xsl:for-each-group has a collation only with group-by or group-adjacent");
@@ -1227,7 +1230,10 @@ namespace Xsl3.Xslt
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "new-each-time", _input.Value);
                 }
             }
-            CheckError(name != null && name.NamespaceUri.Length == 0, /*[XTSE0740]*/SR.Xslt_InvalidAttrValue, "name", name?.QualifiedName);
+            if (name != null && name.NamespaceUri.Length == 0)
+            {
+                ReportError(SR.Xml_UserException, $"XTSE0740: the stylesheet function {name.QualifiedName} has no namespace prefix");
+            }
 
             // A function is a template without match, name or mode for the loader's purposes: parameters, then the body.
             _input.CanHaveApplyImports = false;
@@ -1270,7 +1276,7 @@ namespace Xsl3.Xslt
                 }
                 if (!_compiler.AddFunction(name, arity, function, _curStylesheet!.ImportPrecedence))
                 {
-                    ReportError(/*[XTSE0770]*/SR.Xslt_DupTemplateName, name.QualifiedName);
+                    ReportError(SR.Xml_UserException, $"XTSE0770: two functions are named {name.QualifiedName} with arity {arity} and the same import precedence");
                 }
             }
         }

@@ -280,7 +280,11 @@ namespace Xsl3.Xslt
             }
             catch (XmlException e)
             {
-                errorHelper.ReportError(/*[XT_042]*/e.Message, null);
+                // Xsl3: in 2.0+ an attribute value that isn't a QName is XTSE0020.
+                if (Version == 2)
+                    errorHelper.ReportError(SR.Xml_UserException, "XTSE0020: " + e.Message);
+                else
+                    errorHelper.ReportError(/*[XT_042]*/e.Message, null);
                 prefix = PhantomNCName;
                 localName = PhantomNCName;
                 return false;

@@ -545,6 +545,9 @@ namespace Xsl3.Xslt
 
         /// <summary>Xsl3: the static base URI at the current element (xml:base applied).</summary>
         // The element's own base URI: the reader may have read past the end of an external entity by now.
+        // Xsl3: the error code for an undeclared prefix while a prefix list attribute is read (2.0+).
+        private string? _prefixListCode;
+
         public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _records[0].baseUri ?? _reader.BaseURI;
 
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
@@ -1146,6 +1149,7 @@ namespace Xsl3.Xslt
                     {
                         _compiler.EnterForwardsCompatible();
                         string[] list = XmlConvert.SplitString(value);
+                        _prefixListCode = _compiler.Version == 2 ? (extensions ? "XTSE1430" : "XTSE0808") : null;
                         for (int idx = 0; idx < list.Length; idx++)
                         {
                             if (list[idx] == "#default")
@@ -1161,6 +1165,7 @@ namespace Xsl3.Xslt
                                 list[idx] = this.LookupXmlNamespace(list[idx])!;
                             }
                         }
+                        _prefixListCode = null;
                         if (!_compiler.ExitForwardsCompatible(this.ForwardCompatibility))
                         {
                             // There were errors in the list, ignore the whole list
@@ -1350,7 +1355,15 @@ namespace Xsl3.Xslt
             {
                 return string.Empty;
             }
-            ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+            if (_prefixListCode != null)
+            {
+                // Xsl3: a prefix of [xsl:]exclude-result-prefixes (XTSE0808) or extension-element-prefixes (XTSE1430).
+                ReportError(SR.Xml_UserException, $"{_prefixListCode}: the prefix '{prefix}' is not declared");
+            }
+            else
+            {
+                ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+            }
             return null;
         }
 

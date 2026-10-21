@@ -247,7 +247,7 @@ namespace Xsl3.Xslt
                     p.Visible[(o.Kind, o.Ns, o.Local, o.Arity)] = new PackageComponent(o.Actual, o.Decl.Visibility ?? "private", o.Decl, p.Id);
                     fromUsed[(o.Kind, o.Ns, o.Local, o.Arity)] = use.Id;
                 }
-                // Template rules in xsl:override go in a mode of the used package, which must be public (XTSE3060).
+                // Template rules in xsl:override go in a mode of the used package, which must be public (XTSE3440).
                 foreach (Template rule in compiler.AllTemplates.OfType<Template>().Where(t => t.Match != null && t.PackageId == p.Id && t.OverrideOf == use.Id))
                 {
                     foreach (QilName mode in rule.V2?.Modes ?? (IEnumerable<QilName>)new[] { rule.Mode })
@@ -256,7 +256,7 @@ namespace Xsl3.Xslt
                         if (mode.LocalName.Length == 0 || ReferenceEquals(mode, XsltLoader.CurrentMode) ||
                             !q.Visible.TryGetValue(('M', modeNs, mode.LocalName, -1), out PackageComponent? modeComponent) || modeComponent.Visibility != "public")
                         {
-                            Error(rule.SourceLine, $"XTSE3060: the mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.LocalName)} isn't public in the used package, so xsl:override can't add template rules to it");
+                            Error(rule.SourceLine, $"XTSE3440: the mode {(mode.LocalName.Length == 0 ? "#unnamed" : mode.LocalName)} isn't public in the used package, so xsl:override can't add template rules to it");
                         }
                     }
                 }

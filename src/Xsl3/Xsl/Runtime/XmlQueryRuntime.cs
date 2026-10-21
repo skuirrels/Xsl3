@@ -1190,10 +1190,27 @@ namespace Xsl3.Runtime
                 }
             }
 
+            if (IsXslt2)
+            {
+                // Xsl3: an index asked for while it is being built means the key's definition uses itself (XTDE0640).
+                _indexesInProgress ??= new List<(int, XPathNavigator)>();
+                foreach (var (id, root) in _indexesInProgress)
+                {
+                    if (id == indexId && root.IsSamePosition(navRoot))
+                    {
+                        throw new Xsl3.Xdm.XdmException("XTDE0640", "The definition of a key depends on itself");
+                    }
+                }
+                _indexesInProgress.Add((indexId, navRoot.Clone()));
+            }
+
             // Return a new, empty index
             index = new XmlILIndex();
             return false;
         }
+
+        // Xsl3: the indexes being built (2.0+), by key and document.
+        private List<(int Id, XPathNavigator Root)>? _indexesInProgress;
 
         /// <summary>
         /// Add a newly built index over the specified "context" document to the existing collection of indexes.
@@ -1207,6 +1224,7 @@ namespace Xsl3.Runtime
             // Get root of document
             navRoot = context.Clone();
             navRoot.MoveToRoot();
+            _indexesInProgress?.RemoveAll(e => e.Id == indexId && e.Root.IsSamePosition(navRoot));
 
             // Ensure that a slot exists for the new index
             if (_indexes == null)
