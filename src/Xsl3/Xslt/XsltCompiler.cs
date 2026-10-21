@@ -34,6 +34,29 @@ namespace Xsl3
         /// <summary>The packages <c>xsl:use-package</c> can name.</summary>
         public XsltPackageLibrary Packages { get; } = new();
 
+        private readonly Dictionary<(string, string, int), RegisteredFunction> _extensionFunctions = new();
+
+        /// <summary>
+        /// Registers an extension function that XSLT 2.0+ stylesheets compiled from now on can call as
+        /// <paramref name="name"/> with <paramref name="arity"/> arguments (and that <c>function-available</c> reports).
+        /// The implementation receives the argument values and returns the result; a .NET exception it throws is the
+        /// dynamic error <c>Q{http://xsl3/err}extension-error</c>, and an <see cref="XsltDynamicException"/> keeps its code.
+        /// <see cref="XsltSettings.EnableExtensionFunctions"/> set to false turns registered functions off too.
+        /// </summary>
+        public void RegisterExtensionFunction(QName name, int arity, Func<XdmValue[], XdmValue> implementation)
+        {
+            ArgumentNullException.ThrowIfNull(name);
+            ArgumentNullException.ThrowIfNull(implementation);
+            ArgumentOutOfRangeException.ThrowIfNegative(arity);
+            if (name.NamespaceUri.Length == 0 || name.NamespaceUri is "http://www.w3.org/2005/xpath-functions" or "http://www.w3.org/1999/XSL/Transform"
+                or "http://www.w3.org/2001/XMLSchema" or "http://www.w3.org/2005/xpath-functions/math" or "http://www.w3.org/2005/xpath-functions/map"
+                or "http://www.w3.org/2005/xpath-functions/array")
+            {
+                throw new ArgumentException($"An extension function must be in a namespace of its own, not {name.EQName}", nameof(name));
+            }
+            _extensionFunctions[(name.NamespaceUri, name.LocalName, arity)] = new RegisteredFunction(name, arity, implementation);
+        }
+
         /// <summary>Compiles the stylesheet (or package) at <paramref name="stylesheet"/>.</summary>
         /// <exception cref="XsltStaticException">The stylesheet has static errors.</exception>
         [RequiresDynamicCode(XslCompiledTransform.CompilesIL)]
@@ -145,7 +168,8 @@ namespace Xsl3
         private XsltExecutable Build(Func<XmlReader> open, XmlResolver resolver)
         {
             var statics = StaticParameters.ToDictionary(p => new XmlQualifiedName(p.Key.LocalName, p.Key.NamespaceUri), p => p.Value.Items);
-            var executable = new XsltExecutable(open, resolver, Settings.Clone(), statics, Packages.Entries.ToArray());
+            var executable = new XsltExecutable(open, resolver, Settings.Clone(), statics, Packages.Entries.ToArray(),
+                new Dictionary<(string, string, int), RegisteredFunction>(_extensionFunctions));
             executable.Principal(); // static errors now
             return executable;
         }
@@ -189,11 +213,13 @@ namespace Xsl3
         private readonly XsltSettings _settings;
         private readonly Dictionary<XmlQualifiedName, IList<XPathItem>> _staticParameters;
         private readonly (string, string, Uri)[] _packages;
+        private readonly Dictionary<(string, string, int), RegisteredFunction> _extensionFunctions;
         private readonly ConcurrentDictionary<string, Lazy<XslCompiledTransform>> _units = new(StringComparer.Ordinal);
 
         internal XsltExecutable(Func<XmlReader> open, XmlResolver resolver, XsltSettings settings, Dictionary<XmlQualifiedName, IList<XPathItem>> staticParameters,
-            (string, string, Uri)[] packages)
+            (string, string, Uri)[] packages, Dictionary<(string, string, int), RegisteredFunction> extensionFunctions)
         {
+            _extensionFunctions = extensionFunctions;
             _open = open;
             _resolver = resolver;
             _settings = settings;
@@ -219,6 +245,7 @@ namespace Xsl3
                     StaticParameters = _staticParameters,
                     Packages = _packages,
                     RawResult = raw,
+                    RegisteredFunctions = _extensionFunctions,
                 };
                 entryPoint(transform);
                 try
@@ -266,6 +293,7 @@ namespace Xsl3
             {
                 StaticParameters = _staticParameters,
                 Packages = _packages,
+                RegisteredFunctions = _extensionFunctions,
             };
             using var constants = XPath31.ConstantPool.Use(new XPath31.ConstantTable());
             Qil.QilExpression qil;

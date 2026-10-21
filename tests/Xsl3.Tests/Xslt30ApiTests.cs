@@ -329,6 +329,30 @@ public class Xslt30ApiTests
     }
 #endif
 
+    /// <summary>
+    /// Registered extension functions: called with XDM values, reported by function-available, their exceptions
+    /// catchable as Q{http://xsl3/err}extension-error, and off with EnableExtensionFunctions = false.
+    /// </summary>
+    [Fact]
+    public void RegisteredExtensionFunctions()
+    {
+        var compiler = new XsltCompiler();
+        compiler.RegisterExtensionFunction(new QName("urn:ext", "scale"), 2,
+            args => new XdmAtomicValue((decimal)((XdmAtomicValue)args[0][0]).Value * (decimal)(long)((XdmAtomicValue)args[1][0]).Value));
+        compiler.RegisterExtensionFunction(new QName("urn:ext", "names"), 1,
+            args => new XdmValue(args[0].Select(n => (XdmItem)new XdmAtomicValue(((XdmNode)n).NodeName!.LocalName))));
+        compiler.RegisterExtensionFunction(new QName("urn:ext", "fail"), 0, _ => throw new InvalidOperationException("boom"));
+        string body =
+            "<xsl:template name='xsl:initial-template' xmlns:ext='urn:ext' exclude-result-prefixes='ext'><xsl:variable name='v'><a/><b/></xsl:variable><out><xsl:value-of select=\"ext:scale(1.5, 4), ext:names($v/*), function-available('ext:scale', 2), function-available('ext:scale', 3)\"/>" +
+            "|<xsl:try><xsl:sequence select='ext:fail()'/><xsl:catch errors='Q{http://xsl3/err}extension-error'>caught</xsl:catch></xsl:try></out></xsl:template>";
+        Assert.Equal("<out>6 a b true false|caught</out>", Compile(body, compiler).CreateTransformer().CallTemplate(null).ToString());
+
+        var off = new XsltCompiler { Settings = new XsltSettings { EnableExtensionFunctions = false } };
+        off.RegisterExtensionFunction(new QName("urn:ext", "scale"), 2, args => args[0]);
+        Assert.Throws<XsltStaticException>(() => Compile("<xsl:template name='xsl:initial-template' xmlns:ext='urn:ext'><xsl:sequence select='ext:scale(1, 2)'/></xsl:template>", off));
+        Assert.Throws<ArgumentException>(() => compiler.RegisterExtensionFunction(new QName("http://www.w3.org/2005/xpath-functions", "x"), 0, _ => XdmValue.Empty));
+    }
+
     [Fact]
     public void AnExecutableServesManyTransformersAndEntryPoints()
     {

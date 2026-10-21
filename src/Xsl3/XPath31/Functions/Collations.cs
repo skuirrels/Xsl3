@@ -65,7 +65,7 @@ namespace Xsl3.XPath31.Functions
             : _compareInfo == null ? s.IndexOf(t, System.StringComparison.Ordinal)
             : _compareInfo.IndexOf(s, t, _options);
 
-        /// <summary>Like <see cref="IndexOf"/>, also giving the length of the match in <paramref name="s"/> (it can differ from t's under a collation).</summary>
+        /// <summary>Like <see cref="IndexOf(string, string)"/>, also giving the length of the match in <paramref name="s"/> (it can differ from t's under a collation).</summary>
         public int IndexOf(string s, string t, out int matchLength)
         {
             if (AsciiFold || _compareInfo == null)

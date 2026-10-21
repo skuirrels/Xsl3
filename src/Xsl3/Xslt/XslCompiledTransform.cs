@@ -181,7 +181,7 @@ namespace Xsl3
             {
                 InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
                 InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
-                InitialParameters = InitialParameters,
+                InitialParameters = InitialParameters, RegisteredFunctions = RegisteredFunctions,
             };
             _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             _qil.CompactTree = UseCompactTree;
@@ -225,6 +225,9 @@ namespace Xsl3
 
         internal static XmlQualifiedName InitialParameter(int position) => InitialFunctionArguments.Parameter(position);
 
+        /// <summary>Xsl3: extension functions for 2.0+ stylesheets, registered through the 3.0 API, set before Load.</summary>
+        internal System.Collections.Generic.IReadOnlyDictionary<(string Ns, string Local, int Arity), RegisteredFunction>? RegisteredFunctions { get; set; }
+
         /// <summary>
         /// The initial function (XSLT 3.0 §2.3.4) and its arity: the transformation calls it, with the arguments
         /// supplied as parameters named <see cref="InitialFunctionArgument"/>(1…n), and delivers its result.
@@ -234,7 +237,7 @@ namespace Xsl3
         internal int InitialFunctionArity { get; set; }
 
 
-        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems"/>.</summary>
+        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems(XPathNavigator, XsltArgumentList?, XmlResolver?)"/>.</summary>
         internal bool RawResult { get; set; }
 
         /// <summary>Runs a stylesheet loaded with <see cref="RawResult"/> and returns its result sequence.</summary>

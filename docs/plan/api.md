@@ -155,7 +155,12 @@ with unit tests in `tests/Xsl3.Tests/Xslt30ApiTests.cs`. Where the result differ
 - The internal `XdmMap`, `XdmArray` and `XdmFunction` became `MapItem`, `ArrayItem` and `FunctionItem`, so the public
   types could take the names.
 
-Left: step 6 (the W3C runner on the public API) and step 7 (registered extension functions).
+Step 7 is done too: `XsltCompiler.RegisterExtensionFunction(name, arity, implementation)` registers a function of
+`XdmValue[]` for 2.0+ stylesheets. The compiler resolves calls to it (and `function-available` reports it); a .NET
+exception it throws is `Q{http://xsl3/err}extension-error`; `EnableExtensionFunctions = false` turns it off. A
+stylesheet that calls one can't be saved as an assembly (the delegate isn't serializable).
+
+Left: step 6 (the W3C runner on the public API).
 
 ## Open questions for the owner
 

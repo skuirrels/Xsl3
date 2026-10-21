@@ -115,9 +115,19 @@ namespace Xsl3
     public sealed class XsltStaticException : Exception
     {
         internal XsltStaticException(IReadOnlyList<XsltStaticError> errors, Exception? innerException)
-            : base(errors.FirstOrDefault(e => !e.IsWarning)?.ToString() ?? innerException?.Message ?? "The stylesheet has static errors", innerException)
+            : base(errors.FirstOrDefault(e => !e.IsWarning)?.ToString() ?? Innermost(innerException)?.Message ?? "The stylesheet has static errors", innerException)
         {
             Errors = errors;
+        }
+
+        // The exception at the bottom of the chain: the parser's, say, under "XSLT compile error".
+        private static Exception? Innermost(Exception? e)
+        {
+            while (e?.InnerException != null)
+            {
+                e = e.InnerException;
+            }
+            return e;
         }
 
         /// <summary>The errors and warnings, in the order they were found.</summary>

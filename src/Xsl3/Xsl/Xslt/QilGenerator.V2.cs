@@ -243,6 +243,17 @@ namespace Xsl3.Xslt
                 }
                 return _f.Invoke(entry.Function.Function!, actual);
             }
+            if (_compiler.Settings.EnableExtensionFunctions && _compiler.RegisteredFunctions is { } registered &&
+                registered.TryGetValue((name.NamespaceUri, name.LocalName, args.Count), out RegisteredFunction? extension))
+            {
+                // An extension function registered through the 3.0 API: its arguments, then the call.
+                QilNode call = X31(nameof(XsltLibrary.X31ExtensionStart), T.Item, _f.Double(ConstantPool.Add(extension)));
+                foreach (XPath31.Expr arg in args)
+                {
+                    call = X31(nameof(XsltLibrary.X31ExtensionArgument), T.Item, call, Box(compile(arg)));
+                }
+                return X31(nameof(XsltLibrary.X31ExtensionCall), T.ItemS, call);
+            }
             if (name.NamespaceUri == DynamicEvaluation.Namespace)
             {
                 return CompileEvaluate31(name, args, compile);
@@ -2627,7 +2638,7 @@ namespace Xsl3.Xslt
                 EscapeUriAttributes = output.EscapeUriAttributes,
                 IncludeContentType = output.IncludeContentType ?? true,
                 Encoding = output.Encoding ?? "UTF-8",
-                MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
+                MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType is string mediaType ? mediaType : "text/html",
             };
             if (output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } raw)
             {
@@ -3012,6 +3023,11 @@ namespace Xsl3.Xslt
                 foreach (var (name, arity) in _compiler.Functions.Keys)
                 {
                     _stylesheetFunctions31.Add((name.NamespaceUri, name.LocalName, arity));
+                }
+                if (_compiler.Settings.EnableExtensionFunctions)
+                {
+                    // (Registered extension functions are available too.)
+                    _stylesheetFunctions31.UnionWith(_compiler.RegisteredFunctions?.Keys ?? Enumerable.Empty<(string, string, int)>());
                 }
             }
             return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31) { EvaluateEnabled = _compiler.Settings.EnableEvaluate });

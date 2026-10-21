@@ -76,8 +76,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 ## What's outstanding
 
 - **XSLT 3.0**: unparsed entities of temporary trees (a document's own are read from its DTD).
-- **API**: the XSLT 3.0 API is new in this branch (below). Extension functions for 2.0+ stylesheets and the W3C
-  runner on the public API are still to do.
+- **API**: the XSLT 3.0 API is new in this branch (below); the W3C runner still uses internal entry points.
 - **Known gaps**:
   - `xsl:next-match` from one alternative of a union pattern to another of the same rule.
   - Dynamic errors in patterns are non-matches only for predicate patterns.
@@ -167,7 +166,8 @@ XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows
   that doesn't compile raises an `XsltStaticException` listing every error with its module, line and column.
 - Each transformer has its own `BaseOutputUri`, `MessageHandler`, `TraceHandler`, `ResultDocumentHandler`,
   `DocumentResolver`, `CancellationToken` and `GlobalContextItem`.
-- `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`).
+- `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`), and
+  registers extension functions for 2.0+ stylesheets (`RegisterExtensionFunction(name, arity, args => …)`).
 - An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
   [docs/plan/api.md](docs/plan/api.md).
 - With `XsltSettings.EnableTracing`, a transformer's `TraceListener` (an `IXsltTraceListener`) sees every template
