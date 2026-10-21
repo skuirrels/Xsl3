@@ -38,6 +38,22 @@ namespace Xsl3.Xslt
         // Xsl3 (P4): the focus 2.0+ templates and modes take (see SetFullFocusV2).
         private XslFlags _focus31 = XslFlags.FullFocus;
 
+        // The fields MentionsPositionOrLast reads, per AST type (all of them but source lines).
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<System.Type, System.Reflection.FieldInfo[]> s_astFields31 = new();
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2070",
+            Justification = "Reads the fields of this assembly's own stylesheet AST (Xsl3.Xslt, Xsl3.Qil), which the compiler itself uses.")]
+        private static System.Reflection.FieldInfo[] AstFields31(System.Type type)
+        {
+            var fields = new List<System.Reflection.FieldInfo>();
+            for (System.Type? t = type; t != null && t != typeof(object); t = t.BaseType)
+            {
+                fields.AddRange(t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly)
+                    .Where(f => f.FieldType != typeof(ISourceLineInfo)));
+            }
+            return fields.ToArray();
+        }
+
         private static readonly System.Text.RegularExpressions.Regex s_positionOrLast31 =
             new(@"(position|last)\s*[(#]|function-lookup", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
@@ -50,6 +66,10 @@ namespace Xsl3.Xslt
             Justification = "Reads the fields of this assembly's own stylesheet AST (Xsl3.Xslt, Xsl3.Qil), which the compiler itself uses.")]
         private static bool MentionsPositionOrLast(IEnumerable<ProtoTemplate> templates)
         {
+            if (templates is ICollection<ProtoTemplate> { Count: 0 })
+            {
+                return false;
+            }
             var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
             bool Scan(object? o)
             {
@@ -60,6 +80,8 @@ namespace Xsl3.Xslt
                     case string s:
                         return s_positionOrLast31.IsMatch(s);
                     case QilNode or System.Type or System.Reflection.MemberInfo:
+                    // (A template's module is a back-reference: its templates are scanned as templates.)
+                    case StylesheetLevel:
                         return false;
                 }
                 System.Type type = o.GetType();
@@ -82,14 +104,11 @@ namespace Xsl3.Xslt
                 {
                     return false;
                 }
-                for (System.Type? t = type; t != null && t != typeof(object); t = t.BaseType)
+                foreach (System.Reflection.FieldInfo field in s_astFields31.GetOrAdd(type, AstFields31))
                 {
-                    foreach (var field in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                    if (Scan(field.GetValue(o)))
                     {
-                        if (field.FieldType != typeof(ISourceLineInfo) && Scan(field.GetValue(o)))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
                 }
                 return false;
