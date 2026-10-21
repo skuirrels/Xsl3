@@ -936,6 +936,31 @@ public class Xslt30Tests
             """));
     }
 
+    /// <summary>xsl:call-template keeps the current group and grouping key (XSLT 3.0 §14.2.1), even inside xsl:for-each.</summary>
+    [Fact]
+    public void CalledTemplatesSeeTheCurrentGroup() =>
+        Assert.Equal("<out><g n=\"2\" k=\"a\" /><g n=\"2\" k=\"a\" /><g n=\"1\" k=\"b\" /></out>", Run("""
+            <xsl:template match="/"><out><xsl:for-each-group select="//i" group-by="@k"><xsl:call-template name="t"><xsl:with-param name="nodes" select="current-group()"/></xsl:call-template></xsl:for-each-group></out></xsl:template>
+            <xsl:template name="t"><xsl:param name="nodes"/><xsl:for-each select="$nodes"><g n="{count(current-group())}" k="{current-grouping-key()}"/></xsl:for-each></xsl:template>
+            """, "<r><i k='a'/><i k='b'/><i k='a'/></r>"));
+
+    /// <summary>xsl:next-match from a union pattern's rule passes on a parameter of the rule (DocBook's gentext templates).</summary>
+    [Fact]
+    public void NextMatchFromAUnionPassesTheRulesParameter() =>
+        Assert.Equal("<out><n g=\"1\" /><n g=\"1\" /></out>", Run("""
+            <xsl:template match="/"><out><xsl:apply-templates select="//(q|a)" mode="m"/></out></xsl:template>
+            <xsl:template match="q|a" mode="m"><xsl:param name="g" select="1"/><xsl:next-match><xsl:with-param name="g" select="$g"/></xsl:next-match></xsl:template>
+            <xsl:template match="*" mode="m" priority="-1"><xsl:param name="g"/><n g="{$g}"/></xsl:template>
+            """, "<r><q/><a/></r>"));
+
+    /// <summary>Namespace nodes may follow attributes in an element's content (2.0+): xsl:copy-of of @*, namespace-node().</summary>
+    [Fact]
+    public void NamespacesAfterAttributes() =>
+        Assert.Equal("<out xmlns:p=\"urn:p\" a=\"1\" />", Run("""
+            <xsl:template match="/"><xsl:variable name="e" as="element()"><e xmlns:p="urn:p" a="1"/></xsl:variable>
+              <out><xsl:copy-of select="$e/@*, $e/namespace-node()[name() = 'p']"/></out></xsl:template>
+            """));
+
     /// <summary>fn:idref finds the attributes a DTD declares IDREF or IDREFS that refer to an ID, in document order.</summary>
     [Fact]
     public void IdrefFindsDtdIdrefAttributes()

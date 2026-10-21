@@ -516,6 +516,29 @@ These stylesheets build many small temporary trees and copy navigators freely; `
 rest goes (item arrays, navigators, item sequences). XMark isn't run: its generator is a C program, to be fetched and
 built separately.
 
+## Real stylesheets: DocBook xslTNG (remaining-scope 1.3)
+
+`eng/fetch-bench.sh` also fetches the DocBook xslTNG 2.7.1 release (MIT; the zip without Saxon's jars, checked against
+its SHA-256). `tests/Xsl3.W3C/DocBookStylesheetTests` converts its sample article and `tests/Xsl3.W3C/docbook/book.xml`
+(lists, sections, a table, a program listing, cross references, a footnote, an index) to HTML and checks the structure;
+there is no expected output to compare with. `-- docbook [--chapters n] [--transform-only] [--alloc-types]` times the
+compile and a book of the test book's chapters repeated.
+
+Getting it to run found five faults, fixed on 2026-10-21: the static variables of an imported module weren't visible
+after the `xsl:import` (static-021), `xsl:next-match` from a union pattern's rule broke when it passed on one of the
+rule's parameters, a namespace node couldn't follow attributes, `xsl:call-template` lost the current group, and the
+`xsl:evaluate` cache (64 expressions) was smaller than the 151 localization patterns DocBook evaluates in turn from one
+instruction, so each was compiled again every time. Then the names pool got a per-thread cache in front of its lock.
+
+| Measure (Release, .NET 10) | Before the fixes | After |
+|---|---:|---:|
+| Compile `docbook.xsl` (warm) | | 351 ms, 180 MB |
+| Transform, 150 KB book | 6,599 ms, 1,958 MB | 1,247 ms, 1,554 MB |
+| Transform, 301 KB book | 14,957 ms, 3,893 MB | 2,332 ms, 3,088 MB |
+
+The allocation is the next thing to work on: `docbook --alloc-types` puts item arrays, navigators, node arrays, string
+dictionaries and the output objects of DocBook's many small temporary trees at the top.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

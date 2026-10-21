@@ -862,7 +862,9 @@ namespace Xsl3.Xslt
                 _noFocus = true;
             }
             _namedFocus31 = IsV2 && tmpl is Template { Match: null, IsFunction: false } && (XslFlags.Current & tmpl.Flags) != 0;
+            _namedTemplateBody31 = IsV2 && tmpl is Template { Match: null, IsFunction: false };
             QilNode body = CompileInstructions(tmpl.Content);
+            _namedTemplateBody31 = false;
             _namedFocus31 = false;
             _noFocus = savedNoFocus;
             if (IsV2)

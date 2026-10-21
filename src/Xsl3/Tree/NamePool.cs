@@ -11,7 +11,8 @@ namespace Xsl3.Tree
     /// The names of the trees built over one name table (SPEC §14.2): each (local name, namespace, prefix) has one id,
     /// and each expanded name (namespace and local name) one id, shared by every tree in the pool, so that a temporary
     /// tree doesn't build tables of its own and a name test compares integers. Ids are only ever added; the arrays
-    /// are replaced when they grow, so a tree holding older arrays still reads its own names. Adds and lookups lock.
+    /// are replaced when they grow, so a tree holding older arrays still reads its own names. Adds and lookups lock,
+    /// behind a per-thread cache of the names last looked up.
     /// </summary>
     internal sealed class NamePool
     {
@@ -41,8 +42,41 @@ namespace Xsl3.Tree
         /// <summary>The pool of the trees built over a name table.</summary>
         public static NamePool For(XmlNameTable nameTable) => s_pools.GetValue(nameTable, table => new NamePool(table));
 
+        // Xsl3: the names this thread looked up last, by the strings' identity: ids never change once given, so a hit
+        // needs no lock (reading and building trees asks for the same few names over and over).
+        private struct CacheEntry
+        {
+            public NamePool? Pool;
+            public string? Prefix, Local, Ns;
+            public int Id;
+        }
+
+        private const int CacheMask = 255;
+
+        [ThreadStatic]
+        private static CacheEntry[]? t_names;
+
+        [ThreadStatic]
+        private static CacheEntry[]? t_expanded;
+
+        private static int Slot(string? a, string b, string c) =>
+            (RuntimeHelpers.GetHashCode(b) * 31 + RuntimeHelpers.GetHashCode(c) * 17 + (a == null ? 0 : RuntimeHelpers.GetHashCode(a))) & CacheMask;
+
         /// <summary>The id of a name, added if new. The strings are atomized in the pool's name table.</summary>
         public int Name(string prefix, string local, string ns)
+        {
+            CacheEntry[] cache = t_names ??= new CacheEntry[CacheMask + 1];
+            ref CacheEntry hit = ref cache[Slot(prefix, local, ns)];
+            if (hit.Pool == this && (object?)hit.Local == local && (object?)hit.Ns == ns && (object?)hit.Prefix == prefix)
+            {
+                return hit.Id;
+            }
+            int id = NameLocked(prefix, local, ns);
+            hit = new CacheEntry { Pool = this, Prefix = prefix, Local = local, Ns = ns, Id = id };
+            return id;
+        }
+
+        private int NameLocked(string prefix, string local, string ns)
         {
             lock (_lock)
             {
@@ -93,10 +127,23 @@ namespace Xsl3.Tree
         /// <summary>The expanded-name id of a local name and namespace, or CompactDocument.Absent.</summary>
         public int ExpandedId(string localName, string namespaceUri)
         {
+            CacheEntry[] cache = t_expanded ??= new CacheEntry[CacheMask + 1];
+            ref CacheEntry hit = ref cache[Slot(null, localName, namespaceUri)];
+            if (hit.Pool == this && (object?)hit.Local == localName && (object?)hit.Ns == namespaceUri)
+            {
+                return hit.Id;
+            }
+            int id;
             lock (_lock)
             {
-                return ExpandedLocked(localName, namespaceUri, add: false);
+                id = ExpandedLocked(localName, namespaceUri, add: false);
             }
+            if (id != CompactDocument.Absent)
+            {
+                // (Only names that exist: an absent one may be added later.)
+                hit = new CacheEntry { Pool = this, Local = localName, Ns = namespaceUri, Id = id };
+            }
+            return id;
         }
 
         private int ExpandedLocked(string localName, string namespaceUri, bool add)

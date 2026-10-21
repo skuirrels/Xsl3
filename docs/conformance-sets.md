@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8012 passed, 24 failed, 49 not run; 99.7% of those run (196 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8014 passed, 22 failed, 49 not run; 99.7% of those run (193 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -23,7 +23,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1889 | 3 | 0 | 99.8% |
 | spec XSLT20+ | 2695 | 6 | 11 | 99.8% |
-| spec XSLT30+ | 3423 | 15 | 38 | 99.6% |
+| spec XSLT30+ | 3425 | 13 | 38 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -136,7 +136,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | si-iterate | 1 | 0 | 0 | 100.0% |
 | snapshot | 18 | 1 | 0 | 94.7% |
 | sort | 80 | 0 | 0 | 100.0% |
-| static | 47 | 3 | 0 | 94.0% |
+| static | 49 | 1 | 0 | 98.0% |
 | stream-available | 6 | 0 | 0 | 100.0% |
 | streamable | 0 | 1 | 0 | 0.0% |
 | string | 136 | 0 | 0 | 100.0% |

@@ -41,6 +41,12 @@ if (args.Length > 0 && args[0] == "tei")
     Xsl3.Benchmarks.Micro.RunTei(args[1..]);
     return;
 }
+if (args.Length > 0 && args[0] == "docbook")
+{
+    // dotnet run ... -- docbook [--ms budget]: DocBook xslTNG (eng/fetch-bench.sh) on a generated 400 KB book.
+    Xsl3.Benchmarks.Micro.RunDocBook(args[1..]);
+    return;
+}
 if (args.Length > 0 && args[0] == "quick")
 {
     Xsl3.Benchmarks.Quick.Run(args[1..]);

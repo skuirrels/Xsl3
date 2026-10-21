@@ -776,6 +776,11 @@ namespace Xsl3.Xslt
                 {
                     _curStylesheet!.ImportHrefs.Add(uri);
                     _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
+                    if (V2)
+                    {
+                        // Xsl3: the imported module's static variables are in scope after the xsl:import (static-021).
+                        PreloadImportedStatics(uri, new HashSet<string>(StringComparer.Ordinal));
+                    }
                 }
             }
             else
@@ -2985,7 +2990,7 @@ namespace Xsl3.Xslt
         private readonly List<int> _importPath = new List<int>();
 
         // Xsl3: the static variables declared so far: where in the tree of modules, and their values.
-        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value)>> _staticDeclarations = new();
+        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value, bool IsParam)>> _staticDeclarations = new();
 
         /// <summary>
         /// XTSE3450 (XSLT 3.0 §9.6): a static variable must have the same value as one of the same name declared earlier
@@ -3001,7 +3006,8 @@ namespace Xsl3.Xslt
             {
                 _staticDeclarations[name] = declarations = new();
             }
-            foreach (var (package, otherPath, otherValue) in declarations)
+            bool isParam = var.NodeType == XslNodeType.Param;
+            foreach (var (package, otherPath, otherValue, otherIsParam) in declarations)
             {
                 if (package != _packageId)
                 {
@@ -3011,14 +3017,15 @@ namespace Xsl3.Xslt
                 int[] earlier = otherFirst ? otherPath : path, later = otherFirst ? path : otherPath;
                 // The earlier one's module is the later one's or an ancestor of it: the same or higher precedence.
                 bool ancestor = earlier.Length <= later.Length && earlier.AsSpan(0, earlier.Length - 1).SequenceEqual(later.AsSpan(0, earlier.Length - 1));
-                if (!ancestor && !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
-                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b))))
+                // (A parameter and a variable of the same name are inconsistent whatever their values, static-023.)
+                if (!ancestor && (otherIsParam != isParam || !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
+                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b)))))
                 {
                     ReportError(SR.Xml_UserException, $"XTSE3450: the static variable ${var.Name!.QualifiedName} is declared with another value at a lower import precedence earlier in the stylesheet");
                     break;
                 }
             }
-            declarations.Add((_packageId, path, value));
+            declarations.Add((_packageId, path, value, isParam));
         }
 
         private static int TreeOrder(int[] a, int[] b)

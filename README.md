@@ -26,7 +26,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,588 passed, 9 failed (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 8,012 passed, 24 failed, 49 not run (99.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 8,014 passed, 22 failed, 49 not run (99.7%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -80,8 +80,6 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 - **XSLT 3.0**: unparsed entities of temporary trees (a document's own are read from its DTD).
 - **Known gaps**:
   - Dynamic errors in patterns are non-matches only for predicate patterns.
-  - Static variables of an imported module aren't visible after the `xsl:import` in the importing module (imports
-    are loaded after the module that imports them).
   - `doc()` and `document()` refuse DTDs unless the input reader allows them.
   - Whitespace stripping is the stylesheet's, not each package's, so a document read in two packages is stripped once.
   - An expression of `xsl:evaluate` parses documents again rather than sharing the transformation's, so node

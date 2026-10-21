@@ -235,7 +235,7 @@ namespace Xsl3.Runtime
             // Cache attributes in order to detect duplicates
             if (cacheAttributes || _cntNmsp != 0)
             {
-                _attrCache ??= new XmlAttributeCache();
+                _attrCache ??= new XmlAttributeCache { HoldLateNamespaces = _runtime.IsXslt2 };
 
                 _attrCache.Init(Writer!);
                 Writer = _attrCache;
@@ -1424,7 +1424,7 @@ namespace Xsl3.Runtime
                     {
                         // Do not allow namespaces to be copied after attributes
                         XmlAttributeCache? attrCache = Writer as XmlAttributeCache;
-                        if (attrCache != null && attrCache.Count != 0)
+                        if (attrCache != null && attrCache.Count != 0 && !_runtime.IsXslt2) // Xsl3: 2.0+ allows them (XmlAttributeCache)
                             throw new XslTransformException(SR.XmlIl_NmspAfterAttr, string.Empty);
 
                         WriteNamespaceDeclaration(navigator.LocalName, navigator.Value);

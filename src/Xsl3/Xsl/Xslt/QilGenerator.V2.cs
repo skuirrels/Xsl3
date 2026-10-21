@@ -339,9 +339,14 @@ namespace Xsl3.Xslt
                 case ("unparsed-entity-uri" or "unparsed-entity-public-id", 1) when FocusAbsent:
                     return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String(name.LocalName == "unparsed-entity-uri" ? "XTDE1370" : "XTDE1380"), _f.String($"{name.LocalName}(): there is no context node"));
                 case ("current-group", 0):
-                    return _currentGroupFactory?.Invoke() ?? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1061"), _f.String("current-group() is absent"));
+                    // In a named template, the group of the xsl:for-each-group that called it (the tunnel frame carries it).
+                    return _currentGroupFactory?.Invoke()
+                        ?? (_namedTemplateBody31 && _currentTunnel != null && !_noFocus ? X31(nameof(XsltLibrary.X31TunnelCurrentGroup), T.ItemS, _currentTunnel) : null)
+                        ?? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1061"), _f.String("current-group() is absent"));
                 case ("current-grouping-key", 0):
-                    return _currentGroupingKeyFactory?.Invoke() ?? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1071"), _f.String("current-grouping-key() is absent"));
+                    return _currentGroupingKeyFactory?.Invoke()
+                        ?? (_namedTemplateBody31 && _currentTunnel != null && !_noFocus ? X31(nameof(XsltLibrary.X31TunnelCurrentGroupingKey), T.ItemS, _currentTunnel) : null)
+                        ?? X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1071"), _f.String("current-grouping-key() is absent"));
                 case ("regex-group", 1):
                     // Lexically in xsl:matching-substring, else in a template called from one (the tunnel frame
                     // carries it), else none: in patterns, functions and xsl:non-matching-substring.
@@ -1199,6 +1204,9 @@ namespace Xsl3.Xslt
         // Compiling a named template's body (not within an instruction that clears the current template rule).
         private bool _inNamedTemplate31;
 
+        // Compiling the body of a named template (at any depth, unlike _inNamedTemplate31): current-group() is its caller's.
+        private bool _namedTemplateBody31;
+
         // (xsl:apply-imports too: both depend on the current template rule.)
         private static bool UsesNextMatch31(IList<XslNode>? content) =>
             content != null && content.Any(n => n.NodeType is XslNodeType.NextMatch or XslNodeType.ApplyImports || UsesNextMatch31(n.Content));
@@ -1277,6 +1285,8 @@ namespace Xsl3.Xslt
             {
                 return _varHelper.FinishVariables(NextMatchFromCaller31(args), varScope);
             }
+            // (Compiling a call rewrites its with-param values, so the alternatives below get copies made first.)
+            List<XslNode> unused = CopyArgs31(args);
             // A rule of several modes (or of all modes) continues in the mode it was applied in.
             QilNode result = _dynamicCurrentMode31 && !HasStaticMode31(_currentTemplateRule)
                 ? ApplyInCurrentMode31(_compiler.Root!, args, _currentTemplateRule)
@@ -1292,7 +1302,7 @@ namespace Xsl3.Xslt
                     try
                     {
                         result = _f.Conditional(_f.Eq(which, _f.Double(match.Alternative)),
-                            InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, CopyArgs31(args), nextMatchBelow: _currentTemplateRule), result);
+                            InvokeApplyFunction(_compiler.Root!, _currentTemplateRule.Mode, CopyArgs31(unused), nextMatchBelow: _currentTemplateRule), result);
                     }
                     finally
                     {
@@ -3393,7 +3403,27 @@ namespace Xsl3.Xslt
             _currentGroupFactory = () => Members(current);
             _currentGroupingKeyFactory = kind >= 2 ? noKey : () => X31(nameof(XsltLibrary.X31GroupKey), T.ItemS, current);
 
-            QilNode result = CompileInstructions(content);
+            // Templates called from the body see the group (through the tunnel frame); only built when there are calls.
+            QilNode? savedTunnel = _currentTunnel;
+            QilIterator? groupFrame = null;
+            if (CallsTemplates31(content))
+            {
+                groupFrame = _f.Let(X31(nameof(XsltLibrary.X31TunnelSetGroup), T.ItemS, savedTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS), current, _f.Boolean(kind >= 2)));
+                _currentTunnel = groupFrame;
+            }
+            QilNode result;
+            try
+            {
+                result = CompileInstructions(content);
+            }
+            finally
+            {
+                _currentTunnel = savedTunnel;
+            }
+            if (groupFrame != null)
+            {
+                result = _f.Loop(groupFrame, result);
+            }
             result = WrapLoopBody(node.ElemNameLi, result, node.EndTagLi);
             result = AddCurrentPositionLast(result);
             result = _curLoop.ConstructLoop(result);
@@ -3401,6 +3431,19 @@ namespace Xsl3.Xslt
             _currentGroupFactory = savedGroup;
             _currentGroupingKeyFactory = savedKey;
             return _varHelper.FinishVariables(result, varScope);
+        }
+
+        // Whether instructions contain xsl:call-template (at any depth), whose template may use current-group().
+        private static bool CallsTemplates31(IEnumerable<XslNode> content)
+        {
+            foreach (XslNode n in content)
+            {
+                if (n.NodeType == XslNodeType.CallTemplate || n.Content != null && CallsTemplates31(n.Content))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // current-group() and current-grouping-key() may be used many times; each use needs its own QIL node.

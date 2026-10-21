@@ -844,6 +844,26 @@ namespace Xsl3.Runtime
                 ? X31SegmentGroup(entry.ParamValue[0], n)
                 : AtomicValue.OfString("");
 
+        // The current group and grouping key travel with the tunnel parameters into templates called from
+        // xsl:for-each-group (xsl:call-template keeps them, XSLT 3.0 §14.2.1).
+        private const string GroupEntry = "\u0001xsl3-group";
+
+        /// <summary>The tunnel frame with <paramref name="group"/> as the current group (with no grouping key, for group-starting-with and group-ending-with).</summary>
+        public IList<XPathItem> X31TunnelSetGroup(IList<XPathItem> frame, XPathItem group, bool noKey) =>
+            new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], GroupEntry, "", new XPathItem[] { group, AtomicValue.OfBoolean(noKey) }) };
+
+        /// <summary>current-group() in a template called from xsl:for-each-group: from the tunnel frame (XTDE1061 when there is none).</summary>
+        public IList<XPathItem> X31TunnelCurrentGroup(IList<XPathItem> frame) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(GroupEntry, "") is { ParamValue.Count: 2 } entry
+                ? X31GroupMembers(entry.ParamValue[0])
+                : throw new XdmException("XTDE1061", "current-group() is absent");
+
+        /// <summary>current-grouping-key() in a template called from xsl:for-each-group (XTDE1071 when there is none).</summary>
+        public IList<XPathItem> X31TunnelCurrentGroupingKey(IList<XPathItem> frame) =>
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(GroupEntry, "") is { ParamValue.Count: 2 } entry && entry.ParamValue[1] is AtomicValue { Value: "false" }
+                ? X31GroupKey(entry.ParamValue[0])
+                : throw new XdmException("XTDE1071", "current-grouping-key() is absent");
+
         // The current output URI travels with the tunnel parameters, set by xsl:result-document.
         private const string OutputEntry = "\u0001xsl3-output";
 

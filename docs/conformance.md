@@ -114,6 +114,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 | 2026-10-21 | 8,001 | 35 | 49 | 99.6% | `document('')` resolves against the static base URI that xml:base sets; a key with a definition in backwards compatible mode compares strings; a version="1.0" principal module's implicit result defaults to the xml method for XHTML's `html`; the harness reads an expected serialization in the encoding the assertion names. The 2.0 profile is at 99.7% (4,584 passed, 13 failed) |
 | 2026-10-21 | 8,008 | 28 | 49 | 99.7% | XTSE0165 for an imported or included `xsl:package`, XTSE0020 for `xsl:mode name="#unnamed"`, no global context item for a used package's variables (XPDY0002), character maps local to their package, `doc()` in static expressions through the stylesheet's resolver, XTDE2210 for merge keys that disagree, use-when errors ignored on unknown elements in forwards compatible mode. The runner now checks error codes: 573 expected-error tests pass with an error that doesn't name the expected code (343 in the 2.0 profile) |
 | 2026-10-21 | 8,012 | 24 | 49 | 99.7% | 2.0+ results of the xml method write empty elements as `<a/>` (owner's decision); the 2.0 profile is at 99.8% (4,584 → 4,588 passed, 9 failed) |
+| 2026-10-21 | 8,014 | 22 | 49 | 99.7% | Static variables of an imported module are in scope after the `xsl:import` (static-021, static-027), and a variable and a parameter of one name are inconsistent (XTSE3450); found by running DocBook xslTNG |
 
 ### P5 exit sets
 
