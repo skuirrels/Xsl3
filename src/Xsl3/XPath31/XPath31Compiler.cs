@@ -650,6 +650,15 @@ namespace Xsl3.XPath31
 
         private QilNode Path(PathExpr p)
         {
+            if (IndexedPath(p) is QilNode indexed)
+            {
+                return indexed;
+            }
+            return PathAsWritten(p);
+        }
+
+        private QilNode PathAsWritten(PathExpr p)
+        {
             QilNode left = Build(p.Left);
             if (!p.Descendants && p.Right is AxisStep { Axis: Axis.Child or Axis.Attribute } step && s_sameDepth.TryGetValue(left, out _)
                 && left.XmlType!.IsSubtypeOf(T.NodeNotRtfS))
@@ -664,6 +673,63 @@ namespace Xsl3.XPath31
             }
             return Join(left, () => Build(p.Right), UsesLast(p.Right));
         }
+
+        private static int s_indexSites;
+
+        /// <summary>
+        /// Xsl3 (perf, remaining-scope 1.5): automatic indexing. An absolute path whose last step filters on one attribute
+        /// or child compared with a value that doesn't depend on the focus (<c>/orders/product[@sku = $line/@sku]</c>)
+        /// looks the value up in an index of the document, built on the second evaluation for that document, instead of
+        /// testing every node. Only where <c>=</c> compares strings: the codepoint collation, no XPath 1.0 compatibility
+        /// mode, and (checked each time) values that are nodes or strings; otherwise the path is evaluated as written.
+        /// </summary>
+        private QilNode? IndexedPath(PathExpr p)
+        {
+            if (_sc.BackwardsCompatible || _sc.DefaultCollation != Functions.Collation.CodepointUri ||
+                p.Right is not AxisStep { Predicates: [BinaryExpr { Op: BinaryOp.GeneralEq } eq] } step || !Absolute(p.Left))
+            {
+                return null;
+            }
+            (Expr? key, Expr? value) = KeyStep(eq.Left) && FocusFreeValue(eq.Right) ? (eq.Left, eq.Right)
+                : KeyStep(eq.Right) && FocusFreeValue(eq.Left) ? (eq.Right, eq.Left) : (null, null);
+            if (key == null)
+            {
+                return null;
+            }
+            QilNode site = _f.Double(System.Threading.Interlocked.Increment(ref s_indexSites));
+            QilIterator values = _f.Let(Items(Build(value!)));
+            QilIterator root = _f.Let(Items(Build(new RootExpr())));
+            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, site, root, values));
+            // The candidates, each with its key values, into the index being built.
+            var all = new PathExpr(p.Left, step with { Predicates = System.Array.Empty<Expr>() }, p.Descendants) { Span = p.Span };
+            var (it, add, input) = WithFocus(Nodes(Build(all), "XPTY0019"), needsLast: false,
+                () => Call(nameof(XsltLibrary.X31IndexAdd), T.ItemS, FocusNode(), Items(Build(key))));
+            QilNode build = WrapLet(input, _f.Loop(it, add));
+            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.ItemS, site, root, values);
+            QilNode original = PathAsWritten(p);
+            return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Conditional(_f.Eq(state, _f.Double(0)), original,
+                Nodes(_f.Conditional(_f.Eq(state, _f.Double(2)), _f.Sequence(build, lookup), lookup), "XPTY0019")))));
+        }
+
+        // A path from the root with no predicates: the same nodes wherever it is evaluated in the document.
+        private static bool Absolute(Expr e) => e switch
+        {
+            RootExpr => true,
+            PathExpr { Left: var left, Right: AxisStep { Predicates.Count: 0 } } => Absolute(left),
+            _ => false,
+        };
+
+        // One attribute or child, by name.
+        private static bool KeyStep(Expr e) =>
+            e is AxisStep { Axis: Axis.Attribute or Axis.Child, Test: NameTest { LocalName: not null }, Predicates.Count: 0 };
+
+        // A value that doesn't depend on the focus: a variable, a string literal, or steps without predicates from a variable.
+        private static bool FocusFreeValue(Expr e) => e switch
+        {
+            VarRef or StringLiteral => true,
+            PathExpr { Descendants: false, Left: var left, Right: AxisStep { Predicates.Count: 0 } } => FocusFreeValue(left),
+            _ => false,
+        };
 
         private QilNode Join(QilNode left, System.Func<QilNode> right, bool needsLast)
         {

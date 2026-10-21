@@ -19,7 +19,7 @@ namespace Xsl3.Benchmarks;
 /// </summary>
 public static class Micro
 {
-    public static readonly string[] Names = { "grouping", "sorting", "keys", "regex", "strings", "maps", "fold-left", "iterate", "identity", "recursion", "json" };
+    public static readonly string[] Names = { "grouping", "sorting", "keys", "join", "regex", "strings", "maps", "fold-left", "iterate", "identity", "dispatch", "recursion", "json" };
 
     // Orders and products for each size: about 1 KB, 1 MB and 100 MB of input.
     private static readonly Dictionary<string, (int Orders, int Products)> s_sizes = new(StringComparer.Ordinal)

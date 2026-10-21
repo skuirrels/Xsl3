@@ -462,8 +462,23 @@ the suite found two things, now fixed:
 | recursion, 1 MB | 101 ms | 1.15 ms | `$items[$i]` with a predicate that can't depend on the focus is evaluated once and selects by index (`X31Subscript`); a sequence already converted to a parameter's type is passed on to it without being checked again (`CoercedSequence`) |
 | Compile allocation | 106.8 KB (identity) | 97.6 KB | The scan for `position()` and `last()` stopped following a template's back-reference to its module, and caches each AST type's fields |
 
-regex is the slowest per byte: `xsl:analyze-string` and `replace` per order allocate 6.7 KB each. That one is left
-for a profile.
+Later rounds, each measured on the same machine:
+
+| Change | Benchmark | Before | After |
+|---|---|---:|---:|
+| Automatic indexing (remaining-scope 1.5): an absolute path whose last step filters on one attribute or child compared with a value that doesn't depend on the focus (`/orders/product[@sku = $l/@sku]`) builds an index of the document on its second evaluation and looks values up from then on. It applies where `=` compares strings (codepoint collation, no XPath 1.0 mode, string or node values, checked on each use); otherwise the path runs as written | join, 1 MB | 288 ms | 2.3 ms (the `xsl:key` version: 3.6 ms) |
+| General comparisons between nodes and strings compare string values directly, without atomizing into new values | join with the index defeated, 1 MB | 273 ms, 753 MB allocated | 177 ms, 207 MB |
+| A built-in function's argument coercion makes the message naming the argument only on an error, not as a closure per argument and call | allocation at 1 MB | | regex −14%, strings −16%, maps −15%, sorting −5%, identity −6% |
+
+**Template dispatch (remaining-scope 1.4), measured and left.** The `dispatch` micro benchmark adds 200 template rules
+for names that never occur ahead of the ones that do. They cost 0.30 ms per 1 MB transform (1.34 ms against 1.04 ms),
+about 17 ns per element for 200 name tests. A name table would save part of that only in stylesheets with hundreds of
+rules, so the linear test of fixed names stays until a real stylesheet shows it. QIL's `Choice` can't hold the
+per-name matchers (it works in push mode only), so a table would mean a runtime name index and a tree of integer
+tests.
+
+regex is still the slowest per byte: `xsl:analyze-string` and `replace` per order allocate about 5.8 KB each, mostly
+.NET's `Match` and `Group` objects.
 
 **The CI gate.** `eng/perf-gate.sh <base>` builds this checkout's harness against the base commit's Xsl3 and against
 this checkout's. It runs the suite alternately on each, three rounds in CI, so runner noise hits both. It fails when

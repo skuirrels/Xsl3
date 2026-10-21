@@ -181,9 +181,26 @@ namespace Xsl3.Runtime
         /// <summary>A general comparison (XPath 3.1 §3.7.2): true if any pair of atomised items compares true.</summary>
         public bool X31GeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
         {
-            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
             var opv = (ValueComparisonOp)(int)op;
             IComparer<string> collation = X31ContextFor(sc).DefaultCollation;
+            if (StringOperands(left) && StringOperands(right))
+            {
+                // Xsl3 (perf): nodes (untyped) and strings compare as strings under the collation, whatever the pairing;
+                // compared here without atomizing into new values.
+                for (int i = 0; i < left.Count; i++)
+                {
+                    string x = StringOperand(left[i]);
+                    for (int j = 0; j < right.Count; j++)
+                    {
+                        if (StringResult(collation.Compare(x, StringOperand(right[j])), opv))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
             System.Xml.IXmlNamespaceResolver? namespaces = ((StaticInfo)Constant((int)sc)).Namespaces;
             foreach (XPathItem x in a)
             {
@@ -218,6 +235,32 @@ namespace Xsl3.Runtime
             }
             return Comparison.Compare(x, y, op, Tz, collation);
         }
+
+        // Items whose general comparisons are string comparisons: nodes (untyped, or string-typed for comments, PIs and
+        // namespace nodes) and xs:string or xs:untypedAtomic values.
+        private static bool StringOperands(IList<XPathItem> items)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] is not (XPathNavigator or StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic }))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static string StringOperand(XPathItem item) => item is StringValue s ? s.String : item.Value;
+
+        private static bool StringResult(int compared, ValueComparisonOp op) => op switch
+        {
+            ValueComparisonOp.Eq => compared == 0,
+            ValueComparisonOp.Ne => compared != 0,
+            ValueComparisonOp.Lt => compared < 0,
+            ValueComparisonOp.Le => compared <= 0,
+            ValueComparisonOp.Gt => compared > 0,
+            _ => compared >= 0,
+        };
 
         /// <summary><c>is</c>, <c>&lt;&lt;</c>, <c>&gt;&gt;</c> (op 0, 1, 2).</summary>
         public IList<XPathItem> X31NodeCompare(IList<XPathItem> left, IList<XPathItem> right, double op)

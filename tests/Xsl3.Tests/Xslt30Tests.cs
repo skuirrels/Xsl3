@@ -943,4 +943,30 @@ public class Xslt30Tests
         transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
         Assert.Equal("<o>ref refs|refs|</o>", text.ToString());
     }
+
+    /// <summary>
+    /// Automatic indexing of /path[key = $value] gives what the filter gives, evaluated many times (the index is built
+    /// on the second): strings and nodes by string, numbers as numbers (no index), several values in document order,
+    /// repeated child keys, descendant paths, and each document its own index.
+    /// </summary>
+    [Fact]
+    public void IndexedPathsAgreeWithTheFilter()
+    {
+        string input = "<r><p k='1' n='a'><c>x</c><c>y</c></p><p k='2' n='b'><c>y</c></p><p k='1.0' n='c'/><p k='3' n='d'/></r>";
+        Assert.Equal("<o>a,a,a|a c,a c,a c|a b d,a b d,a b d|a b,a b,a b|b c d,b c d,b c d|,,|1 2 1 2 1 2</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="d" select="."/>
+              <xsl:variable name="other" select="parse-xml('&lt;r>&lt;p k=&quot;1&quot; n=&quot;z&quot;/>&lt;p k=&quot;1&quot; n=&quot;y&quot;/>&lt;/r>')"/>
+              <o>
+                <xsl:value-of select="string-join(for $i in 1 to 3 return let $v := '1' return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := 1 return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := ('3', '2', '1') return string-join(/r/p[$v = @k]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := 'y' return string-join(/r/p[c = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := $d/r/p[2]/@k return string-join(//p[@k = ($v, '1.0', '3')]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := () return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:for-each
+                  select="1 to 3"><xsl:for-each select="$d, $other"><xsl:value-of select="count(/r/p[@k = '1'])"/><xsl:text> </xsl:text></xsl:for-each></xsl:for-each>
+              </o>
+            </xsl:template>
+            """, input).Replace(" </o>", "</o>"));
+    }
 }
