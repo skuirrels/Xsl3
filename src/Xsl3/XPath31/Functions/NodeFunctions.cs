@@ -368,8 +368,16 @@ namespace Xsl3.XPath31.Functions
             {
                 throw new XdmException("FODC0002", $"Collection '{uri}' can't be retrieved" + (c.Runtime == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
             }
-            System.Uri resolved = c.StaticBaseUri is { Length: > 0 } b && System.Uri.TryCreate(b, System.UriKind.Absolute, out System.Uri? baseUri)
-                ? new System.Uri(baseUri, uri) : new System.Uri(uri, System.UriKind.RelativeOrAbsolute);
+            System.Uri resolved;
+            try
+            {
+                resolved = c.StaticBaseUri is { Length: > 0 } b && System.Uri.TryCreate(b, System.UriKind.Absolute, out System.Uri? baseUri)
+                    ? new System.Uri(baseUri, uri) : new System.Uri(uri, System.UriKind.RelativeOrAbsolute);
+            }
+            catch (System.UriFormatException)
+            {
+                throw new XdmException("FODC0004", $"'{uri}' is not a valid collection URI");
+            }
             if (!resolved.IsAbsoluteUri || !resolved.IsFile || !System.IO.Directory.Exists(resolved.LocalPath))
             {
                 throw new XdmException("FODC0002", $"Collection '{uri}' isn't a directory of documents");

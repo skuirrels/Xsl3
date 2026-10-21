@@ -8,10 +8,6 @@ array-sort/array-sort-collation-4
 array-sort/array-sort-collation-5
 fn-format-integer/format-integer-032
 fn-function-arity/fn-function-arity-017
-fn-function-lookup/fn-function-lookup-369
-fn-function-lookup/fn-function-lookup-371
-fn-function-lookup/fn-function-lookup-373
-fn-function-lookup/fn-function-lookup-375
 fn-function-lookup/fn-function-lookup-402
 fn-function-lookup/fn-function-lookup-404
 fn-function-lookup/fn-function-lookup-759
@@ -73,10 +69,6 @@ op-same-key/same-key-021
 op-same-key/same-key-022
 op-to/RangeExpr-409d
 prod-InstanceofExpr/instanceof134
-prod-NamedFunctionRef/function-literal-369
-prod-NamedFunctionRef/function-literal-371
-prod-NamedFunctionRef/function-literal-373
-prod-NamedFunctionRef/function-literal-375
 prod-NamedFunctionRef/function-literal-402
 prod-NamedFunctionRef/function-literal-404
 prod-ValueComp/value-comparison-7
