@@ -424,9 +424,13 @@ namespace Xsl3.Xslt
             {
                 return Local(0) == "import" ? "XTSE0200" : "XTSE0010";
             }
+            if (res == SR.Xslt_TextNodesNotAllowed)
+            {
+                return Local(0) is "stylesheet" or "transform" or "package" ? "XTSE0120" : "XTSE0010";
+            }
             return res switch
             {
-                _ when res == SR.Xslt_UnexpectedElement || res == SR.Xslt_MissingAttribute || res == SR.Xslt_TextNodesNotAllowed || res == SR.Xslt_RequiredAndSelect => "XTSE0010",
+                _ when res == SR.Xslt_UnexpectedElement || res == SR.Xslt_MissingAttribute || res == SR.Xslt_RequiredAndSelect => "XTSE0010",
                 _ when res == SR.Xslt_InvalidAttribute => "XTSE0090",
                 _ when res == SR.Xslt_BistateAttribute || res == SR.Xslt_InvalidAttrValue => "XTSE0020",
                 _ when res == SR.Xslt_InvalidPrefix => "XTSE0280",
@@ -438,6 +442,15 @@ namespace Xsl3.Xslt
                 _ when res == SR.Xslt_NoAttributeSet => "XTSE0710",
                 _ when res == SR.Xslt_CircularAttributeSet => "XTSE0720",
                 _ when res == SR.Xslt_DuplicateWithParam => "XTSE0670",
+                _ when res == SR.Xslt_DupGlobalVariable => "XTSE0630",
+                _ when res == SR.Xslt_DupLocalVariable => "XTSE0580", // (2.0+ reports only parameters: variables may shadow)
+                _ when res == SR.Xslt_ModeListDup || res == SR.Xslt_ModeListAll || res == SR.Xslt_ModeListEmpty => "XTSE0550",
+                _ when res == SR.Xslt_DecimalFormatRedefined => "XTSE1290",
+                _ when res == SR.Xslt_AnalyzeStringEmpty => "XTSE1130",
+                _ when res == SR.Xslt_SortStable => "XTSE1017",
+                _ when res == SR.Xslt_ModeWithoutMatch || res == SR.Xslt_PriorityWithoutMatch || res == SR.Xslt_BothMatchNameAbsent => "XTSE0500",
+                _ when res == SR.Xslt_KeyCntUse => "XTSE1205",
+                _ when res == SR.Xslt_NullNsAtTopLevel => "XTSE0130",
                 _ => null,
             };
         }

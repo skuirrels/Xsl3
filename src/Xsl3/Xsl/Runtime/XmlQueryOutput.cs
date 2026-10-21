@@ -1890,7 +1890,12 @@ namespace Xsl3.Runtime
                         throw new XslTransformException(SR.XmlIl_BadXmlState, new string[] { constructorType.ToString(), _rootType.ToString() });
 
                     if (_xstate == XmlState.WithinContent)
+                    {
+                        // Xsl3: in 2.0+ the error is XTDE0410 (an attribute or namespace after the element's children).
+                        if (_runtime.IsXslt2)
+                            throw new Xsl3.Xdm.XdmException("XTDE0410", XslTransformException.CreateMessage(SR.XmlIl_BadXmlStateAttr, string.Empty));
                         throw new XslTransformException(SR.XmlIl_BadXmlStateAttr, string.Empty);
+                    }
 
                     goto case XPathNodeType.Element;
 

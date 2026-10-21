@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8008 passed, 28 failed, 49 not run; 99.7% of those run (261 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8008 passed, 28 failed, 49 not run; 99.7% of those run (230 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema (9), initial match selection by expression (22)
 
@@ -167,7 +167,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4584 passed, 13 failed, 11 not run; 99.7% of those run (133 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4584 passed, 13 failed, 11 not run; 99.7% of those run (102 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 
