@@ -102,8 +102,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only (0.8.0-alpha is the latest). The XSLT 3.0 API (`XsltCompiler`,
   `Xslt30Transformer`) is in since 0.8.0-alpha, beside `XslCompiledTransform`; both may change before 1.0, and what
-  1.0 means is still to be decided (docs/plan/remaining-scope.md §9). `Xsl3.Build` and `Xsl3.Cli` aren't published
-  yet.
+  1.0 means is still to be decided (docs/plan/remaining-scope.md §9). `Xsl3.Build` and `Xsl3.Cli` are
+  packed by the release workflow from the next release on, at Xsl3's version.
 
 ## Using it
 

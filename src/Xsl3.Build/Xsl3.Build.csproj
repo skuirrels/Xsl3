@@ -20,7 +20,8 @@
     <None Include="build\**" Pack="true" PackagePath="build\" />
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE.TXT" Pack="true" PackagePath="\" />
-    <None Include="..\Xsl3.Cli\bin\$(Configuration)\net10.0\*" Pack="true" PackagePath="tools\net10.0\" />
+    <!-- The compiler, run as "dotnet Xsl3.Cli.dll" (no native app host, which would be the build machine's). -->
+    <None Include="..\Xsl3.Cli\bin\$(Configuration)\net10.0\*.dll;..\Xsl3.Cli\bin\$(Configuration)\net10.0\*.json;..\Xsl3.Cli\bin\$(Configuration)\net10.0\*.pdb" Pack="true" PackagePath="tools\net10.0\" />
   </ItemGroup>
 
 </Project>
