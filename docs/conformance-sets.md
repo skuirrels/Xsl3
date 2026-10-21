@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8805 passed, 62 failed, 42 not run; 99.3% of those run (216 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8824 passed, 43 failed, 42 not run; 99.5% of those run (216 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
@@ -19,21 +19,21 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature schema_aware | 803 | 41 | 2 | 95.1% |
+| feature schema_aware | 822 | 22 | 2 | 97.4% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 3240 | 29 | 7 | 99.1% |
-| spec XSLT30+ | 3668 | 30 | 35 | 99.2% |
+| spec XSLT20+ | 3250 | 19 | 7 | 99.4% |
+| spec XSLT30+ | 3677 | 21 | 35 | 99.4% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
 | accept | 50 | 0 | 0 | 100.0% |
 | accessor | 52 | 0 | 0 | 100.0% |
-| accumulator | 68 | 3 | 0 | 95.8% |
+| accumulator | 70 | 1 | 0 | 98.6% |
 | analyze-string | 53 | 0 | 0 | 100.0% |
 | apply-imports | 1 | 0 | 0 | 100.0% |
-| apply-templates | 37 | 1 | 0 | 97.4% |
+| apply-templates | 38 | 0 | 0 | 100.0% |
 | arrays | 62 | 0 | 0 | 100.0% |
 | as | 187 | 0 | 0 | 100.0% |
 | assert | 10 | 0 | 0 | 100.0% |
@@ -89,7 +89,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 195 | 8 | 0 | 96.1% |
+| import-schema | 198 | 5 | 0 | 97.5% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |
@@ -137,7 +137,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | sf-unparsed-entity-uri | 8 | 0 | 0 | 100.0% |
 | shadow | 8 | 0 | 0 | 100.0% |
 | si-LRE | 21 | 0 | 0 | 100.0% |
-| si-apply-templates | 1 | 1 | 0 | 50.0% |
+| si-apply-templates | 2 | 0 | 0 | 100.0% |
 | si-copy | 27 | 0 | 0 | 100.0% |
 | si-copy-of | 25 | 0 | 0 | 100.0% |
 | si-document | 25 | 0 | 0 | 100.0% |
@@ -174,7 +174,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 47 | 2 | 0 | 95.9% |
 | use-when | 99 | 0 | 0 | 100.0% |
-| validation | 39 | 17 | 0 | 69.6% |
+| validation | 51 | 5 | 0 | 91.1% |
 | variable | 108 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
 | where-populated | 27 | 0 | 0 | 100.0% |

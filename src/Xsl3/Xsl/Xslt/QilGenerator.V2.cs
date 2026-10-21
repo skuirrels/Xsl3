@@ -316,7 +316,7 @@ namespace Xsl3.Xslt
             if (name.NamespaceUri == SourceDocuments.Namespace && name.LocalName == "validate" && args is [_, XPath31.StringLiteral mode, XPath31.StringLiteral type])
             {
                 // Xsl3 (P6): xsl:source-document validation="strict|lax" or type="T": the document, validated.
-                return X31(nameof(XsltLibrary.X31Validate), T.NodeNotRtfS, Box(compile(args[0])), _f.Double(SchemasId31()), _f.String(mode.Value), _f.String(type.Value));
+                return X31(nameof(XsltLibrary.X31Validate), T.ItemS, Box(compile(args[0])), _f.Double(SchemasId31()), _f.String(mode.Value), _f.String(type.Value));
             }
             if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])
             {
@@ -480,7 +480,8 @@ namespace Xsl3.Xslt
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
                 BackwardsCompatible = _xslVersion == XslVersion.BackwardsCompatible,
-                Schemas = _compiler.Schemas,
+                // (Schema-aware without imports: the built-in types, and typed nodes the stylesheet makes.)
+                Schemas = _compiler.Schemas ?? (_compiler.Settings.SchemaAware ? Xsl3.Schema.SchemaTypes.NoSchemas : null),
             };
             // In XSLT the statically known namespaces are the stylesheet's namespaces in scope, and xml (XSLT 3.0 §5.4.1).
             sc.Namespaces.Clear();
@@ -529,7 +530,7 @@ namespace Xsl3.Xslt
                 }
                 type = $"Q{{{name.Namespace}}}{name.Name}";
             }
-            return X31(nameof(XsltLibrary.X31Validate), T.NodeNotRtfS, Box(nodes), _f.Double(SchemasId31()), _f.String(v2.Validation ?? ""), _f.String(type));
+            return X31(nameof(XsltLibrary.X31Validate), T.ItemS, Box(nodes), _f.Double(SchemasId31()), _f.String(v2.Validation ?? ""), _f.String(type));
         }
 
         // The imported schemas as a run-time constant; with no schema imported, an empty set: the built-in types, and no

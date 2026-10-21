@@ -538,7 +538,22 @@ namespace Xsl3.Tree
                 {
                     (_doc._idrefAttributes ??= new List<int>()).Add(attribute);
                 }
-                if (type.TypeCode == System.Xml.Schema.XmlTypeCode.Id && _doc._attrOwner[attribute] is int element and not None)
+                if (Xsl3.Schema.SchemaTypes.IsId(type))
+                {
+                    (_doc._idAttrs ??= new HashSet<int>()).Add(attribute); // (a parentless one too: a copy of it is an ID)
+                }
+                if (Xsl3.Schema.SchemaTypes.IsId(type) && _doc._attrOwner[attribute] is int element and not None)
+                {
+                    _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
+                    _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);
+                }
+            }
+
+            /// <summary>Xsl3 (P6): the attribute just added is an ID (its element can be found by its value), though untyped.</summary>
+            internal void MarkAttributeId(string value)
+            {
+                (_doc._idAttrs ??= new HashSet<int>()).Add(_doc._attrCount - 1);
+                if (_doc._attrOwner[_doc._attrCount - 1] is int element and not None)
                 {
                     _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
                     _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);

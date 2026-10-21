@@ -1287,9 +1287,9 @@ namespace Xsl3.Runtime
             // With default-validation="preserve", every copy into a constructed tree keeps them.
             Xsl3.Schema.IAnnotatingWriter? typedCopy = (_runtime.PreserveAnnotations || depthStart == 1 && _copyOf == 0) && navigator is Xsl3.Tree.CompactNavigator { Typed: true }
                 ? Xsl3.Schema.AnnotatingWriters.Of(Writer) : null;
-            if (typedCopy != null && navigator.NodeType == XPathNodeType.Attribute && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } copiedType)
+            if (navigator.NodeType == XPathNodeType.Attribute)
             {
-                typedCopy.AnnotateAttribute(navigator.NamespaceURI, navigator.LocalName, copiedType);
+                CopyAttributeAnnotation(navigator, typedCopy);
             }
 
             while (true)
@@ -1313,10 +1313,7 @@ namespace Xsl3.Runtime
                     {
                         do
                         {
-                            if (typedCopy != null && Xsl3.Schema.SchemaTypes.TypeOf(navigator) is { } attributeType)
-                            {
-                                typedCopy.AnnotateAttribute(navigator.NamespaceURI, navigator.LocalName, attributeType);
-                            }
+                            CopyAttributeAnnotation(navigator, typedCopy);
                             StartCopy(navigator, false);
                         }
                         while (navigator.MoveToNextAttribute());
@@ -1361,6 +1358,26 @@ namespace Xsl3.Runtime
 
                     EndCopy(navigator, (_depth - 1) == depthStart);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Xsl3 (P6): the type annotation of an attribute being copied, where the copy keeps them; else its is-id property,
+        /// which a copy keeps even when its type annotation is stripped (XDM 3.1 §3.3.1.1).
+        /// </summary>
+        private void CopyAttributeAnnotation(XPathNavigator attribute, Xsl3.Schema.IAnnotatingWriter? typedCopy)
+        {
+            if (attribute is not Xsl3.Tree.CompactNavigator compact)
+            {
+                return;
+            }
+            if (typedCopy != null && compact.Typed && Xsl3.Schema.SchemaTypes.TypeOf(compact) is { } type)
+            {
+                typedCopy.AnnotateAttribute(compact.NamespaceURI, compact.LocalName, type);
+            }
+            else if (compact.IsIdAttribute && _runtime.IsXslt2)
+            {
+                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
             }
         }
 

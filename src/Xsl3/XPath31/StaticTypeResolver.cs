@@ -226,7 +226,8 @@ namespace Xsl3.XPath31
                             }
                         }
                     }
-                    return new NodeKindTest(XPathNodeType.Element, anyType: ReferenceEquals(declaration.ElementSchemaType, Xsl3.Schema.SchemaTypes.AnyType))
+                    // (An untyped element was not validated against the declaration: it never matches.)
+                    return new NodeKindTest(XPathNodeType.Element, anyType: false)
                     {
                         TypeName = "schema-element(" + name.EQName + ")",
                         SchemaType = declaration.ElementSchemaType,

@@ -300,6 +300,12 @@ namespace Xsl3.Xslt
                 // Xsl3: [xsl:]default-mode (XSLT 3.0 §6.6.1), scoped like a namespace declaration.
                 _scopeManager.AddNsDeclaration(DefaultModePrefix, _atoms.NameTable.Add(_reader.Value.Trim()));
             }
+            else if (rec.localName == "default-validation" && _compiler.Version != 1 &&
+                (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
+            {
+                // Xsl3 (P6): [xsl:]default-validation, scoped like a namespace declaration (XSLT 3.0 §25.4).
+                _scopeManager.AddNsDeclaration(DefaultValidationPrefix, _atoms.NameTable.Add(_reader.Value.Trim()));
+            }
             else if (rec.localName == "xpath-default-namespace" && _compiler.Version != 1 &&
                 (Ref.Equal(_records[0].nsUri, _atoms.UriXsl) ? rec.nsUri.Length == 0 : Ref.Equal(rec.nsUri, _atoms.UriXsl)))
             {
@@ -1208,6 +1214,11 @@ namespace Xsl3.Xslt
 
         /// <summary>Xsl3: the [xsl:]default-mode in scope at the current element (a lexical QName or #unnamed), if any.</summary>
         public string? DefaultMode => _scopeManager.LookupNamespace(DefaultModePrefix);
+
+        public const string DefaultValidationPrefix = "#default-validation";
+
+        /// <summary>Xsl3 (P6): the [xsl:]default-validation in scope ("preserve" or "strip"), or null.</summary>
+        public string? DefaultValidation => _scopeManager.LookupNamespace(DefaultValidationPrefix);
 
         // Xsl3: [xsl:]expand-text (XSLT 3.0 §5.6.2): text in the sequence constructors in scope are text value templates.
         private void SetExpandText(int attExpandText, ContextInfo ctxInfo)

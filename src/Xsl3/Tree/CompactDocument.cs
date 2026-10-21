@@ -85,6 +85,9 @@ namespace Xsl3.Tree
         /// <summary>Xsl3 (P6): the elements whose content, typed xs:ID, is their ID (fn:element-with-id gives their parents).</summary>
         internal HashSet<int>? _idContent;
 
+        /// <summary>Xsl3 (P6): the attributes that are IDs by their schema type (typed, or copied untyped from one that was).</summary>
+        internal HashSet<int>? _idAttrs;
+
         /// <summary>Xsl3 (P6): a tree the transformation built (a temporary tree, or a validated copy), not an input document.</summary>
         internal bool _constructed;
 

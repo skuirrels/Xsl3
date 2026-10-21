@@ -42,6 +42,16 @@ namespace Xsl3.Schema
             }
         }
 
+        /// <summary>An empty, compiled schema set: the built-in types only (a schema-aware stylesheet that imports none).</summary>
+        public static XmlSchemaSet NoSchemas => s_noSchemas.Value;
+
+        private static readonly Lazy<XmlSchemaSet> s_noSchemas = new(() =>
+        {
+            var set = new XmlSchemaSet();
+            set.Compile();
+            return set;
+        });
+
         /// <summary>The fn namespace's built-in schemas, compiled once (json-to-xml's validate option).</summary>
         public static XmlSchemaSet FunctionsSchemas => s_functionsSchemas.Value;
 
@@ -340,6 +350,12 @@ namespace Xsl3.Schema
             }
         }
 
+        // The same anonymous type read into two schema sets (the stylesheet's and the input's): the same place in the
+        // same schema document.
+        private static bool SameAnonymous(XmlSchemaType a, XmlSchemaType b) =>
+            a.QualifiedName.IsEmpty && b.QualifiedName.IsEmpty && a.SourceUri != null && a.SourceUri == b.SourceUri &&
+            a.LineNumber == b.LineNumber && a.LinePosition == b.LinePosition && a.LineNumber > 0;
+
         /// <summary>Whether <paramref name="type"/> is <paramref name="ancestor"/> or derived from it (by any method).</summary>
         public static bool DerivesFrom(XmlSchemaType? type, XmlSchemaType ancestor)
         {
@@ -349,7 +365,7 @@ namespace Xsl3.Schema
             }
             for (XmlSchemaType? t = type; t != null; t = t.BaseXmlSchemaType)
             {
-                if (ReferenceEquals(t, ancestor) || (!ancestor.QualifiedName.IsEmpty && t.QualifiedName == ancestor.QualifiedName))
+                if (ReferenceEquals(t, ancestor) || (!ancestor.QualifiedName.IsEmpty && t.QualifiedName == ancestor.QualifiedName) || SameAnonymous(t, ancestor))
                 {
                     return true;
                 }
@@ -398,6 +414,9 @@ namespace Xsl3.Schema
 
         /// <summary>The type annotation of an attribute of the element just started, applied when it is written.</summary>
         void AnnotateAttribute(string ns, string local, XmlSchemaType type);
+
+        /// <summary>An attribute of the element just started is an ID, though untyped (validation="strip" keeps is-id).</summary>
+        void MarkIdAttribute(string ns, string local);
     }
 
     internal static class AnnotatingWriters

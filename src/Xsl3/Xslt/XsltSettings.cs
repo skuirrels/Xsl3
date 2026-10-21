@@ -149,9 +149,9 @@ namespace Xsl3
         public bool EnableExtensionFunctions { get; set; } = true;
 
         /// <summary>
-        /// Xsl3 (P6, in progress; docs/plan/p6-schema.md): whether the processor is schema-aware (XSLT 3.0 §3.14):
+        /// Xsl3 (P6; docs/plan/p6-schema.md): whether the processor is schema-aware (XSLT 3.0 §3.14):
         /// <c>xsl:import-schema</c> imports a schema's types and declarations, and nodes a schema validated keep their
-        /// type annotations. Off by default while the feature is being built: <c>xsl:import-schema</c> is then XTSE1650.
+        /// type annotations. Off by default: <c>xsl:import-schema</c> is then XTSE1650, as for a basic processor.
         /// </summary>
         public bool SchemaAware { get; set; }
 

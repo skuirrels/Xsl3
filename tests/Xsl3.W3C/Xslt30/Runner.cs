@@ -22,7 +22,7 @@ namespace Xsl3.W3C.Xslt30;
 /// says; tree assertions parse that serialization back. XPath assertions are evaluated with Xsl3's XPath 3.1
 /// engine, with the result document as the context item.
 /// </summary>
-public sealed class Runner
+public sealed partial class Runner
 {
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(30);
 
@@ -35,6 +35,15 @@ public sealed class Runner
 
         /// <summary>The URI of a secondary result: the base URI of its tree when it is parsed back.</summary>
         public string? BaseUri { get; init; }
+
+        /// <summary>
+        /// P6: the principal result tree as the engine builds it (the transformation run again into a compact tree), with
+        /// the type annotations it keeps; for the assertions of schema-aware tests.
+        /// </summary>
+        public Func<XPathNavigator>? Tree { get; init; }
+
+        /// <summary>P6: the schemas of the test's environments, for its assertions.</summary>
+        public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
 
         /// <summary>
         /// The principal result written as XML (the transformation run again into an XmlWriter), for tree assertions
@@ -159,6 +168,14 @@ public sealed class Runner
                     }
                     return xml.ToString();
                 },
+                Tree = TestEnvironment.SchemaAware ? () =>
+                {
+                    var (writer, root) = Xsl3.Tree.CompactDocument.TemporaryTree(new NameTable(), "", fragment: false, noDocumentUri: true, compact: true);
+                    Run(writer);
+                    writer.Close();
+                    return root();
+                } : null,
+                Schemas = SchemaSet(test.Environments.OfType<TestEnvironment>()),
             };
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -605,9 +622,12 @@ public sealed class Runner
         return string.Join(" ", value.Select(i => i.Value));
     }
 
-    private static IList<XPathItem> Evaluate(string expression, XElement scope, XPathItem? context, IList<XPathItem>? result = null)
+    [System.Text.RegularExpressions.GeneratedRegex(@"instance\s+of|schema-element|schema-attribute|element\s*\(\s*\*\s*,|attribute\s*\(\s*\*\s*,|treat\s+as|nilled|data\s*\(")]
+    private static partial System.Text.RegularExpressions.Regex TypeAssertion();
+
+    private static IList<XPathItem> Evaluate(string expression, XElement scope, XPathItem? context, IList<XPathItem>? result = null, System.Xml.Schema.XmlSchemaSet? schemas = null)
     {
-        var sc = new XPathStaticContext();
+        var sc = new XPathStaticContext { Schemas = schemas };
         foreach (XAttribute ns in scope.AncestorsAndSelf().SelectMany(e => e.Attributes()).Where(a => a.IsNamespaceDeclaration).Reverse())
         {
             string prefix = ns.Name.NamespaceName.Length == 0 ? "" : ns.Name.LocalName;
@@ -784,8 +804,10 @@ public sealed class Runner
                 }
                 case "assert":
                 {
-                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
-                    bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }));
+                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument()
+                        // P6: an assertion about types is made on the result tree the engine built, with its annotations.
+                        : run.Tree != null && TypeAssertion().IsMatch(assertion.Value) ? run.Tree() : ResultTree(run, serialized);
+                    bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }, run.Schemas));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
                 case "assert-string-value":
@@ -887,9 +909,21 @@ public sealed class Runner
     {
         string text = StripDeclaration(serialized);
         var settings = new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment, DtdProcessing = DtdProcessing.Ignore };
-        using XmlReader reader = XmlReader.Create(new StringReader(text), settings, baseUri ?? "");
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        try
+        {
+            using XmlReader reader = XmlReader.Create(new StringReader(text), settings, baseUri ?? "");
+            return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        }
+        catch (XmlException) when (HtmlVoid().IsMatch(text))
+        {
+            // An html serialization (a secondary result's, which can't be run again as XML): its void elements closed.
+            using XmlReader reader = XmlReader.Create(new StringReader(HtmlVoid().Replace(text, "<$1$2/>")), settings, baseUri ?? "");
+            return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        }
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"<((?i:meta|br|hr|img|input|link|area|base|col|param|source|track|wbr|embed))(\s[^<>]*?)?(?<!/)>")]
+    private static partial System.Text.RegularExpressions.Regex HtmlVoid();
 
     private static string StripDeclaration(string s)
     {

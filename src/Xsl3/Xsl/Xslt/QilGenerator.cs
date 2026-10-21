@@ -1005,6 +1005,15 @@ namespace Xsl3.Xslt
                 {
                     result = Validate31(result, validated);
                 }
+                else if (IsV2 && node.V2?.Validation is string kept and ("preserve" or "strip") && nodeType is XslNodeType.LiteralElement or XslNodeType.Element or XslNodeType.Copy or XslNodeType.Document)
+                {
+                    // Xsl3 (P6): validation="preserve" or "strip" on a constructor: the nodes copied into it keep, or lose,
+                    // their type annotations, whatever the stylesheet's default-validation.
+                    result = _f.Sequence(
+                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(kept == "preserve" ? 1 : 0)),
+                        result,
+                        XPath31.XPath31Compiler.Invoke(_f, nameof(XsltLibrary.X31AnnotationScope), T.ItemS, _f.Double(-1)));
+                }
                 if (result.NodeType == QilNodeType.Sequence && result.Count == 0)
                 {
                     continue;

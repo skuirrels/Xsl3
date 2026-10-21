@@ -73,7 +73,7 @@ a schema or streaming don't (the report's "Not run" line counts them by reason).
 
 P6 claims `schema_aware` in the 3.0 profile: the runner turns on `XsltSettings.SchemaAware`, loads each environment's
 schemas and validates its sources (the 2.0 profile stays without it). `XSL3_XSLT30_PROFILE=sa` runs only the tests that
-need it (report: `xslt30-run-sa.md`): on 2026-10-21, 802 passed, 42 failed, 2 not run (95.0%); docs/plan/p6-schema.md
+need it (report: `xslt30-run-sa.md`): on 2026-10-21, 822 passed, 22 failed, 2 not run (97.4%); docs/plan/p6-schema.md
 has the history.
 
 | Date | Passed | Failed | Not run | Pass rate | Notes |
@@ -120,6 +120,7 @@ has the history.
 | 2026-10-21 | 8,008 | 28 | 49 | 99.7% | XTSE0165 for an imported or included `xsl:package`, XTSE0020 for `xsl:mode name="#unnamed"`, no global context item for a used package's variables (XPDY0002), character maps local to their package, `doc()` in static expressions through the stylesheet's resolver, XTDE2210 for merge keys that disagree, use-when errors ignored on unknown elements in forwards compatible mode. The runner now checks error codes: 573 expected-error tests pass with an error that doesn't name the expected code (343 in the 2.0 profile) |
 | 2026-10-21 | 8,012 | 24 | 49 | 99.7% | 2.0+ results of the xml method write empty elements as `<a/>` (owner's decision); the 2.0 profile is at 99.8% (4,584 → 4,588 passed, 9 failed) |
 | 2026-10-21 | 8,014 | 22 | 49 | 99.7% | Static variables of an imported module are in scope after the `xsl:import` (static-021, static-027), and a variable and a parameter of one name are inconsistent (XTSE3450); found by running DocBook xslTNG |
+| 2026-10-21 | 8,824 | 43 | 42 | 99.5% | Scoped `default-validation`, is-id kept on stripped copies, `schema-element()` never matching untyped elements, anonymous types matched across schema sets, assertions on the engine's result tree in the runner (schema-aware tests 822 passed, 22 failed) |
 | 2026-10-21 | 8,805 | 62 | 42 | 99.3% | P6: `schema_aware` claimed (the runner turns on `XsltSettings.SchemaAware`, loads each environment's schemas and validates its sources); the schema-aware tests are at 95.0% (802 passed, 42 failed), and tests of a processor that isn't schema-aware no longer apply |
 
 ### P5 exit sets

@@ -1,8 +1,5 @@
 # Known failures for xslt30-run. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
 accumulator/accumulator-073
-accumulator/accumulator-075
-accumulator/accumulator-075s
-apply-templates/conflict-resolution-1402
 base-uri/base-uri-046
 base-uri/base-uri-052
 copy/copy-1221
@@ -13,14 +10,11 @@ document/document-2401
 document/document-2402
 error/error-3105a
 id/id-001
-import-schema/import-schema-062
 import-schema/import-schema-066
 import-schema/import-schema-067
 import-schema/import-schema-076
 import-schema/import-schema-134
 import-schema/import-schema-177
-import-schema/import-schema-197
-import-schema/import-schema-199
 import/import-1201
 match/match-187
 match/match-197
@@ -35,7 +29,6 @@ namespace/namespace-2615
 notation/notation-0305
 override/override-f-031
 override/override-v-005
-si-apply-templates/si-apply-templates-007
 si-result-document/si-result-document-116
 snapshot/snapshot-0102a
 static/static-013c
@@ -47,17 +40,5 @@ use-package/use-package-108b
 validation/validation-0108
 validation/validation-0201
 validation/validation-0202
-validation/validation-0203
 validation/validation-0214
-validation/validation-0401
-validation/validation-0701
-validation/validation-1001
 validation/validation-1203
-validation/validation-1601
-validation/validation-1603
-validation/validation-1604
-validation/validation-1605
-validation/validation-1606
-validation/validation-1607
-validation/validation-1705
-validation/validation-1706

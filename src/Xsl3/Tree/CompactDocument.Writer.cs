@@ -66,6 +66,7 @@ namespace Xsl3.Tree
             public override void WriteStartElement(string? prefix, string localName, string? ns)
             {
                 _attributeTypes?.Clear(); // (an annotation not taken by its attribute doesn't carry over)
+                _idAttributes?.Clear();
                 _builder.StartElement(prefix ?? string.Empty, localName, ns ?? string.Empty, null);
             }
 
@@ -99,6 +100,10 @@ namespace Xsl3.Tree
                 {
                     _builder.AnnotateAttribute(type, value);
                 }
+                else if (_idAttributes != null && _idAttributes.Remove((_attrNs!, _attrLocal!)))
+                {
+                    _builder.MarkAttributeId(value);
+                }
                 _attrLocal = null;
                 _attrValue = null;
                 _attrMore?.Clear();
@@ -121,6 +126,11 @@ namespace Xsl3.Tree
             public void AnnotateElement(System.Xml.Schema.XmlSchemaType type, bool nilled) => _builder.AnnotateElement(type, nilled);
 
             /// <summary>Xsl3 (P6): the type annotation of an attribute of the element just started, when it is written.</summary>
+            // Xsl3 (P6): the attributes of the element being copied that are IDs though untyped, until they are written.
+            private System.Collections.Generic.HashSet<(string, string)>? _idAttributes;
+
+            public void MarkIdAttribute(string ns, string local) => (_idAttributes ??= new System.Collections.Generic.HashSet<(string, string)>()).Add((ns, local));
+
             public void AnnotateAttribute(string ns, string local, System.Xml.Schema.XmlSchemaType type) =>
                 (_attributeTypes ??= new System.Collections.Generic.Dictionary<(string, string), System.Xml.Schema.XmlSchemaType>())[(ns, local)] = type;
 

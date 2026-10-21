@@ -145,7 +145,16 @@ namespace Xsl3.Runtime
         internal bool IsXslt2 { get; }
 
         /// <summary>Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.</summary>
-        internal bool PreserveAnnotations { get; set; }
+        internal bool PreserveAnnotations
+        {
+            get => AnnotationScopes is { Count: > 0 } scopes ? scopes.Peek() : _preserveAnnotations;
+            set => _preserveAnnotations = value;
+        }
+
+        private bool _preserveAnnotations;
+
+        /// <summary>Xsl3 (P6): the constructors being evaluated that preserve (true) or strip (false) type annotations.</summary>
+        internal Stack<bool>? AnnotationScopes { get; set; }
 
         /// <summary>Xsl3 (P6): the stylesheet was compiled by a schema-aware processor (XsltSettings.SchemaAware).</summary>
         internal bool SchemaAware { get; set; }

@@ -29,11 +29,12 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 6.3 | Validation of input: the API's (a validating `XmlReader` into a compact tree keeps the annotations), `validation` on `xsl:source-document`, `doc()`/`document()` by `default-validation`; a type-annotation store in the compact tree; typed values from annotations (`data()`, atomization, comparisons), list and union types, schema normalized values; `type` and `nilled` accessors | Done except `doc()` and the accessors |
 | 6.4 | Validation of output: `validation` and `type` on literal result elements, `xsl:element`, `xsl:attribute`, `xsl:copy`, `xsl:copy-of`, `xsl:document`, `xsl:result-document`; `default-validation`; XTTE1510–XTTE1555 | Done except `validation="preserve"` on `xsl:copy`, and `default-validation` per module (one value per stylesheet here; constructed elements stay untyped rather than xs:anyType). Temporary trees keep their children's annotations (XSLT 3.0 §9.4) |
 | 6.5 | Patterns with schema types (`match="element(*, T)"`, `schema-element()`), `xsl:mode typed`, `input-type-annotations="strip"` | Done |
-| 6.6 | Claim `schema_aware` in `Profile.cs` at ≥ 95%; benchmarks show no cost without schemas | Done (2026-10-21): claimed in the 3.0 profile at 95.0%; the micro suite's geometric mean is within 4% of the commit before P6. `XsltSettings.SchemaAware` stays off by default (the owner's call) |
+| 6.6 | Claim `schema_aware` in `Profile.cs` at ≥ 95%; benchmarks show no cost without schemas | Done (2026-10-21): claimed in the 3.0 profile at 95.0%; the micro suite's geometric mean is within 4% of the commit before P6. `XsltSettings.SchemaAware` stays off by default (owner's decision, 2026-10-21) |
 
 ## How it works
 
-- `XsltSettings.SchemaAware` turns it on (off by default until 6.6). Without it, `xsl:import-schema` is XTSE1650 as before.
+- `XsltSettings.SchemaAware` turns it on. It is off by default (owner's decision, 2026-10-21): without it,
+  `xsl:import-schema` is XTSE1650 as before, and nothing else changes.
 - The compact tree keeps type annotations in two dictionaries (elements, attributes) and a set of nilled elements, null in
   an untyped tree. The builder fills them from a validating reader's `SchemaInfo`; nothing else changes for untyped trees.
 - A schema's simple types become `AtomicType`s (Schema/SchemaTypes.cs), one per schema type; casting checks the
@@ -53,3 +54,4 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 2026-10-21, start | 79 passed, 70 failed, 697 not run |
 | 2026-10-21, 6.2–6.5 in part | 707 passed, 137 failed, 2 not run (83.8%) |
 | 2026-10-21, second part | 802 passed, 42 failed, 2 not run (95.0%) |
+| 2026-10-21, third part | 822 passed, 22 failed, 2 not run (97.4%) |

@@ -3764,9 +3764,15 @@ namespace Xsl3.Xslt
                 : name;
         }
 
-        // Xsl3 (P6): the validation and type attributes of an instruction that constructs or copies nodes.
+        // Xsl3 (P6): the validation and type attributes of an instruction that constructs or copies nodes. Without
+        // either, a default-validation in scope that differs from the stylesheet's is the instruction's validation.
         private T WithValidation<T>(T node, string? validation, XmlQualifiedName? type) where T : XslNode
         {
+            if (validation == null && type == null && _compiler.Settings.SchemaAware && _input.DefaultValidation is string scoped &&
+                scoped != (_compiler.DefaultValidation ?? "strip") && scoped is "preserve" or "strip")
+            {
+                validation = scoped;
+            }
             if (validation != null && type != null)
             {
                 ReportError(SR.Xml_UserException, "XTSE1505: an instruction can't have both a validation and a type attribute");

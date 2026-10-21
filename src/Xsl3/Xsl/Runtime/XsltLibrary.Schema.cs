@@ -54,6 +54,23 @@ namespace Xsl3.Runtime
             return 0;
         }
 
+        /// <summary>
+        /// Xsl3 (P6): enters (1 preserve, 0 strip) or leaves (-1) the scope of a constructor whose validation attribute,
+        /// or default-validation, says whether nodes copied into it keep their type annotations. Returns nothing.
+        /// </summary>
+        public IList<XPathItem> X31AnnotationScope(double op)
+        {
+            if (op < 0)
+            {
+                _runtime.AnnotationScopes?.Pop();
+            }
+            else
+            {
+                (_runtime.AnnotationScopes ??= new Stack<bool>()).Push(op > 0);
+            }
+            return Sequences.Empty;
+        }
+
         /// <summary>Xsl3 (P6): whether a node is untyped (xs:untyped, xs:untypedAtomic): no schema validated it.</summary>
         public bool X31Untyped(XPathNavigator node) => SchemaTypes.TypeOf(node) == null;
 
@@ -62,7 +79,7 @@ namespace Xsl3.Runtime
         /// (XSLT 3.0 §25.4): <paramref name="validation"/> "strict" or "lax", or else against the type
         /// <paramref name="type"/> (an EQName). Each element, attribute and document node becomes its validated copy.
         /// </summary>
-        public IList<XPathNavigator> X31Validate(IList<XPathItem> items, double schemasId, string validation, string type)
+        public IList<XPathItem> X31Validate(IList<XPathItem> items, double schemasId, string validation, string type)
         {
             var schemas = (XmlSchemaSet)Constant((int)schemasId);
             XmlSchemaType? schemaType = null;
@@ -80,33 +97,27 @@ namespace Xsl3.Runtime
                             throw new XdmException("XTTE1540", $"{e.Name} has element content, so it isn't valid as xs:untypedAtomic");
                         }
                     }
-                    var nodes = new XPathNavigator[items.Count];
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        nodes[i] = (XPathNavigator)items[i];
-                    }
-                    return nodes;
+                    return items;
                 }
                 schemaType = name.Namespace == XmlSchema.Namespace
                     ? (name.Name == "anyType" ? SchemaTypes.AnyType : XmlSchemaType.GetBuiltInSimpleType(name))
                     : schemas.GlobalTypes[name] as XmlSchemaType;
             }
-            var result = new XPathNavigator[items.Count];
+            var result = new XPathItem[items.Count];
             for (int i = 0; i < result.Length; i++)
             {
-                result[i] = items[i] is XPathNavigator node
-                    ? NodeValidator.Validate(node, schemas, validation == "strict", schemaType)
-                    : throw Err.XPTY0004("Only nodes can be validated");
-                if (_accumulatorCopies != null && !ReferenceEquals(result[i], items[i]))
+                // (Atomic values, as xsl:copy-of copies them, aren't validated.)
+                result[i] = items[i] is XPathNavigator node ? NodeValidator.Validate(node, schemas, validation == "strict", schemaType) : items[i];
+                if (_accumulatorCopies != null && items[i] is XPathNavigator && !ReferenceEquals(result[i], items[i]))
                 {
                     // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.
                     XPathNavigator root = ((XPathNavigator)items[i]).Clone();
                     root.MoveToRoot();
                     if (_accumulatorCopies.TryGetValue(_runtime.GenerateId(root), out var copied) && Original((XPathNavigator)items[i], copied.Top, copied.Original) is XPathNavigator original)
                     {
-                        XPathNavigator validatedRoot = result[i].Clone();
+                        XPathNavigator validatedRoot = ((XPathNavigator)result[i]).Clone();
                         validatedRoot.MoveToRoot();
-                        _accumulatorCopies[_runtime.GenerateId(validatedRoot)] = (result[i].Clone(), original.Clone());
+                        _accumulatorCopies[_runtime.GenerateId(validatedRoot)] = (((XPathNavigator)result[i]).Clone(), original.Clone());
                     }
                 }
             }

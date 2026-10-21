@@ -48,6 +48,7 @@ namespace System.Xml
             EndBase64,
             Annotate,       // Xsl3 (P6): the type annotation of the element just started
             AnnotateAttr,   // Xsl3 (P6): the type annotation of an attribute of it
+            MarkIdAttr,     // Xsl3 (P6): an attribute of it that is an ID though untyped
             Close,
             Flush,
             Dispose,
@@ -234,6 +235,10 @@ namespace System.Xml
                             Xsl3.Schema.AnnotatingWriters.Of(writer)?.AnnotateElement((XmlSchemaType)page[idxEvent].Object!, page[idxEvent].String1 != null);
                             break;
 
+                        case XmlEventType.MarkIdAttr:
+                            Xsl3.Schema.AnnotatingWriters.Of(writer)?.MarkIdAttribute(page[idxEvent].String1!, page[idxEvent].String2!);
+                            break;
+
                         case XmlEventType.AnnotateAttr:
                             Xsl3.Schema.AnnotatingWriters.Of(writer)?.AnnotateAttribute(page[idxEvent].String1!, page[idxEvent].String2!, (XmlSchemaType)page[idxEvent].Object!);
                             break;
@@ -342,6 +347,8 @@ namespace System.Xml
         public void AnnotateElement(XmlSchemaType type, bool nilled) => AddEvent(XmlEventType.Annotate, nilled ? "nilled" : null, null, null, type);
 
         public void AnnotateAttribute(string ns, string local, XmlSchemaType type) => AddEvent(XmlEventType.AnnotateAttr, ns, local, null, type);
+
+        public void MarkIdAttribute(string ns, string local) => AddEvent(XmlEventType.MarkIdAttr, ns, local);
 
         public override void WriteStartAttribute(string? prefix, string localName, string? ns)
         {
