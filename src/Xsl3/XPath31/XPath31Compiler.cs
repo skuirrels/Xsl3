@@ -1069,6 +1069,9 @@ namespace Xsl3.XPath31
                         return _f.IsEmpty(Items(Build(args[0])));
                     case ("exists", 1):
                         return _f.Not(_f.IsEmpty(Items(Build(args[0]))));
+                    case ("string-length" or "normalize-space", 0) when _sc.Schemas != null:
+                        // Xsl3 (P6): of the context item's string value, not its typed value (F&O 3.1 §5.4.4, §5.4.5).
+                        return FunctionCall(call, lexicalName, new List<Expr> { new FunctionCall(new LexicalQName(null, "string", QName.Ns.Fn), new List<Expr> { new ContextItemExpr() }) { Span = call.Span } });
                     case (var local, 0) when s_contextFunctions.Contains(local):
                         return CallLibrary(call, name, new List<QilNode> { FocusItem() });
                     case ("lang" or "id" or "element-with-id" or "idref", 1):
@@ -1117,9 +1120,9 @@ namespace Xsl3.XPath31
             {
                 return n;
             }
-            if (n.XmlType.IsSubtypeOf(T.NodeNotRtf))
+            if (n.XmlType.IsSubtypeOf(T.NodeNotRtf) && _sc.Schemas == null)
             {
-                return _f.XPathNodeValue(n);
+                return _f.XPathNodeValue(n); // (with schemas, P6, a node may be typed: it is atomized instead)
             }
             if (s_literalStrings.TryGetValue(n, out string? literal))
             {
@@ -1142,6 +1145,10 @@ namespace Xsl3.XPath31
             if (NativeString(n) is QilNode s)
             {
                 return s;
+            }
+            if (_sc.Schemas != null)
+            {
+                return null; // Xsl3 (P6): a node may be typed, and is then atomized to its typed value
             }
             if (n.XmlType!.IsSubtypeOf(T.NodeNotRtfQ))
             {

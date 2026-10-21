@@ -55,3 +55,4 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 2026-10-21, 6.2–6.5 in part | 707 passed, 137 failed, 2 not run (83.8%) |
 | 2026-10-21, second part | 802 passed, 42 failed, 2 not run (95.0%) |
 | 2026-10-21, third part | 822 passed, 22 failed, 2 not run (97.4%) |
+| 2026-10-21, fourth part | 827 passed, 17 failed, 2 not run (98.0%) |

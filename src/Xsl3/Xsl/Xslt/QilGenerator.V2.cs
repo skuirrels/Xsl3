@@ -2901,6 +2901,73 @@ namespace Xsl3.Xslt
 
         // ------------------------------------------------------------ patterns
 
+        /// <summary>
+        /// Xsl3 (P6): a mode with typed="strict" (XSLT 3.0 §3.5.4.1): a template rule's pattern whose first step selects
+        /// elements by name must name a global element declaration of the imported schemas (XTSE3105).
+        /// </summary>
+        private void CheckStrictPatterns31(QilName mode)
+        {
+            System.Xml.Schema.XmlSchemaSet schemas = _compiler.Schemas ?? Xsl3.Schema.SchemaTypes.NoSchemas;
+            foreach (ProtoTemplate proto in _compiler.AllTemplates)
+            {
+                if (proto is not Template { Match: string match } template || !template.Mode.Equals(mode))
+                {
+                    continue;
+                }
+                XPath31.Expr ast;
+                try
+                {
+                    ast = Parser.ParseXPath(match);
+                }
+                catch (XPathStaticException)
+                {
+                    continue; // (reported where the pattern is compiled)
+                }
+                foreach (XPath31.Expr alternative in Alternatives31(ast))
+                {
+                    if (FirstStep31(alternative) is XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name })
+                    {
+                        string? ns = name.BracedUri ?? (name.Prefix == null ? "" : LookupPrefix31(template.Namespaces, name.Prefix));
+                        if (ns != null && schemas.GlobalElements[new XmlQualifiedName(local, ns)] == null)
+                        {
+                            _compiler.ReportError(template.SourceLine ?? SourceLineInfo.NoSource, SR.Xml_UserException,
+                                $"XTSE3105: the pattern '{match}' of a template rule in a mode with typed=\"strict\" names the element Q{{{ns}}}{local}, which the imported schemas don't declare");
+                        }
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<XPath31.Expr> Alternatives31(XPath31.Expr e) =>
+            e is XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u ? Alternatives31(u.Left).Concat(Alternatives31(u.Right)) : new[] { e };
+
+        // The first step of a relative path pattern (after "/" or "//" for an absolute one).
+        private static XPath31.Expr? FirstStep31(XPath31.Expr e)
+        {
+            while (e is XPath31.PathExpr path)
+            {
+                if (path.Left is XPath31.RootExpr)
+                {
+                    e = path.Right;
+                    continue;
+                }
+                e = path.Left;
+            }
+            return e;
+        }
+
+        private static string? LookupPrefix31(NsDecl? namespaces, string prefix)
+        {
+            for (NsDecl? d = namespaces; d != null; d = d.Prev)
+            {
+                if (d.Prefix == prefix)
+                {
+                    return d.NsUri;
+                }
+            }
+            return prefix == "xml" ? XmlReservedNs.NsXml : null;
+        }
+
         // The node a pattern is matched against, for current() in the pattern (XSLT 3.0 §5.5.3).
         private QilIterator? _patternNode31;
 

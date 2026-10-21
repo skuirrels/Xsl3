@@ -3255,6 +3255,10 @@ namespace Xsl3.Xslt
                 applyFunction.Definition = _matcherBuilder.BuildMatcher(current, actualArgs, /*otherwise:*/builtinTemplates,
                     IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? multiple) && multiple.OnMultipleMatch == "fail");
                 bool schemaAware = _compiler.Settings.SchemaAware;
+                if (IsV2 && schemaAware && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? strictMode) && strictMode.Typed == "strict")
+                {
+                    CheckStrictPatterns31(mode);
+                }
                 if (IsV2 && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? untypedMode) && schemaAware && untypedMode.Typed is "no" or "false" or "0")
                 {
                     // Xsl3 (P6): typed="no": processing a typed element or attribute in the mode is XTTE3110.

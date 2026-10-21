@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8824 passed, 43 failed, 42 not run; 99.5% of those run (216 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8829 passed, 38 failed, 42 not run; 99.6% of those run (216 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
@@ -19,12 +19,12 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature schema_aware | 822 | 22 | 2 | 97.4% |
+| feature schema_aware | 827 | 17 | 2 | 98.0% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 3250 | 19 | 7 | 99.4% |
-| spec XSLT30+ | 3677 | 21 | 35 | 99.4% |
+| spec XSLT20+ | 3253 | 16 | 7 | 99.5% |
+| spec XSLT30+ | 3679 | 19 | 35 | 99.5% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
 |---|---:|---:|---:|---:|
@@ -70,7 +70,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | document | 62 | 2 | 0 | 96.9% |
 | element | 29 | 0 | 0 | 100.0% |
 | embedded-stylesheet | 18 | 0 | 0 | 100.0% |
-| error | 530 | 1 | 0 | 99.8% |
+| error | 531 | 0 | 0 | 100.0% |
 | evaluate | 56 | 0 | 0 | 100.0% |
 | expand-text | 62 | 0 | 0 | 100.0% |
 | expose | 42 | 0 | 0 | 100.0% |
@@ -89,7 +89,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | higher-order-functions | 76 | 0 | 0 | 100.0% |
 | id | 42 | 1 | 0 | 97.7% |
 | import | 37 | 1 | 0 | 97.4% |
-| import-schema | 198 | 5 | 0 | 97.5% |
+| import-schema | 201 | 2 | 0 | 99.0% |
 | include | 14 | 0 | 0 | 100.0% |
 | initial-function | 35 | 0 | 0 | 100.0% |
 | initial-mode | 5 | 0 | 0 | 100.0% |
@@ -101,7 +101,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | load-xquery-module | 4 | 0 | 0 | 100.0% |
 | lre | 35 | 0 | 0 | 100.0% |
 | maps | 50 | 0 | 0 | 100.0% |
-| match | 281 | 5 | 0 | 98.3% |
+| match | 282 | 4 | 0 | 98.6% |
 | math | 155 | 0 | 0 | 100.0% |
 | merge | 66 | 1 | 11 | 98.5% |
 | message | 45 | 0 | 0 | 100.0% |
