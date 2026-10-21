@@ -87,12 +87,22 @@ namespace Xsl3.Tree
                 d._end = new int[capacity];
                 d._name = new int[capacity];
                 d._data = new int[capacity];
-                d._attrOwner = new int[attributes];
-                d._attrName = new int[attributes];
-                d._attrValue = new int[attributes];
-                d._nsOwner = new int[4];
-                d._nsPrefix = new string[4];
-                d._nsUri = new string[4];
+                if (small)
+                {
+                    // Most temporary trees have no attributes or namespace nodes: their arrays come with the first.
+                    d._attrOwner = d._attrName = d._attrValue = Array.Empty<int>();
+                    d._nsOwner = Array.Empty<int>();
+                    d._nsPrefix = d._nsUri = Array.Empty<string>();
+                }
+                else
+                {
+                    d._attrOwner = new int[attributes];
+                    d._attrName = new int[attributes];
+                    d._attrValue = new int[attributes];
+                    d._nsOwner = new int[4];
+                    d._nsPrefix = new string[4];
+                    d._nsUri = new string[4];
+                }
                 // (Sized here, not by an initializer: a temporary tree would allocate the large array only to drop it.)
                 _values = small ? new string[8] : new string[256];
                 if (fragment)
@@ -383,9 +393,9 @@ namespace Xsl3.Tree
                 int i = d._attrCount;
                 if (i == d._attrOwner.Length)
                 {
-                    Array.Resize(ref d._attrOwner, i * 2);
-                    Array.Resize(ref d._attrName, i * 2);
-                    Array.Resize(ref d._attrValue, i * 2);
+                    Array.Resize(ref d._attrOwner, Math.Max(4, i * 2));
+                    Array.Resize(ref d._attrName, Math.Max(4, i * 2));
+                    Array.Resize(ref d._attrValue, Math.Max(4, i * 2));
                 }
                 int name = Name(prefix, local, ns);
                 if (IsXmlId(name))
@@ -438,9 +448,9 @@ namespace Xsl3.Tree
                 int i = d._nsCount;
                 if (i == d._nsOwner.Length)
                 {
-                    Array.Resize(ref d._nsOwner, i * 2);
-                    Array.Resize(ref d._nsPrefix, i * 2);
-                    Array.Resize(ref d._nsUri, i * 2);
+                    Array.Resize(ref d._nsOwner, Math.Max(4, i * 2));
+                    Array.Resize(ref d._nsPrefix, Math.Max(4, i * 2));
+                    Array.Resize(ref d._nsUri, Math.Max(4, i * 2));
                 }
                 d._nsOwner[i] = element;
                 d._nsPrefix[i] = _nameTable.Add(prefix);

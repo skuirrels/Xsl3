@@ -501,15 +501,16 @@ LaTeX of four, text of one) against the expected results, made with Saxon, and t
 the dates of the run. `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -- tei` times four
 conversions of `Test/test14.xml` (550 KB); the nightly workflow runs it.
 
-Measured on 2026-10-21, after a temporary tree stopped allocating a 256-entry value table it then replaced (allocation
-before the fix in brackets):
+Measured on 2026-10-21, after a temporary tree stopped allocating a 256-entry value table it then replaced, and got
+its attribute and namespace arrays only with its first attribute or namespace node (allocation before both in
+brackets):
 
 | Stylesheet | Compile | Transform | Allocated per transform |
 |---|---:|---:|---:|
-| html/html.xsl | 241 ms | 476 ms | 304 MB (426 MB) |
-| latex/latex.xsl | 90 ms | 277 ms | 453 MB (557 MB) |
-| fo/fo.xsl | 90 ms | 66 ms | 240 MB (356 MB) |
-| txt/tei-to-text.xsl | 12 ms | 27 ms | 84 MB (97 MB) |
+| html/html.xsl | 241 ms | 470 ms | 291 MB (426 MB) |
+| latex/latex.xsl | 90 ms | 272 ms | 439 MB (557 MB) |
+| fo/fo.xsl | 90 ms | 67 ms | 227 MB (356 MB) |
+| txt/tei-to-text.xsl | 12 ms | 29 ms | 83 MB (97 MB) |
 
 These stylesheets build many small temporary trees and copy navigators freely; `tei --alloc-types` shows where the
 rest goes (item arrays, navigators, item sequences). XMark isn't run: its generator is a C program, to be fetched and
