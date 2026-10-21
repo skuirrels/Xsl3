@@ -45,7 +45,72 @@ for (int i = 2; i < args.Length; i++)
     }
 }
 
-var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false);
+var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
+{
+    // XSL3_DEV_W3C=1: the W3C runner's settings.
+    EnableEvaluate = Environment.GetEnvironmentVariable("XSL3_DEV_W3C") == "1",
+    VersionMode = Environment.GetEnvironmentVariable("XSL3_DEV_W3C") == "1" ? XsltVersionMode.BackwardsCompatible : XsltVersionMode.Legacy,
+};
+if (command == "compile")
+{
+    // compile style.xsl out.dll: a saved assembly (Sink B); "runcompiled out.dll input.xml" runs it.
+    using XmlReader reader = XmlReader.Create(new Uri(stylesheet).AbsoluteUri, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse });
+    using FileStream dll = File.Create(input!);
+    new XslCompiledTransform { InitialTemplate = initialTemplate == null ? null : new XmlQualifiedName(initialTemplate) }
+        .CompileToAssembly(reader, settings, new XmlUrlResolver(), Path.GetFileNameWithoutExtension(input!), "Compiled.Stylesheet", dll);
+    return 0;
+}
+if (command == "jitall")
+{
+    // jitall out.dll: JIT-compiles every method of a saved assembly, naming the ones the runtime rejects.
+    Type saved = System.Reflection.Assembly.LoadFrom(stylesheet).GetType("Compiled.Stylesheet", throwOnError: true)!;
+    int bad = 0;
+    foreach (System.Reflection.MethodInfo method in saved.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.DeclaredOnly))
+    {
+        try
+        {
+            System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(method.MethodHandle);
+        }
+        catch (Exception e)
+        {
+            bad++;
+            Console.WriteLine($"{method.Name}: {e.GetType().Name}: {e.Message}");
+        }
+    }
+    Console.WriteLine($"{bad} method(s) rejected");
+    return bad == 0 ? 0 : 1;
+}
+if (command == "runcompiled")
+{
+    // XSL3_DEV_COLLECTIBLE=1: into a collectible load context, as the W3C runner's round trip does.
+    Type type = (Environment.GetEnvironmentVariable("XSL3_DEV_COLLECTIBLE") == "1"
+        ? new System.Runtime.Loader.AssemblyLoadContext("compiled", isCollectible: true).LoadFromStream(new MemoryStream(File.ReadAllBytes(stylesheet)))
+        : System.Reflection.Assembly.LoadFrom(stylesheet)).GetType("Compiled.Stylesheet", throwOnError: true)!;
+    var compiled = new XslCompiledTransform { InitialTemplate = initialTemplate == null ? null : new XmlQualifiedName(initialTemplate) };
+    compiled.Load(type, settings);
+    if (initialTemplate != null)
+    {
+        // As the W3C runner does: no input, a stream.
+        var bytes = new MemoryStream();
+        void RunIt() => compiled.Transform(XslCompiledTransform.AbsentInput, arguments, bytes, new XmlUrlResolver());
+        if (Environment.GetEnvironmentVariable("XSL3_DEV_THREAD") == "1")
+        {
+            var thread = new System.Threading.Thread(RunIt, 64 * 1024 * 1024);
+            thread.Start();
+            thread.Join();
+        }
+        else
+        {
+            RunIt();
+        }
+        Console.Write(System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+        return 0;
+    }
+    using XmlReader compiledInput = input != null ? XmlReader.Create(input) : XmlReader.Create(new StringReader("<empty/>"));
+    compiled.Transform(compiledInput, arguments, Console.Out, new XmlUrlResolver());
+    Console.WriteLine();
+    return 0;
+}
 if (command is "qil" or "qilopt")
 {
     var compiler = new Compiler(settings, debug: false, scriptAssemblyPath: null);

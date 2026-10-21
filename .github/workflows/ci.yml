@@ -4,9 +4,16 @@ on:
   push:
     branches: [main]
   pull_request:
+    # (labeled: the perf-accepted label re-runs the checks with the perf gate advisory.)
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
+
+# A newer push to a pull request supersedes the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -40,14 +47,75 @@ jobs:
         run: dotnet test tests/Xsl3.Differential -c Release --no-build --logger trx --results-directory artifacts/test-results
 
       # W3C QT3 (XPath 3.1 / F&O 3.1), tracked against tests/Xsl3.W3C/baselines.
+      # About one xslt30-test case in ten compiles into a saved assembly and runs from it (Sink B round trip).
       - name: W3C tests
         if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_W3C_SAVED: "10"
         run: |
           eng/fetch-w3c.sh
           dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
+
+      # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is
+      # generated: in the job summary and the test-results artifact.
+      - name: Conformance report
+        if: always() && matrix.os == 'ubuntu-latest'
+        run: |
+          eng/conformance-report.sh tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports artifacts/test-results/conformance-sets.md
+          cat artifacts/test-results/conformance-sets.md >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-${{ matrix.os }}
           path: artifacts/test-results
+
+  # Sink B (docs/plan/p4-sink-b.md, B4): a stylesheet compiled ahead of time by Xsl3.Build's targets, published with
+  # NativeAOT (no trim or AOT warnings allowed) and run; the sample checks its own output.
+  native-aot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # No trim or AOT analysis warnings allowed (IL2xxx, IL3xxx).
+      - name: Publish the NativeAOT sample
+        run: |
+          set -o pipefail
+          dotnet publish samples/Xsl3.AotSample -c Release -r linux-x64 -o artifacts/aot 2>&1 | tee artifacts-publish.log
+          if grep -E "warning IL[23][0-9]{3}" artifacts-publish.log; then echo "Trim or AOT warnings"; exit 1; fi
+
+      - name: Run it
+        run: artifacts/aot/Xsl3.AotSample
+
+  # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
+  # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric
+  # mean) or more than 5% more allocation in any benchmark. The results are in the perf artifact. A deliberate trade
+  # (more compile allocation for a faster transform, say) is accepted by the owner with the perf-accepted label, which
+  # makes this job advisory.
+  perf:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ contains(github.event.pull_request.labels.*.name, 'perf-accepted') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Micro suite against the base branch
+        run: eng/perf-gate.sh origin/${{ github.base_ref }} 3
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf
+          path: artifacts/perf

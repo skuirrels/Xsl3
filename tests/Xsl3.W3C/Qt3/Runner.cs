@@ -32,6 +32,11 @@ public sealed record Outcome(OutcomeKind Kind, string Detail = "")
 /// </summary>
 public sealed class Runner
 {
+    // The suite's case-blind collation (environments declare it with <collation uri="…"/>): UCA at secondary strength,
+    // which ignores case.
+    static Runner() => Xsl3.XPath31.Functions.Collation.Aliases["http://www.w3.org/2010/09/qt-fots-catalog/collation/caseblind"] =
+        "http://www.w3.org/2013/collation/UCA?strength=secondary";
+
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(20);
     private readonly ConcurrentDictionary<string, XPathNavigator> _documents = new();
 
@@ -210,7 +215,8 @@ public sealed class Runner
     {
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(path, settings);
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        // Xsl3's own tree, as the 2.0+ processor builds for the documents it loads (it keeps the DTD's IDREF types).
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
     });
 
     private IList<XPathItem> Evaluate(string expression, XPathStaticContext sc, XPathItem? contextItem, IList<XPathItem>? result)
@@ -233,7 +239,7 @@ public sealed class Runner
         public static Result Error(string code, string message) => new(null, code, message);
         public static Result Crash(Exception e) => new(null, "!crash", $"{e.GetType().Name}: {e.Message}");
         public bool IsError => ErrorCode != null;
-        public override string ToString() => IsError ? $"error {ErrorCode}: {Message}" : $"[{string.Join(", ", Value!.Take(10).Select(i => i switch { AtomicValue a => $"{a.Type.Name}('{a.Value}')", XdmFunction f => f.Describe(), _ => $"{((XPathNavigator)i).NodeType}" }))}{(Value!.Count > 10 ? ", …" : "")}]";
+        public override string ToString() => IsError ? $"error {ErrorCode}: {Message}" : $"[{string.Join(", ", Value!.Take(10).Select(i => i switch { AtomicValue a => $"{a.Type.Name}('{a.Value}')", FunctionItem f => f.Describe(), _ => $"{((XPathNavigator)i).NodeType}" }))}{(Value!.Count > 10 ? ", …" : "")}]";
     }
 
     private Outcome Check(XElement assertion, Result result, TestEnvironment env, XPathItem? contextItem)
@@ -370,9 +376,9 @@ public sealed class Runner
             {
                 sb.Append(nav.NodeType switch
                 {
-                    XPathNodeType.Root => nav.InnerXml,
+                    XPathNodeType.Root => Markup(nav, inner: true),
                     XPathNodeType.Attribute => $"{nav.Name}=\"{System.Security.SecurityElement.Escape(nav.Value)}\"",
-                    _ => nav.OuterXml,
+                    _ => Markup(nav, inner: false),
                 });
                 lastAtomic = false;
             }
@@ -384,6 +390,28 @@ public sealed class Runner
                 }
                 sb.Append(System.Security.SecurityElement.Escape(item.Value));
                 lastAtomic = true;
+            }
+        }
+        return sb.ToString();
+    }
+
+    // A node's markup with carriage returns as references, so that parsing it back for a comparison keeps them.
+    private static string Markup(XPathNavigator nav, bool inner)
+    {
+        var sb = new StringBuilder();
+        using (XmlWriter w = XmlWriter.Create(sb, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true, NewLineHandling = NewLineHandling.Entitize }))
+        {
+            if (!inner)
+            {
+                w.WriteNode(nav, defattr: true);
+            }
+            else if (nav.Clone() is XPathNavigator child && child.MoveToFirstChild())
+            {
+                do
+                {
+                    w.WriteNode(child, defattr: true);
+                }
+                while (child.MoveToNext());
             }
         }
         return sb.ToString();

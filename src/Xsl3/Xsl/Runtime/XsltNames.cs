@@ -104,9 +104,17 @@ namespace Xsl3.Runtime
             };
         }
 
+        /// <summary>exsl:node-set and msxsl:node-set, which 2.0+ stylesheets get as the identity (temporary trees are nodes).</summary>
+        internal static bool IsNodeSetFunction(string ns, string local) =>
+            local == "node-set" && ns is "http://exslt.org/common" or "urn:schemas-microsoft-com:xslt";
+
         public bool FunctionAvailable(string name, int? arity)
         {
             var (ns, local) = Resolve(name, QName.Ns.Fn, "XTDE1400");
+            if (arity is null or 1 && IsNodeSetFunction(ns, local))
+            {
+                return true;
+            }
             // With an arity, just that one (concat takes any number of arguments); without, any up to 10.
             for (int n = arity ?? 0; n <= (arity ?? 10); n++)
             {
@@ -118,20 +126,28 @@ namespace Xsl3.Runtime
                     return true;
                 }
             }
-            // xs:T#1 constructor functions
-            return ns == QName.Ns.Xs && arity is null or 1 && AtomicTypes.Find(ns, local) is { IsAbstract: false };
+            // The focus-dependent functions with their argument, compiled rather than in the library.
+            if (ns == QName.Ns.Fn && arity is null or 1 && local is "lang" or "id" or "element-with-id" or "idref")
+            {
+                return true;
+            }
+            // xs:T#1 constructor functions, the list types and xs:error among them
+            return ns == QName.Ns.Xs && arity is null or 1 && (local == "error"
+                || XPath31.StaticTypeResolver.FindCastTarget(new QName(ns, local, "xs")) is var (type, _) && !type.IsAbstract);
         }
 
         public bool ElementAvailable(string name)
         {
-            var (ns, local) = Resolve(name, "", "XTDE1440");
+            // An unprefixed name is in the default namespace in scope (XSLT 3.0 §20.4.2).
+            var (ns, local) = Resolve(name, Namespaces.TryGetValue("", out string? defaultNs) ? defaultNs : "", "XTDE1440");
             return ns == XsltNs && (Instructions.Contains(local) || local == "evaluate" && EvaluateEnabled);
         }
 
         public bool TypeAvailable(string name)
         {
             var (ns, local) = Resolve(name, "", "XTDE1428");
-            return ns == QName.Ns.Xs && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
+            // xs:dateTimeStamp is XSD 1.1's; the xsd-version property is 1.0.
+            return ns == QName.Ns.Xs && local != "dateTimeStamp" && (AtomicTypes.Find(ns, local) != null || local is "anyType" or "anySimpleType" or "untyped");
         }
     }
 
@@ -154,7 +170,47 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31StaticValue(double id) => (IList<XPathItem>)Constant((int)id);
 
         /// <summary>The context item a template called from a function body gets: none (an empty string stands in).</summary>
-        public XPathItem X31AbsentFocus() => AtomicValue.OfString("");
+        public XPathItem X31AbsentFocus() => AbsentItem.Instance;
+
+        /// <summary>xs:error($arg): () for (), FORG0001 for anything else (xs:error has no values).</summary>
+        public IList<XPathItem> X31CastToError(IList<XPathItem> value) =>
+            value.Count == 0 ? System.Array.Empty<XPathItem>() : throw new XdmException("FORG0001", "No value can be cast to xs:error");
+
+        /// <summary>
+        /// Xsl3: the focus of a named template called with no context item (XSLT 3.0 §10.1.2): its string value is ""
+        /// (as the empty string stood in before), and using it as the context item is XPDY0002.
+        /// </summary>
+        internal sealed class AbsentItem : AtomicValue
+        {
+            public static readonly AbsentItem Instance = new();
+
+            private AbsentItem() : base(AtomicTypes.String)
+            {
+            }
+
+            public override string Value => "";
+
+            public override object ClrValue => "";
+        }
+
+        /// <summary>The context item of a named template's body: XPDY0002 when it is absent.</summary>
+        public XPathItem X31Focus(XPathItem item) =>
+            item is AbsentItem ? throw new XdmException("XPDY0002", "The context item is absent") : item;
+
+        /// <summary>A named template's xsl:context-item use="required": XTTE3090 when it is absent.</summary>
+        public IList<XPathItem> X31RequireFocus(XPathItem item) =>
+            item is AbsentItem ? throw new XdmException("XTTE3090", "The template requires a context item, and there is none") : System.Array.Empty<XPathItem>();
+
+        public bool X31IsAbsent(XPathItem item) => item is AbsentItem;
+
+        /// <summary>xsl:global-context-item use="required": XTDE3086 when the transformation was given no global context item.</summary>
+        public IList<XPathItem> X31RequireGlobalContextItem(XPathItem item) =>
+            X31InitialFocus(item) is AbsentItem ? throw new XdmException("XTDE3086", "The stylesheet requires a global context item, and none was supplied") : System.Array.Empty<XPathItem>();
+
+        /// <summary>The initial context item: absent when the transformation was given XslCompiledTransform.AbsentInput.</summary>
+        public XPathItem X31InitialFocus(XPathItem item) =>
+            item is XPathNavigator node && XslCompiledTransform.AbsentInput.IsSamePosition(node) ? AbsentItem.Instance : item;
+
 
         /// <summary>The value of a yes/no attribute value template (XTDE0030 for other values).</summary>
         public bool X31YesNo(string value, string attribute) => value.Trim() switch

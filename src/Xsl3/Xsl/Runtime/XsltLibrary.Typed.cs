@@ -13,7 +13,7 @@ namespace Xsl3.Runtime
     public sealed partial class XsltLibrary
     {
         /// <summary>Whether a dynamic call's function is a single map (so that $m(key) can look the key up directly).</summary>
-        public bool X31IsMap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function) => function.Count == 1 && function[0] is XdmMap;
+        public bool X31IsMap(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function) => function.Count == 1 && function[0] is MapItem;
 
         /// <summary>
         /// $m(key) for a map: the key converted as a map's parameter type, xs:anyAtomicType (exactly one atomic value,
@@ -24,10 +24,14 @@ namespace Xsl3.Runtime
             System.Collections.Generic.IList<System.Xml.XPath.XPathItem> atoms = Sequences.Atomize(key);
             if (atoms.Count != 1)
             {
-                throw Err.XPTY0004($"Argument 1 of {((XdmMap)function[0]).Describe()} must be one atomic value, not {Coercion.Describe(atoms)}");
+                throw Err.XPTY0004($"Argument 1 of {((MapItem)function[0]).Describe()} must be one atomic value, not {Coercion.Describe(atoms)}");
             }
-            return ((XdmMap)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
+            return ((MapItem)function[0]).Get((AtomicValue)atoms[0]) ?? Sequences.Empty;
         }
+
+        /// <summary>$m(key) for a map and a key that is one xs:string: looked up as a string.</summary>
+        public System.Collections.Generic.IList<System.Xml.XPath.XPathItem> X31MapLookupString(System.Collections.Generic.IList<System.Xml.XPath.XPathItem> function, string key) =>
+            ((MapItem)function[0]).GetString(key) ?? Sequences.Empty;
 
         /// <summary>
         /// The xs:double an xs:untypedAtomic value casts to: the exact fast parse for short decimals, the cast otherwise
@@ -70,6 +74,11 @@ namespace Xsl3.Runtime
             if (value.Length == 0)
             {
                 throw new XdmException("XTDE0930", "A namespace node can't have an empty value");
+            }
+            if (value.IndexOf('#') != value.LastIndexOf('#'))
+            {
+                // Not in xs:anyURI's lexical space: a URI has at most one fragment.
+                throw new XdmException("XTDE0905", $"'{value}' isn't a valid URI for a namespace node");
             }
             return name;
         }

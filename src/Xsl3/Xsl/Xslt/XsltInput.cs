@@ -776,7 +776,12 @@ namespace Xsl3.Xslt
 
         public XslVersion XslVersion
         {
-            get { return _scopeManager.ForwardCompatibility ? XslVersion.ForwardsCompatible : XslVersion.Current; }
+            get
+            {
+                return _scopeManager.ForwardCompatibility ? XslVersion.ForwardsCompatible
+                    : _compiler.Version == 2 && _scopeManager.BackwardCompatibility ? XslVersion.BackwardsCompatible
+                    : XslVersion.Current;
+            }
         }
 
         private void SetVersion(int attVersion)
@@ -811,7 +816,7 @@ namespace Xsl3.Xslt
             if (_compiler.Version == 0)
             {
                 // Xsl3: the principal module's version picks the processor (SPEC §4.3).
-                _compiler.Version = version < 2.0 || !Compiler.Xslt2Enabled ? 1 : 2;
+                _compiler.Version = version < 2.0 && _compiler.Settings.VersionMode == XsltVersionMode.Legacy || !Compiler.Xslt2Enabled ? 1 : 2;
             }
 
             if (_compiler.Version == 1)
@@ -1002,6 +1007,7 @@ namespace Xsl3.Xslt
                 }
             }
 
+            _ctxInfo!.backwards = _compiler.Version == 2 && _scopeManager.BackwardCompatibility; // Xsl3
             return _ctxInfo!;
         }
 
@@ -1083,6 +1089,7 @@ namespace Xsl3.Xslt
                 InsertExNamespaces(attExclude, _ctxInfo!, /*extensions:*/false);
             }
 
+            _ctxInfo!.backwards = _compiler.Version == 2 && _scopeManager.BackwardCompatibility; // Xsl3
             return _ctxInfo!;
         }
 
@@ -1368,6 +1375,7 @@ namespace Xsl3.Xslt
         internal sealed class ContextInfo
         {
             public NsDecl? nsList;
+            public bool backwards;                  // Xsl3: the element is in a backwards-compatible region (XSLT 3.0 §3.9)
             public ISourceLineInfo? lineInfo;       // Line info for whole start tag
             public ISourceLineInfo? elemNameLi;     // Line info for element name
             public ISourceLineInfo? endTagLi;       // Line info for end tag or '/>'

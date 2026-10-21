@@ -62,6 +62,7 @@ namespace Xsl3.Tree
         internal string _baseUri = "";
         internal Dictionary<int, string>? _baseUris;   // elements and PIs whose base URI differs from their parent's
         internal Dictionary<string, int>? _ids;        // DTD ID value -> element
+        internal List<int>? _idrefAttributes;           // Xsl3: the attributes the DTD declares IDREF or IDREFS, in order
         internal string _xmlPrefix = null!, _xmlUri = null!;
 
         /// <summary>Built from writer events (a temporary tree): elements and PIs have an empty base URI, as there.</summary>
@@ -75,6 +76,14 @@ namespace Xsl3.Tree
 
         /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
         internal bool NoDocumentUri { get; set; }
+
+        private static long s_created;
+
+        /// <summary>
+        /// When the tree was created, relative to the process's other compact trees: nodes of different trees are in
+        /// the order their trees were created, as constructed nodes are expected to be (XDM 3.1 §2.4).
+        /// </summary>
+        internal readonly long Created = System.Threading.Interlocked.Increment(ref s_created);
 
         private CompactDocument()
         {
@@ -208,17 +217,52 @@ namespace Xsl3.Tree
         /// </summary>
         internal (string Prefix, string Uri, int Owner, int Decl)[] InScopeNamespaces(int element)
         {
-            if (_scopes != null)
+            for (int n = element; n != None; n = _parent[n])
             {
-                for (int n = element; n != None; n = _parent[n])
+                if (_scopes != null && _scopes.TryGetValue(n, out var scope))
                 {
-                    if (_scopes.TryGetValue(n, out var scope))
-                    {
-                        return scope;
-                    }
+                    return scope;
+                }
+                if (_noInherit != null && _parent[n] != None && _noInherit.Contains(_parent[n]))
+                {
+                    // Xsl3: a child of an element made with inherit-namespaces="no" has only the namespaces it needs.
+                    var needed = NeededNamespaces(n);
+                    (_scopes ??= new Dictionary<int, (string, string, int, int)[]>())[n] = needed;
+                    return needed;
                 }
             }
             return _xmlOnly;
+        }
+
+        // Xsl3: the elements made with inherit-namespaces="no" (XSLT 3.0 §11.1.2).
+        internal HashSet<int>? _noInherit;
+
+        // The namespaces an element's own name and its attributes' names need, with the xml namespace.
+        private (string, string, int, int)[] NeededNamespaces(int element)
+        {
+            var list = new List<(string, string, int, int)>();
+            void Need(int name)
+            {
+                if (name == None)
+                {
+                    return;
+                }
+                string prefix = _prefix[name], uri = _uri[name];
+                if ((prefix.Length != 0 || uri.Length != 0) && prefix != "xml" && !list.Exists(ns => (object)ns.Item1 == (object)prefix || ns.Item1 == prefix))
+                {
+                    list.Add((prefix, uri, element, 0));
+                }
+            }
+            Need(_name[element]);
+            for (int a = _data[element]; a != None && a < _attrCount && _attrOwner[a] == element; a++)
+            {
+                if (_prefix[_attrName[a]].Length != 0)
+                {
+                    Need(_attrName[a]);
+                }
+            }
+            list.Add(_xmlOnly[0]);
+            return list.ToArray();
         }
 
         // The in-scope namespaces of each element that declares any (built with the tree, parents first).
@@ -249,7 +293,8 @@ namespace Xsl3.Tree
                     i++;
                     continue;
                 }
-                var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(InScopeNamespaces(_parent[element]));
+                var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(
+                    _noInherit != null && _noInherit.Contains(_parent[element]) ? NeededNamespaces(element) : InScopeNamespaces(_parent[element]));
                 for (; i < _nsCount && _nsOwner[i] == element; i++)
                 {
                     var added = (_nsPrefix[i], _nsUri[i], element, location++);
@@ -323,6 +368,64 @@ namespace Xsl3.Tree
         }
 
         /// <summary>The element whose DTD ID is the value, or None.</summary>
-        internal int LookupId(string id) => _ids != null && _ids.TryGetValue(id, out int element) ? element : None;
+        internal int LookupId(string id)
+        {
+            if (_ids == null && _idsFrom != null)
+            {
+                _ids = IdsFrom(_idsFrom);
+                _idsFrom = null;
+            }
+            return _ids != null && _ids.TryGetValue(id, out int element) ? element : None;
+        }
+
+        /// <summary>
+        /// Xsl3: the tree this one copies with whitespace stripped (XSLT 3.0 §4.3), whose ID attributes (its DTD's,
+        /// which the copy can't see) are found on first use: the elements of the two trees are the same, in order.
+        /// </summary>
+        internal System.Xml.XPath.XPathNavigator? _idsFrom;
+
+        internal void SetIdSource(System.Xml.XPath.XPathNavigator source)
+        {
+            if (_ids == null)
+            {
+                _idsFrom = source.Clone();
+            }
+        }
+
+        private Dictionary<string, int>? IdsFrom(System.Xml.XPath.XPathNavigator source)
+        {
+            Dictionary<string, int>? ids = null;
+            System.Xml.XPath.XPathNavigator root = source.Clone();
+            root.MoveToRoot();
+            System.Xml.XPath.XPathNodeIterator elements = root.SelectDescendants(System.Xml.XPath.XPathNodeType.Element, matchSelf: false);
+            int element = 0;
+            System.Xml.XPath.XPathNavigator probe = root.Clone();
+            while (elements.MoveNext())
+            {
+                // The copy's next element, in document order.
+                do
+                {
+                    element++;
+                }
+                while (element < _kind.Length && Kind(element) != (int)System.Xml.XPath.XPathNodeType.Element);
+                System.Xml.XPath.XPathNavigator e = elements.Current!;
+                System.Xml.XPath.XPathNavigator attribute = e.Clone();
+                if (!attribute.MoveToFirstAttribute())
+                {
+                    continue;
+                }
+                do
+                {
+                    // An attribute is an ID if the source finds its element by its value.
+                    string value = attribute.Value;
+                    if (value.Length > 0 && probe.MoveToId(value) && probe.IsSamePosition(e))
+                    {
+                        (ids ??= new Dictionary<string, int>()).TryAdd(value, element);
+                    }
+                }
+                while (attribute.MoveToNextAttribute());
+            }
+            return ids;
+        }
     }
 }

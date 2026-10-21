@@ -446,9 +446,175 @@ public class Xslt30Tests
     [Fact]
     public void AccumulatorsCountElementsInDocumentOrder() =>
         Assert.Equal("<out><n b=\"0\" a=\"2\" /><n b=\"2\" a=\"3\" /></out>", Run(
+            "<xsl:mode use-accumulators='count'/>" +
             "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
             "<xsl:template match='/'><out><xsl:for-each select='//g'><n b=\"{accumulator-before('count')}\" a=\"{accumulator-after('count')}\"/></xsl:for-each></out></xsl:template>",
             "<doc><g><i/><i/></g><g><i/></g></doc>"));
+
+    /// <summary>
+    /// A version="1.0" region of a 2.0+ stylesheet runs in backwards-compatible mode (XSLT 3.0 §3.9): value-of and
+    /// attribute value templates take the first item, comparisons and arithmetic follow XPath 1.0's conversions.
+    /// </summary>
+    [Fact]
+    public void VersionOneRegionsAreBackwardsCompatible() =>
+        Assert.Equal("<o a=\"1\"><c>1|true|true|NaN|c</c><d>1 2 3</d></o>", Run("""
+            <xsl:template match="/">
+              <o a="{1 to 3}" xsl:version="1.0"><c><xsl:value-of select="1 to 3"/>|<xsl:value-of select="'1' = 1"/>|<xsl:value-of select="true() = 'x'"/>|<xsl:value-of select="'a' + 1"/>|<xsl:value-of select="substring('abc', '3')"/></c><d xsl:version="2.0"><xsl:value-of select="1 to 3"/></d></o>
+            </xsl:template>
+            """));
+
+    /// <summary>
+    /// XsltVersionMode.BackwardsCompatible runs a version="1.0" stylesheet on the 3.0 processor; the default
+    /// (Legacy) keeps stock's 1.0 engine, which doesn't know XPath 2.0 syntax.
+    /// </summary>
+    [Fact]
+    public void VersionModeChoosesTheProcessorForVersionOneStylesheets()
+    {
+        string stylesheet = $"<xsl:stylesheet version='1.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select='(1 to 3)[2]'/>|<xsl:value-of select='system-property(\"xsl:version\")'/></o></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)), new XsltSettings { VersionMode = XsltVersionMode.BackwardsCompatible }, null);
+        var sw = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, sw);
+        Assert.Equal("<o>2|3.0</o>", sw.ToString());
+        Assert.ThrowsAny<XsltException>(() => new XslCompiledTransform().Load(XmlReader.Create(new StringReader(stylesheet))));
+    }
+
+    /// <summary>
+    /// format-number rounds a double's shortest digits half to even: values whose scaled form sits next to a half
+    /// (2.675 is 267.49999999999997 scaled) round as their digits do, others by scaling.
+    /// </summary>
+    [Fact]
+    public void FormatNumberRoundsNearHalvesByDigits() =>
+        Assert.Equal("<o>2.68 1.00 0.12 370.35 3,703.50 0.10</o>", Run("""
+            <xsl:template match="/"><o><xsl:value-of select="format-number(2.675e0, '0.00'), format-number(1.005e0, '0.00'), format-number(0.125e0, '0.00'),
+              format-number(3 * 123.45e0, '#,##0.00'), format-number(30 * 123.45e0, '#,##0.00'), format-number(0.1e0, '0.00')"/></o></xsl:template>
+            """));
+
+    /// <summary>The initial mode's xsl:mode names the accumulators applicable to the source document; by default none (XTDE3362).</summary>
+    [Fact]
+    public void AccumulatorsTheInitialModeDoesNotNameAreXTDE3362()
+    {
+        System.Exception e = Assert.ThrowsAny<System.Exception>(() => Run(
+            "<xsl:accumulator name='count' as='xs:integer' initial-value='0'><xsl:accumulator-rule match='i' select='$value + 1'/></xsl:accumulator>" +
+            "<xsl:template match='/'><out><xsl:value-of select=\"accumulator-after('count')\"/></out></xsl:template>",
+            "<doc><i/></doc>"));
+        Assert.Contains("XTDE3362", e.ToString());
+    }
+
+    /// <summary>$err:line-number is the line of the innermost instruction of the xsl:try body that was running.</summary>
+    [Fact]
+    public void CatchSeesTheLineNumber() =>
+        Assert.Equal("<o>4</o>", Run("""
+
+            <xsl:template match="/"><o><xsl:try>
+              <xsl:if test="true()">
+                <xsl:value-of select="1 div 0"/>
+              </xsl:if>
+              <xsl:catch><xsl:value-of select="$err:line-number"/></xsl:catch>
+            </xsl:try></o></xsl:template>
+            """.Replace("\r", "")));
+
+    /// <summary>A local variable nothing refers to isn't evaluated, so its errors don't arise.</summary>
+    [Fact]
+    public void UnreferencedLocalVariablesAreNotEvaluated() =>
+        Assert.Equal("<o>3</o>", Run("""
+            <xsl:function name="f:f" xmlns:f="urn:f"><xsl:param name="a"/><xsl:variable name="unused" select="error()"/><xsl:sequence select="$a + 2"/></xsl:function>
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:variable name="x" select="error()"/><xsl:value-of select="f:f(1)"/></o></xsl:template>
+            """));
+
+    /// <summary>xsl:where-populated drops an array whose members' items are all deemed empty.</summary>
+    [Fact]
+    public void WherePopulatedDropsArraysOfEmptyItems() =>
+        Assert.Equal("<o>0 0 1</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="e" as="element()"><e/></xsl:variable>
+              <xsl:variable name="a" as="item()*"><xsl:where-populated><xsl:sequence select="[$e]"/></xsl:where-populated></xsl:variable>
+              <xsl:variable name="b" as="item()*"><xsl:where-populated><xsl:sequence select="[[$e, ''], ()]"/></xsl:where-populated></xsl:variable>
+              <xsl:variable name="c" as="item()*"><xsl:where-populated><xsl:sequence select="[$e, 1]"/></xsl:where-populated></xsl:variable>
+              <o><xsl:value-of select="count($a), count($b), count($c)"/></o>
+            </xsl:template>
+            """));
+
+    /// <summary>element(*) and document-node(element(*)) patterns have the default priority -0.5 (XSLT 3.0 §6.5).</summary>
+    [Fact]
+    public void ElementWildcardPatternsHaveTheLowestNamePriority() =>
+        Assert.Equal("<o>B</o>", Run("""
+            <xsl:template match="/"><o><xsl:apply-templates select="doc"/></o></xsl:template>
+            <xsl:template match="element(*)">A</xsl:template>
+            <xsl:template match="doc" priority="-0.4">B</xsl:template>
+            """));
+
+    /// <summary>Parentless nodes of separate temporary trees are in the order they were made.</summary>
+    [Fact]
+    public void TemporaryTreesAreInCreationOrder() =>
+        Assert.Equal("<o>3 1 2</o>", Run("""
+            <xsl:variable name="data" as="element()*"><a>3</a><a>1</a><a>2</a></xsl:variable>
+            <xsl:template match="/"><o><xsl:value-of select="$data/self::a"/></o></xsl:template>
+            """));
+
+    /// <summary>element(N) admits nilled elements and any type, so it isn't a subtype of element(N, xs:anyType).</summary>
+    [Fact]
+    public void FunctionTypesCompareElementTypesAndNillability() =>
+        Assert.Equal("<o>true false false</o>", Run("""
+            <xsl:function name="f:f" as="element(e)?" xmlns:f="urn:f"><xsl:param name="x"/><e/></xsl:function>
+            <xsl:template match="/" xmlns:f="urn:f" exclude-result-prefixes="f"><o><xsl:value-of select="
+              f:f#1 instance of function(item()*) as element(e)*,
+              f:f#1 instance of function(item()*) as element(e, xs:anyType)*,
+              f:f#1 instance of function(item()*) as element(*, xs:untyped)?"/></o></xsl:template>
+            """));
+
+    /// <summary>xsl:context-item's use attribute defaults to optional: a named template may run without a context item.</summary>
+    [Fact]
+    public void ContextItemIsOptionalByDefault()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:xs='http://www.w3.org/2001/XMLSchema' exclude-result-prefixes='xs'>" +
+            "<xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template name='t'><xsl:context-item as='xs:integer'/><xsl:param name='p' select='3'/><xsl:sequence select='if ($p = 3) then . else $p'/></xsl:template>" +
+            "<xsl:template name='main'><o><xsl:for-each select='1 to 2'><xsl:call-template name='t'/></xsl:for-each>" +
+            "<xsl:call-template name='t'><xsl:with-param name='p' select='6'/></xsl:call-template></o></xsl:template></xsl:stylesheet>";
+        var transform = new XslCompiledTransform { InitialTemplate = new XmlQualifiedName("main") };
+        transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+        var sw = new StringWriter();
+        transform.Transform(XslCompiledTransform.AbsentInput, null, sw);
+        Assert.Equal("<o>1 2 6</o>", sw.ToString());
+    }
+
+    /// <summary>
+    /// The initial template's parameters, tunnel ones too (XSLT 3.0 §2.3.4), supplied as reserved parameters; a
+    /// required one that isn't supplied is XTDE0700 even if it's unused.
+    /// </summary>
+    [Fact]
+    public void InitialTemplateParameters()
+    {
+        string stylesheet = $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}' xmlns:my='urn:my' exclude-result-prefixes='my'>" +
+            "<xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:param name='a' select='12'/><xsl:variable name='b' select='$a * 2'/>" +
+            "<xsl:template name='t'><xsl:param name='a' required='yes'/><xsl:param name='my:b' tunnel='yes'/><o><xsl:sequence select='$a, $my:b, $b'/></o></xsl:template>" +
+            "</xsl:stylesheet>";
+        string RunWith(bool supply)
+        {
+            var transform = new XslCompiledTransform
+            {
+                InitialTemplate = new XmlQualifiedName("t"),
+                InitialParameters = supply ? new List<(XmlQualifiedName, bool)> { (new XmlQualifiedName("a"), false), (new XmlQualifiedName("b", "urn:my"), true) } : null,
+            };
+            transform.Load(XmlReader.Create(new StringReader(stylesheet)));
+            var args = new XsltArgumentList();
+            args.AddParam("a", "", 77);
+            if (supply)
+            {
+                XmlQualifiedName first = XslCompiledTransform.InitialParameter(1), second = XslCompiledTransform.InitialParameter(2);
+                args.AddParam(first.Name, first.Namespace, 1234);
+                args.AddParam(second.Name, second.Namespace, 999);
+            }
+            var sw = new StringWriter();
+            transform.Transform(XslCompiledTransform.AbsentInput, args, sw);
+            return sw.ToString();
+        }
+        Assert.Equal("<o>1234 999 154</o>", RunWith(supply: true));
+        Assert.Contains("XTDE0700", Assert.ThrowsAny<System.Exception>(() => RunWith(supply: false)).ToString());
+    }
 
     [Fact]
     public void PackagesHidePrivateComponentsAndHonourOverrides()
@@ -687,5 +853,152 @@ public class Xslt30Tests
         Assert.DoesNotContain("urn:u", result);
         Assert.Contains("xmlns:b=\"urn:b\"", result);
         Assert.EndsWith("<a:e xmlns:a=\"urn:a\" /></o>", result);
+    }
+
+    /// <summary>inherit-namespaces="no" (XSLT 3.0 §11.1.2): children don't inherit the element's namespaces, in trees and output.</summary>
+    [Fact]
+    public void InheritNamespacesNo()
+    {
+        // Sorted prefixes: x:a has x, b none, c the default namespace; none has p's.
+        Assert.Equal("<o>x xml|xml| xml</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="v"><xsl:element name="p" namespace="urn:p" inherit-namespaces="no"><x:a xmlns:x="urn:x"/><b/><c xmlns="urn:c"/></xsl:element></xsl:variable>
+              <o><xsl:value-of select="string-join($v/*/*!string-join(sort(in-scope-prefixes(.)), ' '), '|')"/></o>
+            </xsl:template>
+            """));
+        Assert.Contains("<b xmlns=\"\" />", Run("""
+            <xsl:template match="/"><xsl:element name="p" namespace="urn:p" inherit-namespaces="no"><b/></xsl:element></xsl:template>
+            """));
+    }
+
+    /// <summary>
+    /// A predicate that can't depend on the focus ($s[$i]) is evaluated once and used as a position, with the same
+    /// results as evaluating it per item: numbers select by position (none for fractions or out of range), anything
+    /// else keeps all items or none, errors are raised only when there are items to filter.
+    /// </summary>
+    [Fact]
+    public void FocusFreePredicatesSelectByPosition()
+    {
+        Assert.Equal("<o>c|b|d|||a b c d e|||a</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="s" select="('a', 'b', 'c', 'd', 'e')"/>
+              <xsl:variable name="i" select="3"/>
+              <xsl:variable name="half" select="2.5"/>
+              <xsl:variable name="yes" select="true()"/>
+              <xsl:variable name="no" select="''"/>
+              <xsl:variable name="none" select="()"/>
+              <o><xsl:value-of select="$s[$i]"/>|<xsl:value-of select="$s[$i - 1]"/>|<xsl:value-of select="$s[($i + 1)]"/>|<xsl:value-of select="$s[$half]"/>|<xsl:value-of select="$s[$i * 10]"/>|<xsl:value-of select="$s[$yes]"/>|<xsl:value-of select="$s[$no]"/>|<xsl:value-of select="$none[$i + 'x']"/>|<xsl:value-of select="$s[-$i + 4 idiv 1]"/></o>
+            </xsl:template>
+            """));
+        // A sequence of two numbers has no effective boolean value (FORG0006), when there are items to filter.
+        Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:template match="/"><xsl:variable name="two" select="(1, 2)"/><o><xsl:value-of select="(1, 2, 3)[$two]"/></o></xsl:template>
+            """));
+    }
+
+    /// <summary>
+    /// A sequence converted to a parameter's declared type is passed on to the same parameter (a recursive call)
+    /// without being checked again; a value of the wrong type is still rejected.
+    /// </summary>
+    [Fact]
+    public void RecursiveCallsPassConvertedSequencesOn()
+    {
+        Assert.Equal("<o>55</o>", Run("""
+            <xsl:function name="f:sum" as="xs:decimal" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:decimal*"/>
+              <xsl:param name="i" as="xs:integer"/>
+              <xsl:sequence select="if ($i gt count($items)) then 0 else $items[$i] + f:sum($items, $i + 1)"/>
+            </xsl:function>
+            <xsl:template match="/"><o xmlns:f="urn:f" xsl:exclude-result-prefixes="f"><xsl:value-of select="f:sum(1 to 10, 1)"/></o></xsl:template>
+            """));
+        Assert.ThrowsAny<System.Exception>(() => Run("""
+            <xsl:function name="f:sum" as="xs:decimal" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:decimal*"/>
+              <xsl:sequence select="sum($items)"/>
+            </xsl:function>
+            <xsl:function name="f:dates" as="xs:date*" xmlns:f="urn:f">
+              <xsl:param name="items" as="xs:date*"/>
+              <xsl:sequence select="$items"/>
+            </xsl:function>
+            <xsl:template match="/"><o xmlns:f="urn:f"><xsl:value-of select="f:sum(f:dates((1 to 10) ! xs:date('2026-10-21')))"/></o></xsl:template>
+            """));
+    }
+
+    /// <summary>fn:idref finds the attributes a DTD declares IDREF or IDREFS that refer to an ID, in document order.</summary>
+    [Fact]
+    public void IdrefFindsDtdIdrefAttributes()
+    {
+        string input = """
+            <!DOCTYPE r [
+              <!ELEMENT r (a*)>
+              <!ELEMENT a EMPTY>
+              <!ATTLIST a id ID #IMPLIED ref IDREF #IMPLIED refs IDREFS #IMPLIED other CDATA #IMPLIED>
+            ]>
+            <r><a id="x"/><a id="y" ref="x"/><a refs="y  x" other="x"/><a ref="z"/></r>
+            """;
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:output omit-xml-declaration='yes'/>" +
+            "<xsl:template match='/'><o><xsl:value-of select=\"idref('x') ! name()\"/>|<xsl:value-of select=\"idref(' y ') ! name()\"/>|<xsl:value-of select=\"idref('nope') ! name()\"/></o></xsl:template></xsl:stylesheet>")));
+        var text = new StringWriter();
+        transform.Transform(XmlReader.Create(new StringReader(input), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }), null, text);
+        Assert.Equal("<o>ref refs|refs|</o>", text.ToString());
+    }
+
+    /// <summary>
+    /// Automatic indexing of /path[key = $value] gives what the filter gives, evaluated many times (the index is built
+    /// on the second): strings and nodes by string, numbers as numbers (no index), several values in document order,
+    /// repeated child keys, descendant paths, and each document its own index.
+    /// </summary>
+    [Fact]
+    public void IndexedPathsAgreeWithTheFilter()
+    {
+        string input = "<r><p k='1' n='a'><c>x</c><c>y</c></p><p k='2' n='b'><c>y</c></p><p k='1.0' n='c'/><p k='3' n='d'/></r>";
+        Assert.Equal("<o>a,a,a|a c,a c,a c|a b d,a b d,a b d|a b,a b,a b|b c d,b c d,b c d|,,|1 2 1 2 1 2</o>", Run("""
+            <xsl:template match="/">
+              <xsl:variable name="d" select="."/>
+              <xsl:variable name="other" select="parse-xml('&lt;r>&lt;p k=&quot;1&quot; n=&quot;z&quot;/>&lt;p k=&quot;1&quot; n=&quot;y&quot;/>&lt;/r>')"/>
+              <o>
+                <xsl:value-of select="string-join(for $i in 1 to 3 return let $v := '1' return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := 1 return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := ('3', '2', '1') return string-join(/r/p[$v = @k]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := 'y' return string-join(/r/p[c = $v]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := $d/r/p[2]/@k return string-join(//p[@k = ($v, '1.0', '3')]/@n, ' '), ',')"/>|<xsl:value-of
+                  select="string-join(for $i in 1 to 3 return let $v := () return string-join(/r/p[@k = $v]/@n, ' '), ',')"/>|<xsl:for-each
+                  select="1 to 3"><xsl:for-each select="$d, $other"><xsl:value-of select="count(/r/p[@k = '1'])"/><xsl:text> </xsl:text></xsl:for-each></xsl:for-each>
+              </o>
+            </xsl:template>
+            """, input).Replace(" </o>", "</o>"));
+    }
+
+    /// <summary>
+    /// XTSE3450: a static variable declared with another value earlier in the stylesheet at a lower import precedence
+    /// (an import before it) is an error; declared first at the higher precedence (before the import), it isn't.
+    /// </summary>
+    [Fact]
+    public void StaticVariablesMustAgreeWithLowerPrecedenceOnesBeforeThem()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "xsl3-static-" + System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "imported.xsl"), $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'><xsl:variable name='v' static='yes' select='1'/></xsl:stylesheet>");
+            string Load(string body)
+            {
+                string main = Path.Combine(dir, "main.xsl");
+                File.WriteAllText(main, $"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>{body}<xsl:template match='/'><out v='{{$v}}'/></xsl:template></xsl:stylesheet>");
+                var transform = new XslCompiledTransform();
+                transform.Load(main, XsltSettings.Default, new XmlUrlResolver());
+                var text = new StringWriter();
+                transform.Transform(XmlReader.Create(new StringReader("<doc/>")), null, text);
+                return text.ToString();
+            }
+            Assert.Contains("v=\"2\"", Load("<xsl:variable name='v' static='yes' select='2'/><xsl:import href='imported.xsl'/>"));
+            Assert.Contains("XTSE3450", Assert.ThrowsAny<XsltException>(() => Load("<xsl:import href='imported.xsl'/><xsl:variable name='v' static='yes' select='2'/>")).Message);
+            Assert.Contains("v=\"1\"", Load("<xsl:import href='imported.xsl'/><xsl:variable name='v' static='yes' select='1'/>"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

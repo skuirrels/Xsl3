@@ -49,6 +49,10 @@ namespace Xsl3.Tree
             private Dictionary<(string, string), (string, string)>? _idAttributes;
             private (string Local, string Prefix)? _idAttribute;
 
+            // Xsl3: the DTD's IDREF and IDREFS attributes, by element; those of the element being built (fn:idref).
+            private Dictionary<(string, string), List<(string Local, string Prefix)>>? _idrefAttributes;
+            private List<(string Local, string Prefix)>? _idrefs;
+
             /// <param name="fragment">A tree with no document node: its root is its one top-level node (XQuery's fragments).</param>
             /// <param name="small">A tree expected to be small (a temporary tree), so the arrays start small.</param>
             public Builder(XmlNameTable nameTable, string baseUri, bool fragment = false, bool small = false)
@@ -197,6 +201,15 @@ namespace Xsl3.Tree
                             foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdAttributes(reader))
                             {
                                 (_idAttributes ??= new())[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
+                            }
+                            foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdrefAttributes(reader))
+                            {
+                                _idrefAttributes ??= new();
+                                if (!_idrefAttributes.TryGetValue((elementLocal, elementPrefix), out var list))
+                                {
+                                    _idrefAttributes[(elementLocal, elementPrefix)] = list = new();
+                                }
+                                list.Add((attributeLocal, attributePrefix));
                             }
                             break;
                     }
@@ -349,6 +362,7 @@ namespace Xsl3.Tree
                 _openBase[_depth] = baseUri;
                 _depth++;
                 _idAttribute = _idAttributes != null && _idAttributes.TryGetValue((local, prefix), out var id) ? id : null;
+                _idrefs = _idrefAttributes != null && _idrefAttributes.TryGetValue((local, prefix), out var idrefs) ? idrefs : null;
             }
 
             internal void EndElement(bool emptyTag)
@@ -389,6 +403,10 @@ namespace Xsl3.Tree
                     d._data[element] = i;
                 }
                 d._attrCount = i + 1;
+                if (_idrefs != null && element != None && _idrefs.Contains((local, prefix)))
+                {
+                    (d._idrefAttributes ??= new List<int>()).Add(i);
+                }
                 if (_idAttribute is { } id && local == id.Local && prefix == id.Prefix)
                 {
                     d._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
@@ -399,6 +417,14 @@ namespace Xsl3.Tree
             private bool IsXmlId(int name) => _pool != null
                 ? _pool.Local[name] == "id" && (object)_pool.Uri[name] == (object)_doc._xmlUri
                 : _local![name] == "id" && (object)_uri![name] == (object)_doc._xmlUri;
+
+            internal void NoInherit()
+            {
+                if (InElement)
+                {
+                    (_doc._noInherit ??= new HashSet<int>()).Add(_open[_depth - 1]);
+                }
+            }
 
             internal void NamespaceDeclaration(string prefix, string uri)
             {

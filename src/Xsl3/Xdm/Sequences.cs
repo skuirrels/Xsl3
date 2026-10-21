@@ -19,13 +19,13 @@ namespace Xsl3.Xdm
             {
                 case AtomicValue a:
                     return a;
-                case XdmArray array:
+                case ArrayItem array:
                 {
                     // An array atomizes to its members' atomized values: here exactly one is expected.
                     IList<XPathItem> atoms = Atomize(Flatten(array));
                     return atoms.Count == 1 ? (AtomicValue)atoms[0] : throw Err.XPTY0004($"{array.Describe()} atomizes to {atoms.Count} values where one is expected");
                 }
-                case XdmFunction f:
+                case FunctionItem f:
                     throw new XdmException("FOTY0013", $"{f.Describe()} can't be atomized");
                 case XPathNavigator n:
                     // Without schema validation every node is untyped: comments, PIs and namespace nodes have
@@ -48,7 +48,7 @@ namespace Xsl3.Xdm
                 if (item is not AtomicValue)
                 {
                     alreadyAtomic = false;
-                    arrays |= item is XdmArray;
+                    arrays |= item is ArrayItem;
                 }
             }
             if (alreadyAtomic)
@@ -60,7 +60,7 @@ namespace Xsl3.Xdm
                 var flat = new List<XPathItem>(seq.Count);
                 foreach (XPathItem item in seq)
                 {
-                    if (item is XdmArray array)
+                    if (item is ArrayItem array)
                     {
                         flat.AddRange(Atomize(Flatten(array)));
                     }
@@ -82,6 +82,11 @@ namespace Xsl3.Xdm
         /// <summary>Atomises a sequence that must hold at most one item; null if empty, XPTY0004 if longer.</summary>
         public static AtomicValue? AtomizeOptional(IList<XPathItem> seq, string what)
         {
+            if (seq.Count == 1 && seq[0] is ArrayItem)
+            {
+                // An array atomizes to its members' values, possibly none (QT3 value-comparison-7: [] eq 1 is empty).
+                seq = Atomize(seq);
+            }
             if (seq.Count == 0)
             {
                 return null;
@@ -124,7 +129,7 @@ namespace Xsl3.Xdm
             {
                 return true;
             }
-            if (first is XdmFunction fn)
+            if (first is FunctionItem fn)
             {
                 throw new XdmException("FORG0006", $"The effective boolean value of {fn.Describe()} is not defined");
             }
@@ -149,14 +154,14 @@ namespace Xsl3.Xdm
         public static string StringValue(XPathItem item) => item is AtomicValue a ? a.Value : item.Value;
 
         /// <summary>An array's members, concatenated (array:flatten one level deep, recursively for nested arrays).</summary>
-        public static IList<XPathItem> Flatten(XdmArray array)
+        public static IList<XPathItem> Flatten(ArrayItem array)
         {
             var result = new List<XPathItem>();
             foreach (IList<XPathItem> member in array.Members)
             {
                 foreach (XPathItem item in member)
                 {
-                    if (item is XdmArray inner)
+                    if (item is ArrayItem inner)
                     {
                         result.AddRange(Flatten(inner));
                     }
@@ -168,5 +173,55 @@ namespace Xsl3.Xdm
             }
             return result;
         }
+    }
+
+    /// <summary>
+    /// Xsl3 (perf): a sequence the function conversion rules have converted to <see cref="Type"/>, read-only. Passed on
+    /// to a parameter of the same declared type (a recursive call), it isn't checked again.
+    /// </summary>
+    internal sealed class CoercedSequence : IList<XPathItem>, IReadOnlyList<XPathItem>
+    {
+        /// <summary>Shorter sequences are cheaper to check again than to wrap.</summary>
+        public const int MinimumCount = 8;
+
+        private readonly IList<XPathItem> _items;
+
+        public CoercedSequence(IList<XPathItem> items, SequenceTypeTest type)
+        {
+            _items = items is CoercedSequence c ? c._items : items;
+            Type = type;
+        }
+
+        public SequenceTypeTest Type { get; }
+
+        public XPathItem this[int index]
+        {
+            get => _items[index];
+            set => throw new System.NotSupportedException();
+        }
+
+        public int Count => _items.Count;
+
+        public bool IsReadOnly => true;
+
+        public bool Contains(XPathItem item) => _items.Contains(item);
+
+        public void CopyTo(XPathItem[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+
+        public IEnumerator<XPathItem> GetEnumerator() => _items.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+
+        public int IndexOf(XPathItem item) => _items.IndexOf(item);
+
+        public void Add(XPathItem item) => throw new System.NotSupportedException();
+
+        public void Clear() => throw new System.NotSupportedException();
+
+        public void Insert(int index, XPathItem item) => throw new System.NotSupportedException();
+
+        public bool Remove(XPathItem item) => throw new System.NotSupportedException();
+
+        public void RemoveAt(int index) => throw new System.NotSupportedException();
     }
 }

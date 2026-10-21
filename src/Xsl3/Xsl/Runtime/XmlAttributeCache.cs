@@ -17,6 +17,9 @@ namespace Xsl3.Runtime
     internal sealed class XmlAttributeCache : XmlRawWriter, IRemovableWriter
     {
         private XmlRawWriter? _wrapped;
+
+        // Xsl3: the writer this one passes events to (for the inherit-namespaces="no" marker, XmlQueryOutput).
+        internal XmlRawWriter? Wrapped => _wrapped;
         private OnRemoveWriter? _onRemove;        // Event handler that is called when cached attributes are flushed to wrapped writer
         private AttrNameVal[]? _arrAttrs;         // List of cached attribute names and value parts
         private int _numEntries;                 // Number of attributes in the cache

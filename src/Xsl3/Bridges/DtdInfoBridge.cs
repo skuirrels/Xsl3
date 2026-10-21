@@ -67,6 +67,55 @@ namespace System.Xml
                 : GetIdAttributes(dtdInfo);
         }
 
+        // Xsl3: the attribute declarations of an element's attribute list, and an attribute's tokenized type (IDREF, IDREFS).
+        private static readonly PropertyInfo? s_attDefs = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("AttDefs", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo? s_tokenizedType = Type.GetType("System.Xml.Schema.SchemaAttDef, System.Private.Xml")?.GetProperty("TokenizedType", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>
+        /// Xsl3: the IDREF and IDREFS attributes the reader's DTD declares, as (element local name, element prefix,
+        /// attribute local name, attribute prefix), for fn:idref. Empty when the DTD's internals can't be reached.
+        /// </summary>
+        [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+        [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
+        [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
+        [DynamicDependency("get_AttDefs", "System.Xml.Schema.SchemaElementDecl", Asm)]
+        [DynamicDependency("get_TokenizedType", "System.Xml.Schema.SchemaAttDef", Asm)]
+        public static List<(string, string, string, string)> GetIdrefAttributes(XmlReader reader)
+        {
+            var result = new List<(string, string, string, string)>();
+            while (reader is XmlWrappingReader wrapping)
+            {
+                reader = wrapping.InnerReader;
+            }
+            object? dtdInfo = s_dtdInfo?.GetValue(reader);
+            if (dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null || s_attDefs == null || s_tokenizedType == null)
+            {
+                return result;
+            }
+            var attrLists = (System.Collections.IEnumerable)s_iDtdInfo.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!;
+            PropertyInfo listLocalName = s_iAttrList.GetProperty("LocalName")!, listPrefix = s_iAttrList.GetProperty("Prefix")!;
+            PropertyInfo attrLocalName = s_iAttr.GetProperty("LocalName")!, attrPrefix = s_iAttr.GetProperty("Prefix")!;
+            foreach (object attrList in attrLists)
+            {
+                if (s_attDefs.GetValue(attrList) is not System.Collections.IDictionary attDefs)
+                {
+                    continue;
+                }
+                foreach (object attDef in attDefs.Values)
+                {
+                    if (s_tokenizedType.GetValue(attDef) is XmlTokenizedType.IDREF or XmlTokenizedType.IDREFS)
+                    {
+                        result.Add(((string)listLocalName.GetValue(attrList)!, (string)listPrefix.GetValue(attrList)!,
+                                    (string)attrLocalName.GetValue(attDef)!, (string)attrPrefix.GetValue(attDef)!));
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Xsl3: whether the bridge to the DTD's attribute types binds on this runtime (BridgeTests).</summary>
+        internal static bool IdrefBridgeBinds => s_attDefs != null && s_tokenizedType != null;
+
         private static List<(string, string, string, string)> GetIdAttributes(object dtdInfo)
         {
             var result = new List<(string, string, string, string)>();

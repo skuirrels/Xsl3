@@ -39,7 +39,7 @@ namespace Xsl3
     // Load(MethodInfo, ...)) and the transforms themselves don't.
     public sealed class XslCompiledTransform
     {
-        private const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
+        internal const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
 
         // Version for GeneratedCodeAttribute
         private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
@@ -150,7 +150,17 @@ namespace Xsl3
             _settings = settings.Clone();
             // Xsl3: the stylesheet's own constants, for every unit compiled for it (ConstantPool).
             using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
-            CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
+            // Xsl3: static expressions (use-when, static variables) may call fn:transform only with EnableEvaluate.
+            bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+            XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+            try
+            {
+                CompileXsltToQil(stylesheet, settings, stylesheetResolver, originalStylesheetResolver);
+            }
+            finally
+            {
+                XmlQueryRuntime.DynamicTransforms = savedDynamic;
+            }
             CompilerError? error = GetFirstError();
             if (error != null)
             {
@@ -170,9 +180,14 @@ namespace Xsl3
             var compiler = new Compiler(settings, _enableDebug, null)
             {
                 InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
-                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult,
+                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
+                InitialParameters = InitialParameters, RegisteredFunctions = RegisteredFunctions,
             };
-            _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            // Xsl3: each XPath text is parsed once in a compilation.
+            using (Xsl3.XPath31.Parser.CompilationScope())
+            {
+                _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
+            }
             _qil.CompactTree = UseCompactTree;
         }
 
@@ -207,6 +222,17 @@ namespace Xsl3
         internal XmlQualifiedName? InitialTemplate { get; set; }
 
         /// <summary>
+        /// The initial template's or mode's parameters (XSLT 3.0 §2.3.4), tunnel ones too: the value of the n-th is the
+        /// parameter named <see cref="InitialParameter"/>(n).
+        /// </summary>
+        internal System.Collections.Generic.IList<(XmlQualifiedName Name, bool Tunnel)>? InitialParameters { get; set; }
+
+        internal static XmlQualifiedName InitialParameter(int position) => InitialFunctionArguments.Parameter(position);
+
+        /// <summary>Xsl3: extension functions for 2.0+ stylesheets, registered through the 3.0 API, set before Load.</summary>
+        internal System.Collections.Generic.IReadOnlyDictionary<(string Ns, string Local, int Arity), RegisteredFunction>? RegisteredFunctions { get; set; }
+
+        /// <summary>
         /// The initial function (XSLT 3.0 §2.3.4) and its arity: the transformation calls it, with the arguments
         /// supplied as parameters named <see cref="InitialFunctionArgument"/>(1…n), and delivers its result.
         /// </summary>
@@ -215,22 +241,85 @@ namespace Xsl3
         internal int InitialFunctionArity { get; set; }
 
 
-        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems"/>.</summary>
+        /// <summary>Raw result delivery (XSLT 3.0 §2.3.6): the principal result is the sequence, read with <see cref="TransformToItems(XPathNavigator, XsltArgumentList?, XmlResolver?)"/>.</summary>
         internal bool RawResult { get; set; }
 
         /// <summary>Runs a stylesheet loaded with <see cref="RawResult"/> and returns its result sequence.</summary>
-        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver)
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver) =>
+            TransformToItems(input, arguments, documentResolver, BaseOutputUri);
+
+        /// <summary>Xsl3: <see cref="TransformToItems(XPathNavigator, XsltArgumentList?, XmlResolver?)"/> with this run's base output URI (the 3.0 API).</summary>
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver, Uri? baseOutputUri,
+            Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             CheckCommand();
+            CheckInput(input);
             System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
-            Run(arguments, BaseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments));
+            Run(arguments, baseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments), resultDocumentHandler);
             return items;
         }
+
+        /// <summary>
+        /// Xsl3: serializes a run as <c>xsl:output</c> says to a stream, a text writer or an XML writer, with this run's
+        /// base output URI (the 3.0 API).
+        /// </summary>
+        internal void TransformTo(XPathNavigator input, XsltArgumentList? arguments, object destination, XmlResolver? documentResolver, Uri? baseOutputUri,
+            Func<string, string, TextWriter>? resultDocumentHandler = null)
+        {
+            CheckCommand();
+            CheckInput(input);
+            switch (destination)
+            {
+                case Stream stream:
+                {
+                    using XmlWriter writer = CreateResultWriter(stream);
+                    Execute(writer);
+                    break;
+                }
+                case TextWriter text:
+                {
+                    using XmlWriter writer = CreateResultWriter(text);
+                    Execute(writer);
+                    break;
+                }
+                case XmlWriter xml:
+                    Execute(xml);
+                    break;
+                default:
+                    throw new ArgumentException("The destination must be a Stream, a TextWriter or an XmlWriter", nameof(destination));
+            }
+
+            void Execute(XmlWriter results)
+            {
+                if (results is RawResultWriter raw)
+                {
+                    Run(arguments, baseOutputUri, () => raw.Write(_command!.Evaluate(input, documentResolver, arguments)), resultDocumentHandler);
+                    return;
+                }
+                Run(arguments, baseOutputUri, () => _command!.Execute(input, documentResolver, arguments, results), resultDocumentHandler);
+            }
+        }
+
+        /// <summary>Xsl3: the errors and warnings of the last Load.</summary>
+        internal CompilerErrorCollection? CompilerErrors => _compilerErrorColl;
 
         /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1) of the initial function.</summary>
         internal static XmlQualifiedName InitialFunctionArgument(int position) => InitialFunctionArguments.Name(position);
 
         internal XmlQualifiedName? InitialMode { get; set; }
+
+        /// <summary>
+        /// Xsl3: the initial match selection (XSLT 3.0 §2.3.3) is any sequence, supplied as the parameter
+        /// <see cref="InitialFunctionArguments.Selection"/>, rather than the input document.
+        /// </summary>
+        internal bool InitialMatchSelection { get; set; }
+
+        /// <summary>
+        /// Xsl3: an input that stands for none: an initial named template then has no context item, and an initial mode
+        /// raises XTDE0044 (XSLT 3.0 §2.3.2–3).
+        /// </summary>
+        internal static readonly XPathNavigator AbsentInput = Xsl3.Tree.CompactDocument.Load(
+            XmlReader.Create(new StringReader(""), new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment })).CreateNavigator();
 
         /// <summary>Xsl3: values of the stylesheet's static parameters (xsl:param static="yes"), set before Load.</summary>
         internal System.Collections.Generic.Dictionary<XmlQualifiedName, System.Collections.Generic.IList<XPathItem>>? StaticParameters { get; set; }
@@ -261,11 +350,98 @@ namespace Xsl3
             _qil = null;
         }
 
+#if NET9_0_OR_GREATER
+        /// <summary>
+        /// Xsl3 (Sink B): compiles a stylesheet into an assembly saved to <paramref name="output"/>, holding the public type
+        /// <paramref name="typeName"/> that <see cref="Load(Type, XsltSettings)"/> loads without compiling, also under
+        /// NativeAOT (docs/plan/p4-sink-b.md). The assembly references Xsl3 and must be run with the same version of it.
+        /// Use-when expressions and static parameters are evaluated now. Needs .NET 9 or later to compile; the saved
+        /// assembly runs on .NET 8 too.
+        /// </summary>
+        [RequiresDynamicCode(CompilesIL)]
+        public void CompileToAssembly(XmlReader stylesheet, XsltSettings? settings, XmlResolver? stylesheetResolver, string assemblyName, string typeName, Stream output)
+        {
+            Reset();
+            settings ??= XsltSettings.Default;
+            using var constants = Xsl3.XPath31.ConstantPool.Use(new Xsl3.XPath31.ConstantTable());
+            // Static expressions may call fn:transform only with EnableEvaluate, as when loading.
+            bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+            XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+            try
+            {
+                CompileXsltToQil(stylesheet, settings, stylesheetResolver, stylesheetResolver);
+            }
+            finally
+            {
+                XmlQueryRuntime.DynamicTransforms = savedDynamic;
+            }
+            if (GetFirstError() is CompilerError error)
+            {
+                throw new XslLoadException(error);
+            }
+            var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
+            ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
+            TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
+            type.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
+                new object[] { typeof(XslCompiledTransform).FullName!, s_version?.ToString() ?? "0.0.0.0" }));
+            bool symbols = _qil!.IsDebug;
+            if (symbols)
+            {
+                assembly.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(System.Diagnostics.DebuggableAttribute).GetConstructor(new[] { typeof(System.Diagnostics.DebuggableAttribute.DebuggingModes) })!,
+                    new object[] { System.Diagnostics.DebuggableAttribute.DebuggingModes.Default | System.Diagnostics.DebuggableAttribute.DebuggingModes.DisableOptimizations }));
+            }
+            new XmlILGenerator().Generate(_qil!, type);
+            _qil = null;
+            if (!symbols)
+            {
+                assembly.Save(output);
+                return;
+            }
+            // With debug information (XslCompiledTransform(enableDebug: true)): an embedded portable PDB maps the IL to
+            // the stylesheet's lines.
+            var metadata = assembly.GenerateMetadata(out var il, out var fieldData, out var pdb);
+            var pdbBuilder = new System.Reflection.Metadata.Ecma335.PortablePdbBuilder(pdb, metadata.GetRowCounts(), default);
+            var pdbBlob = new System.Reflection.Metadata.BlobBuilder();
+            System.Reflection.Metadata.BlobContentId pdbId = pdbBuilder.Serialize(pdbBlob);
+            var debugDirectory = new System.Reflection.PortableExecutable.DebugDirectoryBuilder();
+            debugDirectory.AddCodeViewEntry(assemblyName + ".pdb", pdbId, pdbBuilder.FormatVersion);
+            debugDirectory.AddEmbeddedPortablePdbEntry(pdbBlob, pdbBuilder.FormatVersion);
+            var pe = new System.Reflection.PortableExecutable.ManagedPEBuilder(
+                System.Reflection.PortableExecutable.PEHeaderBuilder.CreateLibraryHeader(),
+                new System.Reflection.Metadata.Ecma335.MetadataRootBuilder(metadata), il, fieldData, debugDirectoryBuilder: debugDirectory);
+            var peBlob = new System.Reflection.Metadata.BlobBuilder();
+            pe.Serialize(peBlob);
+            peBlob.WriteContentTo(output);
+        }
+#endif
+
         //------------------------------------------------
         // Load compiled stylesheet from a Type
         //------------------------------------------------
+        /// <summary>
+        /// Xsl3: loads a precompiled stylesheet (<see cref="Load(Type)"/>) with run-time settings: what it may reach (documents,
+        /// result documents, environment variables, evaluation) and its limits. Settings that act at compile time were
+        /// fixed when it was compiled.
+        /// </summary>
+        /// <remarks>
+        /// Unlike <see cref="Load(Type)"/>, this overload is safe to trim and to use under NativeAOT: the type's static data
+        /// fields and methods are kept through its annotation, and stylesheets compiled by Xsl3 have no early-bound
+        /// extension types (they come from <c>msxsl:script</c>, which .NET doesn't support).
+        /// </remarks>
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The members Load(Type) reads are kept by the parameter's annotation; Xsl3 compiles no early-bound types (msxsl:script isn't supported).")]
+        public void Load([DynamicallyAccessedMembers(CompiledMembers)] Type compiledStylesheet, XsltSettings? settings)
+        {
+            Load(compiledStylesheet);
+            _settings = (settings ?? XsltSettings.Default).Clone();
+        }
+
+        // Xsl3: what Load(Type) reads from a compiled stylesheet's type (its static data fields, Execute and the dispatcher).
+        private const DynamicallyAccessedMemberTypes CompiledMembers = DynamicallyAccessedMemberTypes.NonPublicFields | DynamicallyAccessedMemberTypes.NonPublicMethods;
+
         [RequiresUnreferencedCode("This method will get fields and types from the assembly of the passed in compiledStylesheet and call their constructors which cannot be statically analyzed")]
-        public void Load(Type compiledStylesheet)
+        public void Load([DynamicallyAccessedMembers(CompiledMembers)] Type compiledStylesheet)
         {
             Reset();
             ArgumentNullException.ThrowIfNull(compiledStylesheet);
@@ -319,7 +495,13 @@ namespace Xsl3
                 ? dm.CreateDelegate(typeof(ExecuteDelegate))
                 : executeMethod.CreateDelegate<ExecuteDelegate>();
 
-            _command = new XmlILCommand((ExecuteDelegate)delExec, new XmlQueryStaticData(queryData, earlyBoundTypes));
+            var staticData = new XmlQueryStaticData(queryData, earlyBoundTypes);
+            if (staticData.DispatcherName is string dispatcher && executeMethod.DeclaringType?.GetMethod(dispatcher, BindingFlags.Static | BindingFlags.NonPublic) is MethodInfo dispatch)
+            {
+                // Xsl3 (Sink B): the saved assembly's function item dispatcher.
+                staticData.Dispatcher = dispatch.CreateDelegate<Func<XmlQueryRuntime, XPathItem, System.Collections.Generic.IList<XPathItem>>>();
+            }
+            _command = new XmlILCommand((ExecuteDelegate)delExec, staticData);
             OutputSettings = _command.StaticData.DefaultWriterSettings;
         }
 
@@ -574,6 +756,7 @@ namespace Xsl3
             ArgumentNullException.ThrowIfNull(results);
 
             CheckCommand();
+            CheckInput(input as XPathNavigator);
             if (results is RawResultWriter raw)
             {
                 Run(arguments, BaseOutputUri, () => raw.Write(_command.Evaluate(input.CreateNavigator()!, documentResolver, arguments)));
@@ -588,7 +771,17 @@ namespace Xsl3
         /// it, environment variables; on a dedicated thread if asked. What a caller has already set for the thread
         /// (the W3C harness sets these itself) is kept.
         /// </summary>
-        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform)
+        // Xsl3: an initial mode with no input (AbsentInput) has no initial match selection (XTDE0044).
+        private void CheckInput(XPathNavigator? input)
+        {
+            if (input != null && _command?.StaticData.Xslt2 == true && InitialTemplate == null && InitialFunction == null && !InitialMatchSelection
+                && AbsentInput.IsSamePosition(input))
+            {
+                throw new Xsl3.Xdm.XdmException("XTDE0044", "The transformation applies templates, but there is no initial match selection");
+            }
+        }
+
+        private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform, Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             XsltSettings settings = _settings ?? XsltSettings.Default;
             System.Threading.CancellationToken token = arguments?.CancellationToken ?? default;
@@ -608,8 +801,15 @@ namespace Xsl3
                 bool? savedDocuments = XmlQueryRuntime.DocumentFunctions;
                 int savedDepth = XmlQueryRuntime.Depth;
                 bool savedExtensions = XmlQueryRuntime.ExtensionFunctions;
+                bool? savedDynamic = XmlQueryRuntime.DynamicTransforms;
+                var savedPackages = XmlQueryRuntime.Packages;
+                Func<string, string, TextWriter>? savedHandler = XmlQueryRuntime.ResultDocumentHandler;
                 try
                 {
+                    if (resultDocumentHandler != null)
+                    {
+                        XmlQueryRuntime.ResultDocumentHandler = resultDocumentHandler; // the 3.0 API's, for this run
+                    }
                     if (token.CanBeCanceled)
                     {
                         XmlQueryRuntime.Cancellation = token;
@@ -627,6 +827,8 @@ namespace Xsl3
                     XmlQueryRuntime.DocumentFunctions = settings.EnableDocumentFunction;
                     XmlQueryRuntime.Depth = 0;
                     XmlQueryRuntime.ExtensionFunctions = settings.EnableExtensionFunctions;
+                    XmlQueryRuntime.DynamicTransforms = settings.EnableEvaluate;
+                    XmlQueryRuntime.Packages = Packages ?? savedPackages;
                     transform();
                 }
                 finally
@@ -638,6 +840,9 @@ namespace Xsl3
                     XmlQueryRuntime.DocumentFunctions = savedDocuments;
                     XmlQueryRuntime.Depth = savedDepth;
                     XmlQueryRuntime.ExtensionFunctions = savedExtensions;
+                    XmlQueryRuntime.DynamicTransforms = savedDynamic;
+                    XmlQueryRuntime.Packages = savedPackages;
+                    XmlQueryRuntime.ResultDocumentHandler = savedHandler;
                 }
             }
             if (!settings.UseDedicatedThread)

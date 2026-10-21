@@ -210,12 +210,24 @@ namespace Xsl3.Runtime
             public GroupTuple(XPathItem item, IList<XPathItem> key) : base(AtomicTypes.String)
             {
                 Item = item;
-                Key = key;
+                _key = key;
+            }
+
+            // Xsl3 (P4): a key that is one node is kept as its string value, xs:untypedAtomic once atomized, so that
+            // group-by under the codepoint collation groups by strings without an atomic value per item.
+            public GroupTuple(XPathItem item, string keyString) : base(AtomicTypes.String)
+            {
+                Item = item;
+                KeyString = keyString;
             }
 
             public XPathItem Item { get; }
 
-            public IList<XPathItem> Key { get; }
+            public string? KeyString { get; }
+
+            private IList<XPathItem>? _key;
+
+            public IList<XPathItem> Key => _key ??= new XPathItem[] { AtomicValue.OfUntyped(KeyString!) };
 
             public override string Value => Item.Value;
 
@@ -245,9 +257,11 @@ namespace Xsl3.Runtime
         // QIL loops reuse one navigator per iterator, and pass single items to IList parameters in a reused list
         // (XmlQueryItemSequence.CreateOrReuse): anything kept must be copied.
         public XPathItem X31GroupTuple(XPathItem item, IList<XPathItem> key) =>
-            new GroupTuple(item is XPathNavigator n ? n.Clone() : item,
-                // Xsl3 (P4): one node or atomic value, the usual key, atomized straight into its own array.
-                key.Count == 1 && key[0] is XPathNavigator or AtomicValue ? new[] { Sequences.Atomize(key[0]) } : new List<XPathItem>(Sequences.Atomize(key)));
+            // Xsl3 (P4): one node, the usual key, as its string value; one atomic value straight into its own array.
+            key.Count == 1 && key[0] is XPathNavigator { NodeType: not (XPathNodeType.Namespace or XPathNodeType.ProcessingInstruction or XPathNodeType.Comment) } node
+                ? new GroupTuple(item is XPathNavigator n ? n.Clone() : item, node.Value)
+                : new GroupTuple(item is XPathNavigator m ? m.Clone() : item,
+                    key.Count == 1 && key[0] is AtomicValue ? new[] { Sequences.Atomize(key[0]) } : new List<XPathItem>(Sequences.Atomize(key)));
 
         /// <summary>
         /// Forms the groups (XSLT 3.0 §14.5): kind 0 group-by, 1 group-adjacent, 2 group-starting-with, 3
@@ -269,6 +283,18 @@ namespace Xsl3.Runtime
                     for (int ti = 0; ti < tuples.Count; ti++)
                     {
                         var t = (GroupTuple)tuples[ti];
+                        if (!composite && codepoint && t.KeyString is string keyString)
+                        {
+                            // An untyped key under the codepoint collation: grouped by its string.
+                            byString ??= new Dictionary<string, Group>(StringComparer.Ordinal);
+                            if (!byString.TryGetValue(keyString, out Group? sg))
+                            {
+                                byString[keyString] = sg = new Group(t.Key);
+                                groups.Add(sg);
+                            }
+                            sg.Members.Add(t.Item);
+                            continue;
+                        }
                         IList<XPathItem> keys = Sequences.Atomize(t.Key);
                         if (composite)
                         {

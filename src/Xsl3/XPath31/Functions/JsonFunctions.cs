@@ -18,10 +18,10 @@ namespace Xsl3.XPath31.Functions
 
         private static void RegisterJson()
         {
-            Define("fn:parse-json($json-text as xs:string?) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(S(a[0]), null));
-            Define("fn:parse-json($json-text as xs:string?, $options as map(*)) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(S(a[0]), Map(a[1])));
-            Define("fn:json-doc($href as xs:string?) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(JsonText(S(a[0]), c), null));
-            Define("fn:json-doc($href as xs:string?, $options as map(*)) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(JsonText(S(a[0]), c), Map(a[1])));
+            Define("fn:parse-json($json-text as xs:string?) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(S(a[0]), null, c));
+            Define("fn:parse-json($json-text as xs:string?, $options as map(*)) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(S(a[0]), Map(a[1]), c));
+            Define("fn:json-doc($href as xs:string?) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(JsonText(S(a[0]), c), null, c));
+            Define("fn:json-doc($href as xs:string?, $options as map(*)) as item()?", (c, a) => a[0].Count == 0 ? Empty : ParseJson(JsonText(S(a[0]), c), Map(a[1]), c));
             Define("fn:json-to-xml($json-text as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : JsonToXml(S(a[0]), null, c));
             Define("fn:json-to-xml($json-text as xs:string?, $options as map(*)) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : JsonToXml(S(a[0]), Map(a[1]), c));
             Define("fn:xml-to-json($input as node()?) as xs:string?", (c, a) => a[0].Count == 0 ? Empty : Str(XmlToJson((XPathNavigator)a[0][0], null)));
@@ -50,9 +50,23 @@ namespace Xsl3.XPath31.Functions
             public bool Validate;
             public bool Indent;
             public bool HasFallback;
+            public FunctionItem? Fallback;
+
+            /// <summary>
+            /// The fallback function as the parser calls it: with the JSON escape for a character that isn't valid XML
+            /// (\uFFFF, \b), returning the string to use instead; null without the option.
+            /// </summary>
+            public System.Func<string, string>? FallbackFor(FunctionContext c) => Fallback == null ? null : escape =>
+            {
+                Xsl3.Runtime.XsltLibrary library = c.Runtime?.XsltFunctions ?? throw new XdmException("FOJS0001", "The fallback function can't be called here");
+                IList<XPathItem> result = library.CallFunction(Fallback, Sequences.One(AtomicValue.OfString(escape)));
+                return result.Count == 1 && result[0] is AtomicValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic or Primitive.AnyUri } r
+                    ? r.Value
+                    : throw Err.XPTY0004($"The fallback function must return one xs:string, not {Coercion.Describe(result)}");
+            };
         }
 
-        private static JsonOptions Options(XdmMap? map, bool toXml)
+        private static JsonOptions Options(MapItem? map, bool toXml)
         {
             var o = new JsonOptions { Duplicates = toXml ? "retain" : "use-first" };
             if (map == null)
@@ -88,7 +102,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (map.Get(AtomicValue.OfString("fallback")) is IList<XPathItem> f)
             {
-                if (f.Count != 1 || f[0] is not XdmFunction { Arity: 1 } || f[0] is XdmMap or XdmArray)
+                if (f.Count != 1 || f[0] is not FunctionItem { Arity: 1 } || f[0] is MapItem or ArrayItem)
                 {
                     throw Err.XPTY0004("The fallback option must be a function(xs:string) as xs:string");
                 }
@@ -97,6 +111,7 @@ namespace Xsl3.XPath31.Functions
                     throw new XdmException("FOJS0005", "The escape and fallback options can't both be set");
                 }
                 o.HasFallback = true;
+                o.Fallback = (FunctionItem)f[0];
             }
             if (o.Validate && toXml)
             {
@@ -127,18 +142,25 @@ namespace Xsl3.XPath31.Functions
         {
             private readonly string _s;
             private readonly bool _liberal;
+            private readonly System.Func<string, string>? _fallback;
             private int _i;
 
-            public JsonParser(string s, bool liberal)
+            public JsonParser(string s, bool liberal, System.Func<string, string>? fallback = null)
             {
                 _s = s;
                 _liberal = liberal;
+                _fallback = fallback;
             }
 
             private XdmException Error(string message) => new("FOJS0001", $"Invalid JSON at offset {_i}: {message}");
 
             public JsonValue Parse()
             {
+                // A leading byte order mark is ignored (QT3 json-to-xml-015).
+                if (_i < _s.Length && _s[_i] == '\uFEFF')
+                {
+                    _i++;
+                }
                 SkipSpace();
                 JsonValue v = Value();
                 SkipSpace();
@@ -288,7 +310,7 @@ namespace Xsl3.XPath31.Functions
                     {
                         if (char.IsSurrogate(ch) && !(char.IsHighSurrogate(ch) && _i < _s.Length && char.IsLowSurrogate(_s[_i])))
                         {
-                            value.Append('�');
+                            value.Append(Replacement(ch));
                             AppendEscaped(raw, ch);
                             continue;
                         }
@@ -339,11 +361,30 @@ namespace Xsl3.XPath31.Functions
 
             // A character from an escape: it is kept if it is valid XML; otherwise U+FFFD in the value, and the escape
             // in the raw form.
-            private static void Special(StringBuilder value, StringBuilder raw, char ch)
+            private void Special(StringBuilder value, StringBuilder raw, char ch)
             {
                 bool valid = ch is '\t' or '\n' or '\r' || ch >= 0x20 && !char.IsSurrogate(ch) && ch is not ('￾' or '￿');
-                value.Append(valid ? ch : '�');
+                if (valid)
+                {
+                    value.Append(ch);
+                }
+                else
+                {
+                    value.Append(Replacement(ch));
+                }
                 AppendEscaped(raw, ch);
+            }
+
+            // What a character that isn't valid XML becomes: the fallback function's result for its escape, or U+FFFD.
+            private string Replacement(char ch)
+            {
+                if (_fallback == null)
+                {
+                    return "\uFFFD";
+                }
+                var escape = new StringBuilder();
+                AppendEscaped(escape, ch);
+                return _fallback(escape.ToString());
             }
 
             private int Hex4()
@@ -402,10 +443,10 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- parse-json
 
-        private static IList<XPathItem> ParseJson(string text, XdmMap? options)
+        private static IList<XPathItem> ParseJson(string text, MapItem? options, FunctionContext c)
         {
             JsonOptions o = Options(options, toXml: false);
-            JsonValue value = new JsonParser(text, o.Liberal).Parse();
+            JsonValue value = new JsonParser(text, o.Liberal, o.FallbackFor(c)).Parse();
             return ToXdm(value, o);
         }
 
@@ -435,10 +476,10 @@ namespace Xsl3.XPath31.Functions
                         entries[k] = (k, ToXdm(member, o));
                         order.Add(k);
                     }
-                    return One(XdmMap.Of(order.Select(k => new KeyValuePair<AtomicValue, IList<XPathItem>>(AtomicValue.OfString(k), entries[k].Value))));
+                    return One(MapItem.Of(order.Select(k => new KeyValuePair<AtomicValue, IList<XPathItem>>(AtomicValue.OfString(k), entries[k].Value))));
                 }
                 case JsonArray array:
-                    return One(XdmArray.Of(array.Members.Select(m => ToXdm(m, o))));
+                    return One(ArrayItem.Of(array.Members.Select(m => ToXdm(m, o))));
                 case JsonString s:
                     return Str(o.Escape ? s.Raw : s.Value);
                 case JsonNumber n:
@@ -452,16 +493,18 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- json-to-xml
 
-        private static IList<XPathItem> JsonToXml(string text, XdmMap? options, FunctionContext c)
+        private static IList<XPathItem> JsonToXml(string text, MapItem? options, FunctionContext c)
         {
             JsonOptions o = Options(options, toXml: true);
-            JsonValue value = new JsonParser(text, o.Liberal).Parse();
+            JsonValue value = new JsonParser(text, o.Liberal, o.FallbackFor(c)).Parse();
             var sb = new StringBuilder();
-            using (XmlWriter w = XmlWriter.Create(sb, new XmlWriterSettings { OmitXmlDeclaration = true }))
+            // (Carriage returns as references, so that reading the markup back keeps them.)
+            using (XmlWriter w = XmlWriter.Create(sb, new XmlWriterSettings { OmitXmlDeclaration = true, NewLineHandling = NewLineHandling.Entitize }))
             {
                 WriteJsonXml(w, value, null, o, root: true);
             }
-            var doc = new InternalXPathDocument(new XmlTextReader(new StringReader(sb.ToString())), XmlSpace.Preserve) { NoDocumentUri = true };
+            // The result's base URI is the static base URI (F&O 3.1 §17.5.3).
+            var doc = new InternalXPathDocument(new XmlTextReader(c.StaticBaseUri ?? "", new StringReader(sb.ToString())), XmlSpace.Preserve) { NoDocumentUri = true };
             return One(doc.CreateNavigator());
         }
 
@@ -537,7 +580,7 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- xml-to-json
 
-        private static string XmlToJson(XPathNavigator node, XdmMap? options)
+        private static string XmlToJson(XPathNavigator node, MapItem? options)
         {
             JsonOptions o = Options(options, toXml: false);
             XPathNavigator n = node.Clone();

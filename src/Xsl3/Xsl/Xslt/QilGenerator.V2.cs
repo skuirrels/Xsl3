@@ -38,6 +38,22 @@ namespace Xsl3.Xslt
         // Xsl3 (P4): the focus 2.0+ templates and modes take (see SetFullFocusV2).
         private XslFlags _focus31 = XslFlags.FullFocus;
 
+        // The fields MentionsPositionOrLast reads, per AST type (all of them but source lines).
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<System.Type, System.Reflection.FieldInfo[]> s_astFields31 = new();
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2070",
+            Justification = "Reads the fields of this assembly's own stylesheet AST (Xsl3.Xslt, Xsl3.Qil), which the compiler itself uses.")]
+        private static System.Reflection.FieldInfo[] AstFields31(System.Type type)
+        {
+            var fields = new List<System.Reflection.FieldInfo>();
+            for (System.Type? t = type; t != null && t != typeof(object); t = t.BaseType)
+            {
+                fields.AddRange(t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly)
+                    .Where(f => f.FieldType != typeof(ISourceLineInfo)));
+            }
+            return fields.ToArray();
+        }
+
         private static readonly System.Text.RegularExpressions.Regex s_positionOrLast31 =
             new(@"(position|last)\s*[(#]|function-lookup", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
@@ -50,6 +66,10 @@ namespace Xsl3.Xslt
             Justification = "Reads the fields of this assembly's own stylesheet AST (Xsl3.Xslt, Xsl3.Qil), which the compiler itself uses.")]
         private static bool MentionsPositionOrLast(IEnumerable<ProtoTemplate> templates)
         {
+            if (templates is ICollection<ProtoTemplate> { Count: 0 })
+            {
+                return false;
+            }
             var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
             bool Scan(object? o)
             {
@@ -60,6 +80,8 @@ namespace Xsl3.Xslt
                     case string s:
                         return s_positionOrLast31.IsMatch(s);
                     case QilNode or System.Type or System.Reflection.MemberInfo:
+                    // (A template's module is a back-reference: its templates are scanned as templates.)
+                    case StylesheetLevel:
                         return false;
                 }
                 System.Type type = o.GetType();
@@ -82,14 +104,11 @@ namespace Xsl3.Xslt
                 {
                     return false;
                 }
-                for (System.Type? t = type; t != null && t != typeof(object); t = t.BaseType)
+                foreach (System.Reflection.FieldInfo field in s_astFields31.GetOrAdd(type, AstFields31))
                 {
-                    foreach (var field in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                    if (Scan(field.GetValue(o)))
                     {
-                        if (field.FieldType != typeof(ISourceLineInfo) && Scan(field.GetValue(o)))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
                 }
                 return false;
@@ -136,7 +155,17 @@ namespace Xsl3.Xslt
         // In a function body the focus is absent, except inside instructions that set one (xsl:for-each, …).
         private bool FocusAbsent => _noFocus && !_curLoop.IsFocusSet && _nodeContext31 == null;
 
-        QilNode? IXPath31Environment.ContextItem() => FocusAbsent ? null : GetCurrentNode();
+        QilNode? IXPath31Environment.ContextItem() =>
+            FocusAbsent ? null
+            // A named template's own focus may be absent (it was called with none): checked where it is used.
+            : _namedFocus31 && !_curLoop.IsFocusSet && _nodeContext31 == null ? X31(nameof(XsltLibrary.X31Focus), T.Item, GetCurrentNode())
+            : GetCurrentNode();
+
+        // Compiling a named template's body, whose focus may be absent at run time (XslFlags.Current from its caller).
+        private bool _namedFocus31;
+
+        // Compiling the initial call of a named template (its focus is absent without an input).
+        private bool _initialCall31;
 
         QilNode IXPath31Environment.ContextPosition() =>
             FocusAbsent ? X31(nameof(XsltLibrary.X31RaiseDouble), T.DoubleX, _f.String("XPDY0002"), _f.String("The focus is absent in a function body")) : GetCurrentPosition();
@@ -146,6 +175,11 @@ namespace Xsl3.Xslt
 
         QilNode? IXPath31Environment.ResolveVariable(QName name)
         {
+            if (_globalBeingCompiled31 is QilName own && own.LocalName == name.LocalName && own.NamespaceUri == name.NamespaceUri
+                && !_scope.IsLocalVariable(name.LocalName, name.NamespaceUri))
+            {
+                return null; // a global variable isn't in scope within its own declaration (XPST0008)
+            }
             if (_scope.IsLocalVariable(name.LocalName, name.NamespaceUri) || _compiler.PackageInfos.Count <= 1)
             {
                 return _scope.LookupVariable(name.LocalName, name.NamespaceUri);
@@ -154,6 +188,9 @@ namespace Xsl3.Xslt
             QilName? global = ResolveComponent31('V', _f.QName(name.LocalName, name.NamespaceUri), -1);
             return global == null ? null : _scope.LookupVariable(global.LocalName, global.NamespaceUri);
         }
+
+        // The global variable or parameter whose value is being compiled.
+        private QilName? _globalBeingCompiled31;
 
         // ------------------------------------------------------------ packages
 
@@ -225,9 +262,36 @@ namespace Xsl3.Xslt
                 }
                 return _f.Invoke(entry.Function.Function!, actual);
             }
+            if (_compiler.Settings.EnableExtensionFunctions && _compiler.RegisteredFunctions is { } registered &&
+                registered.TryGetValue((name.NamespaceUri, name.LocalName, args.Count), out RegisteredFunction? extension))
+            {
+                // An extension function registered through the 3.0 API: its arguments, then the call.
+                QilNode call = X31(nameof(XsltLibrary.X31ExtensionStart), T.Item, _f.Double(ConstantPool.Add(extension)));
+                foreach (XPath31.Expr arg in args)
+                {
+                    call = X31(nameof(XsltLibrary.X31ExtensionArgument), T.Item, call, Box(compile(arg)));
+                }
+                return X31(nameof(XsltLibrary.X31ExtensionCall), T.ItemS, call);
+            }
             if (name.NamespaceUri == DynamicEvaluation.Namespace)
             {
                 return CompileEvaluate31(name, args, compile);
+            }
+            if (args.Count == 1 && XsltNameContext.IsNodeSetFunction(name.NamespaceUri, name.LocalName))
+            {
+                // exsl:node-set and msxsl:node-set: the identity, temporary trees being nodes already.
+                return compile(args[0]);
+            }
+            if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])
+            {
+                // Documents of xsl:source-document or xsl:merge-source, and the accumulators applicable to them.
+                return X31(nameof(XsltLibrary.X31SourceDocuments), T.ItemS, Box(compile(args[0])), _f.String(accumulators.Value));
+            }
+            if (name.NamespaceUri == InitialFunctionArguments.Namespace && args.Count == 0)
+            {
+                // The initial match selection, or an initial template's or mode's parameter, supplied as a parameter
+                // (XslCompiledTransform.InitialMatchSelection, InitialParameters).
+                return X31(nameof(XsltLibrary.X31Variable), T.ItemS, _f.String(name.LocalName), _f.String(name.NamespaceUri));
             }
             if (name.NamespaceUri != FnNs)
             {
@@ -259,7 +323,9 @@ namespace Xsl3.Xslt
                 case ("key", 3):
                     // Without a third argument, the context item of the expression (not of the instruction).
                     return CompileKey31(args[0] is XPath31.StringLiteral s ? _f.String(s.Value) : String31(compile(args[0])),
-                        compile(args[1]), compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
+                        // Backwards-compatible behaviour: the key values are compared as strings (XSLT 3.0 §20.2.2).
+                        Backwards31 ? X31(nameof(XsltLibrary.X31CompatStrings), T.ItemS, compile(args[1])) : compile(args[1]),
+                        compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
                 case ("document", 1):
                 case ("document", 2):
                     return CompileFnDocument31(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);
@@ -368,6 +434,7 @@ namespace Xsl3.Xslt
                 BaseUri = StaticBaseUri31(),
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
+                BackwardsCompatible = _xslVersion == XslVersion.BackwardsCompatible,
             };
             // In XSLT the statically known namespaces are the stylesheet's namespaces in scope, and xml (XSLT 3.0 §5.4.1).
             sc.Namespaces.Clear();
@@ -455,6 +522,12 @@ namespace Xsl3.Xslt
             }
         }
 
+        // Whether the instruction being compiled is in a backwards-compatible region (XSLT 3.0 §3.9).
+        private bool Backwards31 => _xslVersion == XslVersion.BackwardsCompatible;
+
+        // The first item of an expression's value, for backwards-compatible behaviour.
+        private static string FirstItem31(string expression) => $"({expression})[1]";
+
         private QilNode ReportXPath31Error(string code, string message)
         {
             if (_xslVersion != XslVersion.ForwardsCompatible)
@@ -477,6 +550,11 @@ namespace Xsl3.Xslt
                 if (ast == null)
                 {
                     return _f.String("");
+                }
+                if (Backwards31)
+                {
+                    // Backwards-compatible behaviour: only the first item (XSLT 3.0 §5.6.1).
+                    ast = new XPath31.FilterExpr(ast, new XPath31.IntegerLiteral(1)) { Span = ast.Span };
                 }
                 return XPath31Compiler.CompileEmbeddedString(ast, StaticContext31(), _f, this);
             }
@@ -539,7 +617,8 @@ namespace Xsl3.Xslt
                 {
                     string? separator = node.V2?.Separator;
                     QilNode sep = separator == null ? _f.String(node.Select != null ? " " : "") : CompileStringAvt(separator)!;
-                    QilNode value = SimpleContent31(SelectOrContent31(node, node.Select), sep);
+                    // Backwards-compatible behaviour: only the first item of select, unless there is a separator (XSLT 3.0 §11.4.2).
+                    QilNode value = SimpleContent31(SelectOrContent31(node, node.Select is string s && Backwards31 && separator == null ? FirstItem31(s) : node.Select), sep);
                     return node.NodeType == XslNodeType.ValueOf ? _f.TextCtor(value) : _f.RawTextCtor(value);
                 }
                 case XslNodeType.CopyOf:
@@ -599,10 +678,26 @@ namespace Xsl3.Xslt
                 case XslNodeType.MapEntry:
                     return X31(nameof(XsltLibrary.X31MapSingleton), T.Item, Box(CompileXPath31(node.V2!.NameAvt!)), Box(SelectOrContent31(node, node.Select)));
                 case XslNodeType.ContextItem:
+                {
                     // The context item a template rule or named template requires (XSLT 3.0 §10.1.2).
-                    return node.V2?.As is string contextType && !FocusAbsent
+                    if (FocusAbsent)
+                    {
+                        return _f.Sequence();
+                    }
+                    QilNode check = node.V2?.As is string contextType
                         ? X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), contextType, "XTTE0590"))
                         : _f.Sequence();
+                    if (!_namedFocus31)
+                    {
+                        return check;
+                    }
+                    // A named template: use="required" is XTTE3090 without a context item; with use="optional" (the
+                    // default) there is nothing to check then.
+                    return (string?)node.Arg is "required"
+                        ? _f.Sequence(X31(nameof(XsltLibrary.X31RequireFocus), T.ItemS, GetCurrentNode()), check)
+                        : check.NodeType == QilNodeType.Sequence ? check
+                        : _f.Conditional(X31(nameof(XsltLibrary.X31IsAbsent), T.BooleanX, GetCurrentNode()), _f.Sequence(), check);
+                }
                 case XslNodeType.NextIteration:
                     return CompileNextIteration31(node);
                 case XslNodeType.Break:
@@ -612,7 +707,14 @@ namespace Xsl3.Xslt
                 case XslNodeType.Catch:
                     return ReportXPath31Error("XTSE0010", "xsl:catch is only allowed in xsl:try");
                 case XslNodeType.OnEmpty or XslNodeType.OnNonEmpty:
-                    // Outside a sequence constructor with other instructions (handled by CompileWithOnEmpty31).
+                    if (_onEmptyList31 != null && _onEmptyList31.Contains(node))
+                    {
+                        // In a sequence constructor with other instructions (CompileWithOnEmpty31): deferred.
+                        XslNode deferred = node;
+                        return X31(nameof(XsltLibrary.X31Deferred), T.Item, _f.Boolean(node.NodeType == XslNodeType.OnEmpty),
+                            Lift31(_ => SelectOrContent31(deferred, deferred.Select), 0));
+                    }
+                    // Alone: xsl:on-empty is the sequence, xsl:on-non-empty nothing.
                     return node.NodeType == XslNodeType.OnEmpty ? SelectOrContent31(node, node.Select) : _f.Sequence();
                 case XslNodeType.Number:
                     return CompileNumber31((Number)node);
@@ -810,7 +912,8 @@ namespace Xsl3.Xslt
             if (num.Value != null)
             {
                 // value="…": the numbers are formatted with the format tokens (XSLT 3.0 §12.3).
-                return _f.TextCtor(X31(nameof(XsltLibrary.X31NumberFormat), T.StringX,
+                // Backwards-compatible behaviour: the first item as a number, NaN written as it is (XSLT 3.0 §12.1).
+                return _f.TextCtor(X31(Backwards31 ? nameof(XsltLibrary.X31CompatNumberFormat) : nameof(XsltLibrary.X31NumberFormat), T.StringX,
                     Box(CompileXPath31(value)), format, groupingSeparator, groupingSize, ordinal, lang, startAt));
             }
 
@@ -904,6 +1007,10 @@ namespace Xsl3.Xslt
         // (use-accumulators, as expanded names); null: all of them.
         private HashSet<string>? PrincipalAccumulators31()
         {
+            if (_compiler.InitialTemplate != null || _compiler.InitialFunction != null)
+            {
+                return null; // the global context item: all of them
+            }
             QilName? initial = _compiler.InitialMode is { } im ? _f.QName(im.Name, im.Namespace) : _compiler.DefaultInitialMode;
             foreach (var (mode, decl) in _compiler.ModeDecls)
             {
@@ -913,7 +1020,8 @@ namespace Xsl3.Xslt
                     return names == "#all" ? null : new HashSet<string>(names.Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
                 }
             }
-            return null;
+            // The initial mode without use-accumulators: none apply to the principal source document (XSLT 3.0 §18.2.2).
+            return new HashSet<string>();
         }
 
         // Whether some template uses mode="#current" where its mode isn't known when it's compiled: then the
@@ -1051,8 +1159,9 @@ namespace Xsl3.Xslt
         // Compiling a named template's body (not within an instruction that clears the current template rule).
         private bool _inNamedTemplate31;
 
+        // (xsl:apply-imports too: both depend on the current template rule.)
         private static bool UsesNextMatch31(IList<XslNode>? content) =>
-            content != null && content.Any(n => n.NodeType == XslNodeType.NextMatch || UsesNextMatch31(n.Content));
+            content != null && content.Any(n => n.NodeType is XslNodeType.NextMatch or XslNodeType.ApplyImports || UsesNextMatch31(n.Content));
 
         // In a template rule's body, the tunnel frame recording the rule (null when no named template needs it).
         private QilIterator? WithCurrentRule31(Template? rule)
@@ -1078,6 +1187,25 @@ namespace Xsl3.Xslt
                     ? ApplyInCurrentMode31(_compiler.Root!, CopyArgs31(args), r)
                     : InvokeApplyFunction(_compiler.Root!, r.Mode, CopyArgs31(args), nextMatchBelow: r);
                 result = _f.Conditional(_f.Eq(rule, _f.Double(i)), next, result);
+            }
+            return _f.Loop(rule, result);
+        }
+
+        // xsl:apply-imports in a named template: the imports of the caller's current template rule's module, in its mode.
+        private QilNode ApplyImportsFromCaller31(List<XslNode> args)
+        {
+            QilIterator rule = _f.Let(X31(nameof(XsltLibrary.X31TunnelRule), T.DoubleX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
+            QilNode result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0560"), _f.String("xsl:apply-imports is used where there is no current template rule"));
+            for (int i = _rules31.Count - 1; i >= 0; i--)
+            {
+                Template r = _rules31[i];
+                if (r.Sheet == null)
+                {
+                    continue;
+                }
+                XslNode applyImports = AstFactory.ApplyImports(r.Mode, r.Sheet, XslVersion.Current);
+                applyImports.SetContent(CopyArgs31(args).Cast<XslNode>().ToList());
+                result = _f.Conditional(_f.Eq(rule, _f.Double(i)), GenerateApply(r.Sheet, applyImports), result);
             }
             return _f.Loop(rule, result);
         }
@@ -1290,12 +1418,12 @@ namespace Xsl3.Xslt
                 QilIterator e;
                 return _f.Loop(e = _f.Let(current),
                     _f.Conditional(_f.IsType(e, T.Element),
-                        _f.ElementCtor(_f.NameOf(_f.TypeAssert(e, T.Element)), ContentNodes(CompileInstructions(copy.Content))),
+                        _f.ElementCtor(_f.NameOf(_f.TypeAssert(e, T.Element)), NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content)))),
                         CopyOther31(e, copy)));
             }
             if (current.XmlType!.IsSubtypeOf(T.NodeNotRtf))
             {
-                return _f.XsltCopy(current, ContentNodes(CompileInstructions(copy.Content)));
+                return _f.XsltCopy(current, NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content))));
             }
             QilIterator c;
             return _f.Loop(c = _f.Let(current), CopyOther31(c, copy));
@@ -1304,8 +1432,18 @@ namespace Xsl3.Xslt
         // An atomic context item is copied as itself; a node with XsltCopy.
         private QilNode CopyOther31(QilIterator c, XslNode copy) =>
             _f.Conditional(_f.IsType(c, T.Node),
-                _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), ContentNodes(CompileInstructions(copy.Content))),
+                _f.XsltCopy(_f.TypeAssert(c, T.NodeNotRtf), NoInherit31(copy, ContentNodes(CompileInstructions(copy.Content)))),
                 _f.TypeAssert(c, T.AnyAtomicType));
+
+        /// <summary>
+        /// inherit-namespaces="no" (XSLT 3.0 §11.1.2): the element's children don't inherit its namespaces. A marker
+        /// declaration (<see cref="XmlQueryOutput.NoInheritPrefix"/>) at the start of the content tells the tree being
+        /// built; serialized output can't express it, and drops it.
+        /// </summary>
+        private QilNode NoInherit31(XslNode node, QilNode content) =>
+            node.V2?.InheritNamespaces == TriState.False
+                ? _f.Sequence(_f.NamespaceDecl(_f.String(XmlQueryOutput.NoInheritPrefix), _f.String("")), content)
+                : content;
 
         private QilNode CompileNamespace31(XslNode node)
         {
@@ -1416,8 +1554,12 @@ namespace Xsl3.Xslt
         }
 
         // xsl:call-template: a non-tunnel xsl:with-param must name a parameter of the template (XTSE0680).
-        private void CheckWithParams31(IList<XslNode> withParams, Template tmpl)
+        private void CheckWithParams31(IList<XslNode> withParams, Template tmpl, XslNode call)
         {
+            if (call.XslVersion == XslVersion.BackwardsCompatible)
+            {
+                return; // backwards-compatible behaviour: parameters the template doesn't declare are ignored (XTSE0680)
+            }
             foreach (XslNode withParam in withParams)
             {
                 if (withParam.NodeType != XslNodeType.WithParam || withParam.V2?.Tunnel == true)
@@ -1552,7 +1694,7 @@ namespace Xsl3.Xslt
                     ReportXPath31Error("XTSE2200", "The merge sources have different numbers of merge keys");
                 }
                 spec.SortBeforeMerge.Add(source.V2!.SortBeforeMerge);
-                string? forEach = source.V2.ForEachItem ?? (source.V2.ForEachSource is string uris ? $"({uris}) ! doc(.)" : null);
+                string? forEach = source.V2.ForEachItem ?? source.V2.ForEachSource; // (the loader made it the documents)
                 QilNode sourceInputs;
                 if (forEach == null)
                 {
@@ -2046,6 +2188,37 @@ namespace Xsl3.Xslt
 
         // ------------------------------------------------------------ xsl:try, xsl:catch
 
+        /// <summary>
+        /// A template's or function's body with calls to the trace listener around it (XsltSettings.EnableTracing): the
+        /// frame enters the stylesheet stack before the body and leaves it after.
+        /// </summary>
+        private QilNode Traced31(QilNode body, XmlQueryType type, int frame)
+        {
+            QilNode id = _f.Double(frame);
+            return _f.TypeAssert(_f.Sequence(X31(nameof(XsltLibrary.X31TraceEnter), T.ItemS, id), Box(body), X31(nameof(XsltLibrary.X31TraceLeave), T.ItemS, id)), type);
+        }
+
+        // The frame of each template and function: without tracing, the stylesheet stack of a dynamic error is read from
+        // the .NET stack, by the names of the methods they compile to.
+        private Dictionary<QilFunction, int>? _frames31;
+
+        /// <summary>A template's or function's frame, registered for <paramref name="function"/>; its constant's id.</summary>
+        private int Frame31(QilFunction function, string kind, QilName? name, string? match, QilName? mode, ISourceLineInfo? line)
+        {
+            var frame = new XsltFrame(kind, name == null ? null : new QName(name.NamespaceUri, name.LocalName, name.Prefix), match,
+                mode is { LocalName.Length: > 0 } ? new QName(mode.NamespaceUri, mode.LocalName, mode.Prefix) : null,
+                line?.Uri, line?.Start.Line ?? 0, line?.Start.Pos ?? 0);
+            int id = ConstantPool.Add(frame);
+            (_frames31 ??= new Dictionary<QilFunction, int>())[function] = id;
+            return id;
+        }
+
+        // How many xsl:try bodies the instructions being compiled are in: they record their lines ($err:line-number).
+        private int _tryBody31;
+
+        private QilNode TryLine31(ISourceLineInfo line, QilNode instruction) => _f.Sequence(
+            X31(nameof(XsltLibrary.X31TryEnter), T.ItemS, _f.Double(line.Start.Line)), Box(instruction), X31(nameof(XsltLibrary.X31TryExit), T.ItemS));
+
         // The variables of xsl:catch, in the err namespace (XSLT 3.0 §8.3.1), in the order X31Try passes them.
         private static readonly string[] s_errVariables31 = { "code", "description", "value", "module", "line-number", "column-number", "additional" };
 
@@ -2073,12 +2246,15 @@ namespace Xsl3.Xslt
             {
                 // The try's variables aren't in scope in the catches.
                 _scope.EnterScope();
+                _tryBody31++;
                 try
                 {
-                    return node.Select != null ? CompileXPath31(node.Select) : CompileInstructions(body);
+                    QilNode value = node.Select != null ? CompileXPath31(node.Select) : CompileInstructions(body);
+                    return node.Select != null && node.SourceLine != null ? TryLine31(node.SourceLine, value) : value;
                 }
                 finally
                 {
+                    _tryBody31--;
                     _scope.ExitScope();
                 }
             }, 0);
@@ -2302,23 +2478,34 @@ namespace Xsl3.Xslt
                         break;
                 }
             }
-            QilIterator result = _f.Let(Box(CompileInstructions(others)));
-            QilNode CompileAll(List<XslNode> nodes)
+            // The instructions in their order, so xsl:on-empty and xsl:on-non-empty see the variables before them: each
+            // becomes a deferred item (its value lifted into a function), which X31OnEmpty keeps or drops once the rest
+            // of the sequence is known.
+            var inOrder = new List<XslNode>();
+            foreach (XslNode n in instructions)
             {
-                QilList list = InstructionList();
-                foreach (XslNode n in nodes)
+                if (n.NodeType is not (XslNodeType.LiteralAttribute or XslNodeType.UseAttributeSet))
                 {
-                    EnterScope(n);
-                    list.Add(SelectOrContent31(n, n.Select));
-                    ExitScope();
+                    inOrder.Add(n);
                 }
-                return list;
             }
-            QilNode whenEmpty = CompileAll(onEmpty);
-            QilNode whenNonEmpty = _f.Sequence(CompileAll(before), result, CompileAll(after));
-            QilNode chosen = _f.Loop(result, _f.Conditional(X31(nameof(XsltLibrary.X31Vacuous), T.BooleanX, result), whenEmpty, whenNonEmpty));
+            IList<XslNode>? savedList = _onEmptyList31;
+            _onEmptyList31 = inOrder;
+            QilNode items;
+            try
+            {
+                items = Box(CompileInstructions(inOrder));
+            }
+            finally
+            {
+                _onEmptyList31 = savedList;
+            }
+            QilNode chosen = X31(nameof(XsltLibrary.X31OnEmpty), T.ItemS, items);
             return attributes.Count == 0 ? chosen : _f.Sequence(CompileInstructions(attributes), chosen);
         }
+
+        // The sequence constructor whose xsl:on-empty and xsl:on-non-empty are being compiled as deferred items.
+        private IList<XslNode>? _onEmptyList31;
 
         // xsl:where-populated: the content without the items deemed empty (XSLT 3.0 §8.4.1).
         private QilNode CompileWherePopulated31(XslNode node) =>
@@ -2482,7 +2669,7 @@ namespace Xsl3.Xslt
                 EscapeUriAttributes = output.EscapeUriAttributes,
                 IncludeContentType = output.IncludeContentType ?? true,
                 Encoding = output.Encoding ?? "UTF-8",
-                MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType != null ? output.Settings.MediaType : "text/html",
+                MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType is string mediaType ? mediaType : "text/html",
             };
             if (output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } raw)
             {
@@ -2763,7 +2950,14 @@ namespace Xsl3.Xslt
             QilNode patterns = CompilePattern31(pattern);
             QilIterator e = _f.For(_f.DescendantOrSelf(_f.Root(context)));
             QilNode candidates = e;
-            if (pattern.Contains('@') || pattern.Contains('$') || pattern.Contains('(') || pattern.Contains("attribute") || pattern.Contains("node"))
+            if (pattern.Contains("namespace"))
+            {
+                // A pattern that can match namespace nodes (XSLT 3.0): each element's, then its attributes.
+                QilIterator a = _f.For(_f.Content(e));
+                QilIterator ns = _f.For(_f.XPathNamespace(e));
+                candidates = _f.Loop(e, _f.Sequence(e, _f.Loop(ns, ns), _f.Filter(a, _f.IsType(a, T.Attribute))));
+            }
+            else if (pattern.Contains('@') || pattern.Contains('$') || pattern.Contains('(') || pattern.Contains("attribute") || pattern.Contains("node"))
             {
                 // A pattern that can match attributes: they follow their element in document order.
                 QilIterator a = _f.For(_f.Content(e));
@@ -2848,7 +3042,8 @@ namespace Xsl3.Xslt
             var namespaces = new Dictionary<string, string>(System.StringComparer.Ordinal) { ["xml"] = XmlReservedNs.NsXml };
             foreach (CompilerScopeManager<QilIterator>.ScopeRecord rec in _scope)
             {
-                if (rec.ncName != null && rec.nsUri != null && rec.ncName.Length > 0 && rec.ncName[0] != '#')
+                // (The default namespace too, under "": element-available's unprefixed names are in it.)
+                if (rec.ncName != null && rec.nsUri != null && (rec.ncName.Length == 0 || rec.ncName[0] != '#'))
                 {
                     namespaces.TryAdd(rec.ncName, rec.nsUri);
                 }
@@ -2859,6 +3054,11 @@ namespace Xsl3.Xslt
                 foreach (var (name, arity) in _compiler.Functions.Keys)
                 {
                     _stylesheetFunctions31.Add((name.NamespaceUri, name.LocalName, arity));
+                }
+                if (_compiler.Settings.EnableExtensionFunctions)
+                {
+                    // (Registered extension functions are available too.)
+                    _stylesheetFunctions31.UnionWith(_compiler.RegisteredFunctions?.Keys ?? Enumerable.Empty<(string, string, int)>());
                 }
             }
             return ConstantPool.Add(new XsltNameContext(namespaces, _stylesheetFunctions31) { EvaluateEnabled = _compiler.Settings.EnableEvaluate });
@@ -2906,7 +3106,7 @@ namespace Xsl3.Xslt
         private void CompileSort31(Sort sort, QilList keyList, ref LoopFocus parentLoop)
         {
             EnterScope(sort);
-            QilNode select = sort.Select != null ? CompileXPath31(sort.Select) : CompileInstructions(sort.Content);
+            QilNode select = sort.Select != null ? CompileXPath31(Backwards31 ? FirstItem31(sort.Select) : sort.Select) : CompileInstructions(sort.Content);
             // The keys of one sort must be comparable (XTDE1030): checked from the first item's (position 1) on.
             QilNode position = GetCurrentPosition();
 
@@ -3259,7 +3459,10 @@ namespace Xsl3.Xslt
                     result = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"The abstract function {functionName.LocalName} isn't overridden"));
                     prologue = null;
                 }
-                function.Function!.Definition = prologue ?? result;
+                int frame = Frame31(function.Function!, "function", functionName, null, null, function.SourceLine);
+                function.Function!.Definition = _compiler.Settings.EnableTracing
+                    ? Traced31(prologue ?? result, T.ItemS, frame)
+                    : prologue ?? result;
                 _noFocus = savedNoFocus;
                 _temporaryOutput31--;
                 ExitScope();

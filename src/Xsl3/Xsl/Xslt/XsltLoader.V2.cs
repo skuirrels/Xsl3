@@ -84,6 +84,7 @@ namespace Xsl3.Xslt
                     if (!_documentUriInUse.Contains(location.ToString()) && !_curStylesheet!.ImportHrefs.Contains(location))
                     {
                         _curStylesheet!.ImportHrefs.Add(location);
+                        _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
                     }
                 }
                 used = new UsedPackage(id, line);
@@ -294,6 +295,12 @@ namespace Xsl3.Xslt
             }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            if (forEachSource != null)
+            {
+                // The documents, with their applicable accumulators.
+                string? accumulators = ParseStringAttribute(5, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
+                forEachSource = ApplicableAccumulators31($"({forEachSource}) ! doc(.)", accumulators);
+            }
             string? select = ParseStringAttribute(3, "select");
             ParseYesNoAttribute(4, "streamable");
             TriState sortBefore = ParseYesNoAttribute(6, "sort-before-merge");
@@ -471,11 +478,44 @@ namespace Xsl3.Xslt
             {
                 ReportError(SR.Xml_UserException, "XTSE3089: xsl:context-item with use=\"absent\" can't have an as attribute");
             }
+            else if (use is "optional" or "absent" && _curTemplate is { Name: null })
+            {
+                // A template rule always has a context item (XSLT 3.0 §10.1.2).
+                ReportError(SR.Xml_UserException, $"XTSE0020: xsl:context-item on a template without a name can only have use=\"required\", not \"{use}\"");
+            }
             CheckNoContent();
             XslNode node = F.XslNode(XslNodeType.ContextItem, null, use, _input.XslVersion);
             node.V2 = new XslNodeV2 { As = asType };
             return SetInfo(node, null, ctxInfo);
         }
+
+        /// <summary>
+        /// A use-accumulators value: "#all", or its names as expanded names (EQNames), sorted, separated by spaces.
+        /// </summary>
+        private string AccumulatorNames(string value)
+        {
+            value = value.Trim();
+            if (value == "#all")
+            {
+                return value;
+            }
+            return string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
+            {
+                if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                {
+                    return token; // already an EQName
+                }
+                int colon = token.IndexOf(':');
+                return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
+            }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
+        }
+
+        /// <summary>
+        /// The documents of xsl:source-document and xsl:merge-source/@for-each-source, with the accumulators
+        /// applicable to them (use-accumulators; none by default, XSLT 3.0 §18.2.2).
+        /// </summary>
+        private static string ApplicableAccumulators31(string documents, string? names) =>
+            $"Q{{{Runtime.SourceDocuments.Namespace}}}doc({documents}, '{(names ?? "").Replace("'", "''")}')";
 
         // XSLT 3.0 §18.1
         private readonly XsltAttribute[] _sourceDocumentAttributes = {
@@ -495,10 +535,11 @@ namespace Xsl3.Xslt
             ContextInfo ctxInfo = _input.GetAttributes(_sourceDocumentAttributes);
             string href = ParseStringAttribute(0, "href") ?? "";
             ParseYesNoAttribute(1, "streamable");
+            string? accumulators = ParseStringAttribute(2, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
             _input.CanHaveApplyImports = false;
             List<XslNode> content = LoadInstructions();
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ForEach($"doc({AvtAsXPath31(href)})", ctxInfo, _input.XslVersion), content, ctxInfo);
+            return SetInfo(F.ForEach(ApplicableAccumulators31($"doc({AvtAsXPath31(href)})", accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
         }
 
         // XSLT 3.0 §10.4
@@ -1337,18 +1378,9 @@ namespace Xsl3.Xslt
                 if (_input.MoveToXsltAttribute(i, _modeAttributes[i].name))
                 {
                     string value = _input.Value.Trim();
-                    if (_modeAttributes[i].name == "use-accumulators" && value != "#all")
+                    if (_modeAttributes[i].name == "use-accumulators")
                     {
-                        // A set of names: compared as expanded names, in any order.
-                        value = string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
-                        {
-                            if (token.StartsWith("Q{", System.StringComparison.Ordinal))
-                            {
-                                return token; // already an EQName
-                            }
-                            int colon = token.IndexOf(':');
-                            return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
-                        }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
+                        value = AccumulatorNames(value);
                     }
                     decl.Attributes[_modeAttributes[i].name] = value;
                 }

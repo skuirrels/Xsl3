@@ -1518,6 +1518,10 @@ namespace Xsl3.IlGen
             return _lastFileName;
         }
 
+#if NET9_0_OR_GREATER
+        private System.Diagnostics.SymbolStore.ISymbolDocumentWriter? _lastDocument;
+#endif
+
         private void MarkSequencePoint(ISourceLineInfo sourceInfo)
         {
             Debug.Assert(_module.EmitSymbols);
@@ -1546,8 +1550,21 @@ namespace Xsl3.IlGen
                 }
             }
 #endif
-            //ISymbolDocumentWriter symDoc = this.module.AddSourceDocument(sourceFile);
-            //this.ilgen.MarkSequencePoint(symDoc, sourceInfo.Start.Line, sourceInfo.Start.Pos, sourceInfo.End.Line, sourceInfo.End.Pos);
+#if NET9_0_OR_GREATER
+            // Xsl3 (Sink B): saved assemblies carry the sequence points (0xfeefee, hidden, for code without a source,
+            // in the document of the code before it).
+            if ((sourceInfo.IsNoSource || sourceFile.Length == 0 ? _lastDocument : _lastDocument = _module.SourceDocument(sourceFile)) is { } document)
+            {
+                if (sourceInfo.IsNoSource)
+                {
+                    _ilgen!.MarkSequencePoint(document, 0xfeefee, 0, 0xfeefee, 0);
+                }
+                else
+                {
+                    _ilgen!.MarkSequencePoint(document, sourceInfo.Start.Line, sourceInfo.Start.Pos, sourceInfo.End.Line, sourceInfo.End.Pos);
+                }
+            }
+#endif
             _lastSourceInfo = sourceInfo;
         }
 
@@ -1657,8 +1674,20 @@ namespace Xsl3.IlGen
             if (XmlILTrace.IsEnabled)
                 _writerDump!.WriteLine("  {0, -10} Label {1}", opcode.Name, _symbols![lblVal]);
 #endif
-            _ilgen!.Emit(opcode, lblVal);
+            _ilgen!.Emit(LongBranch(opcode), lblVal);
         }
+
+        /// <summary>
+        /// Xsl3 (Sink B): in a saved assembly, a branch in its long form. PersistedAssemblyBuilder's IL generator can
+        /// misplace the instruction after a short branch in some methods (the runtime then rejects the method as an
+        /// invalid program; xslt30-test as-0501), so saved assemblies use long branches only.
+        /// </summary>
+        private OpCode LongBranch(OpCode opcode) => !_module.Persisted || opcode.OperandType != OperandType.ShortInlineBrTarget ? opcode : opcode.Value switch
+        {
+            0x2B => OpCodes.Br, 0x2C => OpCodes.Brfalse, 0x2D => OpCodes.Brtrue, 0x2E => OpCodes.Beq, 0x2F => OpCodes.Bge, 0x30 => OpCodes.Bgt,
+            0x31 => OpCodes.Ble, 0x32 => OpCodes.Blt, 0x33 => OpCodes.Bne_Un, 0x34 => OpCodes.Bge_Un, 0x35 => OpCodes.Bgt_Un, 0x36 => OpCodes.Ble_Un,
+            0x37 => OpCodes.Blt_Un, 0xDE => OpCodes.Leave, _ => opcode,
+        };
 
         public void Emit(OpCode opcode, Label[] arrLabels)
         {
@@ -1762,7 +1791,7 @@ namespace Xsl3.IlGen
             if (XmlILTrace.IsEnabled)
                 _writerDump!.WriteLine("  {0, -10} Label {1}", opcode.Name, _symbols![lblTarget]);
 #endif
-            _ilgen!.Emit(opcode, lblTarget);
+            _ilgen!.Emit(LongBranch(opcode), lblTarget);
 
             if (_lastSourceInfo != null && (opcode.Equals(OpCodes.Br) || opcode.Equals(OpCodes.Br_S)))
             {

@@ -20,6 +20,7 @@
     <Content Include="..\corpus\xslt10\*.xsl" Link="corpus\xslt10\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\corpus\xslt30\*.xsl" Link="corpus\xslt30\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\corpus\xslt30\pairs\*.xsl" Link="corpus\xslt30\pairs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\corpus\xslt30\micro\*.xsl" Link="corpus\xslt30\micro\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

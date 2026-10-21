@@ -51,7 +51,7 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Iterate(IList<XPathItem> items, IList<XPathItem> body, IList<XPathItem> completion, IList<XPathItem> initial)
         {
             List<IList<XPathItem>> values = ((IterationControl)initial[0]).Values;
-            var bodyFunction = (XdmFunction)body[0];
+            var bodyFunction = (FunctionItem)body[0];
             var output = new List<XPathItem>();
             IList<XPathItem> size = Sequences.One(AtomicValue.OfInteger(items.Count));
             for (int i = 0; i < items.Count; i++)
@@ -83,7 +83,7 @@ namespace Xsl3.Runtime
             }
             if (completion.Count != 0)
             {
-                output.AddRange(Copy(CallFunction((XdmFunction)completion[0], values.ToArray())));
+                output.AddRange(Copy(CallFunction((FunctionItem)completion[0], values.ToArray())));
             }
             return output;
         }

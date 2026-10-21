@@ -410,6 +410,89 @@ branch (docs/plan/remaining-scope.md) leaves the pairs where main has them. Muen
 the earlier table's 0.83 and 1.03 on both, so that difference is the machine and the run, not a code change; both
 are still above the ≤ 1.0 target.
 
+### Every pair under 1× (2026-10-21)
+
+| Pair | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|
+| identity | 0.87 | 0.86 | 0.85 |
+| sort | 0.74 | 0.71 | 0.71 |
+| muenchian | 0.97 | 0.95 | 0.98 |
+| string-recursion | 0.78 | 0.77 | 0.75 |
+| key-join | 0.95 | 0.95 | 0.98 |
+
+Three `pairs 20000` runs in a row, rewrite time over stock 1.0 time. Before these changes muenchian measured
+1.07–1.22 and key-join 1.08–1.13 on the same machine. The changes:
+
+| Change | Where | Pair |
+|---|---|---|
+| `format-number` rounds a double by scaling when the scaled value is below 10^9 and more than 10^-6 from a half, instead of finding its shortest round-trip digits (Dragon4); near a half the exact digits still decide | `NumberFormatter.TryScaledDigits` | key-join |
+| A map built in one go (`map:merge`, constructors, JSON) keeps a hash table, and makes the persistent dictionary only when it is first updated | `MapItem.Of` | key-join |
+| `$map(string-expression)` looks the string up without making an atomic value for it | `XPath31Compiler.DynamicFunctionCall`, `X31MapLookupString` | key-join |
+| A `group-by` key that is one node is kept as its string, and grouped by it under the codepoint collation without an atomic value and an array per item | `X31GroupTuple`, `X31Groups` | muenchian |
+
+## The XSLT 3.0 micro suite (remaining-scope 1.3, 1.6, 1.7)
+
+`bench/corpus/xslt30/micro` has one stylesheet per feature: grouping, sorting, keys, regex, string functions, maps,
+`fold-left` and other higher-order functions, `xsl:iterate`, the identity transform by `on-no-match`, deep recursion,
+and json output. `micro` runs each on the order book at about 1 KB and 1 MB (and 100 MB with `--sizes`). It also
+times compiling each stylesheet and the cold start of the first, a compile and transform in a fresh process. Each row
+has the median and minimum time and the bytes allocated per run.
+
+Measured on 2026-10-21 (Apple M-series, .NET 10, Release, input parsed once into Xsl3's compact tree):
+
+| Benchmark | Compile | KB | 1 KB input | 1 MB input | KB per run, 1 MB |
+|---|---:|---:|---:|---:|---:|
+| grouping | 0.65 ms | 207 | 0.010 ms | 0.91 ms | 1,947 |
+| sorting | 0.51 ms | 193 | 0.009 ms | 2.26 ms | 4,007 |
+| keys | 0.38 ms | 210 | 0.016 ms | 3.50 ms | 6,253 |
+| regex | 0.12 ms | 172 | 0.029 ms | 25.8 ms | 14,838 |
+| strings | 0.09 ms | 182 | 0.015 ms | 2.77 ms | 6,392 |
+| maps | 0.17 ms | 313 | 0.034 ms | 4.48 ms | 13,664 |
+| fold-left | 0.18 ms | 308 | 0.009 ms | 3.06 ms | 12,413 |
+| iterate | 0.16 ms | 303 | 0.010 ms | 1.80 ms | 6,941 |
+| identity | 0.05 ms | 98 | 0.008 ms | 1.90 ms | 3,293 |
+| recursion | 0.13 ms | 287 | 0.005 ms | 1.15 ms | 3,494 |
+| json | 0.07 ms | 178 | 0.020 ms | 9.14 ms | 18,073 |
+
+The cold start (the first compile and transform in a process, Xsl3's own JIT included) is 129 ms. The first run of
+the suite found two things, now fixed:
+
+| Finding | Before | After | Change |
+|---|---:|---:|---|
+| recursion, 1 MB | 101 ms | 1.15 ms | `$items[$i]` with a predicate that can't depend on the focus is evaluated once and selects by index (`X31Subscript`); a sequence already converted to a parameter's type is passed on to it without being checked again (`CoercedSequence`) |
+| Compile allocation | 106.8 KB (identity) | 97.6 KB | The scan for `position()` and `last()` stopped following a template's back-reference to its module, and caches each AST type's fields |
+
+Later rounds, each measured on the same machine:
+
+| Change | Benchmark | Before | After |
+|---|---|---:|---:|
+| Automatic indexing (remaining-scope 1.5): an absolute path whose last step filters on one attribute or child compared with a value that doesn't depend on the focus (`/orders/product[@sku = $l/@sku]`) builds an index of the document on its second evaluation and looks values up from then on. It applies where `=` compares strings (codepoint collation, no XPath 1.0 mode, string or node values, checked on each use); otherwise the path runs as written | join, 1 MB | 288 ms | 2.3 ms (the `xsl:key` version: 3.6 ms) |
+| General comparisons between nodes and strings compare string values directly, without atomizing into new values | join with the index defeated, 1 MB | 273 ms, 753 MB allocated | 177 ms, 207 MB |
+| A built-in function's argument coercion makes the message naming the argument only on an error, not as a closure per argument and call | allocation at 1 MB | | regex −14%, strings −16%, maps −15%, sorting −5%, identity −6% |
+
+**Template dispatch (remaining-scope 1.4), measured and left.** The `dispatch` micro benchmark adds 200 template rules
+for names that never occur ahead of the ones that do. They cost 0.30 ms per 1 MB transform (1.34 ms against 1.04 ms),
+about 17 ns per element for 200 name tests. A name table would save part of that only in stylesheets with hundreds of
+rules, so the linear test of fixed names stays until a real stylesheet shows it. QIL's `Choice` can't hold the
+per-name matchers (it works in push mode only), so a table would mean a runtime name index and a tree of integer
+tests.
+
+regex is still the slowest per byte: `xsl:analyze-string` and `replace` per order allocate about 5.8 KB each, mostly
+.NET's `Match` and `Group` objects.
+
+**The CI gate.** `eng/perf-gate.sh <base>` builds this checkout's harness against the base commit's Xsl3 and against
+this checkout's. It runs the suite alternately on each, three rounds in CI, so runner noise hits both. It fails when
+the geometric mean of the time ratios grows by more than 5%, or when any benchmark allocates more than 5% (and 1 KB)
+more. Allocation is near-deterministic, so it is the sharper test; cold start is reported but not gated. A deliberate
+trade fails the gate until the owner labels the pull request `perf-accepted`. Automatic indexing was one: its first
+version compiled three forms of an indexed path (the join stylesheet's compile allocation up 18% for a transform 100
+times faster). Now the candidates are compiled once and one pass either filters them or builds the index, and a
+compilation parses each XPath text once (1-12% less compile allocation across the suite); what is left is the index
+plumbing, about 7% of that ten-line stylesheet's compile allocation. CI's `perf`
+job runs it on every pull request against the target branch. `perf-nightly.yml` runs the suite at all three sizes
+and the rewritten pairs every night, as an artifact. `micro --alloc-types` adds the runtime's allocation samples by
+type to each row, which is how the compile allocation above was found.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

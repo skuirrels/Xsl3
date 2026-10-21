@@ -14,6 +14,7 @@ namespace Xsl3.Xslt
         Version10 = 0,
         ForwardsCompatible = 1,
         Current = Version10,
+        BackwardsCompatible = 2, // Xsl3: a region of a 2.0+ stylesheet with [xsl:]version below 2.0 (XSLT 3.0 §3.9)
     }
 
     // RootLevel is underdeveloped consept currently. I plane to move here more collections from Compiler.
@@ -46,8 +47,14 @@ namespace Xsl3.Xslt
         public XmlQualifiedName? InitialTemplate;
         public XmlQualifiedName? InitialFunction; // Xsl3: the initial function (XSLT 3.0 §2.3.4), with its arity
         public int InitialFunctionArity;
+        public bool InitialMatchSelection; // Xsl3: apply templates to the items of the parameter InitialFunctionArguments.Selection
+        // Xsl3: extension functions registered through the 3.0 API (XsltCompiler.RegisterExtensionFunction), by name and arity.
+        public IReadOnlyDictionary<(string Ns, string Local, int Arity), Runtime.RegisteredFunction>? RegisteredFunctions;
         public bool RawResult; // Xsl3: deliver the principal result as the raw sequence (XSLT 3.0 §2.3.6), not a tree
         public XmlQualifiedName? InitialMode;
+        // Xsl3: the initial template's or mode's parameters (XSLT 3.0 §2.3.4), whose values are the parameters
+        // InitialFunctionArguments.Parameter(1…n).
+        public IList<(XmlQualifiedName Name, bool Tunnel)>? InitialParameters;
 
         // Xsl3: static parameters supplied by the API, and the values of the static variables and parameters
         // (by expanded name), as ConstantPool ids of their sequences.

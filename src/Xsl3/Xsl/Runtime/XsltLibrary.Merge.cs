@@ -22,7 +22,7 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31FirstItem(IList<XPathItem> items) => items.Count == 0 ? Sequences.Empty : Sequences.One(items[0]);
 
         /// <summary>current-merge-group('name'): the group's items from the source at <paramref name="index"/>.</summary>
-        public IList<XPathItem> X31MergeSourceGroup(IList<XPathItem> sources, double index) => ((XdmArray)sources[0])[(int)index];
+        public IList<XPathItem> X31MergeSourceGroup(IList<XPathItem> sources, double index) => ((ArrayItem)sources[0])[(int)index];
 
         public IList<XPathItem> X31MergeSourceGroupNamed(IList<XPathItem> sources, string name, double namesId)
         {
@@ -57,17 +57,17 @@ namespace Xsl3.Runtime
             var entries = new List<(IList<XPathItem>[] Key, int Source, XPathItem Item)>();
             for (int s = 0; s < sources.Count; s++)
             {
-                var keyFunction = (XdmFunction)keyFunctions[s];
-                foreach (XPathItem wrappedInput in ((XdmArray)sources[s])[0])
+                var keyFunction = (FunctionItem)keyFunctions[s];
+                foreach (XPathItem wrappedInput in ((ArrayItem)sources[s])[0])
                 {
                     var input = new List<(IList<XPathItem>[] Key, int Source, XPathItem Item)>();
-                    foreach (XPathItem item in ((XdmArray)wrappedInput)[0])
+                    foreach (XPathItem item in ((ArrayItem)wrappedInput)[0])
                     {
                         IList<XPathItem> wrappedKeys = CallFunction(keyFunction, Sequences.One(item));
                         var key = new IList<XPathItem>[wrappedKeys.Count];
                         for (int k = 0; k < key.Length; k++)
                         {
-                            key[k] = Sequences.Atomize(((XdmArray)wrappedKeys[k])[0]);
+                            key[k] = Sequences.Atomize(((ArrayItem)wrappedKeys[k])[0]);
                             if (key[k].Count > 1)
                             {
                                 throw new XdmException("XTTE1020", $"A merge key has {key[k].Count} values; it must have at most one");
@@ -103,7 +103,7 @@ namespace Xsl3.Runtime
                     groups.Add(new() { entry });
                 }
             }
-            var actionFunction = (XdmFunction)action[0];
+            var actionFunction = (FunctionItem)action[0];
             var output = new List<XPathItem>();
             IList<XPathItem> size = Sequences.One(AtomicValue.OfInteger(groups.Count));
             for (int g = 0; g < groups.Count; g++)
@@ -117,7 +117,7 @@ namespace Xsl3.Runtime
                     int source = s;
                     bySource.Add(group.Where(e => e.Source == source).Select(e => e.Item).ToList());
                 }
-                output.AddRange(Copy(CallFunction(actionFunction, items, key, Sequences.One(XdmArray.Of(bySource)),
+                output.AddRange(Copy(CallFunction(actionFunction, items, key, Sequences.One(ArrayItem.Of(bySource)),
                     Sequences.One(AtomicValue.OfInteger(g + 1)), size)));
             }
             return output;

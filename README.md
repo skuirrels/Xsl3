@@ -24,9 +24,9 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1661 / 1661 on .NET 8 and .NET 10 |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
-| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,796 passed, 88 failed (99.6%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,416 passed, 56 failed (98.7%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%) | 7,738 passed, 169 failed, 49 not run (97.9%) |
+| W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,862 passed, 22 failed (99.9%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,566 passed, 31 failed (99.3%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%) | 7,970 passed, 66 failed, 49 not run (99.2%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 
@@ -75,12 +75,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 
 ## What's outstanding
 
-- **XSLT 3.0**:
-  `inherit-namespaces="no"` (the tree model inherits namespaces from ancestors), unparsed entities of
-  temporary trees (a document's own are read from its DTD), memoized functions (`new-each-time="no"`,
-  `cache`).
-- **API**: the XSLT 3.0 API of SPEC §7.2 (initial templates, modes and functions, the package library, raw
-  results); for now `XslCompiledTransform` plus the settings above. `MaxRecursionDepth` and `MaxOutputBytes`.
+- **XSLT 3.0**: unparsed entities of temporary trees (a document's own are read from its DTD).
+- **API**: the XSLT 3.0 API is new in this branch (below), and the W3C runner runs the suites through it.
 - **Known gaps**:
   - `xsl:next-match` from one alternative of a union pattern to another of the same rule.
   - Dynamic errors in patterns are non-matches only for predicate patterns.
@@ -93,16 +89,18 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 - **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use.
   - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
-  - XSLT 2.0/3.0 has nearly caught up with 1.0 on stock. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3×
-    slower than the 1.0 versions on stock, because the 2.0+ code boxed its values. Typed codegen and a direct result
-    writer have brought that to 0.68–1.15× of stock's time (2026-10-21: muenchian and key-join still above 1×), and it
-    continues until every pair is at or under 1×.
-  - Still to do: Sink B (`Xsl3.Build`) and NativeAOT, and the SaxonCS-HE comparison.
+  - XSLT 2.0/3.0 has caught up with 1.0 on stock. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3× slower than
+    the 1.0 versions on stock, because the 2.0+ code boxed its values. Typed codegen, a direct result writer and
+    cheaper maps, grouping and number formatting have brought every pair under stock's time: 0.71–0.98×
+    (2026-10-21, [docs/performance.md](docs/performance.md)).
+  - Sink B (`Xsl3.Build`, saved assemblies) and NativeAOT are in; still to do: the SaxonCS-HE comparison.
 - **Later phases**: schema-awareness (P6) and streaming (P7) haven't started.
 - **Packaging**: alpha prereleases only; the public API is still `XslCompiledTransform`-shaped and may change
   before 1.0.
 
 ## Using it
+
+Guides: [getting started with the XSLT 3.0 API](docs/getting-started.md) and [moving from System.Xml.Xsl](docs/migration.md).
 
 Xsl3 keeps `XslCompiledTransform`'s API, so switching is a `using` change:
 
@@ -146,6 +144,42 @@ See [docs/performance.md](docs/performance.md) for the measurements.
 
 Targets .NET 8 and .NET 10.
 
+### The XSLT 3.0 API
+
+`XsltCompiler`, `XsltExecutable` and `Xslt30Transformer` start a stylesheet the ways XSLT 3.0 allows (§2.3): templates
+applied to any sequence in any mode, a named template, or a stylesheet function. Values are XDM values (`XdmValue`,
+`XdmNode`, `XdmAtomicValue`, `XdmMap`, `XdmArray` in `Xsl3.Xdm`), and a raw result comes back as one:
+
+```csharp
+using Xsl3;
+using Xsl3.Xdm;
+
+XsltExecutable executable = new XsltCompiler().Compile(new Uri("file:///style.xsl")); // cache and share this
+Xslt30Transformer transformer = executable.CreateTransformer();                       // one per thread
+transformer.StylesheetParameters[new QName("title")] = new XdmAtomicValue("Report");
+
+transformer.ApplyTemplates(XdmNode.Load(File.OpenRead("input.xml")), Console.Out);   // serialized as xsl:output says
+XdmValue rows = transformer.CallTemplate(new QName("rows"),
+    parameters: new Dictionary<QName, XdmValue> { [new QName("max")] = new XdmAtomicValue(10L) });
+XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows);
+```
+
+- A dynamic error is an `XsltDynamicException` with the error's `Code`, `Description` and `ErrorObject`; a stylesheet
+  that doesn't compile raises an `XsltStaticException` listing every error with its module, line and column.
+- Each transformer has its own `BaseOutputUri`, `MessageHandler`, `TraceHandler`, `ResultDocumentHandler`,
+  `DocumentResolver`, `CancellationToken` and `GlobalContextItem`.
+- `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`), and
+  registers extension functions for 2.0+ stylesheets (`RegisterExtensionFunction(name, arity, args => …)`).
+- An executable compiles the stylesheet once per entry point it is started at, the first time; the design is in
+  [docs/plan/api.md](docs/plan/api.md).
+- An `XsltDynamicException` carries the `StylesheetStack` of templates and functions that was running. With
+  `XsltSettings.EnableTracing` it is complete, and a transformer's `TraceListener` (an `IXsltTraceListener`) sees
+  every template and function start and end; without it, the stack is read from the .NET one and leaves out
+  functions that were inlined or tail-called.
+  `XsltExecutable.Explain` writes the optimized QIL the stylesheet compiles to.
+- `XsltCompiler.CompileAssociatedStylesheet(document)` compiles the stylesheet a document names in its
+  `<?xml-stylesheet?>` processing instruction, embedded in it (`href="#id"`) or not.
+
 ### Parameters of XSLT 2.0 and 3.0 stylesheets
 
 `XsltArgumentList.AddParam` takes more CLR types for a 2.0+ stylesheet, and gives each its XDM type (SPEC §7.1):
@@ -188,6 +222,41 @@ A stopped transformation raises `Q{http://xsl3/err}cancelled`; one that runs out
 much raises `Q{http://xsl3/err}output-limit`. An extension function's .NET exception is
 `Q{http://xsl3/err}extension-error`. `XsltArgumentList.TraceHandler` receives `fn:trace` calls.
 
+### The `xsl3` command line
+
+`src/Xsl3.Cli` is a .NET tool, `xsl3` (not on nuget.org yet; see [its readme](src/Xsl3.Cli/README.md)):
+
+```bash
+xsl3 transform -xsl:style.xsl -s:input.xml -o:output.html title=Report --trace
+```
+
+`xsl3 explain -xsl:style.xsl` prints the optimized QIL the stylesheet compiles to.
+
+### Stylesheets compiled ahead of time, and NativeAOT
+
+`XslCompiledTransform.CompileToAssembly` (on .NET 9 or later) saves a compiled stylesheet as an assembly holding one
+type; `Load(Type, XsltSettings)` loads it without compiling, so it runs under NativeAOT. The `Xsl3.Build` targets
+(`src/Xsl3.Build`, not on nuget.org yet) do it at build time:
+
+```xml
+<XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />
+```
+
+```csharp
+var transform = new XslCompiledTransform();
+transform.Load(typeof(Stylesheets.Report), new XsltSettings());
+```
+
+`samples/Xsl3.AotSample` is published with NativeAOT in CI.
+
+### XSLT 1.0 stylesheets on the 3.0 processor
+
+A stylesheet whose principal module says `version="1.0"` runs on stock's 1.0 engine, with byte-identical results.
+`XsltSettings.VersionMode = XsltVersionMode.BackwardsCompatible` runs it on the 3.0 processor instead, in the
+backwards-compatible mode XSLT 3.0 §3.9 defines: XPath 2.0+ syntax and functions, with XPath 1.0's conversions in
+comparisons, arithmetic and function arguments, and the first item of `xsl:value-of` and attribute value templates.
+Regions marked `version="1.0"` inside 2.0+ stylesheets always run that way.
+
 ## Building and testing
 
 Requires the .NET 10 SDK.
@@ -225,9 +294,9 @@ From [SPEC.md §22](SPEC.md):
 |---|---|---|
 | P0 | Fork, baseline, upstream tests, benchmark harness | Done |
 | P1 | XDM type system and XPath 2.0 core, core F&O | Done ([plan](docs/plan/p1-xdm-xpath.md)) |
-| P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% ([plan](docs/plan/p2-xslt20.md)) |
-| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% ([plan](docs/plan/p3-xslt30.md)) |
-| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.68–1.15× of stock's time (target ≤ 1×; typed codegen and a direct result writer); Sink B (started: lazy IL module), NativeAOT and the SaxonCS comparison to do |
+| P2 | XSLT 2.0 | Done: xslt30-test 2.0 profile 95.2% at exit, 99.3% now ([plan](docs/plan/p2-xslt20.md)) |
+| P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% at exit; 99.7% and 99.1% now ([plan](docs/plan/p3-xslt30.md)) |
+| P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.71–0.98× of stock's time (target ≤ 1× met); Sink B (saved assemblies, `Xsl3.Build`) and NativeAOT done; the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
 | P6 | Schema-awareness | Not started |
 | P7 | Streaming | Not started |

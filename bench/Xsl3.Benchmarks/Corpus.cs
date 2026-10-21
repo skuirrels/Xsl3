@@ -22,7 +22,10 @@ public static class Corpus
     public static readonly string[] Pairs = { "identity", "sort", "muenchian", "string-recursion", "key-join", "html-report" };
 
     /// <summary>An order book: <paramref name="orders"/> orders over a product catalogue, about 450 bytes per order.</summary>
-    public static string Orders(int orders)
+    public static string Orders(int orders) => Orders(orders, 500);
+
+    /// <summary>An order book with a catalogue of <paramref name="products"/> products.</summary>
+    public static string Orders(int orders, int products)
     {
         var random = new Random(42);
         string[] customers = new string[Math.Max(10, orders / 20)];
@@ -36,7 +39,6 @@ public static class Corpus
         using (var w = XmlWriter.Create(sb, new XmlWriterSettings { Indent = true }))
         {
             w.WriteStartElement("orders");
-            const int products = 500;
             for (int p = 0; p < products; p++)
             {
                 w.WriteStartElement("product");

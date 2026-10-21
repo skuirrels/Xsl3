@@ -53,6 +53,11 @@ namespace Xsl3.Runtime
                 root = node.Clone();
                 root.MoveToRoot();
             }
+            if (_sourceDocumentAccumulators != null && _sourceDocumentAccumulators.TryGetValue(_runtime.GenerateId(root), out HashSet<string>? applicable) &&
+                applicable != null && !applicable.Contains(new QName(ns, local).EQName))
+            {
+                throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
+            }
             if (!info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
             {
                 XPathNavigator principal = _runtime.ExternalContext.DefaultDataSource.Clone();
@@ -66,12 +71,32 @@ namespace Xsl3.Runtime
             if (!_accumulatorValues.TryGetValue((key, _runtime.GenerateId(root)), out var values))
             {
                 values = new Dictionary<string, (IList<XPathItem>, IList<XPathItem>)>();
-                IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((XdmFunction)items[info.Offset], Sequences.One(root.Clone())), name);
+                IList<XPathItem> initial = AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset], Sequences.One(root.Clone())), name);
                 AccumulatorVisit(root, initial, items, info, name, values);
                 _accumulatorValues[(key, _runtime.GenerateId(root))] = values;
             }
             var (before, afterValue) = values[_runtime.GenerateId(node)];
             return after ? afterValue : before;
+        }
+
+        // The documents of xsl:source-document and xsl:merge-source, by root id: the accumulators applicable to them
+        // (null: all).
+        private Dictionary<string, HashSet<string>?>? _sourceDocumentAccumulators;
+
+        /// <summary>The documents of xsl:source-document or xsl:merge-source, recorded with their use-accumulators.</summary>
+        public IList<XPathItem> X31SourceDocuments(IList<XPathItem> documents, string names)
+        {
+            foreach (XPathItem item in documents)
+            {
+                if (item is XPathNavigator node)
+                {
+                    XPathNavigator root = node.Clone();
+                    root.MoveToRoot();
+                    (_sourceDocumentAccumulators ??= new())[_runtime.GenerateId(root)] =
+                        names == "#all" ? null : new HashSet<string>(names.Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+                }
+            }
+            return documents;
         }
 
         // The trees made by xsl:copy-of copy-accumulators="yes": each copy's root, its copied node and the original.
@@ -167,7 +192,7 @@ namespace Xsl3.Runtime
                 {
                     continue;
                 }
-                IList<XPathItem> priority = CallFunction((XdmFunction)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
+                IList<XPathItem> priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
                 if (priority.Count == 1)
                 {
                     double p = XmlConvert.ToDouble(priority[0].Value);
@@ -182,7 +207,7 @@ namespace Xsl3.Runtime
             {
                 return value;
             }
-            return AccumulatorCoerce(info, CallFunction((XdmFunction)items[info.Offset + 2 + 2 * best], Sequences.One(node.Clone()), value), name);
+            return AccumulatorCoerce(info, CallFunction((FunctionItem)items[info.Offset + 2 + 2 * best], Sequences.One(node.Clone()), value), name);
         }
 
         private static IList<XPathItem> AccumulatorCoerce(AccumulatorInfo info, IList<XPathItem> value, string name) =>

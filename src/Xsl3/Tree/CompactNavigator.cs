@@ -224,6 +224,9 @@ namespace Xsl3.Tree
 
         // Namespaces
 
+        /// <summary>Xsl3: an element made with inherit-namespaces="no" (its children don't inherit its namespaces).</summary>
+        internal bool NoInherit => OnContent && _doc._noInherit != null && _doc._noInherit.Contains(_node);
+
         public override bool MoveToFirstNamespace(XPathNamespaceScope scope)
         {
             if (!OnContent || _doc.Kind(_node) != (int)XPathNodeType.Element)
@@ -374,6 +377,15 @@ namespace Xsl3.Tree
             _ns = that._ns;
             _scope = that._scope;
             return true;
+        }
+
+        /// <summary>Xsl3: to an attribute of the tree, by its index (fn:idref).</summary>
+        internal void MoveToAttributeIndex(int attribute)
+        {
+            _node = _doc._attrOwner[attribute];
+            _attr = attribute;
+            _ns = None;
+            _scope = null;
         }
 
         public override bool MoveToId(string id)

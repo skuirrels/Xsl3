@@ -46,6 +46,12 @@ namespace Xsl3.XPath31
         /// <summary>The default collation URI (XPath 3.1 §2.1.1); FOCH0002 at evaluation if it isn't supported.</summary>
         public string DefaultCollation { get; set; } = Collation.CodepointUri;
 
+        /// <summary>
+        /// XPath 1.0 compatibility mode (XPath 2.0 §2.1.1): set for expressions in a region of a stylesheet whose
+        /// [xsl:]version is below 2.0 (XSLT 3.0 §3.9, backwards-compatible behaviour).
+        /// </summary>
+        public bool BackwardsCompatible { get; set; }
+
         /// <summary>The unnamed decimal format used by fn:format-number#2.</summary>
         public XPathDecimalFormat DefaultDecimalFormat { get; set; } = XPathDecimalFormat.Default;
 
@@ -136,7 +142,7 @@ namespace Xsl3.XPath31
             _types = new StaticTypeResolver(p => sc.Namespaces.TryGetValue(p, out string? uri) ? uri : null, sc.DefaultElementNamespace);
             _namespaces = sc.CreateResolver();
             _staticId = ConstantPool.Add(new StaticInfo(sc.BaseUri, sc.DefaultCollation,
-                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)));
+                new DecimalFormatTable(sc.DefaultDecimalFormat, new Dictionary<QName, XPathDecimalFormat>(sc.DecimalFormats), _namespaces)) { Namespaces = _namespaces });
         }
 
         // The StaticInfo id passed to runtime calls that read the static context.
@@ -413,7 +419,9 @@ namespace Xsl3.XPath31
                 case BinaryExpr b:
                     return Binary(b);
                 case UnaryExpr u:
-                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, Items(Build(u.Operand)), u.Minus ? _f.True() : _f.False());
+                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, CompatNumeric(Items(Build(u.Operand))), u.Minus ? _f.True() : _f.False());
+                case CompatArgument c:
+                    return Call(nameof(XsltLibrary.X31CompatArgument), T.ItemS, Items(Build(c.Operand)), _f.Double(c.Kind));
                 case IfExpr i:
                     return _f.Conditional(Bool(Build(i.Condition)), Items(Build(i.Then)), Items(Build(i.Else)));
                 case ForExpr f:
@@ -437,6 +445,16 @@ namespace Xsl3.XPath31
                     return SimpleMap(m);
                 case FilterExpr fe:
                     return Filter(fe);
+                case FunctionCall c when _sc.BackwardsCompatible:
+                    try
+                    {
+                        return FunctionCall(c, c.Name, c.Arguments);
+                    }
+                    catch (XPathStaticException x) when (x.Code == "XPST0017" && _types.Expand(c.Name, _sc.DefaultFunctionNamespace).NamespaceUri != QName.Ns.Fn)
+                    {
+                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called.
+                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPST0017"), _f.String(x.Message));
+                    }
                 case FunctionCall c:
                     return FunctionCall(c, c.Name, c.Arguments);
                 case ArrowExpr { FunctionName: LexicalQName name } a:
@@ -578,6 +596,8 @@ namespace Xsl3.XPath31
                     return _f.Or(Bool(Build(b.Left)), Bool(Build(b.Right)));
                 case BinaryOp.And:
                     return _f.And(Bool(Build(b.Left)), Bool(Build(b.Right)));
+                case >= BinaryOp.GeneralEq and <= BinaryOp.GeneralGe when _sc.BackwardsCompatible:
+                    return Call(nameof(XsltLibrary.X31CompatGeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.GeneralEq when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
                     // $x = (a to b): a range test, not a comparison with each integer of the range.
                     return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
@@ -593,6 +613,8 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31NodeCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.Is));
                 case BinaryOp.StringConcat:
                     return Call(nameof(XsltLibrary.X31StringConcat), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)));
+                case BinaryOp.Range when _sc.BackwardsCompatible:
+                    return Call(nameof(XsltLibrary.X31Range), T.ItemS, Build(new CompatArgument(b.Left, 3) { Span = b.Left.Span }), Build(new CompatArgument(b.Right, 3) { Span = b.Right.Span }));
                 case BinaryOp.Range:
                     return Call(nameof(XsltLibrary.X31Range), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)));
                 case BinaryOp.Union: case BinaryOp.Intersect: case BinaryOp.Except:
@@ -607,7 +629,7 @@ namespace Xsl3.XPath31
                         BinaryOp.IntegerDivide => ArithmeticOp.IntegerDivide,
                         _ => ArithmeticOp.Modulo,
                     };
-                    return Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double((int)op));
+                    return Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, CompatNumeric(Items(Build(b.Left))), CompatNumeric(Items(Build(b.Right))), _f.Double((int)op));
             }
         }
 
@@ -628,6 +650,15 @@ namespace Xsl3.XPath31
 
         private QilNode Path(PathExpr p)
         {
+            if (IndexedPath(p) is QilNode indexed)
+            {
+                return indexed;
+            }
+            return PathAsWritten(p);
+        }
+
+        private QilNode PathAsWritten(PathExpr p)
+        {
             QilNode left = Build(p.Left);
             if (!p.Descendants && p.Right is AxisStep { Axis: Axis.Child or Axis.Attribute } step && s_sameDepth.TryGetValue(left, out _)
                 && left.XmlType!.IsSubtypeOf(T.NodeNotRtfS))
@@ -643,6 +674,72 @@ namespace Xsl3.XPath31
             return Join(left, () => Build(p.Right), UsesLast(p.Right));
         }
 
+        private static int s_indexSites;
+
+        /// <summary>
+        /// Xsl3 (perf, remaining-scope 1.5): automatic indexing. An absolute path whose last step filters on one attribute
+        /// or child compared with a value that doesn't depend on the focus (<c>/orders/product[@sku = $line/@sku]</c>)
+        /// looks the value up in an index of the document, built on the second evaluation for that document, instead of
+        /// testing every node. Only where <c>=</c> compares strings: the codepoint collation, no XPath 1.0 compatibility
+        /// mode, and (checked each time) values that are nodes or strings; otherwise the path is evaluated as written.
+        /// </summary>
+        private QilNode? IndexedPath(PathExpr p)
+        {
+            if (_sc.BackwardsCompatible || _sc.DefaultCollation != Functions.Collation.CodepointUri ||
+                p.Right is not AxisStep { Predicates: [BinaryExpr { Op: BinaryOp.GeneralEq } eq] } step || !Absolute(p.Left))
+            {
+                return null;
+            }
+            (Expr? key, Expr? value) = KeyStep(eq.Left) && FocusFreeValue(eq.Right) ? (eq.Left, eq.Right)
+                : KeyStep(eq.Right) && FocusFreeValue(eq.Left) ? (eq.Right, eq.Left) : (null, null);
+            if (key == null)
+            {
+                return null;
+            }
+            QilNode site = _f.Double(System.Threading.Interlocked.Increment(ref s_indexSites));
+            QilIterator values = _f.Let(Items(Build(value!)));
+            // (The context node: the runtime finds its root, and scans, so that the path raises XPDY0050, when the root
+            // isn't a document node.)
+            QilIterator root = _f.Let(FocusNode());
+            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, site, root, values));
+            // One pass over the candidates (the path without its predicate: the predicate doesn't use the position, so
+            // filtering them all is filtering each step's), with each one's key values compiled once: kept when a key
+            // equals a value (state 0, the path as written), or put in the index being built (state 2).
+            var all = new PathExpr(p.Left, step with { Predicates = System.Array.Empty<Expr>() }, p.Descendants) { Span = p.Span };
+            var (it, body, input) = WithFocus(Nodes(Build(all), "XPTY0019"), needsLast: false, () =>
+            {
+                QilNode node = FocusNode();
+                return _f.Conditional(Call(nameof(XsltLibrary.X31IndexFilter), T.BooleanX, state, node, Items(Build(key)), values, StaticId()),
+                    FocusNode(), _f.Sequence());
+            });
+            QilNode scan = WrapLet(input, _f.Loop(it, body));
+            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, site, root, values);
+            // The scan unless the index is there; the lookup unless the path is evaluated as written.
+            return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Sequence(
+                _f.Conditional(_f.Eq(state, _f.Double(1)), _f.Sequence(), scan),
+                _f.Conditional(_f.Eq(state, _f.Double(0)), _f.Sequence(), lookup)))));
+        }
+
+        // A path from the root with no predicates: the same nodes wherever it is evaluated in the document.
+        private static bool Absolute(Expr e) => e switch
+        {
+            RootExpr => true,
+            PathExpr { Left: var left, Right: AxisStep { Predicates.Count: 0 } } => Absolute(left),
+            _ => false,
+        };
+
+        // One attribute or child, by name.
+        private static bool KeyStep(Expr e) =>
+            e is AxisStep { Axis: Axis.Attribute or Axis.Child, Test: NameTest { LocalName: not null }, Predicates.Count: 0 };
+
+        // A value that doesn't depend on the focus: a variable, a string literal, or steps without predicates from a variable.
+        private static bool FocusFreeValue(Expr e) => e switch
+        {
+            VarRef or StringLiteral => true,
+            PathExpr { Descendants: false, Left: var left, Right: AxisStep { Predicates.Count: 0 } } => FocusFreeValue(left),
+            _ => false,
+        };
+
         private QilNode Join(QilNode left, System.Func<QilNode> right, bool needsLast)
         {
             var (it, body, input) = WithFocus(Nodes(left, "XPTY0019"), needsLast, right);
@@ -656,7 +753,29 @@ namespace Xsl3.XPath31
             return WrapLet(input, _f.Loop(it, body));
         }
 
-        private QilNode Filter(FilterExpr fe) => Predicate(Items(Build(fe.Base)), fe.Predicate);
+        private QilNode Filter(FilterExpr fe)
+        {
+            if (fe.Predicate is not IntegerLiteral && FocusFree(fe.Predicate))
+            {
+                // Xsl3 (perf): a predicate that can't depend on the focus ($seq[$i], $seq[$i + 1]) has one value for every
+                // item: evaluated once, when there are items to filter, and used as a position by index.
+                QilIterator items = _f.Let(Items(Build(fe.Base)));
+                return _f.Loop(items, _f.Conditional(_f.IsEmpty(items), _f.TypeAssert(_f.Sequence(), T.ItemS),
+                    Call(nameof(XsltLibrary.X31Subscript), T.ItemS, items, Items(Build(fe.Predicate)))));
+            }
+            return Predicate(Items(Build(fe.Base)), fe.Predicate);
+        }
+
+        // Whether an expression's value can't depend on the focus it is evaluated in: variables, numbers and arithmetic.
+        private static bool FocusFree(Expr e) => e switch
+        {
+            VarRef or IntegerLiteral or DecimalLiteral or DoubleLiteral => true,
+            BinaryExpr { Op: BinaryOp.Add or BinaryOp.Subtract or BinaryOp.Multiply or BinaryOp.Divide or BinaryOp.IntegerDivide or BinaryOp.Modulo } b =>
+                FocusFree(b.Left) && FocusFree(b.Right),
+            UnaryExpr u => FocusFree(u.Operand),
+            SequenceExpr { Items.Count: 1 } s => FocusFree(s.Items[0]),
+            _ => false,
+        };
 
         // E[P]: keeps the items for which P is true, or whose position equals P when P is numeric.
         private QilNode Predicate(QilNode input, Expr predicate)
@@ -821,6 +940,36 @@ namespace Xsl3.XPath31
             "root", "node-name", "has-children", "base-uri", "document-uri", "generate-id", "path", "nilled",
         };
 
+        // An operand of arithmetic in XPath 1.0 compatibility mode: its first item as a number (XPath 2.0 §3.4).
+        private QilNode CompatNumeric(QilNode operand) =>
+            _sc.BackwardsCompatible ? Call(nameof(XsltLibrary.X31CompatNumeric), T.ItemS, operand) : operand;
+
+        /// <summary>
+        /// In XPath 1.0 compatibility mode, an argument of a built-in function that expects one item: its first item,
+        /// as a string or number where those are expected (XPath 2.0 §3.1.5).
+        /// </summary>
+        private sealed record CompatArgument(Expr Operand, int Kind) : Expr;
+
+        private IReadOnlyList<Expr> CompatArguments(QName name, IReadOnlyList<Expr> args)
+        {
+            if (!_sc.BackwardsCompatible || name.NamespaceUri != QName.Ns.Fn || FunctionLibrary.Find(name.NamespaceUri, name.LocalName, args.Count) is not FunctionDefinition def)
+            {
+                return args;
+            }
+            var converted = new List<Expr>(args.Count);
+            for (int i = 0; i < args.Count; i++)
+            {
+                SequenceTypeTest type = def.Parameters[Math.Min(i, def.Parameters.Count - 1)].Type;
+                bool single = type.Cardinality is Cardinality.ExactlyOne or Cardinality.ZeroOrOne;
+                int kind = !single ? 0
+                    : type.Item is AtomicTypeTest atomic ? atomic.Type == AtomicTypes.String ? 1 : atomic.Type == AtomicTypes.Double ? 2 : 3
+                    : type.Item is NumericTest ? 2
+                    : type.Item != null ? 4 : 0;
+                converted.Add(kind == 0 ? args[i] : new CompatArgument(args[i], kind) { Span = args[i].Span });
+            }
+            return converted;
+        }
+
         private QilNode FunctionCall(Expr call, LexicalQName lexicalName, IReadOnlyList<Expr> args)
         {
             if (args.Any(a => a is ArgumentPlaceholder))
@@ -828,6 +977,7 @@ namespace Xsl3.XPath31
                 return PartialApplication(call, null, lexicalName, args);
             }
             QName name = _types.Expand(lexicalName, _sc.DefaultFunctionNamespace);
+            args = CompatArguments(name, args);
             if (HigherOrderFunction(name, args) is QilNode hof)
             {
                 return hof;
@@ -844,6 +994,11 @@ namespace Xsl3.XPath31
             }
 
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).
+            if (name.NamespaceUri == QName.Ns.Xs && name.LocalName == "error" && args.Count == 1)
+            {
+                // xs:error (XPath 3.1 §3.1.5.1): a union type with no members: () casts to (), anything else is FORG0001.
+                return Call(nameof(XsltLibrary.X31CastToError), T.ItemS, Items(Build(args[0])));
+            }
             if (name.NamespaceUri == QName.Ns.Xs)
             {
                 var found = StaticTypeResolver.FindCastTarget(name);

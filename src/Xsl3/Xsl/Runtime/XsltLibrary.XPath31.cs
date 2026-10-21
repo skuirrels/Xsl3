@@ -88,6 +88,11 @@ namespace Xsl3.Runtime
                 null => throw new XdmException("XPDY0002", $"No value supplied for ${localName}"),
                 IList<XPathItem> items => items,
                 XPathItem item => One(item),
+                string s => One(AtomicValue.OfString(s)),
+                bool b => One(AtomicValue.OfBoolean(b)),
+                XPathNodeIterator nodes => Xsl3.Xdm.XdmValue.MakeValue(nodes).Items,
+                // Other CLR values map to XDM values as stylesheet parameters' do.
+                _ when ClrValues.TryConvert(value, out IList<XPathItem> converted) => converted,
                 _ => throw new XdmException("XPTY0004", $"Unsupported value for ${localName}: {value.GetType()}"),
             };
         }
@@ -114,8 +119,17 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Raise(string code, string message) => throw new XdmException(code, message);
 
         /// <summary>An error with a value ($err:value): a terminating xsl:message's document.</summary>
-        public IList<XPathItem> X31RaiseWithValue(string code, string message, IList<XPathItem> value) =>
+        public IList<XPathItem> X31RaiseWithValue(string code, string message, IList<XPathItem> value)
+        {
+            if (code.StartsWith("Q{", System.StringComparison.Ordinal))
+            {
+                // An error code outside the err namespace (xsl:message error-code).
+                int close = code.IndexOf('}');
+                string local = code[(close + 1)..];
+                throw new XdmException(local, message) { ErrorObject = value, Name = new QName(code[2..close], local), Description = message };
+            }
             throw new XdmException(code, message) { ErrorObject = value };
+        }
 
         public XPathItem X31RaiseItem(string code, string message) => throw new XdmException(code, message);
 
@@ -130,11 +144,25 @@ namespace Xsl3.Runtime
         public bool X31Predicate(IList<XPathItem> value, double position)
         {
             // (An external parameter's number is System.Xml's XmlAtomicValue.)
-            if (value.Count == 1 && value[0] is { IsNode: false } and not XdmFunction && Sequences.Atomize(value[0]) is { Type.IsNumeric: true } a)
+            if (value.Count == 1 && value[0] is { IsNode: false } and not FunctionItem && Sequences.Atomize(value[0]) is { Type.IsNumeric: true } a)
             {
                 return Numeric.ToDouble(a) == position;
             }
             return Sequences.EffectiveBooleanValue(value);
+        }
+
+        /// <summary>
+        /// E[P] for a predicate whose value is the same for every item (XPath31Compiler.FocusFree): a number selects the
+        /// item at that position, anything else keeps all items or none by its effective boolean value.
+        /// </summary>
+        public IList<XPathItem> X31Subscript(IList<XPathItem> items, IList<XPathItem> predicate)
+        {
+            if (predicate.Count == 1 && predicate[0] is { IsNode: false } and not FunctionItem && Sequences.Atomize(predicate[0]) is { Type.IsNumeric: true } a)
+            {
+                double position = Numeric.ToDouble(a);
+                return position >= 1 && position <= items.Count && position == System.Math.Floor(position) ? One(items[(int)position - 1]) : Sequences.Empty;
+            }
+            return Sequences.EffectiveBooleanValue(predicate) ? Unshared(items, new[] { items }) : Sequences.Empty;
         }
 
         // ------------------------------------------------------------ comparisons
@@ -153,14 +181,32 @@ namespace Xsl3.Runtime
         /// <summary>A general comparison (XPath 3.1 §3.7.2): true if any pair of atomised items compares true.</summary>
         public bool X31GeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
         {
-            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
             var opv = (ValueComparisonOp)(int)op;
             IComparer<string> collation = X31ContextFor(sc).DefaultCollation;
+            if (StringOperands(left) && StringOperands(right))
+            {
+                // Xsl3 (perf): nodes (untyped) and strings compare as strings under the collation, whatever the pairing;
+                // compared here without atomizing into new values.
+                for (int i = 0; i < left.Count; i++)
+                {
+                    string x = StringOperand(left[i]);
+                    for (int j = 0; j < right.Count; j++)
+                    {
+                        if (StringResult(collation.Compare(x, StringOperand(right[j])), opv))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
+            System.Xml.IXmlNamespaceResolver? namespaces = ((StaticInfo)Constant((int)sc)).Namespaces;
             foreach (XPathItem x in a)
             {
                 foreach (XPathItem y in b)
                 {
-                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv, collation))
+                    if (GeneralPair((AtomicValue)x, (AtomicValue)y, opv, collation, namespaces))
                     {
                         return true;
                     }
@@ -171,7 +217,7 @@ namespace Xsl3.Runtime
 
         // xs:untypedAtomic is cast to the other operand's type: xs:double against a numeric, xs:string against
         // xs:untypedAtomic or xs:string, else the other type itself.
-        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op, IComparer<string> collation)
+        private bool GeneralPair(AtomicValue x, AtomicValue y, ValueComparisonOp op, IComparer<string> collation, System.Xml.IXmlNamespaceResolver? namespaces = null)
         {
             bool ux = x.Type.Primitive == Primitive.UntypedAtomic, uy = y.Type.Primitive == Primitive.UntypedAtomic;
             if (ux && uy)
@@ -181,14 +227,40 @@ namespace Xsl3.Runtime
             }
             else if (ux)
             {
-                x = Casting.Cast(x, y.Type.IsNumeric ? AtomicTypes.Double : y.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(y.Type.Primitive));
+                x = Casting.Cast(x, y.Type.IsNumeric ? AtomicTypes.Double : y.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(y.Type.Primitive), namespaces);
             }
             else if (uy)
             {
-                y = Casting.Cast(y, x.Type.IsNumeric ? AtomicTypes.Double : x.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(x.Type.Primitive));
+                y = Casting.Cast(y, x.Type.IsNumeric ? AtomicTypes.Double : x.Type.Primitive is Primitive.String or Primitive.AnyUri ? AtomicTypes.String : AtomicTypes.Of(x.Type.Primitive), namespaces);
             }
             return Comparison.Compare(x, y, op, Tz, collation);
         }
+
+        // Items whose general comparisons are string comparisons: nodes (untyped, or string-typed for comments, PIs and
+        // namespace nodes) and xs:string or xs:untypedAtomic values.
+        private static bool StringOperands(IList<XPathItem> items)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] is not (XPathNavigator or StringValue { Type.Primitive: Primitive.String or Primitive.UntypedAtomic }))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static string StringOperand(XPathItem item) => item is StringValue s ? s.String : item.Value;
+
+        private static bool StringResult(int compared, ValueComparisonOp op) => op switch
+        {
+            ValueComparisonOp.Eq => compared == 0,
+            ValueComparisonOp.Ne => compared != 0,
+            ValueComparisonOp.Lt => compared < 0,
+            ValueComparisonOp.Le => compared <= 0,
+            ValueComparisonOp.Gt => compared > 0,
+            _ => compared >= 0,
+        };
 
         /// <summary><c>is</c>, <c>&lt;&lt;</c>, <c>&gt;&gt;</c> (op 0, 1, 2).</summary>
         public IList<XPathItem> X31NodeCompare(IList<XPathItem> left, IList<XPathItem> right, double op)
@@ -229,6 +301,88 @@ namespace Xsl3.Runtime
                 return Sequences.Empty;
             }
             return One(Xdm.Arithmetic.Apply((ArithmeticOp)(int)op, a, b, Tz));
+        }
+
+        // ------------------------------------------------------------ XPath 1.0 compatibility mode (XPath 2.0 §3)
+
+        // fn:number of one atomic value: NaN when it isn't castable to xs:double.
+        private static AtomicValue CompatDouble(AtomicValue v) =>
+            v.Type.IsNumeric ? v : Casting.IsCastable(v, AtomicTypes.Double) ? Casting.Cast(v, AtomicTypes.Double) : AtomicValue.OfDouble(double.NaN);
+
+        /// <summary>
+        /// An operand of an arithmetic operator in XPath 1.0 compatibility mode (XPath 2.0 §3.4): its first atomized
+        /// item as an xs:double (fn:number); NaN for the empty sequence.
+        /// </summary>
+        public IList<XPathItem> X31CompatNumeric(IList<XPathItem> operand)
+        {
+            if (operand.Count == 0)
+            {
+                return One(AtomicValue.OfDouble(double.NaN));
+            }
+            AtomicValue v = CompatDouble(Sequences.Atomize(operand[0]));
+            return One(v.Type.Primitive == Primitive.Double ? v : Casting.Cast(v, AtomicTypes.Double));
+        }
+
+        /// <summary>
+        /// A function argument in XPath 1.0 compatibility mode (XPath 2.0 §3.1.5) where one atomic value is expected:
+        /// its first item, as fn:string (<paramref name="kind"/> 1, for xs:string), fn:number (2, for xs:double and
+        /// xs:numeric) or atomized (3).
+        /// </summary>
+        public IList<XPathItem> X31CompatArgument(IList<XPathItem> argument, double kind)
+        {
+            XPathItem? first = argument.Count == 0 ? null : argument[0];
+            return (int)kind switch
+            {
+                1 => One(AtomicValue.OfString(first == null ? "" : first is XPathNavigator n ? n.Value : Sequences.Atomize(first).Value)),
+                2 => One(first == null ? AtomicValue.OfDouble(double.NaN) : CompatDouble(Sequences.Atomize(first))),
+                4 => first == null ? Sequences.Empty : One(first),
+                _ => first == null ? Sequences.Empty : One(Sequences.Atomize(first)),
+            };
+        }
+
+        /// <summary>The atomized items as xs:string values (backwards-compatible key values).</summary>
+        public IList<XPathItem> X31CompatStrings(IList<XPathItem> items)
+        {
+            IList<XPathItem> atomized = Sequences.Atomize(items);
+            var result = new XPathItem[atomized.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = AtomicValue.OfString(atomized[i].Value);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// A general comparison in XPath 1.0 compatibility mode (XPath 2.0 §3.5.2): a boolean operand makes the other
+        /// its effective boolean value; &lt;, &lt;=, &gt; and &gt;= compare numbers; a number compared with anything
+        /// else compares it as a number.
+        /// </summary>
+        public bool X31CompatGeneralCompare(IList<XPathItem> left, IList<XPathItem> right, double op, double sc)
+        {
+            bool relational = (ValueComparisonOp)(int)op is not (ValueComparisonOp.Eq or ValueComparisonOp.Ne);
+            if (left is [AtomicValue { Type.Primitive: Primitive.Boolean }] || right is [AtomicValue { Type.Primitive: Primitive.Boolean }])
+            {
+                left = One(AtomicValue.OfBoolean(Sequences.EffectiveBooleanValue(left)));
+                right = One(AtomicValue.OfBoolean(Sequences.EffectiveBooleanValue(right)));
+            }
+            IList<XPathItem> a = Sequences.Atomize(left), b = Sequences.Atomize(right);
+            foreach (XPathItem x in a)
+            {
+                foreach (XPathItem y in b)
+                {
+                    AtomicValue p = (AtomicValue)x, q = (AtomicValue)y;
+                    if (relational || p.Type.IsNumeric || q.Type.IsNumeric)
+                    {
+                        p = CompatDouble(p);
+                        q = CompatDouble(q);
+                    }
+                    if (X31GeneralCompare(One(p), One(q), op, sc))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         public IList<XPathItem> X31Unary(IList<XPathItem> operand, bool minus)

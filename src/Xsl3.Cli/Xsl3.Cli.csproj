@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <RootNamespace>Xsl3.Cli</RootNamespace>
+    <AssemblyName>Xsl3.Cli</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>xsl3</ToolCommandName>
+    <PackageId>Xsl3.Cli</PackageId>
+    <Title>xsl3: the Xsl3 command line</Title>
+    <Version>0.0.1-alpha</Version>
+    <Description>Command-line tool for Xsl3, the XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET: run transformations and explain what a stylesheet compiles to.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <NoWarn>$(NoWarn);CA1303;CA1305;CA1307;CA1310</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Xsl3\Xsl3.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE.TXT" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

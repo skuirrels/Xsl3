@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <!-- How the stylesheet compiler (Xsl3.Cli's compile command, .NET 9 or later) is run. -->
+    <Xsl3CompilerCommand Condition="'$(Xsl3CompilerCommand)' == ''">dotnet "$(MSBuildThisFileDirectory)../tools/net10.0/Xsl3.Cli.dll"</Xsl3CompilerCommand>
+    <Xsl3StylesheetOutputPath Condition="'$(Xsl3StylesheetOutputPath)' == ''">$(IntermediateOutputPath)xsl3/</Xsl3StylesheetOutputPath>
+  </PropertyGroup>
+
+  <!-- Each XsltStylesheet item becomes an assembly holding one type, referenced by the project. -->
+  <Target Name="Xsl3CompileStylesheets"
+          BeforeTargets="ResolveAssemblyReferences"
+          Condition="'@(XsltStylesheet)' != ''"
+          Inputs="@(XsltStylesheet)"
+          Outputs="@(XsltStylesheet->'$(Xsl3StylesheetOutputPath)%(TypeName).dll')">
+    <MakeDir Directories="$(Xsl3StylesheetOutputPath)" />
+    <ItemGroup>
+      <_Xsl3Stylesheet Include="@(XsltStylesheet)">
+        <CompatArgument Condition="'%(XsltStylesheet.BackwardsCompatible)' == 'true'"> --version1</CompatArgument>
+        <DebugArgument Condition="'%(XsltStylesheet.DebugInformation)' == 'true'"> --debug</DebugArgument>
+      </_Xsl3Stylesheet>
+    </ItemGroup>
+    <Exec Command="$(Xsl3CompilerCommand) compile -xsl:&quot;%(_Xsl3Stylesheet.FullPath)&quot; -o:&quot;$(Xsl3StylesheetOutputPath)%(_Xsl3Stylesheet.TypeName).dll&quot; -type:%(_Xsl3Stylesheet.TypeName)%(_Xsl3Stylesheet.CompatArgument)%(_Xsl3Stylesheet.DebugArgument)" />
+  </Target>
+
+  <Target Name="Xsl3ReferenceStylesheets" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="Xsl3CompileStylesheets" Condition="'@(XsltStylesheet)' != ''">
+    <ItemGroup>
+      <Reference Include="@(XsltStylesheet->'$(Xsl3StylesheetOutputPath)%(TypeName).dll')" Private="true" />
+      <FileWrites Include="@(XsltStylesheet->'$(Xsl3StylesheetOutputPath)%(TypeName).dll')" />
+    </ItemGroup>
+  </Target>
+</Project>

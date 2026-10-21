@@ -60,6 +60,19 @@ namespace Xsl3.Runtime
                 // Xsl3: reader settings supplied by the XPath 3.1 API.
                 _readerSettings = new QueryReaderSettings(readerSettings);
             }
+            else if (runtime.IsXslt2)
+            {
+                // Xsl3: documents a 2.0+ stylesheet loads have their DTDs read (ID attributes, entities, element
+                // content whitespace), the external subset through the transformation's resolver, with entity
+                // expansion capped. 1.0 keeps upstream's settings, which refuse DTDs.
+                _readerSettings = new QueryReaderSettings(new XmlReaderSettings
+                {
+                    NameTable = new NameTable(),
+                    DtdProcessing = DtdProcessing.Parse,
+                    XmlResolver = ReferenceEquals(dataSources, XmlResolver.ThrowingResolver) ? null : dataSources,
+                    MaxCharactersFromEntities = 10_000_000,
+                });
+            }
             else
             {
                 // Consider allowing users to set DefaultReaderSettings in XsltArgumentList
@@ -78,7 +91,19 @@ namespace Xsl3.Runtime
             else if (defaultDataSource != null)
             {
                 _defaultDataSource = ConstructDocument(defaultDataSource, null, null);
+                if (runtime.IsXslt2 && _defaultDataSource?.Clone() is { } root && MoveToRoot(root) &&
+                    Uri.TryCreate(root.BaseURI, UriKind.Absolute, out Uri? inputUri))
+                {
+                    // Xsl3: doc() of the input document's URI is the input document (fn:doc is stable).
+                    _dataSourceCache[inputUri] = root;
+                }
             }
+        }
+
+        private static bool MoveToRoot(XPathNavigator navigator)
+        {
+            navigator.MoveToRoot();
+            return navigator.NodeType == XPathNodeType.Root;
         }
 
 
@@ -222,7 +247,12 @@ namespace Xsl3.Runtime
                     {
                         // Xsl3: in 2.0+ a loaded document is copied with the whitespace stripped (XSLT 3.0 §4.3).
                         using XmlReader copy = loaded.ReadSubtree();
-                        return BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        XPathNavigator tree = BuildTree(WhitespaceRuleReader.CreateReader(copy, _wsRules));
+                        if (tree is Xsl3.Tree.CompactNavigator compact)
+                        {
+                            compact.Document.SetIdSource(loaded); // its DTD's IDs, which the copy can't read
+                        }
+                        return tree;
                     }
                     throw new XslTransformException(SR.XmlIl_CantStripNav, string.Empty);
                 }
@@ -366,6 +396,9 @@ namespace Xsl3.Runtime
         /// <summary>
         /// Fire the XsltMessageEncounteredEvent, passing the specified text as the message.
         /// </summary>
+        /// <summary>Xsl3: the trace listener of the argument list, for stylesheets compiled with EnableTracing.</summary>
+        internal IXsltTraceListener? TraceListener => _argList?.TraceListener;
+
         /// <summary>Xsl3: fn:trace, to XsltArgumentList.TraceHandler if there is one.</summary>
         internal void OnTrace(string label, IList<XPathItem> value)
         {
@@ -374,7 +407,7 @@ namespace Xsl3.Runtime
                 handler(label, string.Join(", ", System.Linq.Enumerable.Select(value, item => item switch
                 {
                     XPathNavigator node => node.NodeType == XPathNodeType.Root ? node.InnerXml : node.OuterXml,
-                    Xdm.XdmFunction function => function.Describe(),
+                    Xdm.FunctionItem function => function.Describe(),
                     _ => item.Value,
                 })));
             }

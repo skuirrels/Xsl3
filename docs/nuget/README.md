@@ -35,6 +35,20 @@ including XHTML, HTML5, JSON and the adaptive method.
 
 Targets .NET 8 and .NET 10.
 
+### The XSLT 3.0 API
+
+`XsltCompiler`, `XsltExecutable` and `Xslt30Transformer` start a stylesheet at a mode, a named template or a function,
+take and return XDM values (`XdmNode`, `XdmAtomicValue`, `XdmMap`, `XdmArray`), and give per-run handlers for
+messages and secondary results:
+
+```csharp
+XsltExecutable executable = new XsltCompiler().Compile(new Uri("file:///styles/report.xsl"));
+XdmValue rows = executable.CreateTransformer().CallTemplate(new QName("rows"));
+```
+
+Guides: [getting started](https://github.com/skuirrels/Xsl3/blob/main/docs/getting-started.md) and
+[moving from System.Xml.Xsl](https://github.com/skuirrels/Xsl3/blob/main/docs/migration.md).
+
 ## What's supported
 
 | | |

@@ -94,7 +94,7 @@ namespace Xsl3.Runtime
         /// <summary>An attribute value template's expression: the atomised items joined with single spaces.</summary>
         public string X31AvtString(IList<XPathItem> items)
         {
-            if (items.Count == 1 && items[0] is not XdmArray)
+            if (items.Count == 1 && items[0] is not ArrayItem)
             {
                 return Sequences.Atomize(items[0]).Value;
             }
@@ -109,7 +109,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public IList<XPathItem> X31ContentItems(IList<XPathItem> items)
         {
-            if (items.Any(i => i is XdmArray))
+            if (items.Any(i => i is ArrayItem))
             {
                 // Arrays in content are flattened to their members, nodes included (XSLT 3.0 §5.7.1).
                 items = Flatten(items);
@@ -156,7 +156,7 @@ namespace Xsl3.Runtime
                     {
                         run.Append(' ');
                     }
-                    if (item is XdmArray array)
+                    if (item is ArrayItem array)
                     {
                         // An array atomizes to its members' atomized values (XPath 3.1 §2.5.2).
                         run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(array)).Select(a => a.Value)));
@@ -171,18 +171,18 @@ namespace Xsl3.Runtime
             return result;
         }
 
-        public bool X31IsArray(XPathItem item) => item is XdmArray;
+        public bool X31IsArray(XPathItem item) => item is ArrayItem;
 
         /// <summary>The members of an array, flattened (?*); empty for other items.</summary>
         public IList<XPathItem> X31ArrayMembers(XPathItem item) =>
-            item is XdmArray array ? array.Members.SelectMany(m => m).ToList() : Sequences.Empty;
+            item is ArrayItem array ? array.Members.SelectMany(m => m).ToList() : Sequences.Empty;
 
         private static List<XPathItem> Flatten(IList<XPathItem> items)
         {
             var flat = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
-                if (item is XdmArray array)
+                if (item is ArrayItem array)
                 {
                     foreach (IList<XPathItem> member in array.Members)
                     {
@@ -222,7 +222,7 @@ namespace Xsl3.Runtime
                 {
                     parts.Add(container.Value);
                 }
-                else if (item is XdmArray array)
+                else if (item is ArrayItem array)
                 {
                     foreach (XPathItem atom in Sequences.Atomize(Sequences.One(array)))
                     {
@@ -245,7 +245,46 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Coerce(IList<XPathItem> value, double typeId, string errorCode)
         {
             var type = (SequenceTypeTest)Constant((int)typeId);
-            return Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            if (value is CoercedSequence { Type: var done } && ReferenceEquals(done, type))
+            {
+                // Already converted to this type (a recursive call passing its parameter on): nothing to check again.
+                return value;
+            }
+            IList<XPathItem> coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test)
+            {
+                return CoerceFunctions(coerced, test);
+            }
+            // A longer sequence remembers the type it was converted to, so that passing it on costs nothing.
+            return coerced.Count >= CoercedSequence.MinimumCount ? new CoercedSequence(coerced, type) : coerced;
+        }
+
+        /// <summary>
+        /// Function coercion (XPath 3.1 §3.1.5.3): a function item that doesn't match a typed function test is wrapped,
+        /// so that its arguments and result are converted to the test's types when it is called (XPTY0004 if they can't be).
+        /// </summary>
+        private IList<XPathItem> CoerceFunctions(IList<XPathItem> items, FunctionItemTest test)
+        {
+            XPathItem[]? wrapped = null;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] is FunctionItem function and not MapItem and not ArrayItem && !test.Matches(function))
+                {
+                    wrapped ??= items.ToArray();
+                    SequenceTypeTest[] parameters = test.Parameters!.ToArray();
+                    SequenceTypeTest result = test.ReturnType!;
+                    wrapped[i] = new NativeFunction(parameters, result, args =>
+                    {
+                        var converted = new IList<XPathItem>[args.Length];
+                        for (int a = 0; a < args.Length; a++)
+                        {
+                            converted[a] = Coercion.CoerceTo(args[a], parameters[a], "XPTY0004", () => $"Argument {a + 1} of the coerced function");
+                        }
+                        return Coercion.CoerceTo(CallFunction(function, converted), result, "XPTY0004", () => "The result of the coerced function");
+                    }, function.Describe());
+                }
+            }
+            return wrapped ?? items;
         }
 
         /// <summary>The value, if it is an instance of the type (no conversion is applied); else the error.</summary>
@@ -262,6 +301,53 @@ namespace Xsl3.Runtime
         public string X31ItemText(XPathItem item) => item is AtomicValue a ? a.Value : "";
 
         // ------------------------------------------------------------ xsl:where-populated, xsl:on-empty
+
+        /// <summary>An xsl:on-empty (or xsl:on-non-empty) whose value waits for the rest of its sequence constructor.</summary>
+        internal sealed class DeferredItem(bool onEmpty, FunctionItem value) : AtomicValue(AtomicTypes.String)
+        {
+            public readonly bool OnEmpty = onEmpty;
+            public readonly FunctionItem Body = value;
+
+            public override string Value => "";
+
+            public override object ClrValue => "";
+        }
+
+        public XPathItem X31Deferred(bool onEmpty, IList<XPathItem> value) => new DeferredItem(onEmpty, (FunctionItem)value[0]);
+
+        /// <summary>
+        /// A sequence constructor with xsl:on-empty or xsl:on-non-empty (XSLT 3.0 §8.4.2–3): when the other items are
+        /// all vacuous, the values of the xsl:on-empty instructions; otherwise the items, with each xsl:on-non-empty's value
+        /// in its place.
+        /// </summary>
+        public IList<XPathItem> X31OnEmpty(IList<XPathItem> items)
+        {
+            bool vacuous = true;
+            foreach (XPathItem item in items)
+            {
+                if (item is not DeferredItem && !IsVacuous(item))
+                {
+                    vacuous = false;
+                    break;
+                }
+            }
+            var result = new List<XPathItem>();
+            foreach (XPathItem item in items)
+            {
+                if (item is DeferredItem deferred)
+                {
+                    if (deferred.OnEmpty == vacuous)
+                    {
+                        result.AddRange(CallFunction(deferred.Body));
+                    }
+                }
+                else if (!vacuous)
+                {
+                    result.Add(item);
+                }
+            }
+            return result;
+        }
 
         /// <summary>Whether a sequence has only vacuous items (XSLT 3.0 §8.4.2): zero-length strings and text nodes, documents without children, empty arrays.</summary>
         public bool X31Vacuous(IList<XPathItem> items)
@@ -284,9 +370,23 @@ namespace Xsl3.Runtime
                 XPathNodeType.Root => !n.HasChildren,
                 _ => false,
             },
-            XdmArray a => a.Members.All(m => m.All(IsVacuous)),
-            XdmFunction => false,
+            ArrayItem a => a.Members.All(m => m.All(IsVacuous)),
+            FunctionItem => false,
             AtomicValue v => v.Type.Primitive is Primitive.String or Primitive.UntypedAtomic && v.Value.Length == 0,
+            _ => false,
+        };
+
+        // Deemed empty (XSLT 3.0 §8.4.1): a document or element without children, another node whose string value is
+        // "", an atomic value that is "" as a string, an empty map, an array whose members' items are all deemed empty.
+        private static bool DeemedEmpty(XPathItem item) => item switch
+        {
+            XPathNavigator { NodeType: XPathNodeType.Element or XPathNodeType.Root } n => !n.HasChildren,
+            XPathNavigator { NodeType: XPathNodeType.Namespace } => false,
+            XPathNavigator n => n.Value.Length == 0,
+            ArrayItem a => a.Members.All(m => m.All(DeemedEmpty)),
+            MapItem m => m.Count == 0,
+            FunctionItem => false,
+            AtomicValue v => v.Value.Length == 0,
             _ => false,
         };
 
@@ -296,13 +396,7 @@ namespace Xsl3.Runtime
             var result = new List<XPathItem>(items.Count);
             foreach (XPathItem item in items)
             {
-                // Deemed empty (XSLT 3.0 §8.4.1): a document or element without children, another node whose string
-                // value is "", an atomic value that is "" as a string, an empty map.
-                bool empty = IsVacuous(item) || item is XPathNavigator { NodeType: XPathNodeType.Element, HasChildren: false } ||
-                    item is XPathNavigator { NodeType: not (XPathNodeType.Element or XPathNodeType.Root or XPathNodeType.Namespace) } node && node.Value.Length == 0 ||
-                    item is AtomicValue atomic && atomic.Value.Length == 0 ||
-                    item is XdmMap { Count: 0 };
-                if (!empty)
+                if (!DeemedEmpty(item))
                 {
                     result.Add(item is XPathNavigator n ? n.Clone() : item);
                 }
@@ -485,6 +579,21 @@ namespace Xsl3.Runtime
         /// separators between them; the nth number uses the nth token (the last one again when there are fewer
         /// tokens) and the separator before it. Each number is formatted as format-integer formats it.
         /// </summary>
+        /// <summary>
+        /// xsl:number value="…" with backwards-compatible behaviour (XSLT 3.0 §12.1): the first item as fn:number has it;
+        /// a value that isn't a non-negative finite number is written as a string (NaN, Infinity).
+        /// </summary>
+        public string X31CompatNumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang, string startAt)
+        {
+            AtomicValue n = (AtomicValue)X31CompatNumeric(values)[0];
+            double d = n.ValueAsDouble;
+            if (double.IsNaN(d) || double.IsInfinity(d) || d < 0)
+            {
+                return double.IsNaN(d) ? "NaN" : d > 0 ? "Infinity" : double.IsInfinity(d) ? "-Infinity" : Lexical.DoubleToString(d);
+            }
+            return X31NumberFormat(Sequences.One(n), format, groupingSeparator, groupingSize, ordinal, lang, startAt);
+        }
+
         public string X31NumberFormat(IList<XPathItem> values, string format, string groupingSeparator, string groupingSize, string ordinal, string lang, string startAt)
         {
             if (lang.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(lang, "^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$"))

@@ -59,11 +59,15 @@ namespace Xsl3.XPath31.Functions
     /// </summary>
     internal static class Coercion
     {
+        // (The argument is named only when there is an error: a closure per argument and call costs, on every call.)
         public static IList<XPathItem> Coerce(IList<XPathItem> value, SequenceTypeTest expected, FunctionDefinition function, int argIndex) =>
-            CoerceTo(value, expected, "XPTY0004", () => $"Argument {argIndex + 1} of {function}");
+            CoerceTo(value, expected, "XPTY0004", null, function, argIndex);
 
         /// <summary>The function conversion rules to <paramref name="expected"/>; <paramref name="errorCode"/> if the value doesn't conform.</summary>
-        public static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string> what)
+        public static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string> what) =>
+            CoerceTo(value, expected, errorCode, what, null, 0);
+
+        private static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string>? what, FunctionDefinition? function, int argIndex)
         {
             ItemTest? itemTest = expected.Item;
             if (itemTest is AnyItemTest && expected.Cardinality == Cardinality.ZeroOrMore)
@@ -92,7 +96,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (!expected.Matches(value) && !(itemTest is FunctionItemTest { Parameters: not null } ft && FunctionCoercible(value, expected, ft)))
             {
-                throw new XdmException(errorCode, $"{what()} must be {expected}, but is {Describe(value)}");
+                throw new XdmException(errorCode, $"{(what != null ? what() : $"Argument {argIndex + 1} of {function}")} must be {expected}, but is {Describe(value)}");
             }
             return value;
         }
@@ -105,7 +109,7 @@ namespace Xsl3.XPath31.Functions
             {
                 return false;
             }
-            return value.All(v => v is XdmFunction f and not XdmMap and not XdmArray && f.Arity == test.Parameters!.Count || test.Matches(v));
+            return value.All(v => v is FunctionItem f and not MapItem and not ArrayItem && f.Arity == test.Parameters!.Count || test.Matches(v));
         }
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
@@ -146,7 +150,7 @@ namespace Xsl3.XPath31.Functions
             1 => value[0] switch
             {
                 AtomicValue a => $"{a.Type.Name} '{a.Value}'",
-                XdmFunction f => f.Describe(),
+                FunctionItem f => f.Describe(),
                 var n => $"a {((XPathNavigator)n).NodeType} node",
             },
             _ => $"a sequence of {value.Count} items",

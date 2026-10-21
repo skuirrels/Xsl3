@@ -21,14 +21,14 @@ several sessions can work in parallel without editing the same files. Measured n
 |---|---|---|
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
-| W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,801 passed, 83 failed (99.6%) | ≥ 99% on claimed features (Hardening) |
-| W3C xslt30-test, 3.0 profile | 7,738 passed, 169 failed, 49 not run (97.9%) | ≥ 99% on claimed features (Hardening) |
-| W3C xslt30-test, 2.0 profile | 4,416 passed, 56 failed (98.7%) | ≥ 99% |
+| W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,862 passed, 22 failed (99.9%) | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 3.0 profile | 7,970 passed, 66 failed, 49 not run (99.2%) | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 2.0 profile | 4,566 passed, 31 failed (99.3%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
-| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.80, sort 0.68, muenchian 1.15, string-recursion 0.74, key-join 1.12 (2026-10-21; main measures the same) | ≤ 1.0 on every pair (§19.6) |
+| 3.0 rewrites on Xsl3 against the 1.0 originals on stock (time ratio) | identity 0.86, sort 0.71, muenchian 0.97, string-recursion 0.77, key-join 0.95 (medians of three runs, 2026-10-21) | ≤ 1.0 on every pair (§19.6, met) |
 | Compact tree memory | 59% of `XPathDocument` | ≤ 75% (met) |
-| NuGet | 0.6.0-alpha (0.7.0-alpha next) | 1.0 after P4 (§22 release plan) |
+| NuGet | 0.7.0-alpha (published 2026-10-21) | 1.0 after P4 (§22 release plan) |
 
 The xslt30-test catalogue has about 14,600 test cases. The 3.0 profile runs about 8,000 of them. Most of the
 rest depend on features Xsl3 doesn't claim yet:
@@ -37,9 +37,9 @@ rest depend on features Xsl3 doesn't claim yet:
 |---|---:|---|
 | `streaming` | 2,983 | 7 (P7) |
 | `schema_aware` | 933 | 6 (P6) |
-| `backwards_compatibility` | 122 | 4 |
+| `backwards_compatibility` | 122 | 4 (claimed 2026-10-21) |
 | `XML_1.1` | 65 | 4 (decide, probably declare unsupported) |
-| `xsl-stylesheet-processing-instruction` | 18 | 4 |
+| `xsl-stylesheet-processing-instruction` | 18 | 4 (claimed 2026-10-21) |
 | `built_in_derived_types` | 10 | 6 |
 | `XSD_1.1` | 8 | 6 (decision) |
 | `streaming-fallback` | 7 | 7 |
@@ -361,8 +361,8 @@ internal entry points the public API could serve. The settings and limits exist,
 
 ### 5. Conformance long tail (Hardening, claimed features)
 
-**State.** The 3.0 profile is at 95.8% and QT3 at 99.4%. The Hardening exit (§22) is ≥ 99% on claimed
-features. `tests/Xsl3.W3C/baselines/xslt30-run.txt` and `qt3-run.txt` list every failing test; re-count them
+**State.** The 3.0 profile is at 99.0% and QT3 at 99.7% (2026-10-21), meeting the Hardening exit (§22) of ≥ 99% on
+claimed features. `tests/Xsl3.W3C/baselines/xslt30-run.txt` and `qt3-run.txt` list every failing test; re-count them
 after P5.
 
 5.1 **xslt30-test.** Before P5, the failures by set were:
@@ -493,7 +493,7 @@ in 1.x minor releases.
    divergences list, and the security defaults.
 9.4 **Release mechanics** are in place: a tag `v*` triggers `.github/workflows/release.yml`, which publishes
    to nuget.org by trusted publishing after the owner approves the `nuget` environment deployment. Releases
-   so far are 0.1.0-alpha to 0.6.0-alpha. Only the owner approves deployments.
+   so far are 0.1.0-alpha to 0.7.0-alpha. Only the owner approves deployments.
 
 ## Suggested order and parallel tracks
 
@@ -542,18 +542,33 @@ A sensible sequence:
 
 | Item | State |
 |---|---|
+| 1.1 key-join under 1× | Done, with muenchian: every pair is under 1× in three runs in a row (key-join 0.95–0.98, muenchian 0.95–0.98): scaled rounding in `format-number`, maps built in one go keep a hash table, string-keyed map lookups, string group-by keys. Left in workstream 1: more benchmarks (1.3), dispatch tables (1.4), automatic indexing (1.5), compile-time benchmarks (1.6), perf gates in CI (1.7) |
 | 1.2 Direct writer differences | output-0130 fixed: a 2.0+ stylesheet with an XHTML `html` literal result element and no method takes the principal writer. `<a />` is recorded as implementation-defined (docs/divergences.md). |
 | 2.1 Plan Sink B | Done: docs/plan/p4-sink-b.md, with the NativeAOT warnings measured |
-| 2.2–2.3 Sink B, NativeAOT | B1 done: no NativeAOT warnings from Xsl3 (lazy IL module, annotated bridges, `RequiresDynamicCode` only on loading from source and on XPath compilation, `xsl:evaluate` refusing clearly without dynamic code). B2 done: constants belong to the stylesheet (`ConstantTable`), not the process. B3 (`PersistedAssemblyBuilder`, `Xsl3.Build`) and B4 (AOT in CI) remain |
+| 2.2–2.3 Sink B, NativeAOT | B1 done: no NativeAOT warnings from Xsl3 (lazy IL module, annotated bridges, `RequiresDynamicCode` only on loading from source and on XPath compilation, `xsl:evaluate` refusing clearly without dynamic code). B2 done: constants belong to the stylesheet (`ConstantTable`), not the process. B3 done: `XslCompiledTransform.CompileToAssembly` (`PersistedAssemblyBuilder`, .NET 9+) with the static data and constants serialized, `Load(Type, XsltSettings)`, embedded portable PDBs, `Xsl3.Build` (MSBuild targets running `xsl3 compile`). B4 done: `samples/Xsl3.AotSample` published with NativeAOT (no warnings) and run in CI; one xslt30-test case in ten round-trips through a saved assembly in CI (all of them locally, unchanged). Publishing `Xsl3.Build` and `Xsl3.Cli` is the owner's call |
 | 4.3 `AddParam` CLR mappings | Done for 2.0+ stylesheets |
 | 4.1 Design the 3.0 API | Done: docs/plan/api.md (one compiled unit per entry point, per-run base output URI, initial template and mode parameters, registered extension functions); two questions for the owner there |
+| 4.2 Implement the 3.0 API | Steps 1–5 done: public XDM values (`XdmValue`, `XdmNode`, `XdmAtomicValue`, `XdmMap`, `XdmArray`, `XdmFunctionItem`), `XsltCompiler` (settings, static parameters, package library), `XsltExecutable` (one unit per entry point, compiled on first use), `Xslt30Transformer` (apply-templates to any selection in any mode, call-template, call-function, raw or serialized, initial template and mode parameters, per-run base output URI and handlers), `XsltDynamicException` and `XsltStaticException` (4.5), registered extension functions (`XsltCompiler.RegisterExtensionFunction`), and the W3C runner on the API: xslt30-test runs through `XsltCompiler` and `Xslt30Transformer` (`XSL3_W3C_API=0` keeps the internal entry points, which the saved-assembly round trip uses) | The types follow the plan's default namespaces (`Xsl3`, and `Xsl3.Xdm` beside `QName`); the namespace question in docs/plan/api.md is still the owner's |
 | 4.4 Settings | Done: `EnableResultDocument` (with `BaseOutputUri`), `EnableEnvironmentVariables`, `EnableAssertions`, `EnableExtensionFunctions`, `Timeout`, `MaxRecursionDepth` (a depth counter compiled in when set; tail calls don't count), `MaxOutputBytes`, `UseDedicatedThread`, `XsltArgumentList.CancellationToken` |
-| 4.5 Error model | Extension function exceptions are `Q{http://xsl3/err}extension-error` (catchable). The rest waits for the API (docs/plan/api.md decision 6) |
-| 4.6 Missing 3.0 pieces | `xsl:assert`, initial functions (with raw result delivery), memo functions (`new-each-time="no"`, `cache="yes"`), `copy-namespaces="no"` on `xsl:copy` and `xsl:copy-of` done. `inherit-namespaces="no"`, backwards compatibility and the stylesheet PI remain |
-| 4.7 Diagnostics | `XsltArgumentList.TraceHandler` receives `fn:trace` |
+| 4.5 Error model | Extension function exceptions are `Q{http://xsl3/err}extension-error` (catchable). The 3.0 API raises `XsltDynamicException` (code, description, error object, and the stylesheet stack of templates and functions with their locations) and `XsltStaticException` (every static error with module, line and column). The stack is complete with `EnableTracing`; without it, it is read from the .NET stack by the names of the methods templates and functions compile to (a table in the static data, saved assemblies included), so inlined and tail-called frames are missing. Done |
+| 1.3 More benchmarks | The XSLT 3.0 micro suite (`bench/corpus/xslt30/micro`, `micro` mode): grouping, sorting, keys, regex, strings, maps, fold-left, iterate, identity, recursion, json, at about 1 KB, 1 MB and 100 MB (docs/performance.md). Left: XMark and real stylesheets (DocBook xslTNG, TEI, SchXslt, XSpec), each after a licence check |
+| 1.6 Compile time and cold start | Compile time and allocation per micro stylesheet, and the cold start, are rows of the suite. Profiling them found the compile-time reflection scan for `position()`/`last()` following module back-references (fixed: 9% less allocation). Left: a comparison with SaxonCS (owner) |
+| 1.7 Perf gates in CI | `eng/perf-gate.sh` and CI's `perf` job: the micro suite on the branch against the base, alternating in one job; fails on more than 5% slower (geometric mean) or 5% more allocation in a benchmark. `perf-nightly.yml` runs all sizes and the pairs nightly |
+| 1.4 Template dispatch tables | Measured, not built: 200 extra fixed-name rules cost 0.30 ms per 1 MB transform (about 17 ns per element; `dispatch` micro benchmark). A table would need a runtime name index and integer tests, since QIL's `Choice` is push-mode only. Left until a real stylesheet with hundreds of rules shows the cost |
+| 1.5 Automatic indexing | Done: `/path[key = $value]` with a focus-free value is looked up in an index of the document from its second evaluation (join micro benchmark 288 ms to 2.3 ms). Guarded by its applicability (codepoint collation, no 1.0 mode, string or node values each time) and the second-use threshold; there is no option to turn it off |
+| 1.8 Profile-led items | Recursion over sequences: focus-free predicates index directly, converted sequences pass on unchecked (recursion micro 101 ms to 1.15 ms) |
+| 8.1 Fuzzing | `tests/Xsl3.Tests/RobustnessTests.cs`: seeded mutations of XPath expressions, JSON texts and a stylesheet must end in Xsl3's own errors (static, dynamic, XML), never another exception. 1,500 mutations each in the unit suite; `XSL3_FUZZ_MUTATIONS` and `XSL3_FUZZ_SEED` run longer campaigns. Fixed: a missing required expression attribute reached the XPath parser as null (now XPST0003). Four campaigns of 10,000 mutations (seeds 0, 100, 200, 300) are clean. Left: coverage-guided fuzzing (SharpFuzz) on a CI schedule |
+| 8.5 Generated conformance doc | `eng/conformance-report.sh` assembles the harness reports into docs/conformance-sets.md: pass rates per test set and per spec and feature, for the 3.0 and 2.0 profiles and QT3. The runner writes per-feature counts and a report per profile; CI writes the page to the job summary and the test-results artifact. docs/conformance.md keeps the dated history by hand |
+| 8.7 Upstream sync | Checked on 2026-10-21: the weekly workflow ran on 2026-10-19 and succeeded; dotnet/runtime has no commits on the forked paths since the fork point (`ec0059c`, 2026-10-18), so nothing to port |
+| 8.2 Property tests | `tests/Xsl3.Tests/PropertyTests.cs`: seeded generated values check cast round trips through xs:string, `castable as` against `cast`, value comparison as an order, map persistence against a dictionary model (old versions unchanged, lookup tables included), numeric map keys by value, and collation consistency (codepoint, HTML case-blind, UCA). Written without a framework (no new dependency); CsCheck could replace the generators |
+| 9.3 Docs for users | docs/getting-started.md (the 3.0 API: entry points, values, handlers, settings, errors, extension functions, packages, ahead-of-time compilation) and docs/migration.md (from `System.Xml.Xsl`, and from 1.0 to 3.0 stylesheets); the divergences list is current |
+| 4.6 Missing 3.0 pieces | `xsl:assert`, initial functions (with raw result delivery), memo functions (`new-each-time="no"`, `cache="yes"`), `copy-namespaces="no"` on `xsl:copy` and `xsl:copy-of`, `inherit-namespaces="no"`, `fn:transform`, initial template and mode parameters, the `xsl-stylesheet-processing-instruction` feature (`XsltCompiler.GetAssociatedStylesheet`, `CompileAssociatedStylesheet`), backwards compatibility (`version="1.0"` regions in compat mode; `XsltSettings.VersionMode = BackwardsCompatible` for whole 1.0 stylesheets, SPEC §4.3) done. `xsl:apply-imports` in named templates (2.0+), `exsl:node-set` and `msxsl:node-set` as the identity. Left in backwards compatibility: keys defined in both modes, `exsl:document`, and a 1.0 principal module that includes a 2.0+ one (SPEC §4.3 says the 3.0 processor; today it is legacy mode) |
+| 4.7 Diagnostics | `XsltArgumentList.TraceHandler` receives `fn:trace`. `XsltSettings.EnableTracing` compiles calls to an `IXsltTraceListener` (`XsltArgumentList.TraceListener`, `Xslt30Transformer.TraceListener`) around every 2.0+ template and function. `XsltExecutable.Explain` and the `xsl3` CLI (`src/Xsl3.Cli`: `transform`, `explain`, `--trace`) are done; publishing `Xsl3.Cli` to nuget.org is the owner's call (the release workflow packs only `Xsl3`). Debug PDBs: embedded in saved assemblies compiled with debug information (Sink B). Dynamic (`DynamicMethod`) units still have no symbols |
 | 5.1 xslt30-test | 3.0 profile 95.8% → 97.9%, 2.0 profile 96.7% → 98.7%. Fixed: `regex-group()` in called templates (through the tunnel frame), `xsl:sort` attributes (lang, collation, case-order, current-group hidden), non-terminating `xsl:message` that holds maps or fails, rounding of doubles on their exact value, `xsl:mode` and `xsl:decimal-format` attributes merged by precedence (non-BMP decimal-format characters), XTDE0045, XTDE0050, XTDE0420, XTSE0085, XTTE0990, `deep-equal` and grouping collations, big integers in `xsl:number`, attribute sets and `xsl:next-match`. Left: next-match between union alternatives, copy-namespaces/inherit-namespaces, initial template and mode parameters, absent context items, accumulator applicability, `fn:transform`, DTD-validated inputs (element-content whitespace), package-scoped outputs |
-| 5.2 QT3 | 99.4% → 99.6%: `fn:random-number-generator` (seeded once per transformation), `fn:function-lookup` argument checks |
+| 5.1 xslt30-test, second batch | 3.0 profile 97.9% → 99.0% (Hardening target met), 2.0 profile 98.7% → 99.2%. Fixed: `fn:transform`, `inherit-namespaces="no"`, absent initial context items, initial template and mode parameters, `$err:line-number`, accumulator applicability, package checks (XTSE3040, XTSE3051, XTSE3080), DTDs and external-entity base URIs in 2.0+ documents, collections. Left (76): next-match between union alternatives, namespace fixup that re-prefixes instead of raising XTDE0430, the static pre-scan (`static-021`, `use-when-0138`), `global-context-item` errors, backwards-compatible processing, DTD element-content whitespace, PI base URIs, errors in node-pattern predicates as non-matches, `<a/>` in serialization regexes |
+| 5.2 QT3 | 99.4% → 99.7%: `fn:random-number-generator` (seeded once per transformation), `fn:function-lookup` argument checks, collections |
 | Pre-release audit (2026-10-21) | Four review passes over this branch, then fixes: result documents confined to the base output directory (a directory URI, case-insensitive comparison on Windows and macOS, no symbolic links, never a file system root, a nested transform's own opener), settings taken at `Load` and validated when set, `doc()`/`unparsed-text()`/`json-doc()` gated by `EnableDocumentFunction` (SPEC §21.1), cyclic CLR parameter values refused, secondary result files always closed, `function-available` with impossible arities, rounding overflow, `xsl:assert` EQName error codes, errors raised by the stylesheet inside `xsl:message`, the release workflow split into build and publish jobs with pinned actions. Open: same-precedence conflicts below a higher-precedence `xsl:mode`/`xsl:decimal-format` aren't reported (XTSE0545, XTSE1290); `Timeout` isn't checked inside long regular expressions or pure XPath loops |
+| 5.1 xslt30-test, third batch | `fn:idref` over DTD IDREF/IDREFS attributes (a bridge to the DTD's attribute types; QT3 +14, xslt30-test +5, 2.0 profile 99.3%). The harnesses load sources as Xsl3's own tree. XTDE3086 (`use="required"` global context item missing) and XTSE3450 (inconsistent static variables across import precedences): 3.0 profile 99.2%. Left: static variables of an import visible after the `xsl:import` in the importing module (static-021; imports load after the module), `use="absent"` global context items for global variables (glob-cxt-item-003, -013); by design so far: xsl:next-match from a union pattern whose alternatives have different default priorities (next-match-021, -023, -025, -026, -039) needs the alternative that matched at run time, or one template rule per alternative |
 | 5.5 Divergences | Done: the W3C list in docs/divergences.md |
 | 6 `xsl:import-schema` | Raises XTSE1650 |
 | 8.4 Memory test | Fixed: it runs in a child process |

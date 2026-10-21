@@ -27,7 +27,7 @@ namespace Xsl3.XPath31.Functions
             Define("fn:lang($testlang as xs:string?, $node as node()) as xs:boolean", (c, a) => Bool(Lang(S(a[0]), (XPathNavigator)a[1][0])));
             Define("fn:id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
             Define("fn:element-with-id($arg as xs:string*, $node as node()) as element()*", (c, a) => Id(a[0], (XPathNavigator)a[1][0], c));
-            Define("fn:idref($arg as xs:string*, $node as node()) as node()*", (c, a) => RootIsDocument((XPathNavigator)a[1][0]) ? Empty : throw new XdmException("FODC0001", "fn:idref: the node is not in a tree rooted at a document node"));
+            Define("fn:idref($arg as xs:string*, $node as node()) as node()*", (c, a) => Idref(a[0], (XPathNavigator)a[1][0]));
             Define("fn:outermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: true));
             Define("fn:innermost($nodes as node()*) as node()*", (c, a) => OuterOrInnermost(a[0], c, outer: false));
             Define("fn:path($arg as node()?) as xs:string?", (c, a) => Node(a[0]) is XPathNavigator n ? Str(Path(n)) : Empty);
@@ -66,16 +66,39 @@ namespace Xsl3.XPath31.Functions
                 {
                     return Bool(false);
                 }
+                // A streaming processor can only tell that the document starts well: it exists and its first
+                // element can be read (XSLT 3.0 §18.2.6 lets the answer be true then). The rest isn't read.
+                string uri = S(a[0]);
+                XmlResolver? resolver = c.Runtime?.ExternalContext.DataSources;
+                if (uri.Contains('#') || resolver == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
+                {
+                    return Bool(false);
+                }
                 try
                 {
-                    Doc(S(a[0]), c);
-                    return Bool(true);
+                    System.Uri? baseUri = c.StaticBaseUri is { Length: > 0 } b ? resolver.ResolveUri(null, b) : null;
+                    System.Uri resolved = resolver.ResolveUri(baseUri, uri);
+                    using var stream = resolver.GetEntity(resolved, null, typeof(System.IO.Stream)) as System.IO.Stream;
+                    if (stream == null)
+                    {
+                        return Bool(false);
+                    }
+                    using XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore }, resolved.AbsoluteUri);
+                    return Bool(reader.MoveToContent() == XmlNodeType.Element);
                 }
-                catch (XdmException e) when (e.Code is "FODC0002" or "FODC0005")
+                catch (Exception e) when (e is XmlException or System.IO.IOException or UnauthorizedAccessException or System.Net.WebException or UriFormatException)
                 {
                     return Bool(false);
                 }
             });
+            // F&O 3.1 §14.6.6-7: the default collection is empty-handed (FODC0002); a collection URI names a directory of
+            // the file system, whose .xml files are its documents (in name order). Gated like fn:doc.
+            Define("fn:collection() as item()*", (c, a) => throw new XdmException("FODC0002", "There is no default collection"));
+            Define("fn:collection($arg as xs:string?) as item()*", (c, a) =>
+                CollectionUris(a[0].Count == 0 ? null : S(a[0]), c).Select(uri => (XPathItem)Doc(uri, c)).ToList());
+            Define("fn:uri-collection() as xs:anyURI*", (c, a) => throw new XdmException("FODC0002", "There is no default resource collection"));
+            Define("fn:uri-collection($arg as xs:string?) as xs:anyURI*", (c, a) =>
+                CollectionUris(a[0].Count == 0 ? null : S(a[0]), c).Select(uri => (XPathItem)new StringValue(AtomicTypes.AnyUri, uri)).ToList());
             Define("fn:doc-available($uri as xs:string?) as xs:boolean", (c, a) =>
             {
                 if (a[0].Count == 0) return Bool(false);
@@ -98,7 +121,7 @@ namespace Xsl3.XPath31.Functions
             Define("fn:parse-xml($arg as xs:string?) as document-node(element(*))?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: false, c)));
             Define("fn:parse-xml-fragment($arg as xs:string?) as document-node()?", (c, a) => a[0].Count == 0 ? Empty : One(ParseXml(S(a[0]), fragment: true, c)));
             Define("fn:serialize($arg as item()*) as xs:string", (c, a) => Str(Serializer.Serialize(a[0], (XPathNavigator?)null)));
-            Define("fn:serialize($arg as item()*, $params as item()?) as xs:string", (c, a) => Str(a[1] is [XdmMap map]
+            Define("fn:serialize($arg as item()*, $params as item()?) as xs:string", (c, a) => Str(a[1] is [MapItem map]
                 ? Serializer.Serialize(a[0], map)
                 : a[1] is [] or [XPathNavigator { NodeType: XPathNodeType.Element }]
                     ? Serializer.Serialize(a[0], Node(a[1]))
@@ -118,6 +141,7 @@ namespace Xsl3.XPath31.Functions
                 }
             }
             var bases = new List<string>();
+            string? start = null;
             do
             {
                 if (nav.NodeType == XPathNodeType.Element)
@@ -127,10 +151,19 @@ namespace Xsl3.XPath31.Functions
                     {
                         bases.Add(xmlBase);
                     }
+                    // An element whose own base URI differs from its parent's starts an external entity: its base URI
+                    // is the entity's (xml:base inside it applies on top).
+                    string own = nav.BaseURI;
+                    XPathNavigator parent = nav.Clone();
+                    if (own.Length > 0 && parent.MoveToParent() && parent.BaseURI is { Length: > 0 } parentBase && parentBase != own)
+                    {
+                        start = own;
+                        break;
+                    }
                 }
             }
             while (nav.MoveToParent());
-            string result = nav.BaseURI;
+            string result = start ?? nav.BaseURI;
             for (int i = bases.Count - 1; i >= 0; i--)
             {
                 result = UriReference.IsAbsolute(bases[i]) || !UriReference.IsAbsolute(result) ? bases[i] : UriReference.Resolve(bases[i], result);
@@ -195,6 +228,51 @@ namespace Xsl3.XPath31.Functions
                 }
             }
             return DocumentOrder(found, c);
+        }
+
+        /// <summary>
+        /// fn:idref (F&amp;O 3.1 §14.5.4): the attributes whose DTD type is IDREF or IDREFS and that refer to one of the
+        /// IDs, in document order. Each string is taken as an xs:ID (whitespace collapsed; ignored unless an NCName).
+        /// Without a schema no element has the is-idrefs property, and only Xsl3's own trees record the DTD's types.
+        /// </summary>
+        private static IList<XPathItem> Idref(IList<XPathItem> ids, XPathNavigator node)
+        {
+            if (!RootIsDocument(node))
+            {
+                throw new XdmException("FODC0001", "fn:idref: the node is not in a tree rooted at a document node");
+            }
+            if (node is not Tree.CompactNavigator { Document._idrefAttributes: { } attributes } compact)
+            {
+                return Empty;
+            }
+            var wanted = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (XPathItem id in ids)
+            {
+                string collapsed = Lexical.Collapse(((AtomicValue)id).Value);
+                if (Casting.IsNCName(collapsed))
+                {
+                    wanted.Add(collapsed);
+                }
+            }
+            var found = new List<XPathItem>();
+            if (wanted.Count == 0)
+            {
+                return found;
+            }
+            foreach (int attribute in attributes)
+            {
+                var nav = (Tree.CompactNavigator)compact.Clone();
+                nav.MoveToAttributeIndex(attribute);
+                foreach (string token in nav.Value.Split(new[] { ' ', '\t', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (wanted.Contains(token))
+                    {
+                        found.Add(nav);
+                        break;
+                    }
+                }
+            }
+            return found;
         }
 
         // xml:id attributes are IDs whatever the DTD says (xml:id 1.0); the first element with a value wins.
@@ -323,6 +401,33 @@ namespace Xsl3.XPath31.Functions
         {
             int[] order = SortOrder(input.Select(item => Sequences.Atomize(Sequences.One(item))).ToList(), c);
             return order.Select(i => input[i]).ToList();
+        }
+
+        private static IEnumerable<string> CollectionUris(string? uri, FunctionContext c)
+        {
+            if (uri == null)
+            {
+                throw new XdmException("FODC0002", "There is no default collection");
+            }
+            if (c.Runtime == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
+            {
+                throw new XdmException("FODC0002", $"Collection '{uri}' can't be retrieved" + (c.Runtime == null ? "" : " (XsltSettings.EnableDocumentFunction is off)"));
+            }
+            System.Uri resolved;
+            try
+            {
+                resolved = c.StaticBaseUri is { Length: > 0 } b && System.Uri.TryCreate(b, System.UriKind.Absolute, out System.Uri? baseUri)
+                    ? new System.Uri(baseUri, uri) : new System.Uri(uri, System.UriKind.RelativeOrAbsolute);
+            }
+            catch (System.UriFormatException)
+            {
+                throw new XdmException("FODC0004", $"'{uri}' is not a valid collection URI");
+            }
+            if (!resolved.IsAbsoluteUri || !resolved.IsFile || !System.IO.Directory.Exists(resolved.LocalPath))
+            {
+                throw new XdmException("FODC0002", $"Collection '{uri}' isn't a directory of documents");
+            }
+            return System.IO.Directory.EnumerateFiles(resolved.LocalPath, "*.xml").Order(System.StringComparer.Ordinal).Select(f => new System.Uri(f).AbsoluteUri).ToList();
         }
 
         private static XPathNavigator Doc(string uri, FunctionContext c)

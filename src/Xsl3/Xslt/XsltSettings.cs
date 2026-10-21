@@ -6,6 +6,22 @@
 
 namespace Xsl3
 {
+    /// <summary>Xsl3: how a stylesheet whose principal module has <c>version="1.0"</c> is run (SPEC §4.3).</summary>
+    public enum XsltVersionMode
+    {
+        /// <summary>
+        /// On the XSLT 1.0 engine of <c>System.Xml.Xsl</c>, with byte-identical results, <c>msxsl:</c> extensions and
+        /// stock's string semantics. The default.
+        /// </summary>
+        Legacy,
+
+        /// <summary>
+        /// On the XSLT 3.0 processor in backwards-compatible mode (XSLT 3.0 §3.9): XPath 1.0 compatibility mode, the
+        /// first item of a value-of or attribute value template, and the 3.0 instructions available.
+        /// </summary>
+        BackwardsCompatible,
+    }
+
     public sealed class XsltSettings
     {
         private bool _enableDocumentFunction;
@@ -47,6 +63,22 @@ namespace Xsl3
         /// <c>system-property('xsl:supports-dynamic-evaluation')</c> is "no", an <c>xsl:fallback</c> child is
         /// used, and otherwise evaluating the instruction raises XTDE3175. <see cref="TrustedXslt"/> turns it on.
         /// </summary>
+        /// <summary>
+        /// Xsl3: compiles calls to an <see cref="IXsltTraceListener"/> into the entry and exit of every template and
+        /// stylesheet function of an XSLT 2.0+ stylesheet, and records the complete stylesheet stack for
+        /// <see cref="XsltDynamicException.StylesheetStack"/> (without it, the stack is read from the .NET one and leaves
+        /// out inlined and tail-called frames). Off by default: it costs time and stops tail calls.
+        /// </summary>
+        public bool EnableTracing { get; set; }
+
+        /// <summary>
+        /// Xsl3: how a stylesheet whose principal module has <c>version="1.0"</c> runs: <see cref="XsltVersionMode.Legacy"/>
+        /// (the default) gives stock's results; <see cref="XsltVersionMode.BackwardsCompatible"/> runs it on the 3.0
+        /// processor, as the XSLT 3.0 specification describes. Regions with <c>version="1.0"</c> inside 2.0+ stylesheets
+        /// are always backwards-compatible.
+        /// </summary>
+        public XsltVersionMode VersionMode { get; set; }
+
         public bool EnableEvaluate
         {
             get { return _enableEvaluate; }

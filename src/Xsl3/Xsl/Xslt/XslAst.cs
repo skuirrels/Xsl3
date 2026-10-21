@@ -147,7 +147,7 @@ namespace Xsl3.Xslt
         public NsDecl? Namespaces;
         public readonly QilName? Name;   // name or mode
         public readonly object? Arg;    // select or test or terminate or stylesheet;-)
-        public readonly XslVersion XslVersion;
+        public XslVersion XslVersion; // (Xsl3: set to BackwardsCompatible by the loader for nodes in such regions)
         public XslFlags Flags;
         public XslNodeV2? V2; // Xsl3: 2.0+ attributes
         public int PackageId; // Xsl3: the package a declaration belongs to (0: the principal one)
@@ -266,6 +266,9 @@ namespace Xsl3.Xslt
 
         // Xsl3: xsl:function is loaded as a template without match or mode, compiled separately.
         public bool IsFunction;
+
+        // Xsl3: the stylesheet module the template is in (for xsl:apply-imports in a template it calls by name).
+        public Stylesheet? Sheet;
 
         public Template(QilName? name, string? match, QilName mode, double priority, XslVersion xslVer)
             : base(XslNodeType.Template, name, xslVer)

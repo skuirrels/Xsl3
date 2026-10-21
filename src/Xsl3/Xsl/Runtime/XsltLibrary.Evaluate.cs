@@ -20,6 +20,18 @@ namespace Xsl3.Runtime
 
         /// <summary>The name of the parameter that supplies argument <paramref name="position"/> (from 1).</summary>
         public static System.Xml.XmlQualifiedName Name(int position) => new("arg" + position, Namespace);
+
+        /// <summary>The parameter that supplies an initial match selection (XslCompiledTransform.InitialMatchSelection).</summary>
+        public static readonly System.Xml.XmlQualifiedName Selection = new("selection", Namespace);
+
+        /// <summary>The parameter that supplies initial template or mode parameter <paramref name="position"/> (from 1).</summary>
+        public static System.Xml.XmlQualifiedName Parameter(int position) => new("param" + position, Namespace);
+    }
+
+    /// <summary>Xsl3: the internal function the loader wraps xsl:source-document's documents in (XsltLibrary.X31SourceDocuments).</summary>
+    internal static class SourceDocuments
+    {
+        public const string Namespace = "urn:xsl3:source-document";
     }
 
     /// <summary>Xsl3: names shared by the parts of xsl:evaluate (docs/plan/p5-evaluate.md).</summary>
@@ -44,6 +56,13 @@ namespace Xsl3.Runtime
         public string DefaultElementNamespace { get; } = defaultElementNamespace;
 
         public string? BaseUri { get; } = baseUri;
+
+        // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
+        internal string DefaultCollation => defaultCollation;
+
+        internal XPathDecimalFormat DefaultDecimalFormat => defaultDecimalFormat;
+
+        internal Dictionary<QName, XPathDecimalFormat> DecimalFormats => decimalFormats;
 
         private readonly LinkedList<(string Key, object Compiled)> _cache = new();
         private readonly Dictionary<string, LinkedListNode<(string Key, object Compiled)>> _index = new(System.StringComparer.Ordinal);
@@ -169,7 +188,7 @@ namespace Xsl3.Runtime
             var variables = new Dictionary<QName, IList<XPathItem>>();
             void Bind(IList<XPathItem> map, string what)
             {
-                if (map.Count != 1 || map[0] is not XdmMap m)
+                if (map.Count != 1 || map[0] is not MapItem m)
                 {
                     throw Err.XPTY0004($"{what} of xsl:evaluate must be a map, not {Coercion.Describe(map)}");
                 }
@@ -189,7 +208,7 @@ namespace Xsl3.Runtime
             var functionTable = new Dictionary<(string, string, int), QName>();
             for (int i = 0; i < functions.Count; i++)
             {
-                if (functions[i] is XdmFunction { Name: QName fn } f)
+                if (functions[i] is FunctionItem { Name: QName fn } f)
                 {
                     var hidden = new QName(DynamicEvaluation.Namespace, "f" + i);
                     functionTable[(fn.NamespaceUri, fn.LocalName, f.Arity)] = hidden;

@@ -92,6 +92,11 @@ namespace Xsl3.XPath31.Functions
 
         public XPathDecimalFormat Unnamed => unnamed;
 
+        // (For saving compiled stylesheets: XPath31.ConstantSerializer.)
+        internal IReadOnlyDictionary<QName, XPathDecimalFormat> Named => named;
+
+        internal System.Xml.IXmlNamespaceResolver? Namespaces => namespaces;
+
         /// <summary>The decimal format with this name (an EQName or lexical QName); FODF1280 if there is none.</summary>
         public XPathDecimalFormat Resolve(string? name)
         {
@@ -282,7 +287,8 @@ namespace Xsl3.XPath31.Functions
             int k;
             switch (value)
             {
-                case DoubleValue dv when XPathConvert.TryShortDecimal(dv.Double, out digits, out k) || TryRoundTripDigits(dv.Double, out digits, out k):
+                case DoubleValue dv when XPathConvert.TryShortDecimal(dv.Double, out digits, out k) || TryScaledDigits(dv.Double, pic.MaxFraction, out digits, out k)
+                    || TryRoundTripDigits(dv.Double, out digits, out k):
                     break;
                 case IntegerValue iv when iv.Integer >= long.MinValue + 1 && iv.Integer <= long.MaxValue:
                     digits = (long)iv.Integer;
@@ -387,6 +393,36 @@ namespace Xsl3.XPath31.Functions
             suffix.AsSpan().CopyTo(buf[n..]);
             n += suffix.Length;
             return new string(buf[..n]);
+        }
+
+        private static readonly double[] s_pow10d = { 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15 };
+
+        /// <summary>
+        /// Xsl3 (P4): the value rounded to <paramref name="places"/> fractional digits as value = digits × 10^-places,
+        /// computed by scaling, when that gives what rounding the shortest round-trip digits half to even gives: unless
+        /// the scaled value is within 10^-6 of a half, where the binary value and its round-trip digits can round apart
+        /// (2.675 is 267.49999999999997 scaled), and the exact digits decide.
+        /// </summary>
+        private static bool TryScaledDigits(double value, int places, out long digits, out int k)
+        {
+            digits = 0;
+            k = places;
+            if (!double.IsFinite(value) || places > 15)
+            {
+                return false;
+            }
+            double scaled = System.Math.Abs(value) * s_pow10d[places];
+            if (scaled >= 1e9)
+            {
+                return false; // (below 10^9 a double's spacing, 1.2 × 10^-7 at most, is well inside the margin)
+            }
+            double floor = System.Math.Floor(scaled), fraction = scaled - floor;
+            if (System.Math.Abs(fraction - 0.5) < 1e-6)
+            {
+                return false;
+            }
+            digits = (long)floor + (fraction > 0.5 ? 1 : 0);
+            return true;
         }
 
         /// <summary>

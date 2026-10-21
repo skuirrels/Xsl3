@@ -196,6 +196,10 @@ public class BridgeTests
         Assert.Same(resolver, XmlReaderInternals.GetResolver(textReader));
     }
 
+    /// <summary>The DTD's attribute types (for fn:idref) are reached through System.Private.Xml internals that bind here.</summary>
+    [Fact]
+    public void DtdAttributeTypesBind() => Assert.True(System.Xml.DtdInfoBridge.IdrefBridgeBinds);
+
     /// <summary>
     /// DTD-declared IDs reach the vendored XPathDocument through DtdInfoBridge. xsl:strip-space makes the
     /// engine wrap the input reader, which is the case where the stock internal property can't be forwarded.

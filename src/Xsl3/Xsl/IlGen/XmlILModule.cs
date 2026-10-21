@@ -53,15 +53,41 @@ namespace Xsl3.IlGen
             return asmBldr.DefineDynamicModule("Xsl3.CompiledQuery");
         }
 
-        public XmlILModule(TypeBuilder typeBldr)
+        public XmlILModule(TypeBuilder typeBldr, bool emitSymbols = false)
         {
             _typeBldr = typeBldr;
 
-            _emitSymbols = false;
+            // Xsl3 (Sink B): a saved assembly can carry symbols: sequence points to the stylesheet's lines.
+            _emitSymbols = emitSymbols;
+#if NET9_0_OR_GREATER
+            Persisted = typeBldr.Module is ModuleBuilder { Assembly: PersistedAssemblyBuilder };
+#endif
             _useLRE = false;
             // Index all methods added to this module by unique name
             _methods = new Hashtable();
         }
+
+#if NET9_0_OR_GREATER
+        private readonly System.Collections.Generic.Dictionary<string, System.Diagnostics.SymbolStore.ISymbolDocumentWriter> _documents = new();
+
+        /// <summary>Xsl3 (Sink B): the symbol document for a stylesheet module, in a saved assembly that emits symbols.</summary>
+        public System.Diagnostics.SymbolStore.ISymbolDocumentWriter? SourceDocument(string fileName)
+        {
+            // (Only saved assemblies define documents; the in-memory debug assembly has no symbol writer.)
+            if (!_emitSymbols || _typeBldr?.Module is not ModuleBuilder { Assembly: PersistedAssemblyBuilder } module)
+            {
+                return null;
+            }
+            if (!_documents.TryGetValue(fileName, out var document))
+            {
+                _documents[fileName] = document = module.DefineDocument(fileName);
+            }
+            return document;
+        }
+#endif
+
+        /// <summary>Xsl3 (Sink B): the methods go into a saved assembly (PersistedAssemblyBuilder).</summary>
+        public bool Persisted { get; }
 
         public bool EmitSymbols
         {

@@ -24,6 +24,17 @@ if (args.Length > 0 && args[0] == "quick30")
     Xsl3.Benchmarks.Quick.Run30(args[1..]);
     return;
 }
+if (args.Length > 0 && args[0] == "micro")
+{
+    // dotnet run ... -- micro [--sizes 1kb,1mb,100mb] [--ms budget] [--json file] [name...]: the XSLT 3.0 micro suite.
+    Xsl3.Benchmarks.Micro.Run(args[1..]);
+    return;
+}
+if (args.Length == 3 && args[0] == "micro-compare")
+{
+    // dotnet run ... -- micro-compare base.json[,…] head.json[,…]: the performance gate (eng/perf-gate.sh).
+    System.Environment.Exit(Xsl3.Benchmarks.Micro.Compare(args[1..]));
+}
 if (args.Length > 0 && args[0] == "quick")
 {
     Xsl3.Benchmarks.Quick.Run(args[1..]);

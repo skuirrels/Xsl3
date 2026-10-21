@@ -137,6 +137,35 @@ These facts come from the code as of 2026-10-21.
 6. The W3C runner on the public API.
 7. Registered extension functions (decision 7).
 
+## Status (2026-10-21)
+
+Steps 1 to 5 are done, in `src/Xsl3/Xdm/XdmValue.cs`, `src/Xsl3/Xslt/XsltCompiler.cs` and `src/Xsl3/Xslt/XsltErrors.cs`,
+with unit tests in `tests/Xsl3.Tests/Xslt30ApiTests.cs`. Where the result differs from the decisions above:
+
+- **Units** are compiled again from the stylesheet's source (kept as text, or re-read from its URI) rather than
+  from a kept AST; each is cached by entry point, raw or serialized delivery, and the names of the initial
+  template's or mode's parameters.
+- **Destinations** are overloads taking a `Stream`, a `TextWriter` or an `XmlWriter` (serialized), or none (the raw
+  result as an `XdmValue`), rather than `Destination` classes. A tree comes back as the raw result's nodes.
+- **The global context item** is an `XdmNode`. Applying templates to a single node makes it the global context
+  item too, as `XslCompiledTransform` does; any other selection is passed as the initial match selection.
+- **Messages** reach `MessageHandler` as text; a terminating message is an `XsltDynamicException` (XTMM9000 or its
+  error code).
+- **Maps** and arrays give their size as `Size`: `Count` is the number of items, 1.
+- The internal `XdmMap`, `XdmArray` and `XdmFunction` became `MapItem`, `ArrayItem` and `FunctionItem`, so the public
+  types could take the names.
+
+Step 7 is done too: `XsltCompiler.RegisterExtensionFunction(name, arity, implementation)` registers a function of
+`XdmValue[]` for 2.0+ stylesheets. The compiler resolves calls to it (and `function-available` reports it); a .NET
+exception it throws is `Q{http://xsl3/err}extension-error`; `EnableExtensionFunctions = false` turns it off. A
+stylesheet that calls one can't be saved as an assembly (the delegate isn't serializable).
+
+Step 6 is done: the W3C runner compiles with `XsltCompiler` and runs each xslt30-test case through an
+`Xslt30Transformer` (apply-templates, call-template, call-function, raw or serialized, with stylesheet, static,
+template and tunnel parameters, handlers and the base output URI). It measures three more passes than the internal
+entry points did (7,962 against 7,959). `Xslt30Transformer.UnnamedMode` was added for `#unnamed` initial modes.
+Internal access is left for diagnostics and for the saved-assembly round trip (`XSL3_W3C_SAVED`).
+
 ## Open questions for the owner
 
 - **Namespace.** The new types could go in `Xsl3`, next to `XslCompiledTransform`, or in `Xsl3.S9`, which mirrors

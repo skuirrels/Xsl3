@@ -4,9 +4,14 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Xsl3/Xsl3.csproj" />
+    <Project Path="src/Xsl3.Cli/Xsl3.Cli.csproj" />
+    <Project Path="src/Xsl3.Build/Xsl3.Build.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Xsl3.Dev/Xsl3.Dev.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Xsl3.AotSample/Xsl3.AotSample.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Xsl3.Differential/Xsl3.Differential.csproj" />

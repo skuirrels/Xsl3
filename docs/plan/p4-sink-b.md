@@ -110,16 +110,58 @@ These facts were measured on 2026-10-21 with .NET 10 on osx-arm64. A probe app r
 
 ### B3: Sink B
 
-- [ ] `PersistedAssemblyBuilder` behind `XmlILModule`.
-- [ ] Static data and constants serialized.
-- [ ] `Xsl3.Build` MSBuild task (`<XsltStylesheet Include="…"/>`) and a sample.
-- [ ] `XslCompiledTransform.Load(Type)` loads it with no compilation.
-- [ ] Portable PDBs mapping IL to stylesheet lines (SPEC §21.3), so `GenerateHelper.MarkSequencePoint` comes back.
+- [x] `PersistedAssemblyBuilder` behind `XmlILModule`: `XslCompiledTransform.CompileToAssembly` (.NET 9+) defines one
+  public type, with `GeneratedCodeAttribute`, through upstream's `TypeBuilder` path of `XmlILGenerator`.
+- [x] Static data and constants serialized: the static data format's minor version 1 adds `Xslt2`, `CompactTree`,
+  `ResultDocuments`, `OutputExtras`, the constant table (`XPath31.ConstantSerializer`, every kind the compiler adds)
+  and the dispatcher's method name, which `Load(MethodInfo, …)` binds. `Load(Type, XsltSettings)` supplies the run-time
+  settings. With `XSL3_W3C_SAVED=1` every xslt30-test case compiles into a saved assembly, loads from it in its own
+  load context, and runs: the results equal the from-source run (7,959 passed, 77 failed, 2026-10-21).
+- [x] `Xsl3.Build` (`src/Xsl3.Build`): MSBuild props and targets that compile each `<XsltStylesheet Include="…"
+  TypeName="…"/>` with `xsl3 compile` (`src/Xsl3.Cli`, which the package carries) into an assembly the project
+  references; `samples/Xsl3.AotSample` uses them from source. An MSBuild task in-process was not needed: the compiler
+  runs as a .NET 10 tool, so projects for .NET 8 build with it too.
+- [x] `XslCompiledTransform.Load(Type)` loads it with no compilation; `Load(Type, XsltSettings)` is annotated for
+  trimming and adds the run-time settings.
+- [x] Portable PDBs: compiled with `XslCompiledTransform(enableDebug: true)` (`xsl3 compile --debug`,
+  `DebugInformation="true"`), the assembly embeds a portable PDB whose sequence points are the stylesheet's lines.
 
 ### B4: NativeAOT in CI
 
-- [ ] A sample using `Xsl3.Build` is published with `PublishAot=true` and run in CI.
-- [ ] A sampled W3C subset (about 10%) runs through the saved-assembly round trip.
+- [x] `samples/Xsl3.AotSample` (a 3.0 stylesheet with grouping, a typed function and maps, compiled by the targets) is
+  published with `PublishAot=true`, warnings as errors, and run in CI (`native-aot` job). On osx-arm64 the binary is
+  11 MB and prints the expected report.
+- [x] A sampled W3C subset runs through the saved-assembly round trip: CI sets `XSL3_W3C_SAVED=10` (about one test in
+  ten); locally, `XSL3_W3C_SAVED=1` sends the whole xslt30-test suite through it.
+
+Correction (2026-10-21): an earlier version of this list said the whole suite ran through saved assemblies with
+unchanged results. It didn't: measured on 2026-10-21, 164 tests failed that pass from source, and CI's one-in-ten
+sample caught 18 of them. The causes, all fixed:
+
+- The named output definitions (for a computed `format`) became keyed by namespace and local name, and the constant
+  serializer still expected string keys (148 tests).
+- Static values other than atomic values and documents couldn't be saved: maps, arrays, nodes inside a tree,
+  parentless nodes, references to built-in functions. They are now saved (a node as its tree and the way down to it).
+  A reference to a constructor function (`xs:date#1`) still can't be, and `CompileToAssembly` refuses it.
+- PersistedAssemblyBuilder's IL generator misplaced the instruction after a short branch in one method of as-0501 (the
+  runtime rejected it as an invalid program; in-memory compilation is unaffected). Saved assemblies use long branches.
+- Static data over 4 MB (docbook-002) didn't fit one initialized data field; it is split into pieces.
+- `CompileToAssembly` didn't allow `fn:transform` in static expressions with `EnableEvaluate`, as `Load` does.
+
+Now every test gives the same result from a saved assembly as from source, except override-v-008, override-v-009 and
+strip-space-023. Those three fail on the internal entry points the round trip uses, not because of the saved assembly:
+they pass through the public 3.0 API. `Xsl3.Dev jitall` JIT-compiles every method of a saved assembly to find one the
+runtime rejects.
+
+A finding from CI: a saved assembly loaded into a *collectible* `AssemblyLoadContext` crashes with an
+`AccessViolationException` in its `Execute` method on Linux (arm64 and x64) once tiered PGO has optimized Xsl3's
+methods (output-0102c reproduces it in a container; `DOTNET_TieredPGO=0`, `DOTNET_TieredCompilation=0` or a
+non-collectible load each make it go away; macOS doesn't show it). Applications reference Xsl3.Build's assemblies
+normally, so the runner now loads saved assemblies with `Assembly.Load` too. The collectible case is worth a minimal
+repro for a dotnet/runtime issue.
+
+Exit status (2026-10-21): the sample runs under NativeAOT with no warnings and the round trip passes. Publishing
+`Xsl3.Build` and `Xsl3.Cli` to nuget.org needs the owner's go-ahead: the release workflow packs only `Xsl3`.
 
 Exit (remaining-scope 2): the sample runs under NativeAOT with no warnings; the round trip passes; `Xsl3.Build` is
 ready to publish, with the owner's go-ahead.

@@ -17,7 +17,7 @@ namespace Xsl3.Runtime
     /// application, lambda-lifted to a QIL function (docs/plan/p3-xslt30.md, decision 3). It holds the lifted
     /// function's id, for the generated dispatcher, and the values it captured.
     /// </summary>
-    internal sealed class CompiledFunction : XdmFunction
+    internal sealed class CompiledFunction : FunctionItem
     {
         public CompiledFunction(int id, FunctionSignature signature, XmlQueryRuntime owner)
         {
@@ -50,7 +50,7 @@ namespace Xsl3.Runtime
     }
 
     /// <summary>A function item for a built-in function found at run time (fn:function-lookup with a computed name).</summary>
-    internal sealed class LibraryFunction : XdmFunction
+    internal sealed class LibraryFunction : FunctionItem
     {
         public LibraryFunction(FunctionDefinition definition, int arity, FunctionContext context)
         {
@@ -75,14 +75,14 @@ namespace Xsl3.Runtime
     }
 
     /// <summary>A dynamic function call being made: the function item and the arguments.</summary>
-    internal sealed class PendingCall : XdmFunction
+    internal sealed class PendingCall : FunctionItem
     {
-        public PendingCall(XdmFunction function)
+        public PendingCall(FunctionItem function)
         {
             Function = function;
         }
 
-        public XdmFunction Function { get; }
+        public FunctionItem Function { get; }
 
         public List<IList<XPathItem>> Arguments { get; } = new();
 
@@ -113,7 +113,7 @@ namespace Xsl3.Runtime
         /// <summary>Starts a dynamic call: the function expression's value must be one function item of that arity (XPTY0004).</summary>
         public XPathItem X31CallNew(IList<XPathItem> function, double arity)
         {
-            if (function.Count != 1 || function[0] is not XdmFunction f || function[0] is PendingCall)
+            if (function.Count != 1 || function[0] is not FunctionItem f || function[0] is PendingCall)
             {
                 throw Err.XPTY0004($"A dynamic function call needs a single function item, not {Coercion.Describe(function)}");
             }
@@ -136,8 +136,8 @@ namespace Xsl3.Runtime
         /// <summary>fn:apply: a call with the members of the array as the arguments.</summary>
         public XPathItem X31ApplyCall(IList<XPathItem> function, IList<XPathItem> arguments)
         {
-            var array = (XdmArray)arguments[0];
-            if (function.Count == 1 && function[0] is XdmFunction f && f.Arity != array.Count)
+            var array = (ArrayItem)arguments[0];
+            if (function.Count == 1 && function[0] is FunctionItem f && f.Arity != array.Count)
             {
                 throw new XdmException("FOAP0001", $"fn:apply: {f.Describe()} doesn't take {array.Count} arguments");
             }
@@ -162,9 +162,9 @@ namespace Xsl3.Runtime
             var c = (PendingCall)call;
             switch (c.Function)
             {
-                case XdmMap map:
+                case MapItem map:
                     return map.Get(Sequences.AtomizeOptional(c.Arguments[0], "a map key") ?? throw Err.XPTY0004("A map is called with an empty key")) ?? Sequences.Empty;
-                case XdmArray array:
+                case ArrayItem array:
                     AtomicValue? index = Sequences.AtomizeOptional(c.Arguments[0], "an array index");
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
@@ -184,7 +184,7 @@ namespace Xsl3.Runtime
             value.Count == 1 && value[0] is BooleanValue b ? b.Boolean : throw Err.XPTY0004($"The function must return a single xs:boolean, not {Coercion.Describe(value)}");
 
         /// <summary>Calls a function item from the run-time library: compiled functions through the dispatcher.</summary>
-        internal IList<XPathItem> CallFunction(XdmFunction function, params IList<XPathItem>[] arguments)
+        internal IList<XPathItem> CallFunction(FunctionItem function, params IList<XPathItem>[] arguments)
         {
             var call = new PendingCall(function);
             foreach (IList<XPathItem> argument in arguments)
@@ -202,7 +202,7 @@ namespace Xsl3.Runtime
         /// <summary>fn:fold-left and fn:fold-right (and the array: ones, whose members arrive wrapped).</summary>
         public IList<XPathItem> X31Fold(IList<XPathItem> items, IList<XPathItem> zero, IList<XPathItem> function, bool left, bool wrapped)
         {
-            if (function.Count != 1 || function[0] is not XdmFunction f || f.Arity != 2)
+            if (function.Count != 1 || function[0] is not FunctionItem f || f.Arity != 2)
             {
                 throw Err.XPTY0004($"The function argument of a fold must be a function of arity 2, not {Coercion.Describe(function)}");
             }
@@ -211,7 +211,7 @@ namespace Xsl3.Runtime
             for (int k = 0; k < n; k++)
             {
                 XPathItem item = items[left ? k : n - 1 - k];
-                IList<XPathItem> value = wrapped ? ((XdmArray)item)[0] : Sequences.One(item);
+                IList<XPathItem> value = wrapped ? ((ArrayItem)item)[0] : Sequences.One(item);
                 acc = Copy(left ? CallFunction(f, acc, value) : CallFunction(f, value, acc));
             }
             return acc;
@@ -225,25 +225,77 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
             var output = _runtime.SaveOutput();
+            List<int> lines = _runtime.TryLines;
+            int mark = lines.Count;
             try
             {
-                return Copy(CallFunction((XdmFunction)tryFunction[0]));
+                return Copy(CallFunction((FunctionItem)tryFunction[0]));
             }
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
                 _runtime.RestoreOutput(output);
+                int line = lines.Count > mark ? lines[^1] : 0;
+                lines.RemoveRange(mark, lines.Count - mark);
                 var errors = (List<List<string>>)Constant((int)errorsId);
                 for (int i = 0; i < errors.Count; i++)
                 {
                     if (errors[i].Exists(test => ErrorNameMatches(test, code)))
                     {
                         IList<XPathItem> none = System.Array.Empty<XPathItem>();
-                        return Copy(CallFunction((XdmFunction)catchFunctions[i], Sequences.One(new QNameValue(AtomicTypes.QName, code)),
-                            Sequences.One(AtomicValue.OfString(description)), value, module.Length == 0 ? none : Sequences.One(AtomicValue.OfString(module)), none, none, none));
+                        return Copy(CallFunction((FunctionItem)catchFunctions[i], Sequences.One(new QNameValue(AtomicTypes.QName, code)),
+                            Sequences.One(AtomicValue.OfString(description)), value, module.Length == 0 ? none : Sequences.One(AtomicValue.OfString(module)),
+                            line > 0 ? Sequences.One(AtomicValue.OfInteger(line)) : none, none, none));
                     }
                 }
                 throw;
             }
+            finally
+            {
+                if (lines.Count > mark)
+                {
+                    lines.RemoveRange(mark, lines.Count - mark);
+                }
+            }
+        }
+
+        /// <summary>A template or function starts (XsltSettings.EnableTracing).</summary>
+        public IList<XPathItem> X31TraceEnter(double frameId)
+        {
+            var frame = (XsltFrame)Constant((int)frameId);
+            _runtime.TraceStack.Add(frame);
+            _runtime.ExternalContext.TraceListener?.Enter(frame);
+            return Sequences.Empty;
+        }
+
+        /// <summary>A template or function ends (XsltSettings.EnableTracing).</summary>
+        public IList<XPathItem> X31TraceLeave(double frameId)
+        {
+            var frame = (XsltFrame)Constant((int)frameId);
+            List<XsltFrame> stack = _runtime.TraceStack;
+            if (stack.Count > 0)
+            {
+                stack.RemoveAt(stack.Count - 1);
+            }
+            _runtime.ExternalContext.TraceListener?.Leave(frame);
+            return Sequences.Empty;
+        }
+
+        /// <summary>An instruction in an xsl:try body starts: its line is the catch's $err:line-number until it ends.</summary>
+        public IList<XPathItem> X31TryEnter(double line)
+        {
+            _runtime.TryLines.Add((int)line);
+            return Sequences.Empty;
+        }
+
+        /// <summary>An instruction in an xsl:try body ends.</summary>
+        public IList<XPathItem> X31TryExit()
+        {
+            List<int> lines = _runtime.TryLines;
+            if (lines.Count > 0)
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+            return Sequences.Empty;
         }
 
         /// <summary>A pattern's condition, lifted: an error evaluating it is a non-match (XSLT 3.0 §5.5.4).</summary>
@@ -252,7 +304,7 @@ namespace Xsl3.Runtime
             var output = _runtime.SaveOutput();
             try
             {
-                return Sequences.EffectiveBooleanValue(CallFunction((XdmFunction)test[0]));
+                return Sequences.EffectiveBooleanValue(CallFunction((FunctionItem)test[0]));
             }
             catch (System.Exception e) when (DynamicError(e) != null)
             {
@@ -272,7 +324,7 @@ namespace Xsl3.Runtime
             IList<XPathItem> items;
             try
             {
-                items = CallFunction((XdmFunction)body[0]);
+                items = CallFunction((FunctionItem)body[0]);
             }
             // Errors the stylesheet raises itself (fn:error, a terminating xsl:message, xsl:assert) still end it.
             catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _)
@@ -299,7 +351,7 @@ namespace Xsl3.Runtime
                     case XPathNavigator node:
                         sb.Append(node.OuterXml);
                         break;
-                    case XdmFunction function:
+                    case FunctionItem function:
                         sb.Append(function.Describe());
                         break;
                     default:
@@ -310,7 +362,7 @@ namespace Xsl3.Runtime
                         sb.Append(item.Value);
                         break;
                 }
-                atomic = item is not XPathNavigator and not XdmFunction;
+                atomic = item is not XPathNavigator and not FunctionItem;
             }
             return sb.ToString();
         }
@@ -319,7 +371,7 @@ namespace Xsl3.Runtime
         public double X31CapturedNumber(IList<XPathItem> value) => System.Xml.XmlConvert.ToDouble(value[0].Value);
 
         // The code, description and value of a dynamic error, or null for exceptions that aren't errors.
-        private static (QName, string, IList<XPathItem>)? DynamicError(System.Exception e)
+        internal static (QName, string, IList<XPathItem>)? DynamicError(System.Exception e)
         {
             switch (e)
             {
@@ -364,9 +416,9 @@ namespace Xsl3.Runtime
         // ---------------------------------------------------------------- function item accessors
 
         public IList<XPathItem> X31FunctionName(IList<XPathItem> function) =>
-            ((XdmFunction)function[0]).Name is QName n ? Sequences.One(new QNameValue(AtomicTypes.QName, n)) : Sequences.Empty;
+            ((FunctionItem)function[0]).Name is QName n ? Sequences.One(new QNameValue(AtomicTypes.QName, n)) : Sequences.Empty;
 
-        public XPathItem X31FunctionArity(IList<XPathItem> function) => AtomicValue.OfInteger(((XdmFunction)function[0]).Arity);
+        public XPathItem X31FunctionArity(IList<XPathItem> function) => AtomicValue.OfInteger(((FunctionItem)function[0]).Arity);
 
         /// <summary>fn:function-lookup for a built-in function (user functions are found when the name is a literal).</summary>
         public IList<XPathItem> X31FunctionLookup(IList<XPathItem> name, IList<XPathItem> arity, double sc)
@@ -396,19 +448,19 @@ namespace Xsl3.Runtime
         public double X31Count(IList<XPathItem> items) => items.Count;
 
         /// <summary>A sequence as a single item (an array with one member), so that it survives a QIL loop as one value.</summary>
-        public XPathItem X31Wrap(IList<XPathItem> value) => XdmArray.Of(new[] { Copy(value) });
+        public XPathItem X31Wrap(IList<XPathItem> value) => ArrayItem.Of(new[] { Copy(value) });
 
-        public IList<XPathItem> X31Unwrap(XPathItem wrapped) => ((XdmArray)wrapped)[0];
+        public IList<XPathItem> X31Unwrap(XPathItem wrapped) => ((ArrayItem)wrapped)[0];
 
         /// <summary>The wrapped values (X31Wrap) as an array's members.</summary>
-        public XPathItem X31ArrayOfWrapped(IList<XPathItem> wrapped) => XdmArray.Of(wrapped.Select(w => ((XdmArray)w)[0]));
+        public XPathItem X31ArrayOfWrapped(IList<XPathItem> wrapped) => ArrayItem.Of(wrapped.Select(w => ((ArrayItem)w)[0]));
 
         public IList<XPathItem> X31ArrayMembersWrapped(IList<XPathItem> array) =>
-            ((XdmArray)array[0]).Members.Select(m => (XPathItem)XdmArray.Of(new[] { m })).ToList();
+            ((ArrayItem)array[0]).Members.Select(m => (XPathItem)ArrayItem.Of(new[] { m })).ToList();
 
-        public IList<XPathItem> X31MapKeys(IList<XPathItem> map) => ((XdmMap)map[0]).Keys.Cast<XPathItem>().ToList();
+        public IList<XPathItem> X31MapKeys(IList<XPathItem> map) => ((MapItem)map[0]).Keys.Cast<XPathItem>().ToList();
 
-        public IList<XPathItem> X31MapGet(IList<XPathItem> map, IList<XPathItem> key) => ((XdmMap)map[0]).Get((AtomicValue)key[0]) ?? Sequences.Empty;
+        public IList<XPathItem> X31MapGet(IList<XPathItem> map, IList<XPathItem> key) => ((MapItem)map[0]).Get((AtomicValue)key[0]) ?? Sequences.Empty;
 
         /// <summary>fn:sort#3 and array:sort#3: the items in the order of their keys (each key wrapped by X31Wrap).</summary>
         public IList<XPathItem> X31SortByKeys(IList<XPathItem> items, IList<XPathItem> wrappedKeys, IList<XPathItem> collation, double sc)
@@ -418,7 +470,7 @@ namespace Xsl3.Runtime
             {
                 c = c.WithDefaultCollation(Collation.Resolve(((AtomicValue)collation[0]).Value));
             }
-            int[] order = FunctionLibrary.SortOrder(wrappedKeys.Select(k => Sequences.Atomize(((XdmArray)k)[0])).ToList(), c);
+            int[] order = FunctionLibrary.SortOrder(wrappedKeys.Select(k => Sequences.Atomize(((ArrayItem)k)[0])).ToList(), c);
             return order.Select(i => items[i]).ToList();
         }
     }

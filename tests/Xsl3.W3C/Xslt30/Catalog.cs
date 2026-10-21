@@ -231,7 +231,6 @@ public sealed class TestEnvironment
     public IEnumerable<string> UnsupportedParts =>
         Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" or "schema")
             .Concat(Sources.Where(s => s.Validation is "strict" or "lax").Select(_ => "validation"))
-            .Concat(Sources.Where(s => s.DefinesStylesheet).Select(_ => "defines-stylesheet"))
             .Distinct();
 
     public static TestEnvironment Read(XElement element, string baseDirectory) => new(element, baseDirectory);

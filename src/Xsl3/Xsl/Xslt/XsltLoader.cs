@@ -107,9 +107,35 @@ namespace Xsl3.Xslt
             {
                 compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.CallTemplate, F.QName(initialTemplate.Name, initialTemplate.Namespace, ""), null, XslVersion.Current);
             }
+            else if (compiler.InitialMatchSelection)
+            {
+                // Xsl3: apply templates to the items supplied as a parameter (fn:transform's initial-match-selection).
+                compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.ApplyTemplates,
+                    compiler.InitialMode is XmlQualifiedName sm ? F.QName(sm.Name, sm.Namespace, "") : compiler.DefaultInitialMode ?? nullMode,
+                    $"Q{{{Runtime.InitialFunctionArguments.Namespace}}}selection()", XslVersion.Current);
+            }
+            else if (compiler.InitialParameters != null)
+            {
+                // Xsl3: with parameters, the 2.0 apply-templates compiles them (applied to the initial context item).
+                compiler.StartApplyTemplates = new XslNodeEx(XslNodeType.ApplyTemplates,
+                    compiler.InitialMode is XmlQualifiedName pm ? F.QName(pm.Name, pm.Namespace, "") : compiler.DefaultInitialMode ?? nullMode, ".", XslVersion.Current);
+            }
             else
             {
                 compiler.StartApplyTemplates = F.ApplyTemplates(compiler.InitialMode is XmlQualifiedName m ? F.QName(m.Name, m.Namespace, "") : compiler.DefaultInitialMode ?? nullMode);
+            }
+            if (compiler.InitialParameters is { } initialParameters)
+            {
+                // Xsl3: the initial template's or mode's parameters (XSLT 3.0 §2.3.4): with-params whose values are
+                // supplied as reserved run-time parameters.
+                for (int i = 0; i < initialParameters.Count; i++)
+                {
+                    (XmlQualifiedName name, bool tunnel) = initialParameters[i];
+                    XmlQualifiedName value = Runtime.InitialFunctionArguments.Parameter(i + 1);
+                    VarPar withParam = F.VarPar(XslNodeType.WithParam, F.QName(name.Name, name.Namespace, ""), $"Q{{{value.Namespace}}}{value.Name}()", XslVersion.Current);
+                    withParam.V2 = new XslNodeV2 { Tunnel = tunnel };
+                    compiler.StartApplyTemplates.AddContent(withParam);
+                }
             }
             ProcessOutputSettings();
             foreach (AttributeSet attSet in compiler.AttributeSets.Values)
@@ -247,6 +273,23 @@ namespace Xsl3.Xslt
 
         private Stylesheet LoadStylesheet(Uri uri, bool include)
         {
+            if (V2 && uri.IsAbsoluteUri && uri.Fragment.Length > 1)
+            {
+                // Xsl3: an embedded stylesheet module (XSLT 3.0 §3.12): the element of the document with that id.
+                string id = Uri.UnescapeDataString(uri.Fragment[1..]);
+                using XmlReader document = CreateReader(new Uri(uri.GetLeftPart(UriPartial.Query)), _xmlResolver);
+                while (document.Read())
+                {
+                    if (document.NodeType == XmlNodeType.Element
+                        && (document.GetAttribute("id") == id || document.GetAttribute("id", XmlReservedNs.NsXml) == id))
+                    {
+                        using XmlReader embedded = document.ReadSubtree();
+                        embedded.Read();
+                        return LoadStylesheet(embedded, include);
+                    }
+                }
+                throw new XslLoadException(SR.Xslt_CantResolve, uri.ToString());
+            }
             using (XmlReader reader = CreateReader(uri, _xmlResolver))
             {
                 return LoadStylesheet(reader, include);
@@ -346,6 +389,7 @@ namespace Xsl3.Xslt
                         {
                             _packageId = package;
                         }
+                        _importPath.Add(_curStylesheet.ImportPositions[i]);
                         try
                         {
                             _curStylesheet.Imports[i] = LoadStylesheet(importHrefs[i], /*include:*/false);
@@ -353,6 +397,7 @@ namespace Xsl3.Xslt
                         finally
                         {
                             _packageId = savedPackage;
+                            _importPath.RemoveAt(_importPath.Count - 1);
                         }
                     }
                 }
@@ -529,6 +574,7 @@ namespace Xsl3.Xslt
                     switch (_input.NodeType)
                     {
                         case XmlNodeType.Element:
+                            _curStylesheet!.Declarations++;
                             if (_inOverride && !(_input.IsXsltNamespace() && _input.LocalName is "template" or "function" or "variable" or "param" or "attribute-set"))
                             {
                                 // XSLT 3.0 §3.5.3.4: only those components can be overridden.
@@ -683,7 +729,7 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(0, "href"))
             {
                 // Resolve href right away using the current BaseUri (it might change later)
-                Uri uri = ResolveUri(_input.Value, _input.BaseUri!);
+                Uri uri = ResolveUri(_input.Value, (V2 ? _input.StaticBaseUri : null) ?? _input.BaseUri!); // Xsl3: xml:base applies in 2.0+
 
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
@@ -693,6 +739,7 @@ namespace Xsl3.Xslt
                 else
                 {
                     _curStylesheet!.ImportHrefs.Add(uri);
+                    _curStylesheet.ImportPositions.Add(_curStylesheet.Declarations);
                 }
             }
             else
@@ -711,7 +758,7 @@ namespace Xsl3.Xslt
 
             if (_input.MoveToXsltAttribute(0, "href"))
             {
-                Uri uri = ResolveUri(_input.Value, _input.BaseUri!);
+                Uri uri = ResolveUri(_input.Value, (V2 ? _input.StaticBaseUri : null) ?? _input.BaseUri!); // Xsl3: xml:base applies in 2.0+
 
                 // Check for circular references
                 if (_documentUriInUse.Contains(uri.ToString()))
@@ -1720,7 +1767,9 @@ namespace Xsl3.Xslt
             }
 
             // Template without match considered to not have mode and can't call xsl:apply-imports
-            _input.CanHaveApplyImports = (match != null);
+            // Xsl3: in 2.0+ a named template can: the current template rule is its caller's (XSLT 3.0 §6.8).
+            _input.CanHaveApplyImports = (match != null) || V2;
+            _curTemplate.Sheet = _curStylesheet;
 
             SetInfo(_curTemplate,
                 LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo
@@ -1875,6 +1924,8 @@ namespace Xsl3.Xslt
                                     {
                                         ReportError(SR.Xml_UserException, "XTSE0010: xsl:context-item must be the first child of xsl:template");
                                     }
+                                    // Whitespace before it is stripped, even under xml:space="preserve" (XSLT 3.0 §4.3).
+                                    content.RemoveAll(n => n is Text { Hints: SerializationHints.None } t && t.NodeType == XslNodeType.Text && XmlCharType.IsOnlyWhitespace(t.Select));
                                 }
                                 else
                                 {
@@ -2009,6 +2060,13 @@ namespace Xsl3.Xslt
         private XslNode? XslApplyImports()
         {
             ContextInfo ctxInfo = _input.GetAttributes();
+            if (!_input.CanHaveApplyImports && V2 && _input.BackwardCompatibility)
+            {
+                // Xsl3: backwards-compatible behaviour: an error only if evaluated without a current template rule.
+                _input.SkipNode();
+                return SetLineInfo(F.XslNode(XslNodeType.Sequence, null,
+                    "error(QName('http://www.w3.org/2005/xqt-errors', 'err:XTDE0560'), 'xsl:apply-imports has no current template rule here')", XslVersion.Current), ctxInfo.lineInfo);
+            }
             if (!_input.CanHaveApplyImports)
             {
                 ReportError(/*[XT_015]*/SR.Xslt_InvalidApplyImports);
@@ -2283,15 +2341,20 @@ namespace Xsl3.Xslt
             string? terminateAvt = V2 && _input.MoveToXsltAttribute(1, "terminate") && _input.Value.Contains('{') ? _input.Value : null;
             bool terminate = terminateAvt == null && ParseYesNoAttribute(1, /*attName:*/"terminate") == TriState.True;
             // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
-            // another in the err namespace.
+            // another: a local name for one in the err namespace, else an EQName.
             string errorCode = "XTMM9000";
             if (V2 && _input.MoveToXsltAttribute(2, "error-code") && !_input.Value.Contains('{'))
             {
                 string token = _input.Value.Trim();
                 int colon = token.IndexOf(':');
-                if (colon > 0 && _input.LookupXmlNamespace(token[..colon]) == "http://www.w3.org/2005/xqt-errors")
+                string? ns = colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                if (ns == "http://www.w3.org/2005/xqt-errors")
                 {
                     errorCode = token[(colon + 1)..];
+                }
+                else if (ns != null && token.Length > 0)
+                {
+                    errorCode = "Q{" + ns + "}" + token[(colon + 1)..];
                 }
             }
 
@@ -2671,9 +2734,14 @@ namespace Xsl3.Xslt
             {
                 AddUseAttributeSets(content);
             }
-            return SetInfo(F.Element(name, ns, _input.XslVersion),
+            XslNode element = SetInfo(F.Element(name, ns, _input.XslVersion),
                 LoadEndTag(LoadInstructions(content)), ctxInfo
             );
+            if (V2 && !inheritNamespaces)
+            {
+                element.V2 = new XslNodeV2 { InheritNamespaces = TriState.False };
+            }
+            return element;
         }
 
         // http://www.w3.org/TR/xslt#creating-attributes
@@ -2822,6 +2890,8 @@ namespace Xsl3.Xslt
                 }
             }
 
+            // Xsl3: xsl:version below 2.0 asks for backwards-compatible behaviour (XSLT 3.0 §3.9): the scope manager marks
+            // the region, and its nodes carry XslVersion.BackwardsCompatible.
             content = LoadEndTag(LoadInstructions(content));
             return SetInfo(F.LiteralElement(F.QName(name, nsUri, prefix)), content, ctxInfo);
         }
@@ -2857,6 +2927,58 @@ namespace Xsl3.Xslt
 
         // Xsl3: a static variable or parameter (XSLT 3.0 §9.6): its value is computed now, from a supplied static
         // parameter or from select, and serves use-when, shadow attributes and the stylesheet.
+        // Xsl3: the import positions above the module being loaded (ImportPositions), from the principal module down.
+        private readonly List<int> _importPath = new List<int>();
+
+        // Xsl3: the static variables declared so far: where in the tree of modules, and their values.
+        private readonly Dictionary<Xsl3.Xdm.QName, List<(int Package, int[] Path, IList<System.Xml.XPath.XPathItem> Value)>> _staticDeclarations = new();
+
+        /// <summary>
+        /// XTSE3450 (XSLT 3.0 §9.6): a static variable must have the same value as one of the same name declared earlier
+        /// in tree order with lower import precedence: one in a module that isn't the later one's own or an ancestor of it.
+        /// A declaration's path is the positions of the imports above its module and its position in the module.
+        /// </summary>
+        private void CheckStaticConsistency(Xsl3.Xdm.QName name, VarPar var, IList<System.Xml.XPath.XPathItem> value)
+        {
+            int[] path = new int[_importPath.Count + 1];
+            _importPath.CopyTo(path);
+            path[^1] = _curStylesheet!.Declarations;
+            if (!_staticDeclarations.TryGetValue(name, out var declarations))
+            {
+                _staticDeclarations[name] = declarations = new();
+            }
+            foreach (var (package, otherPath, otherValue) in declarations)
+            {
+                if (package != _packageId)
+                {
+                    continue;
+                }
+                bool otherFirst = TreeOrder(otherPath, path) < 0;
+                int[] earlier = otherFirst ? otherPath : path, later = otherFirst ? path : otherPath;
+                // The earlier one's module is the later one's or an ancestor of it: the same or higher precedence.
+                bool ancestor = earlier.Length <= later.Length && earlier.AsSpan(0, earlier.Length - 1).SequenceEqual(later.AsSpan(0, earlier.Length - 1));
+                if (!ancestor && !Xsl3.XPath31.Functions.DeepEqual.Sequences(otherValue, value, new Xsl3.XPath31.Functions.FunctionContext(
+                        Xsl3.XPath31.Functions.FunctionContext.LocalTimezoneMinutes, (a, b) => (int)a.ComparePosition(b))))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE3450: the static variable ${var.Name!.QualifiedName} is declared with another value at a lower import precedence earlier in the stylesheet");
+                    break;
+                }
+            }
+            declarations.Add((_packageId, path, value));
+        }
+
+        private static int TreeOrder(int[] a, int[] b)
+        {
+            for (int i = 0; i < a.Length && i < b.Length; i++)
+            {
+                if (a[i] != b[i])
+                {
+                    return a[i] < b[i] ? -1 : 1;
+                }
+            }
+            return a.Length - b.Length;
+        }
+
         private int? EvaluateStatic(VarPar var)
         {
             var name = new Xsl3.Xdm.QName(var.Name!.NamespaceUri, var.Name.LocalName);
@@ -2907,10 +3029,11 @@ namespace Xsl3.Xslt
                 }
             }
             int id = Xsl3.XPath31.ConstantPool.Add(value);
-            if (_compiler.StaticValues.ContainsKey(name) && !_input.ForwardCompatibility)
+            CheckStaticConsistency(name, var, value);
+            if (_compiler.StaticValues.TryGetValue(name, out int earlier) && !_input.ForwardCompatibility)
             {
-                // A static variable can't be redeclared at the same precedence (XTSE3450); a lower one is ignored.
-                return _compiler.StaticValues[name];
+                // The declaration loaded first stays (the importing module's are loaded before its imports).
+                return earlier;
             }
             _compiler.StaticValues[name] = id;
             return id;
@@ -3613,6 +3736,10 @@ namespace Xsl3.Xslt
         internal static XslNode SetInfo(XslNode to, List<XslNode>? content, ContextInfo info)
         {
             Debug.Assert(to != null);
+            if (info.backwards && to.XslVersion == XslVersion.Current)
+            {
+                to.XslVersion = XslVersion.BackwardsCompatible; // Xsl3: nodes made with XslVersion.Current
+            }
             to.Namespaces = info.nsList;
             SetContent(to, content);
             SetLineInfo(to, info.lineInfo);

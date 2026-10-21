@@ -106,9 +106,15 @@ namespace Xsl3
             // Ensure that dataSources is always non-null
             dataSources ??= XmlResolver.ThrowingResolver;
 
+            XmlQueryRuntime? runtime = null;
             try
             {
-                _delExec(new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results));
+                runtime = new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results);
+                _delExec(runtime);
+            }
+            catch (System.Exception e) when (runtime != null && runtime.AttachStylesheetStack(e))
+            {
+                throw; // (never: the filter records the stylesheet stack while it is still there)
             }
             catch (System.InsufficientExecutionStackException e)
             {

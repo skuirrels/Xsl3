@@ -35,6 +35,210 @@ public sealed class Runner
 
         /// <summary>The URI of a secondary result: the base URI of its tree when it is parsed back.</summary>
         public string? BaseUri { get; init; }
+
+        /// <summary>
+        /// The principal result written as XML (the transformation run again into an XmlWriter), for tree assertions
+        /// when the serialization (html, text, json) doesn't parse as XML.
+        /// </summary>
+        public Func<string>? AsXml { get; init; }
+    }
+
+    // An html serialization: starts with an html element in any case (no XML declaration), or a DOCTYPE html.
+    private static bool IsHtml(string serialized) =>
+        System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    // A stylesheet module and the modules it includes or imports, by their hrefs (for the initial template's search).
+    // Tests run through the public 3.0 API (XsltCompiler, Xslt30Transformer); XSL3_W3C_API=0 runs them through
+    // XslCompiledTransform's internal entry points instead, as the saved-assembly round trip (XSL3_W3C_SAVED) does.
+    private static readonly bool s_api = Environment.GetEnvironmentVariable("XSL3_W3C_API") != "0";
+
+    /// <summary>A test's values as the public API takes them.</summary>
+    private sealed class ApiRun
+    {
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> Parameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> StaticParameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> TemplateParameters { get; } = new();
+
+        public Dictionary<Xsl3.Xdm.QName, Xsl3.Xdm.XdmValue> TunnelParameters { get; } = new();
+
+        public List<Xsl3.Xdm.XdmValue> FunctionArguments { get; } = new();
+    }
+
+    /// <summary>
+    /// The test through the public API: compiled by XsltCompiler, run by an Xslt30Transformer from the entry point the
+    /// test names (the settings <paramref name="entry"/> was given say which).
+    /// </summary>
+    private RunResult ExecuteApi(TestCase test, string stylesheet, XmlResolver resolver, XPathNavigator? input, XslCompiledTransform entry, ApiRun api,
+        List<(string Name, string Version, Uri Location)> packages, List<string> messages, Dictionary<string, StringWriter> secondary)
+    {
+        var compiler = new XsltCompiler
+        {
+            Settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
+            {
+                EnableEvaluate = true,
+                VersionMode = XsltVersionMode.BackwardsCompatible,
+                EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
+            },
+            StylesheetResolver = resolver,
+        };
+        foreach (var (name, value) in api.StaticParameters)
+        {
+            compiler.StaticParameters[name] = value;
+        }
+        foreach (var (name, version, location) in packages)
+        {
+            compiler.Packages.Add(name, version, location);
+        }
+        XsltExecutable executable = stylesheet.Contains('#')
+            ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
+            : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
+        Xslt30Transformer transformer = executable.CreateTransformer();
+        transformer.SetStylesheetParameters(api.Parameters);
+        transformer.MessageHandler = messages.Add;
+        transformer.ResultDocumentHandler = uri => secondary[uri.OriginalString] = new Utf8StringWriter();
+        transformer.DocumentResolver = resolver;
+        if (Xsl3.Runtime.XmlQueryRuntime.BaseOutputUri is string baseOutput)
+        {
+            transformer.BaseOutputUri = new Uri(baseOutput);
+        }
+        Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = null; // the transformer's handler, per run
+        Xsl3.Xdm.XdmNode? node = input == null ? null : new Xsl3.Xdm.XdmNode(input);
+        transformer.GlobalContextItem = node;
+        Xsl3.Xdm.QName? Name(XmlQualifiedName? name) => name == null ? null : new Xsl3.Xdm.QName(name.Namespace, name.Name);
+        Xsl3.Xdm.QName? mode = entry.InitialMode is not { } m ? null : m.Name.Length > 0 ? Name(m) : Xslt30Transformer.UnnamedMode;
+        var templateParameters = api.TemplateParameters.Count > 0 ? api.TemplateParameters : null;
+        var tunnelParameters = api.TunnelParameters.Count > 0 ? api.TunnelParameters : null;
+
+        // Templates are applied to the source document; with none, the API has no initial match selection to give.
+        Xsl3.Xdm.XdmValue Selection() => node ?? throw new XsltDynamicException(new Xsl3.Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTDE0044", "err"),
+            "The transformation applies templates, but there is no initial match selection");
+        try
+        {
+            if (entry.RawResult)
+            {
+                Xsl3.Xdm.XdmValue result = entry.InitialFunction is { } function ? transformer.CallFunction(Name(function)!, api.FunctionArguments.ToArray())
+                    : entry.InitialTemplate is { } template ? transformer.CallTemplate(Name(template), templateParameters, tunnelParameters)
+                    : transformer.ApplyTemplates(Selection(), mode, templateParameters, tunnelParameters);
+                IList<XPathItem> items = result.Items;
+                string text = string.Join(" ", items.Select(i => i is XPathNavigator n ? n.OuterXml : i.Value));
+                return new RunResult(text, null, messages) { SecondaryResults = secondary, Raw = items };
+            }
+            void Run(object destination)
+            {
+                switch (destination)
+                {
+                    case Stream s when entry.InitialTemplate is { } t:
+                        transformer.CallTemplate(Name(t), s, templateParameters, tunnelParameters);
+                        break;
+                    case Stream s:
+                        transformer.ApplyTemplates(Selection(), s, mode, templateParameters, tunnelParameters);
+                        break;
+                    case XmlWriter w when entry.InitialTemplate is { } t:
+                        transformer.CallTemplate(Name(t), w, templateParameters, tunnelParameters);
+                        break;
+                    case XmlWriter w:
+                        transformer.ApplyTemplates(Selection(), w, mode, templateParameters, tunnelParameters);
+                        break;
+                }
+            }
+            var bytes = new MemoryStream();
+            Run(bytes);
+            return new RunResult(Decode(bytes.ToArray()), null, messages)
+            {
+                SecondaryResults = secondary,
+                AsXml = () =>
+                {
+                    var xml = new StringWriter();
+                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
+                    {
+                        Run(writer);
+                    }
+                    return xml.ToString();
+                },
+            };
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return new RunResult(null, e, messages);
+        }
+    }
+
+    // XSL3_W3C_SAVED=n: about one test in n is compiled into a saved assembly, loaded from it, and run (Sink B, B4).
+    private static readonly uint s_savedEvery = uint.TryParse(Environment.GetEnvironmentVariable("XSL3_W3C_SAVED"), out uint every) ? every : 0;
+
+    private static int s_savedCount;
+
+    // XSL3_W3C_SAVED_ONLY=set/test,…: only those tests round-trip (for diagnosis).
+    private static readonly HashSet<string>? s_savedOnly = Environment.GetEnvironmentVariable("XSL3_W3C_SAVED_ONLY")?.Split(',').ToHashSet(StringComparer.Ordinal);
+
+    private static bool Saved(string id) => s_savedOnly != null ? s_savedOnly.Contains(id) : s_savedEvery > 0 && StableHash(id) % s_savedEvery == 0;
+
+
+
+    // The same tests on every machine and run (string.GetHashCode is randomized per process).
+    private static uint StableHash(string s)
+    {
+        uint hash = 2166136261;
+        foreach (char c in s)
+        {
+            hash = (hash ^ c) * 16777619;
+        }
+        return hash;
+    }
+
+    /// <summary>The stylesheet compiled into an assembly in memory, loaded, and loaded from its type.</summary>
+    private static XslCompiledTransform RoundTrip(XslCompiledTransform transform, XmlReader stylesheet, XsltSettings settings, XmlResolver resolver)
+    {
+        var saved = new MemoryStream();
+        string name = "Xsl3.W3C.Saved" + Interlocked.Increment(ref s_savedCount);
+        transform.CompileToAssembly(stylesheet, settings, resolver, name, "Compiled.Stylesheet", saved);
+        // Loaded as an application loads Xsl3.Build's output: not into a collectible context, which crashes with an
+        // AccessViolationException on Linux under tiered PGO (.NET 10; docs/plan/p4-sink-b.md).
+        System.Reflection.Assembly assembly = System.Reflection.Assembly.Load(saved.ToArray());
+        var loaded = new XslCompiledTransform
+        {
+            InitialTemplate = transform.InitialTemplate, InitialMode = transform.InitialMode, InitialFunction = transform.InitialFunction,
+            InitialFunctionArity = transform.InitialFunctionArity, RawResult = transform.RawResult, InitialMatchSelection = transform.InitialMatchSelection,
+            Packages = transform.Packages, StaticParameters = transform.StaticParameters,
+        };
+        loaded.Load(assembly.GetType("Compiled.Stylesheet", throwOnError: true)!, settings);
+        return loaded;
+    }
+
+    private static IEnumerable<string> Modules(string stylesheet)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>();
+        pending.Push(Path.GetFullPath(stylesheet));
+        while (pending.Count > 0)
+        {
+            string file = pending.Pop();
+            if (!seen.Add(file) || !File.Exists(file))
+            {
+                continue;
+            }
+            yield return file;
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(file),
+                @"<[\w.-]+:(?:include|import)\s[^>]*href\s*=\s*[""']([^""'#]+)"))
+            {
+                pending.Push(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file)!, m.Groups[1].Value)));
+            }
+        }
+    }
+
+    // The result tree for an assertion: the serialization parsed back, else the result written as XML.
+    private static XPathNavigator ResultTree(RunResult run, string serialized)
+    {
+        try
+        {
+            return ResultDocument(serialized, run.BaseUri);
+        }
+        catch (XmlException) when (run.AsXml != null)
+        {
+            return ResultDocument(run.AsXml(), run.BaseUri);
+        }
     }
 
     // Tests whose expected tree the serialization of the result can't match: bug-1901's result starts with XHTML's html
@@ -93,6 +297,14 @@ public sealed class Runner
         XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal")
             ?? t.Elements(Catalog.Ns + "package").FirstOrDefault(p => (string?)p.Attribute("role") == "principal");
         string? stylesheetPath = sheet != null ? Path.Combine(test.Set.Directory, (string)sheet.Attribute("file")!) : envs.SelectMany(e => e.Stylesheets).FirstOrDefault();
+        if (stylesheetPath == null && envs.SelectMany(e => e.Sources).FirstOrDefault(s => s.DefinesStylesheet && s.File != null) is { } defining)
+        {
+            // The source names its stylesheet in an xml-stylesheet processing instruction (embedded, as a rule).
+            using var stream = File.OpenRead(defining.File!);
+            Uri? associated = XsltCompiler.GetAssociatedStylesheet(Xsl3.Xdm.XdmNode.Load(XmlReader.Create(stream,
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }, new Uri(defining.File!).AbsoluteUri)));
+            stylesheetPath = associated?.AbsoluteUri;
+        }
         if (stylesheetPath == null)
         {
             return Outcome.NotRun("no principal stylesheet");
@@ -150,6 +362,8 @@ public sealed class Runner
             TestEnvironment.Source? inputSource = null;
             var args = new XsltArgumentList();
             args.XsltMessageEncountered += (_, e) => messages.Add(e.Message);
+            // The same values for the public API (XSL3_W3C_API).
+            var api = new ApiRun();
             foreach (TestEnvironment env in envs)
             {
                 foreach (TestEnvironment.Source source in env.Sources)
@@ -169,6 +383,7 @@ public sealed class Runner
                     else if (source.Role.StartsWith('$'))
                     {
                         args.AddParam(source.Role[1..], "", doc);
+                        api.Parameters[new Xsl3.Xdm.QName(source.Role[1..])] = new Xsl3.Xdm.XdmNode(doc);
                     }
                 }
             }
@@ -180,10 +395,12 @@ public sealed class Runner
                 if (p.Static)
                 {
                     staticParameters[new XmlQualifiedName(local, ns)] = value;
+                    api.StaticParameters[new Xsl3.Xdm.QName(ns, local)] = Xsl3.Xdm.XdmValue.MakeValue(value);
                 }
                 else
                 {
                     args.AddParam(local, ns, ToArgument(value));
+                    api.Parameters[new Xsl3.Xdm.QName(ns, local)] = Xsl3.Xdm.XdmValue.MakeValue(value);
                 }
             }
 
@@ -193,36 +410,81 @@ public sealed class Runner
             // (It may come from a used package.)
             // The initial function's arguments (XSLT 3.0 §2.3.4), as parameters the transformation reads.
             var functionArguments = initialFunction?.Elements(Catalog.Ns + "param").ToList() ?? new List<XElement>();
+            // The initial template's or mode's parameters, likewise.
+            var initialParameters = new List<(XmlQualifiedName, bool)>();
+            foreach (XElement p in (test.TestElement.Element(Catalog.Ns + "initial-template") ?? test.TestElement.Element(Catalog.Ns + "initial-mode"))?.Elements(Catalog.Ns + "param") ?? [])
+            {
+                XmlQualifiedName name = XslCompiledTransform.InitialParameter(initialParameters.Count + 1);
+                IList<XPathItem> value = Evaluate((string?)p.Attribute("select") ?? "()", p, input);
+                args.AddParam(name.Name, name.Namespace, value);
+                XmlQualifiedName parameter = ResolveQName(p, "name")!;
+                bool tunnel = (string?)p.Attribute("tunnel") is "yes" or "true" or "1";
+                initialParameters.Add((parameter, tunnel));
+                (tunnel ? api.TunnelParameters : api.TemplateParameters)[new Xsl3.Xdm.QName(parameter.Namespace, parameter.Name)] = Xsl3.Xdm.XdmValue.MakeValue(value);
+            }
             for (int i = 0; i < functionArguments.Count; i++)
             {
                 XmlQualifiedName name = XslCompiledTransform.InitialFunctionArgument(i + 1);
-                args.AddParam(name.Name, name.Namespace, Evaluate((string?)functionArguments[i].Attribute("select") ?? "()", functionArguments[i], input));
+                IList<XPathItem> argument = Evaluate((string?)functionArguments[i].Attribute("select") ?? "()", functionArguments[i], input);
+                args.AddParam(name.Name, name.Namespace, argument);
+                api.FunctionArguments.Add(Xsl3.Xdm.XdmValue.MakeValue(argument));
             }
             if (initialFunction == null && initialTemplate == null && initialMode == null && input == null &&
-                new[] { stylesheet }.Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
+                Modules(stylesheet).Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
                     System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(file), @"name\s*=\s*[""'][\w.-]+:initial-template[""']")))
             {
                 initialTemplate = new XmlQualifiedName("initial-template", "http://www.w3.org/1999/XSL/Transform");
             }
             var transform = new XslCompiledTransform
             {
-                InitialTemplate = initialTemplate, InitialMode = initialMode, StaticParameters = staticParameters, Packages = packages,
+                InitialTemplate = initialTemplate, InitialMode = initialMode, InitialParameters = initialParameters.Count > 0 ? initialParameters : null, StaticParameters = staticParameters, Packages = packages,
                 InitialFunction = ResolveQName(initialFunction, "name"), InitialFunctionArity = functionArguments.Count,
                 // An initial function's result is delivered raw unless the test asks for its serialization.
-                RawResult = initialFunction != null && test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
+                // (So is a result the test asks for as a sequence, not a tree.)
+                RawResult = (initialFunction != null || test.TestElement.Element(Catalog.Ns + "output")?.Attribute("tree") is { Value: "no" }) &&
+                    test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
-            // Some stylesheets declare entities in an internal DTD subset.
-            using (XmlReader stylesheetReader = XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver }))
+            if (s_api && !(Saved(test.Id)))
             {
-                transform.Load(stylesheetReader, new XsltSettings(enableDocumentFunction: true, enableScript: false)
+                return ExecuteApi(test, stylesheet, resolver, input, transform, api, packages, messages, secondary);
+            }
+            // Some stylesheets declare entities in an internal DTD subset.
+            // (An embedded stylesheet, named with a fragment identifier, is compiled through a module that includes it.)
+            XmlReader StylesheetReader() => stylesheet.Contains('#')
+                ? XmlReader.Create(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver })
+                : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver });
+            using (XmlReader stylesheetReader = StylesheetReader())
+            {
+                var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
                     EnableEvaluate = true,
+                    VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
-                }, resolver);
+                };
+                if (Saved(test.Id))
+                {
+                    // (On stderr, so that a crash in saved code names its test.)
+                    Console.Error.WriteLine("xslt30 saved round trip: " + test.Id);
+                    try
+                    {
+                        transform = RoundTrip(transform, stylesheetReader, settings, resolver);
+                    }
+                    catch (NotSupportedException)
+                    {
+                        // A stylesheet CompileToAssembly refuses (a static value it can't save, such as a constructor
+                        // function reference): it runs as loaded from source.
+                        using XmlReader again = StylesheetReader();
+                        transform.Load(again, settings, resolver);
+                    }
+                }
+                else
+                {
+                    transform.Load(stylesheetReader, settings, resolver);
+                }
             }
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
-            XPathNavigator context = input ?? EmptyDocument();
+            XPathNavigator context = input ?? XslCompiledTransform.AbsentInput;
             if (transform.RawResult)
             {
                 IList<XPathItem> items = transform.TransformToItems(context, args, resolver);
@@ -251,7 +513,19 @@ public sealed class Runner
                 transform.Transform(reader, args, bytes, resolver);
                 sw.Write(Decode(bytes.ToArray()));
             }
-            return new RunResult(sw.ToString(), null, messages) { SecondaryResults = secondary };
+            return new RunResult(sw.ToString(), null, messages)
+            {
+                SecondaryResults = secondary,
+                AsXml = () =>
+                {
+                    var xml = new StringWriter();
+                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
+                    {
+                        transform.Transform(context, args, writer, resolver);
+                    }
+                    return xml.ToString();
+                },
+            };
         }
         catch (Exception e) when (e is not OutOfMemoryException and not ThreadAbortException)
         {
@@ -346,8 +620,9 @@ public sealed class Runner
     }
 
     // Source documents are read-only, so one parse serves every test that uses the file (the unicode-90 sets
-    // share a few documents of tens of megabytes).
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, XPathDocument> s_documents = new(StringComparer.Ordinal);
+    // share a few documents of tens of megabytes). They are Xsl3's own tree, as the processor builds for the documents
+    // it loads (it keeps the DTD's IDREF types, for fn:idref).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Xsl3.Tree.CompactDocument> s_documents = new(StringComparer.Ordinal);
 
     private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile)
     {
@@ -357,14 +632,14 @@ public sealed class Runner
         }
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(testSetFile).AbsoluteUri);
-        return new XPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator();
     }
 
-    private static XPathDocument Parse(string file)
+    private static Xsl3.Tree.CompactDocument Parse(string file)
     {
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
         using XmlReader reader = XmlReader.Create(file, settings);
-        return new XPathDocument(reader, XmlSpace.Preserve);
+        return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
     }
 
     // ------------------------------------------------------------ assertions
@@ -414,17 +689,19 @@ public sealed class Runner
                 {
                     string? file = (string?)assertion.Attribute("file");
                     string expected = file != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file)) : assertion.Value;
-                    return XmlEquals(serialized, expected) ? Outcome.Pass() : Outcome.Fail($"assert-xml mismatch: got {Trim(serialized)}");
+                    // assert-xml compares trees: an html serialization is compared as the result written as XML.
+                    return XmlEquals(serialized, expected) || run.AsXml != null && IsHtml(serialized) && XmlEquals(run.AsXml(), expected)
+                        ? Outcome.Pass() : Outcome.Fail($"assert-xml mismatch: got {Trim(serialized)}");
                 }
                 case "assert":
                 {
-                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultDocument(serialized, run.BaseUri);
+                    XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
                     bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
                 case "assert-string-value":
                 {
-                    string actual = ResultDocument(serialized, run.BaseUri).Value, expected = assertion.Value;
+                    string actual = ResultTree(run, serialized).Value, expected = assertion.Value;
                     if ((string?)assertion.Attribute("normalize-space") is not ("false" or "0")) // the default is true
                     {
                         actual = Lexical.Collapse(actual);
@@ -464,7 +741,7 @@ public sealed class Runner
                 case "assert-true":
                 case "assert-false":
                 {
-                    XPathNavigator doc = run.Raw != null ? EmptyDocument() : ResultDocument(serialized, run.BaseUri);
+                    XPathNavigator doc = run.Raw != null ? EmptyDocument() : ResultTree(run, serialized);
                     string text = assertion.Value;
                     string expression = kind switch
                     {
@@ -558,7 +835,10 @@ public sealed class Runner
             e.Attributes().Where(a => !a.IsNamespaceDeclaration).OrderBy(a => a.Name.ToString()).Select(a => new XAttribute(a.Name, a.Value)),
             e.Nodes().Select(n => n is XElement c ? Normalize(c) : n));
 
-    private static string Trim(string s) => s.Length > 160 ? s[..157].ReplaceLineEndings(" ") + "..." : s.ReplaceLineEndings(" ");
+    private static string Trim(string s) => s.Length > TrimLength ? s[..(TrimLength - 3)].ReplaceLineEndings(" ") + "..." : s.ReplaceLineEndings(" ");
+
+    // XSL3_W3C_DETAIL=n shows more of each failure in the report.
+    private static readonly int TrimLength = int.TryParse(Environment.GetEnvironmentVariable("XSL3_W3C_DETAIL"), out int n) ? n : 160;
 
     private static string OneLine(string s) => Trim(s);
 
@@ -570,8 +850,12 @@ public sealed class Runner
         {
             parts.Add($"{x.GetType().Name}: {x.Message}");
         }
+        if (TrimLength > 1000 && e is NullReferenceException or InvalidCastException or IndexOutOfRangeException)
+        {
+            parts.Add(e.StackTrace ?? ""); // (XSL3_W3C_DETAIL above 1000: where an engine bug is)
+        }
         string all = string.Join(" <- ", parts).ReplaceLineEndings(" ");
-        return all.Length > 500 ? all[..497] + "..." : all;
+        return all.Length > Math.Max(500, TrimLength) ? all[..(Math.Max(500, TrimLength) - 3)] + "..." : all;
     }
 
     /// <summary>Maps the URIs an environment gives documents to their files.</summary>

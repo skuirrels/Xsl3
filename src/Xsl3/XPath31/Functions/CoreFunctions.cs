@@ -159,6 +159,8 @@ namespace Xsl3.XPath31.Functions
             Define("fn:error($code as xs:QName?, $description as xs:string) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1])));
             Define("fn:error($code as xs:QName?, $description as xs:string, $error-object as item()*) as item()*", (c, a) => throw ErrorFrom(a[0], S(a[1]), a[2]));
             Define("fn:trace($value as item()*) as item()*", (c, a) => Trace(c, "", a[0]));
+            // F&O 3.1 §16.4.1, with XsltSettings.EnableEvaluate (Xsl3.FnTransform).
+            Define("fn:transform($options as map(*)) as map(*)", (c, a) => Xsl3.FnTransform.Invoke((MapItem)a[0][0], c));
             // XSLT 3.0 §20.4.5
             Define("fn:available-system-properties() as xs:QName*", (c, a) => Xsl3.Runtime.XsltNameContext.SystemProperties
                 .Select(p => (XPathItem)new QNameValue(AtomicTypes.QName, new QName("http://www.w3.org/1999/XSL/Transform", p, "xsl"))).ToList());

@@ -491,10 +491,10 @@ namespace Xsl3.XPath31.Functions
             }
             switch (a, b)
             {
-                case (XdmMap p, XdmMap q):
+                case (MapItem p, MapItem q):
                     // The same keys (op:same-key), with deep-equal values.
                     return p.Count == q.Count && p.Entries.All(e => q.Get(e.Key) is IList<XPathItem> v && Sequences(e.Value, v, c));
-                case (XdmArray p, XdmArray q):
+                case (ArrayItem p, ArrayItem q):
                     if (p.Count != q.Count)
                     {
                         return false;
@@ -507,7 +507,7 @@ namespace Xsl3.XPath31.Functions
                         }
                     }
                     return true;
-                case (XdmFunction, XdmFunction):
+                case (FunctionItem, FunctionItem):
                     throw new XdmException("FOTY0015", "deep-equal can't compare function items");
             }
             return false;

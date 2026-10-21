@@ -1,0 +1,13 @@
+<Project>
+  <!-- Xsl3.Build: stylesheets compiled ahead of time (Sink B, docs/plan/p4-sink-b.md). -->
+  <ItemDefinitionGroup>
+    <XsltStylesheet>
+      <!-- The type XslCompiledTransform.Load(Type) loads; also the saved assembly's name. -->
+      <TypeName>%(Filename)</TypeName>
+      <!-- true: a version="1.0" stylesheet compiles for the 3.0 processor (XsltVersionMode.BackwardsCompatible). -->
+      <BackwardsCompatible>false</BackwardsCompatible>
+      <!-- true: the assembly embeds a portable PDB mapping its code to the stylesheet's lines. -->
+      <DebugInformation>false</DebugInformation>
+    </XsltStylesheet>
+  </ItemDefinitionGroup>
+</Project>

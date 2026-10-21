@@ -59,6 +59,27 @@ namespace Xsl3.Runtime
             set => t_environmentVariables = value;
         }
 
+        // Xsl3: the package library of the running transformation (XslCompiledTransform.Packages), for fn:transform.
+        [System.ThreadStatic]
+        private static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? t_packages;
+
+        internal static System.Collections.Generic.IReadOnlyList<(string Name, string Version, System.Uri Location)>? Packages
+        {
+            get => t_packages;
+            set => t_packages = value;
+        }
+
+        // Xsl3: XsltSettings.EnableEvaluate for the running (or loading) transformation, which allows fn:transform;
+        // null outside one, where fn:transform is refused.
+        [System.ThreadStatic]
+        private static bool? t_dynamicTransforms;
+
+        internal static bool? DynamicTransforms
+        {
+            get => t_dynamicTransforms;
+            set => t_dynamicTransforms = value;
+        }
+
         // Xsl3: XsltSettings.EnableExtensionFunctions for the running transformation; on outside one.
         [System.ThreadStatic]
         private static bool t_noExtensionFunctions;
@@ -139,6 +160,53 @@ namespace Xsl3.Runtime
             System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
             t_cancellation.ThrowIfCancellationRequested();
         }
+
+        /// <summary>Xsl3: the templates and functions running, innermost last (XsltSettings.EnableTracing).</summary>
+        internal readonly System.Collections.Generic.List<XsltFrame> TraceStack = new();
+
+        /// <summary>Xsl3: records the stylesheet stack on an exception leaving the transformation; never handles it.</summary>
+        internal bool AttachStylesheetStack(System.Exception e)
+        {
+            if (e.Data.Contains(XsltDynamicException.StackKey))
+            {
+                return false;
+            }
+            if (TraceStack.Count > 0)
+            {
+                var frames = TraceStack.ToArray();
+                System.Array.Reverse(frames);
+                e.Data[XsltDynamicException.StackKey] = frames;
+            }
+            else if (_frames != null && StackOfMethods(e) is { Length: > 0 } frames)
+            {
+                e.Data[XsltDynamicException.StackKey] = frames;
+            }
+            return false;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<string, int>? _frames;
+
+        /// <summary>
+        /// Xsl3 (4.5): without tracing, the stylesheet stack read from the .NET one: the templates and functions by the
+        /// names of their methods. Frames the JIT inlined or a tail call replaced are missing.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+            Justification = "A frame whose method metadata was trimmed has no method: the stack then leaves it out, as it does inlined frames.")]
+        private XsltFrame[] StackOfMethods(System.Exception e)
+        {
+            var frames = new System.Collections.Generic.List<XsltFrame>();
+            foreach (System.Diagnostics.StackFrame frame in new System.Diagnostics.StackTrace(e, false).GetFrames())
+            {
+                if (frame.GetMethod()?.Name is string name && _frames!.TryGetValue(name, out int id))
+                {
+                    frames.Add((XsltFrame)Xsl3.XPath31.ConstantPool.Get(Constants, id));
+                }
+            }
+            return frames.ToArray();
+        }
+
+        /// <summary>Xsl3: the lines of the instructions in xsl:try bodies being evaluated, innermost last ($err:line-number).</summary>
+        internal readonly System.Collections.Generic.List<int> TryLines = new();
 
         // Xsl3: the nesting of templates and functions, counted when XsltSettings.MaxRecursionDepth is set (SPEC §21.2).
         [System.ThreadStatic]
@@ -227,6 +295,7 @@ namespace Xsl3.Runtime
             IsXslt2 = data.Xslt2;
             UseCompactTree = data.CompactTree;
             Constants = data.Constants;
+            _frames = data.Frames;
             string[]? names = data.Names;
             Int32Pair[]? filters = data.Filters;
             WhitespaceRuleLookup? wsRules;
