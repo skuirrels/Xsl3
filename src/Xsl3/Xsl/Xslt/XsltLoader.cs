@@ -3076,9 +3076,13 @@ namespace Xsl3.Xslt
             var name = new Xsl3.Xdm.QName(var.Name!.NamespaceUri, var.Name.LocalName);
             IList<System.Xml.XPath.XPathItem> value;
             var key = new XmlQualifiedName(var.Name.LocalName, var.Name.NamespaceUri);
+            // The error when the value doesn't match the as type: XTDE0050 for a supplied value, XTDE0700 for a parameter's
+            // implicit default (the empty sequence), else XTTE0590 (static-012, static-013).
+            string conversionCode = "XTTE0590";
             if (var.NodeType == XslNodeType.Param && _compiler.StaticParameters != null && _compiler.StaticParameters.TryGetValue(key, out var supplied))
             {
                 value = supplied;
+                conversionCode = "XTDE0050";
             }
             else if (var.Select != null)
             {
@@ -3106,13 +3110,14 @@ namespace Xsl3.Xslt
             {
                 // Without select: a zero-length string, or the empty sequence when there is an as attribute (§9.3).
                 value = var.V2!.As != null ? System.Array.Empty<System.Xml.XPath.XPathItem>() : Xsl3.Xdm.Sequences.One(Xsl3.Xdm.AtomicValue.OfString(""));
+                conversionCode = var.NodeType == XslNodeType.Param ? "XTDE0700" : conversionCode;
             }
             if (var.V2!.As != null)
             {
                 try
                 {
                     var sc = new Xsl3.XPath31.StaticTypeResolver(p => _input.StaticNamespaces().TryGetValue(p, out string? uri) ? uri : null, _input.XPathDefaultNamespace);
-                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, sc.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(var.V2.As)), "XTTE0590", () => $"${var.Name.QualifiedName}");
+                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, sc.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(var.V2.As)), conversionCode, () => $"${var.Name.QualifiedName}");
                 }
                 catch (Xsl3.Xdm.XdmException e)
                 {
