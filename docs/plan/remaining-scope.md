@@ -495,11 +495,12 @@ validated and otherwise ignored.
 The §22 release plan puts 1.0 after P4 (a basic 3.0 processor, fast), with schema-awareness and streaming
 in 1.x minor releases.
 
-9.1 **Decide what 1.0 means** with the owner. Likely: workstreams 1, 2.2–2.3, 3, 4 and 5 done, and 6–7
-   later. Open questions in §25 still to settle:
-   - 4: a .NET 10-only release, or .NET 8 too, given Sink B needs a .NET 10 build host;
-   - 5: parallelism in 1.0;
-   - 6: the licence and contribution terms.
+9.1 **Decide what 1.0 means** with the owner. Decided (owner, 2026-10-22), with SPEC §25 updated:
+   - 4: .NET 8 and .NET 10, as now; `CompileToAssembly` (Sink B) stays .NET 10-only;
+   - 5: no parallelism in 1.0;
+   - 6: MIT, as upstream, with no further contribution terms;
+   - streaming (P7) after 1.0, in a 1.x release; no SaxonCS comparison for 1.0 (the W3C suites stay the oracle);
+   - the error-code long tail stops at 32 (5.4).
 9.2 **API freeze**: run a public API analyzer (`Microsoft.CodeAnalysis.PublicApiAnalyzers`) from the first
    release candidate. Done for 1.0.0-rc.1 (owner's decision to cut it, 2026-10-21): `src/Xsl3/PublicAPI.Shipped.txt`
    records 955 members, and `PublicAPI/net10.0` the .NET 10-only `CompileToAssembly`.
@@ -532,11 +533,11 @@ A sensible sequence:
 ## Decisions the owner needs to make
 
 1. Whether 1.0 needs Sink C (an interpreter), or ships with `xsl:evaluate` unavailable under NativeAOT.
-2. Which SaxonCS edition to compare against, given its licence (3.1).
+2. Which SaxonCS edition to compare against, given its licence (3.1). *Deferred (owner, 2026-10-22): no SaxonCS work for 1.0.*
 3. The shape of the public 3.0 API (4.1): follow §7.2 as written, or a smaller first version.
 4. XSD 1.1 (6.1): options a, b or c.
 5. XML 1.1 input: declare it unsupported?
-6. §25 questions 4–6: framework floor, parallelism in 1.0, licence and contribution terms.
+6. §25 questions 4–6: framework floor, parallelism in 1.0, licence and contribution terms. *Decided (owner, 2026-10-22): .NET 8 and .NET 10, no parallelism in 1.0, MIT (9.1).*
 
 ## Review and progress (2026-10-21)
 
