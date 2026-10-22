@@ -242,14 +242,16 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             List<int> lines = _runtime.TryLines;
             int mark = lines.Count;
             try
             {
                 return Copy(CallFunction((FunctionItem)tryFunction[0]));
             }
-            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
+            catch (System.Exception e) when (_runtime.CanCatchStreamedValidation(e, sourceMark) && DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
+                _runtime.CloseStreamedSources(sourceMark);
                 _runtime.RestoreOutput(output);
                 int line = lines.Count > mark ? lines[^1] : 0;
                 lines.RemoveRange(mark, lines.Count - mark);
@@ -319,11 +321,12 @@ namespace Xsl3.Runtime
         public bool X31PatternTry(IList<XPathItem> test)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             try
             {
                 return Sequences.EffectiveBooleanValue(CallFunction((FunctionItem)test[0]));
             }
-            catch (System.Exception e) when (DynamicError(e) != null)
+            catch (System.Exception e) when (_runtime.CanCatchStreamedValidation(e, sourceMark) && DynamicError(e) != null)
             {
                 _runtime.RestoreOutput(output);
                 return false;
@@ -338,13 +341,14 @@ namespace Xsl3.Runtime
         public string X31MessageText(IList<XPathItem> body)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             IList<XPathItem> items;
             try
             {
                 items = CallFunction((FunctionItem)body[0]);
             }
             // Errors the stylesheet raises itself (fn:error, a terminating xsl:message, xsl:assert) still end it.
-            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _)
+            catch (System.Exception e) when (_runtime.CanCatchStreamedValidation(e, sourceMark) && DynamicError(e) is (QName code, string description, _)
                 && !(e is XdmException { Name: not null } or XdmException { Code: "FOER0000" } || code.LocalName.StartsWith("XTMM", System.StringComparison.Ordinal)))
             {
                 _runtime.RestoreOutput(output);

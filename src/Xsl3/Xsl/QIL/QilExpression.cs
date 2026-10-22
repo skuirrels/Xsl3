@@ -27,6 +27,9 @@ namespace Xsl3.Qil
         private QilNode _funList;
         private QilNode _rootNod;
 
+        // Forward inputs require a single-pass optimization policy. This is compile-time metadata only.
+        internal bool HasStreamedInputs { get; set; }
+
         /// <summary>
         /// Construct QIL from a rooted graph of QilNodes with a specific factory.
         /// </summary>

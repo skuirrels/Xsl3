@@ -387,12 +387,16 @@ namespace Xsl3.XPath31
         };
 
         private (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? CompiledSignature(QName name, int arity)
+            => CompiledFunctionSignature(name, arity, _types);
+
+        // Xsl3 (P7): analysis and code generation share the same higher-order function signatures.
+        internal static (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? CompiledFunctionSignature(QName name, int arity, StaticTypeResolver resolver)
         {
             if (!s_compiledSignatures.TryGetValue((name.NamespaceUri, name.LocalName, arity), out string[]? types))
             {
                 return null;
             }
-            SequenceTypeTest[] tests = types.Select(t => _types.Resolve(Parser.ParseSequenceType(t))).ToArray();
+            SequenceTypeTest[] tests = types.Select(t => resolver.Resolve(Parser.ParseSequenceType(t))).ToArray();
             return (tests[..^1], tests[^1]);
         }
 

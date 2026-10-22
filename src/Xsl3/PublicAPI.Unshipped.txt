@@ -1,1 +1,9 @@
 #nullable enable
+Xsl3.Runtime.XsltLibrary.X31OpenValidatedStreamedSource(string! href, string! baseUri, string! accumulators, string! validation, string! type, double schemasId) -> System.Xml.XPath.XPathNavigator!
+Xsl3.Runtime.XsltLibrary.X31CloseStreamedSource(System.Xml.XPath.XPathNavigator! source) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31OpenStreamedSource(string! href, string! baseUri, string! accumulators, string! validation, string! type) -> System.Xml.XPath.XPathNavigator!
+Xsl3.XsltStreamabilityMode
+Xsl3.XsltStreamabilityMode.Fallback = 1 -> Xsl3.XsltStreamabilityMode
+Xsl3.XsltStreamabilityMode.Strict = 0 -> Xsl3.XsltStreamabilityMode
+Xsl3.XsltSettings.Streamability.get -> Xsl3.XsltStreamabilityMode
+Xsl3.XsltSettings.Streamability.set -> void

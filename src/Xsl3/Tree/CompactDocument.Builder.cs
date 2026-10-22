@@ -126,7 +126,8 @@ namespace Xsl3.Tree
             internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
             /// <param name="typed">Xsl3 (P6): keep the reader's type annotations even if it has none before it is read (a copy of a typed tree).</param>
-            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false)
+            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false,
+                IEnumerable<KeyValuePair<string, string>>? rootNamespaces = null)
             {
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
@@ -187,6 +188,18 @@ namespace Xsl3.Tree
                                 {
                                     Attribute(reader.Prefix, reader.LocalName, ns, reader.Value);
                                 }
+                            }
+                            if (rootNamespaces != null)
+                            {
+                                // Grounding a streamed subtree must keep in-scope namespaces that
+                                // ReadSubtree does not expose as physical xmlns attributes.
+                                int element = _open[_depth - 1];
+                                var declaredPrefixes = new HashSet<string>(StringComparer.Ordinal) { "xml" };
+                                for (int n = _doc._nsCount - 1; n >= 0 && _doc._nsOwner[n] == element; n--)
+                                    declaredPrefixes.Add(_doc._nsPrefix[n]);
+                                foreach (var ns in rootNamespaces)
+                                    if (declaredPrefixes.Add(ns.Key)) NamespaceDeclaration(ns.Key, ns.Value);
+                                rootNamespaces = null;
                             }
                             if (empty)
                             {

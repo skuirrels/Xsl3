@@ -138,6 +138,7 @@ namespace Xsl3
             }
             finally
             {
+                runtime?.CloseStreamedSources();
                 // Xsl3 (P6): input-type-annotations="strip" lasts as long as the transformation (an enclosing one's stays).
                 Xsl3.Tree.CompactDocument.StripInputAnnotations = stripping;
             }

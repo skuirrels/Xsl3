@@ -43,6 +43,9 @@ namespace Xsl3.XPath31
         /// <summary>The static base URI (XPath 3.1 §2.1.1), or null if absent.</summary>
         public string? BaseUri { get; set; }
 
+        /// <summary>Host compilation may consume forward nodes; do not collect operands before atomizing them.</summary>
+        internal bool ForwardOnly { get; set; }
+
         /// <summary>External variables: their values are supplied to <see cref="XPath31Executable.Evaluate"/>.</summary>
         public List<QName> ExternalVariables { get; } = new();
 
@@ -354,18 +357,19 @@ namespace Xsl3.XPath31
         /// Iterates <paramref name="input"/> with each item as the focus, building the body with <paramref name="body"/>.
         /// last() needs the input bound to a variable; it is only bound when <paramref name="needsLast"/>.
         /// </summary>
-        private (QilIterator Iterator, QilNode Body, QilIterator? Let) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body)
+        private (QilIterator Iterator, QilNode Body, QilIterator? Let) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body, Action? positionUsed = null)
         {
             System.Func<QilNode>? last = null;
             QilIterator? let = null;
             if (needsLast)
             {
+                positionUsed?.Invoke();
                 QilIterator bound = let = _f.Let(input);
                 last = () => _f.XsltConvert(_f.Length(bound), T.DoubleX);
             }
             QilIterator it = _f.For(let ?? input);
             Focus? saved = _focus;
-            _focus = new Focus(it, () => _f.XsltConvert(_f.PositionOf(it), T.DoubleX), last);
+            _focus = new Focus(it, () => { positionUsed?.Invoke(); return _f.XsltConvert(_f.PositionOf(it), T.DoubleX); }, last);
             try
             {
                 QilNode result = body();
@@ -382,12 +386,12 @@ namespace Xsl3.XPath31
         private QilNode WrapLet(QilIterator? let, QilNode loop) => let != null ? _f.Loop(let, loop) : loop;
 
         // Whether an expression calls last() for the focus it is evaluated in.
-        private static bool UsesLast(Expr e) => e switch
+        private bool UsesLast(Expr e) => e switch
         {
-            FunctionCall { Name: { Prefix: null or "fn", LocalName: "last" }, Arguments.Count: 0 } => true,
+            FunctionCall { Name: { LocalName: "last" } name, Arguments.Count: 0 } when _types.Expand(name, _sc.DefaultFunctionNamespace).NamespaceUri == QName.Ns.Fn => true,
             // last#0 keeps the focus it is made in; function-lookup may make it.
-            NamedFunctionRef { Name: { LocalName: "last" } name, Arity: var arity } when arity.IsZero && (name.Prefix is null or "fn" || name.BracedUri == QName.Ns.Fn) => true,
-            FunctionCall { Name: { Prefix: null or "fn", LocalName: "function-lookup" } } => true,
+            NamedFunctionRef { Name: { LocalName: "last" } name, Arity: var arity } when arity.IsZero && _types.Expand(name, _sc.DefaultFunctionNamespace).NamespaceUri == QName.Ns.Fn => true,
+            FunctionCall { Name: { LocalName: "function-lookup" } name } when _types.Expand(name, _sc.DefaultFunctionNamespace).NamespaceUri == QName.Ns.Fn => true,
             DynamicFunctionCall d => UsesLast(d.Function) || d.Arguments.Any(UsesLast),
             // last() inside a nested path step or predicate refers to that inner focus
             PathExpr p => UsesLast(p.Left),
@@ -680,7 +684,16 @@ namespace Xsl3.XPath31
 
         private QilNode Path(PathExpr p)
         {
-            if (IndexedPath(p) is QilNode indexed)
+            if (_sc.ForwardOnly && p.Descendants && p.Right is AxisStep { Axis: Axis.Child } step)
+            {
+                // A//child::N is A/descendant::N. The expanded descendant-or-self/child form would
+                // traverse each streamed ancestor twice. Predicates can follow the rewrite only if their
+                // compiled conditions never use the outer position or size (including numeric predicates).
+                bool positional = false;
+                QilNode candidate = Join(Build(p.Left), () => StepFor(Axis.Descendant, step.Test, step.Predicates, () => positional = true), needsLast: false);
+                if (!positional) return candidate;
+            }
+            if (!_sc.ForwardOnly && IndexedPath(p) is QilNode indexed)
             {
                 return indexed;
             }
@@ -726,12 +739,12 @@ namespace Xsl3.XPath31
             {
                 return null;
             }
-            QilNode site = _f.Double(System.Threading.Interlocked.Increment(ref s_indexSites));
+            int site = System.Threading.Interlocked.Increment(ref s_indexSites);
             QilIterator values = _f.Let(Items(Build(value!)));
             // (The context node: the runtime finds its root, and scans, so that the path raises XPDY0050, when the root
             // isn't a document node.)
             QilIterator root = _f.Let(FocusNode());
-            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, site, root, values));
+            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, _f.Double(site), root, values));
             // One pass over the candidates (the path without its predicate: the predicate doesn't use the position, so
             // filtering them all is filtering each step's), with each one's key values compiled once: kept when a key
             // equals a value (state 0, the path as written), or put in the index being built (state 2).
@@ -743,7 +756,7 @@ namespace Xsl3.XPath31
                     FocusNode(), _f.Sequence());
             });
             QilNode scan = WrapLet(input, _f.Loop(it, body));
-            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, site, root, values);
+            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, _f.Double(site), root, values);
             // The scan unless the index is there; the lookup unless the path is evaluated as written.
             return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Sequence(
                 _f.Conditional(_f.Eq(state, _f.Double(1)), _f.Sequence(), scan),
@@ -774,6 +787,7 @@ namespace Xsl3.XPath31
         {
             var (it, body, input) = WithFocus(Nodes(left, "XPTY0019"), needsLast, right);
             QilNode loop = WrapLet(input, _f.Loop(it, Items(body)));
+            if (_sc.ForwardOnly && AtomicItems(body)) return loop;
             return body.XmlType!.IsNode ? _f.DocOrderDistinct(loop) : Call(nameof(XsltLibrary.X31PathResult), T.ItemS, loop);
         }
 
@@ -808,9 +822,9 @@ namespace Xsl3.XPath31
         };
 
         // E[P]: keeps the items for which P is true, or whose position equals P when P is numeric.
-        private QilNode Predicate(QilNode input, Expr predicate)
+        private QilNode Predicate(QilNode input, Expr predicate, Action? positionUsed = null)
         {
-            var (it, condition, bound) = WithFocus(input, UsesLast(predicate), () => PredicateCondition(predicate));
+            var (it, condition, bound) = WithFocus(input, UsesLast(predicate), () => PredicateCondition(predicate), positionUsed);
             return WrapLet(bound, _f.Filter(it, condition));
         }
 
@@ -826,7 +840,7 @@ namespace Xsl3.XPath31
 
         private QilNode Step(AxisStep step) => StepFor(step.Axis, step.Test, step.Predicates);
 
-        private QilNode StepFor(Axis axis, XPath31.NodeTest test, IReadOnlyList<Expr> predicates)
+        private QilNode StepFor(Axis axis, XPath31.NodeTest test, IReadOnlyList<Expr> predicates, Action? positionUsed = null)
         {
             QilNode context = FocusNode();
             QilNode nodes = axis switch
@@ -847,7 +861,7 @@ namespace Xsl3.XPath31
             nodes = ApplyNodeTest(nodes, axis, test);
             foreach (Expr predicate in predicates)
             {
-                nodes = Predicate(nodes, predicate);
+                nodes = Predicate(nodes, predicate, positionUsed);
             }
             // Reverse axes deliver nodes nearest first, which is what their predicates count; the step's result is
             // in document order.
@@ -1102,6 +1116,11 @@ namespace Xsl3.XPath31
                     case ("count", 1):
                         // A native double is an xs:integer to Items (as positions are).
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
+                    case ("data", 1) when _sc.ForwardOnly:
+                    {
+                        QilIterator item = _f.For(Items(built[0]));
+                        return _f.Loop(item, CallLibrary(call, name, new List<QilNode> { item }));
+                    }
                     case ("sum", 1) when built[0].XmlType!.IsSubtypeOf(T.NodeNotRtfS):
                     {
                         // The nodes' values as a stream of native doubles (no node list to clone), summed in order.
@@ -1180,6 +1199,14 @@ namespace Xsl3.XPath31
         // Xsl3 (P4): calls of library functions declared to return strings (xs:string*, xs:string?, ...), so that the
         // items of what they return are known to be strings. Shared by the compilers of a stylesheet's expressions.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_stringItems = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_atomicItems = new();
+
+        private static bool AtomicItems(QilNode node) => node.XmlType!.IsAtomicValue || node.NodeType switch
+        {
+            QilNodeType.Loop => AtomicItems(node[1]),
+            QilNodeType.Sequence => Enumerable.Range(0, node.Count).All(i => AtomicItems(node[i])),
+            _ => s_atomicItems.TryGetValue(node, out _),
+        };
 
         /// <summary>Whether every item of a sequence is certainly an xs:string (or a string subtype).</summary>
         private static bool StringItems(QilNode n) => n.NodeType switch
@@ -1255,6 +1282,15 @@ namespace Xsl3.XPath31
             {
                 throw new XPathStaticException("XPST0017", $"Unknown function {name.EQName}#{args.Count}", call.Span.Start);
             }
+            if (_sc.ForwardOnly)
+            {
+                for (int i = 0; i < args.Count; i++)
+                    if (def.ParameterType(i).Item is AtomicTypeTest or NumericTest or UnionTypeTest && !AtomicItems(args[i]))
+                    {
+                        QilIterator item = _f.For(args[i]);
+                        args[i] = _f.Loop(item, CallLibrary(call, new QName(QName.Ns.Fn, "data"), new List<QilNode> { item }));
+                    }
+            }
             string method = args.Count switch
             {
                 0 => nameof(XsltLibrary.X31Call0),
@@ -1266,6 +1302,8 @@ namespace Xsl3.XPath31
                 _ => throw NotYetSupported(call, $"Calling {name}#{args.Count}"),
             };
             QilNode result = Call(method, T.ItemS, args.Prepend(StaticId()).Prepend(_f.Double(def.Id)).ToArray());
+            if (_sc.ForwardOnly && def.ReturnType.Item is AtomicTypeTest atomicResult)
+                s_atomicItems.AddOrUpdate(result, atomicResult);
             if (def.ReturnType.Item is AtomicTypeTest { } atomic && atomic.Type.DerivesFrom(AtomicTypes.String))
             {
                 s_stringItems.AddOrUpdate(result, atomic);

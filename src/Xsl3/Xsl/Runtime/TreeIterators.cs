@@ -16,6 +16,7 @@ namespace Xsl3.Runtime
         private XmlNavigatorFilter _filter;
         private XPathNavigator? _navCurrent, _navEnd;
         private bool _hasFirst;
+        private Streaming.StreamedDescendantCursor? _streamed;
 
         /// <summary>
         /// Initialize the DescendantIterator (no possibility of duplicates).
@@ -25,9 +26,10 @@ namespace Xsl3.Runtime
             // Save input node as current node
             _navCurrent = XmlQueryRuntime.SyncToNavigator(_navCurrent, input);
             _filter = filter;
+            _streamed = _navCurrent is Streaming.StreamedNavigator streamed ? new(streamed, filter) : null;
 
             // Position navEnd to the node at which the descendant scan should terminate
-            if (input.NodeType == XPathNodeType.Root)
+            if (_streamed != null || input.NodeType == XPathNodeType.Root)
             {
                 _navEnd = null;
             }
@@ -52,7 +54,7 @@ namespace Xsl3.Runtime
                 _hasFirst = false;
                 return true;
             }
-            return (_filter.MoveToFollowing(_navCurrent!, _navEnd));
+            return _streamed != null ? _streamed.MoveNext() : _filter.MoveToFollowing(_navCurrent!, _navEnd);
         }
 
         /// <summary>
@@ -76,6 +78,7 @@ namespace Xsl3.Runtime
         private XPathNavigator _navCurrent, _navRoot, _navEnd;
         private IteratorState _state;
         private bool _orSelf;
+        private Streaming.StreamedDescendantCursor? _streamed;
 
         private enum IteratorState
         {
@@ -92,6 +95,7 @@ namespace Xsl3.Runtime
             _filter = filter;
             _state = IteratorState.NoPrevious;
             _orSelf = orSelf;
+            _streamed = null;
         }
 
         /// <summary>
@@ -114,8 +118,12 @@ namespace Xsl3.Runtime
                 // Save input node as current node and end of input's tree in navEnd
                 _navCurrent = XmlQueryRuntime.SyncToNavigator(_navCurrent, input);
                 _navRoot = XmlQueryRuntime.SyncToNavigator(_navRoot, input);
-                _navEnd = XmlQueryRuntime.SyncToNavigator(_navEnd, input);
-                _navEnd.MoveToNonDescendant();
+                _streamed = _navCurrent is Streaming.StreamedNavigator streamed ? new(streamed, _filter) : null;
+                if (_streamed == null)
+                {
+                    _navEnd = XmlQueryRuntime.SyncToNavigator(_navEnd, input);
+                    _navEnd.MoveToNonDescendant();
+                }
 
                 _state = IteratorState.NeedDescendant;
 
@@ -124,7 +132,7 @@ namespace Xsl3.Runtime
                     return IteratorResult.HaveCurrentNode;
             }
 
-            if (_filter.MoveToFollowing(_navCurrent, _navEnd))
+            if (_streamed != null ? _streamed.MoveNext() : _filter.MoveToFollowing(_navCurrent, _navEnd))
                 return IteratorResult.HaveCurrentNode;
 
             // No more descendants, so transition to NeedCurrent state and get the next input node

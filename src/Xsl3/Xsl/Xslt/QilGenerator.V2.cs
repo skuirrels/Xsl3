@@ -426,14 +426,17 @@ namespace Xsl3.Xslt
                 case ("copy-of", 0) when _compiler.Settings.SchemaAware:
                 case ("copy-of", 1) when _compiler.Settings.SchemaAware:
                     // Xsl3 (P6): with schemas, the copies keep their type annotations (as validation="preserve").
-                    return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])), _f.True());
+                    return CopyEach31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]),
+                        item => X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, item, _f.True()));
                 case ("copy-of", 0):
                 case ("copy-of", 1):
                     // The copies keep the originals' accumulator values (XSLT 3.0 §20.3.1).
-                    return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0])));
+                    return CopyEach31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]),
+                        item => X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, item));
                 case ("snapshot", 0):
                 case ("snapshot", 1):
-                    return X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]), _f.Boolean(_compiler.Settings.SchemaAware));
+                    return CopyEach31(compile(args.Count == 0 ? new XPath31.ContextItemExpr() : args[0]),
+                        item => X31(nameof(XsltLibrary.X31Snapshot), T.ItemS, item, _f.Boolean(_compiler.Settings.SchemaAware)));
                 case ("function-available", 1):
                 case ("function-available", 2):
                 case ("element-available", 1):
@@ -481,6 +484,7 @@ namespace Xsl3.Xslt
             var sc = new XPathStaticContext
             {
                 BaseUri = StaticBaseUri31(),
+                ForwardOnly = StreamedCompilation31,
                 DefaultElementNamespace = _scope.LookupNamespace(XsltInput.XPathDefaultNamespacePrefix) ?? "",
                 DefaultCollation = _scope.LookupNamespace(XsltInput.DefaultCollationPrefix) ?? Collation.CodepointUri,
                 BackwardsCompatible = _xslVersion == XslVersion.BackwardsCompatible,
@@ -602,6 +606,12 @@ namespace Xsl3.Xslt
 
         // ------------------------------------------------------------ compiling expressions
 
+        // P7's construct pass keeps context-independent syntax on the owning XSL node. The
+        // static context is still supplied here, so one AST can be reassessed without binding it.
+        private XPath31.Expr ParseSourceXPath31(string source, XslNode? owner = null) =>
+            (owner ?? _lastScope)?.V2?.ParsedExpressions is { } parsed && parsed.TryGetValue(source, out XPath31.Expr? assessed)
+                ? assessed : Parser.ParseXPath(source);
+
         /// <summary>An XPath 3.1 expression of a 2.0 instruction, boxed (item*).</summary>
         private QilNode CompileXPath31(string? expr)
         {
@@ -611,7 +621,7 @@ namespace Xsl3.Xslt
             }
             try
             {
-                return XPath31Compiler.CompileEmbedded(Parser.ParseXPath(expr), StaticContext31(), _f, this);
+                return XPath31Compiler.CompileEmbedded(ParseSourceXPath31(expr), StaticContext31(), _f, this);
             }
             catch (XPathStaticException e)
             {
@@ -646,7 +656,11 @@ namespace Xsl3.Xslt
         {
             try
             {
-                XPath31.Expr? ast = Parser.ParseEnclosedExpr(source, pos, out int end);
+                XPath31.Expr? ast;
+                int end;
+                if (_lastScope?.V2?.ParsedValueTemplates is { } parsed && parsed.TryGetValue((source, pos), out var assessed))
+                    (ast, end) = assessed;
+                else ast = Parser.ParseEnclosedExpr(source, pos, out end);
                 pos = end + 1;
                 if (ast == null)
                 {
@@ -709,6 +723,8 @@ namespace Xsl3.Xslt
         /// <summary>The 2.0 compilation of an instruction; null if the 1.0 code applies unchanged.</summary>
         private QilNode? CompileInstructionV2(XslNode node)
         {
+            if (node.V2 is { IsSourceDocument: true, Streamable: TriState.True } && _compiler.Settings.UseStreamedExecution)
+                return WithoutTemplateRule(() => CompileStreamedSource31((XslNodeEx)node));
             switch (node.NodeType)
             {
                 case XslNodeType.Sequence:
@@ -1445,24 +1461,35 @@ namespace Xsl3.Xslt
             {
                 // copy-accumulators="yes" (XSLT 3.0 §18.2.6): the copies are made now and keep the originals'
                 // accumulator values; in a sequence they are the items themselves (copied again only into content).
-                return X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, Box(select));
+                return CopyEach31(select, item => X31(nameof(XsltLibrary.X31CopyWithAccumulators), T.ItemS, item));
             }
             if (node.V2?.Validation == "strip" && _compiler.DefaultValidation == "preserve")
             {
                 // Xsl3 (P6): validation="strip" where the default preserves: untyped copies.
-                return X31(nameof(XsltLibrary.X31CopyStripping), T.ItemS, Box(select), _f.Boolean(node.V2.CopyNamespaces != TriState.False));
+                return CopyEach31(select, item => X31(nameof(XsltLibrary.X31CopyStripping), T.ItemS, item, _f.Boolean(node.V2.CopyNamespaces != TriState.False)));
             }
             if (node.V2?.Validation == "preserve")
             {
                 // Xsl3 (P6): validation="preserve" (XSLT 3.0 §25.4.2): the copies keep their type annotations.
-                return X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, Box(select), _f.Boolean(node.V2.CopyNamespaces != TriState.False));
+                return CopyEach31(select, item => X31(nameof(XsltLibrary.X31CopyPreserving), T.ItemS, item, _f.Boolean(node.V2.CopyNamespaces != TriState.False)));
             }
             if (node.V2?.CopyNamespaces == TriState.False)
             {
                 // copy-namespaces="no": copies with only the namespaces their names need, then copied as usual.
-                select = X31(nameof(XsltLibrary.X31CopyWithoutNamespaces), T.ItemS, Box(select));
+                select = CopyEach31(select, item => X31(nameof(XsltLibrary.X31CopyWithoutNamespaces), T.ItemS, item));
             }
             return CopyItems31(select);
+        }
+
+        private bool StreamedCompilation31 => _compiler.HasStreamableDeclarations && _compiler.Settings.UseStreamedExecution;
+
+        // Copy a forward item before requesting its next sibling. Passing the whole selection to a runtime
+        // helper would collect navigator clones whose content has already passed by the time they are copied.
+        private QilNode CopyEach31(QilNode select, Func<QilNode, QilNode> copy)
+        {
+            if (!StreamedCompilation31) return copy(Box(select));
+            QilIterator item = _f.For(select);
+            return _f.Loop(item, copy(Box(item)));
         }
 
         private QilNode CopyItems31(QilNode select)
@@ -1479,6 +1506,35 @@ namespace Xsl3.Xslt
                     _f.TypeAssert(it, T.AnyAtomicType)
                 )
             );
+        }
+
+        private bool _streamedInputs31;
+
+        private QilNode CompileStreamedSource31(XslNodeEx node)
+        {
+            _streamedInputs31 = true;
+            if (_compiler.StreamabilityResults == null || !_compiler.StreamabilityResults.TryGetValue(node, out Streaming.StreamabilityVerdict? verdict) || !verdict.Guaranteed)
+                return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("streaming-unimplemented"),
+                    _f.String("Strict streamed execution cannot run a source-document using tree fallback"));
+
+            XslNodeV2 data = node.V2!;
+            var args = new List<QilNode> {
+                CompileStringAvt(data.SourceHref!)!, _f.String(StaticBaseUri31() ?? ""),
+                _f.String(data.SourceAccumulators ?? ""), _f.String(data.SourceValidation ?? ""),
+                _f.String(data.SourceType == null ? "" : $"Q{{{data.SourceType.Namespace}}}{data.SourceType.Name}") };
+            bool validating = data.SourceValidation is "strict" or "lax" || data.SourceType != null;
+            if (validating) args.Add(_f.Double(SchemasId31()));
+            QilIterator source = _f.For(X31(validating ? nameof(XsltLibrary.X31OpenValidatedStreamedSource) : nameof(XsltLibrary.X31OpenStreamedSource), T.NodeNotRtf, args.ToArray()));
+            LoopFocus saved = _curLoop;
+            _curLoop.SetFocus(source);
+            int variables = _varHelper.StartVariables();
+            QilNode body = WrapLoopBody(node.ElemNameLi, CompileInstructions(node.Content), node.EndTagLi);
+            body = AddCurrentPositionLast(body);
+            body = _f.Sequence(body, X31(nameof(XsltLibrary.X31CloseStreamedSource), T.ItemS, source));
+            body = _curLoop.ConstructLoop(body);
+            body = _varHelper.FinishVariables(body, variables);
+            _curLoop = saved;
+            return body;
         }
 
         private QilNode CompileForEach31(XslNodeEx node)
@@ -2504,8 +2560,7 @@ namespace Xsl3.Xslt
         /// </summary>
         private QilNode Traced31(QilNode body, XmlQueryType type, int frame)
         {
-            QilNode id = _f.Double(frame);
-            return _f.TypeAssert(_f.Sequence(X31(nameof(XsltLibrary.X31TraceEnter), T.ItemS, id), Box(body), X31(nameof(XsltLibrary.X31TraceLeave), T.ItemS, id)), type);
+            return _f.TypeAssert(_f.Sequence(X31(nameof(XsltLibrary.X31TraceEnter), T.ItemS, _f.Double(frame)), Box(body), X31(nameof(XsltLibrary.X31TraceLeave), T.ItemS, _f.Double(frame))), type);
         }
 
         // The frame of each template and function: without tracing, the stylesheet stack of a dynamic error is read from
@@ -3073,7 +3128,7 @@ namespace Xsl3.Xslt
                 XPath31.Expr ast;
                 try
                 {
-                    ast = Parser.ParseXPath(match);
+                    ast = ParseSourceXPath31(match, template);
                 }
                 catch (XPathStaticException)
                 {
@@ -3172,7 +3227,7 @@ namespace Xsl3.Xslt
             _currentMatch = NoMatch31;
             try
             {
-                XPath31.Expr ast = Parser.ParseXPath(pattern);
+                XPath31.Expr ast = ParseSourceXPath31(pattern);
                 if (_strictPattern31 != null)
                 {
                     ast = StrictPattern31(ast, lax: _strictPattern31 == "lax");
@@ -3980,6 +4035,7 @@ namespace Xsl3.Xslt
                 function.Function!.Definition = _compiler.Settings.EnableTracing
                     ? Traced31(prologue ?? result, T.ItemS, frame)
                     : prologue ?? result;
+                Streaming.StreamabilityVerdict.Attach(_compiler, function, function.Function);
                 _noFocus = savedNoFocus;
                 _temporaryOutput31--;
                 ExitScope();

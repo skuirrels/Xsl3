@@ -28,6 +28,9 @@ public sealed partial class Runner
 
     private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
     {
+        /// <summary>P7: analysis-only tests have no stylesheet or principal result.</summary>
+        public IReadOnlyList<AssessedExpression>? StreamabilityResults { get; init; }
+
         public Dictionary<string, StringWriter> SecondaryResults { get; init; } = new();
 
         /// <summary>The raw result sequence, when the test takes it (an initial function's result): what $result is bound to.</summary>
@@ -295,6 +298,10 @@ public sealed partial class Runner
 
     private Outcome RunCore(TestCase test)
     {
+        if (test.TestElement.Element(Catalog.Ns + "posture-and-sweep") is { } analysis)
+        {
+            return RunPostureAndSweep(test, analysis);
+        }
         IReadOnlyList<TestEnvironment?> environments = test.Environments;
         if (environments.Any(e => e == null))
         {
@@ -763,6 +770,7 @@ public sealed partial class Runner
             {
                 var details = new List<string>();
                 Outcome? otherCode = null;
+                Outcome? unsupported = null;
                 foreach (XElement a in assertion.Elements())
                 {
                     Outcome o = Check(test, a, run);
@@ -773,12 +781,18 @@ public sealed partial class Runner
                         continue;
                     }
                     if (o.Kind == OutcomeKind.Pass) return o;
+                    if (o.Kind == OutcomeKind.NotRun) unsupported ??= o;
                     details.Add(o.Detail);
                 }
-                return otherCode ?? Outcome.Fail(string.Join(" | ", details));
+                return otherCode ?? unsupported ?? Outcome.Fail(string.Join(" | ", details));
             }
             case "not":
-                return Check(test, assertion.Elements().Single(), run).Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
+            {
+                Outcome outcome = Check(test, assertion.Elements().Single(), run);
+                // An unsupported analysis is still a gap when the assertion is negated.
+                return outcome.Kind == OutcomeKind.NotRun ? outcome
+                    : outcome.Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
+            }
             case "error":
             case "assert-serialization-error":
             {
@@ -913,7 +927,7 @@ public sealed partial class Runner
                     // Warnings aren't reported through the API; the test's other assertions decide.
                     return Outcome.Pass();
                 case "assert-posture-and-sweep":
-                    return Outcome.NotRun("streamability (P7)");
+                    return CheckPostureAndSweep(assertion, run.StreamabilityResults);
                 default:
                     return Outcome.Fail($"assertion {kind} not supported by the runner");
             }

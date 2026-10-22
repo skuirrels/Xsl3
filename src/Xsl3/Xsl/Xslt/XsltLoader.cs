@@ -1686,15 +1686,13 @@ namespace Xsl3.Xslt
         private readonly XsltAttribute[] _attributeSetAttributes = {
             new XsltAttribute("name",               V1Req | V2Req),
             new XsltAttribute("use-attribute-sets", V1Opt | V2Opt),
-            new XsltAttribute("streamable",         V2Opt), // Xsl3: XSLT 3.0 (no streaming: only validated)
+            new XsltAttribute("streamable",         V2Opt), // Xsl3: XSLT 3.0
         };
         private void LoadAttributeSet(NsDecl? stylesheetNsList)
         {
             ContextInfo ctxInfo = _input.GetAttributes(_attributeSetAttributes);
-            if (V2)
-            {
-                ParseYesNoAttribute(2, "streamable");
-            }
+            TriState streamable = V2 ? ParseYesNoAttribute(2, "streamable") : TriState.Unknown;
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             ctxInfo.nsList = MergeNamespaces(ctxInfo.nsList, stylesheetNsList);
 
             QilName? setName = ParseQNameAttribute(0);
@@ -1760,7 +1758,9 @@ namespace Xsl3.Xslt
                     }
                 } while (_input.MoveToNextSibling());
             }
-            set.AddContent(SetInfo(F.List(), LoadEndTag(content), ctxInfo));
+            XslNode declaration = F.List();
+            if (V2) declaration.V2 = new XslNodeV2 { Streamable = streamable };
+            set.AddContent(SetInfo(declaration, LoadEndTag(content), ctxInfo));
         }
 
         private void LoadGlobalVariableOrParameter(NsDecl? stylesheetNsList)
@@ -2263,7 +2263,9 @@ namespace Xsl3.Xslt
                 string single = $"let $Q{{urn:xsl3}}copy := ({select}) return if (count($Q{{urn:xsl3}}copy) gt 1) " +
                     "then error(QName('http://www.w3.org/2005/xqt-errors', 'XTTE3180'), 'The select expression of xsl:copy gives more than one item') " +
                     "else $Q{urn:xsl3}copy";
-                return SetInfo(F.ForEach(single, ctxInfo, _input.XslVersion), new List<XslNode> { copy }, ctxInfo);
+                XslNode selectedCopy = F.ForEach(single, ctxInfo, _input.XslVersion);
+                selectedCopy.V2 = new XslNodeV2 { CopySelect = select };
+                return SetInfo(selectedCopy, new List<XslNode> { copy }, ctxInfo);
             }
             return copy;
         }

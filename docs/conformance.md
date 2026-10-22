@@ -129,6 +129,7 @@ has the history.
 | 2026-10-22 | 8,842 | 25 | 42 | 99.7% | Of two schemas for one namespace, the higher import precedence's components win; stripped copies keep is-idrefs; a validated copy-accumulators copy takes its original's values. Schema-aware tests: 840 passed, 4 failed (99.5%) |
 | 2026-10-22 | 8,843 | 24 | 42 | 99.7% | A validated xsl:result-document with an item-separator is built as a tree with the separators between its items, then validated (validation-0214). Expected errors without a matching code: 68, from 218 |
 | 2026-10-22 | 8,844 | 23 | 42 | 99.7% | The W3C runner checks typed assertions on result documents against their typed trees (si-result-document-116). Schema-aware tests: 842 passed, 2 failed. Expected errors without a matching code: 32 |
+| 2026-10-22 | 8,845 | 22 | 42 | 99.8% | Attribute and namespace snapshots keep shallow parents, matching the revised specification implementation (snapshot-0102a). Only that verified fixed case was removed from the baseline; no new failure IDs were added. Expected errors without a matching code: 32 |
 
 ### P5 exit sets
 
@@ -147,3 +148,27 @@ claimed. Measured on 2026-10-20 (Release, .NET 10):
 The three failures at P5's exit: `<a />` rather than `<a/>` (output-0285, -0311, recorded as implementation-defined
 in docs/divergences.md) and the xhtml default method on the direct result path (output-0130, fixed since).
 
+## P7 development: static streamability analysis
+
+Measured 2026-10-22, Release, .NET 10: the analysis-only `sandp` profile runs 919 cases containing 66,643 XPath
+expressions. 790 cases pass and 129 fail (86.0%); each case stops at its first mismatch. The failures comprise
+99 old attribute/namespace posture expectations, 22 expectations involving statically empty paths, and eight cases
+with no expressions. [The streaming plan](plan/p7-streaming.md#s1-first-increment) records examples and the
+Recommendation's rules. All failures remain visible in `baselines/xslt30-run-sandp.txt`; CI checks that baseline
+and independently requires zero cases not run. Expressions are assessed before assertions, so malformed or
+unsupported input cannot become a pass through assertion negation.
+
+The hook now covers all parser expression forms and all registered built-ins, with focused unit tests beyond the
+suite's axis/path cases: operand usages and choices, bindings and closures, predicates, dynamic calls, maps/arrays,
+schema types, and explicit host context. See [S1 progress](plan/p7-streaming.md#s1-expression-rules).
+
+This is internal expression analysis, not streamed execution or the S1 exit. The normal 3.0 profile still
+does not claim `streaming` or `sweep_and_posture`. `XSL3_XSLT30_PROFILE=strm` runs streaming-dependent transformations
+unstreamed, with its own report and baseline. Neither development profile changes the normal conformance baseline.
+
+S2 now checks declared-streamable components and reachable source documents during compilation.
+`XsltSettings.Streamability` defaults to `Strict` (XTSE3430), with explicit `Fallback` for tree execution.
+The unstreamed development profile is 2,681 passed, 30 failed and one not run (98.9% of those run),
+with no newly failing IDs against the previous profile. The baseline removes only 135 verified fixes.
+Two expected XTSE3430 cases remain under investigation; this does not close S2's exact-code gate or
+claim streamed execution. See [S2 compiler enforcement](plan/p7-streaming.md#s2-compiler-enforcement).

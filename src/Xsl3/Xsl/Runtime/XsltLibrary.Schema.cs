@@ -34,9 +34,7 @@ namespace Xsl3.Runtime
                 if (node.NodeType is XPathNodeType.Element or XPathNodeType.Root)
                 {
                     // The copy keeps its original's accumulator values (as fn:copy-of's does, XSLT 3.0 §20.3.1).
-                    XPathNavigator root = copy.Clone();
-                    root.MoveToRoot();
-                    (_accumulatorCopies ??= new())[_runtime.GenerateId(root)] = (copy.Clone(), node.Clone());
+                    (_accumulatorCopies ??= new()).Set(copy, node);
                 }
                 result[i] = copy;
             }
@@ -122,9 +120,7 @@ namespace Xsl3.Runtime
                     }
                     return annotated;
                 }
-                schemaType = name.Namespace == XmlSchema.Namespace
-                    ? (name.Name == "anyType" ? SchemaTypes.AnyType : XmlSchemaType.GetBuiltInSimpleType(name))
-                    : schemas.GlobalTypes[name] as XmlSchemaType;
+                schemaType = FindValidationType(schemas, name);
             }
             var result = new XPathItem[items.Count];
             for (int i = 0; i < result.Length; i++)
@@ -145,16 +141,17 @@ namespace Xsl3.Runtime
                     // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.
                     XPathNavigator root = ((XPathNavigator)items[i]).Clone();
                     root.MoveToRoot();
-                    if (_accumulatorCopies.TryGetValue(_runtime.GenerateId(root), out var copied) && Original((XPathNavigator)items[i], copied.Top, copied.Original) is XPathNavigator original)
+                    if (_accumulatorCopies.TryGet(root, out var copied) && Original((XPathNavigator)items[i], copied.Top, copied.Original) is XPathNavigator original)
                     {
-                        XPathNavigator validatedRoot = ((XPathNavigator)result[i]).Clone();
-                        validatedRoot.MoveToRoot();
-                        _accumulatorCopies[_runtime.GenerateId(validatedRoot)] = (((XPathNavigator)result[i]).Clone(), original.Clone());
-                        (_validatedAccumulatorCopies ??= new HashSet<string>(System.StringComparer.Ordinal)).Add(_runtime.GenerateId(validatedRoot));
+                        _accumulatorCopies.Set((XPathNavigator)result[i], original, validated: true);
                     }
                 }
             }
             return result;
         }
+
+        private static XmlSchemaType? FindValidationType(XmlSchemaSet schemas, XmlQualifiedName name) => name.Namespace == XmlSchema.Namespace
+            ? name.Name == "anyType" ? SchemaTypes.AnyType : name.Name == "untypedAtomic" ? SchemaTypes.UntypedAtomic : XmlSchemaType.GetBuiltInSimpleType(name)
+            : schemas.GlobalTypes[name] as XmlSchemaType;
     }
 }

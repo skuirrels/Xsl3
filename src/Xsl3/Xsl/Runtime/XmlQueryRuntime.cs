@@ -27,6 +27,44 @@ namespace Xsl3.Runtime
     [EditorBrowsable(EditorBrowsableState.Never)]
     public sealed class XmlQueryRuntime
     {
+        private List<Streaming.StreamedDocument>? _streamedSources;
+
+        internal void RegisterStreamedSource(Streaming.StreamedDocument document) => (_streamedSources ??= new()).Add(document);
+
+        internal void CloseStreamedSource(Streaming.StreamedDocument document)
+        {
+            _streamedSources?.Remove(document);
+            document.Dispose();
+        }
+
+        internal int StreamedSourceMark => _streamedSources?.Count ?? 0;
+
+        internal bool CanCatchStreamedValidation(Exception error, int sourceMark)
+        {
+            for (Exception? current = error; current != null; current = current.InnerException)
+                if (current is Xdm.XdmException { ValidationSource: { } source } && _streamedSources != null)
+                {
+                    int index = _streamedSources.IndexOf(source);
+                    if (index >= 0 && index < sourceMark) return false;
+                }
+            return true;
+        }
+
+        internal void CloseStreamedSources(int mark = 0)
+        {
+            if (_streamedSources == null) return;
+            // Close every source, including when a provider's Close throws. The execution finally block
+            // preserves the primary transformation error; normal source exits report Close errors directly.
+            while (_streamedSources.Count > mark)
+            {
+                int index = _streamedSources.Count - 1;
+                Streaming.StreamedDocument document = _streamedSources[index];
+                _streamedSources.RemoveAt(index);
+                try { document.Dispose(); }
+                catch (Exception e) when (XmlException.IsCatchableException(e)) { }
+            }
+        }
+
         // Xsl3: cancellation of a running transformation (SPEC §21.1). Checked, with the stack, at every template and
         // function entry; set for the current thread by the API that runs the transformation.
         [System.ThreadStatic]

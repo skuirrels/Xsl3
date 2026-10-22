@@ -14,6 +14,7 @@ namespace Xsl3.IlGen
     internal sealed class XmlILOptimizerVisitor : QilPatternVisitor
     {
         private static readonly QilPatterns s_patternsNoOpt = CreatePatternsNoOpt();
+        private static readonly QilPatterns s_patternsStreamed = CreatePatternsStreamed();
 
         // Enable all normalizations and annotations for Release code
         // Enable all patterns for Release code
@@ -26,7 +27,7 @@ namespace Xsl3.IlGen
         private readonly NodeCounter _nodeCounter = new NodeCounter();
         private readonly SubstitutionList _subs = new SubstitutionList();
 
-        private static QilPatterns CreatePatternsNoOpt()
+        private static QilPatterns CreatePatternsNoOpt(bool indexes = true)
         {
             // Only enable Required and OptimizedConstruction pattern groups
             // Only enable Required patterns
@@ -53,16 +54,41 @@ namespace Xsl3.IlGen
             patterns.Add((int)XmlILOptimization.AnnotateDod);
             patterns.Add((int)XmlILOptimization.AnnotateConstruction);
 
-            // Enable indexes in debug mode
-            patterns.Add((int)XmlILOptimization.AnnotateIndex1);
-            patterns.Add((int)XmlILOptimization.AnnotateIndex2);
+            // Enable indexes in debug mode, but never build them over forward inputs.
+            if (indexes)
+            {
+                patterns.Add((int)XmlILOptimization.AnnotateIndex1);
+                patterns.Add((int)XmlILOptimization.AnnotateIndex2);
+            }
             patterns.Add((int)XmlILOptimization.AnnotateBarrier);
             patterns.Add((int)XmlILOptimization.AnnotateFilter);
 
             return patterns;
         }
 
-        public XmlILOptimizerVisitor(QilExpression qil, bool optimize) : base(optimize ? s_patternsOpt : s_patternsNoOpt, qil.Factory)
+        private static QilPatterns CreatePatternsStreamed()
+        {
+            // Retain construction analysis and safe removal of redundant ordering. Do not inline, hoist,
+            // duplicate, or cache expressions that can share the reader's advancing cursor.
+            QilPatterns patterns = CreatePatternsNoOpt(indexes: false);
+            patterns.Add((int)XmlILOptimization.EliminateDod);
+            // Axis and loop facts let the ordering pass recognize forward paths as already ordered.
+            // Without these annotations, DocOrderDistinct buffers even a simple child path.
+            foreach (XmlILOptimization annotation in new[]
+            {
+                XmlILOptimization.AnnotateContent, XmlILOptimization.AnnotateContentLoop,
+                XmlILOptimization.AnnotateDescendant, XmlILOptimization.AnnotateDescendantSelf,
+                XmlILOptimization.AnnotateDescendantLoop, XmlILOptimization.AnnotateAttribute,
+                XmlILOptimization.AnnotateNamespace, XmlILOptimization.AnnotateAttrNmspLoop,
+                XmlILOptimization.AnnotateParent, XmlILOptimization.AnnotateRoot,
+                XmlILOptimization.AnnotateRootLoop, XmlILOptimization.AnnotateLet,
+                XmlILOptimization.AnnotateSingletonLoop,
+                XmlILOptimization.AnnotateFilterElements, XmlILOptimization.AnnotateFilterContentKind,
+            }) patterns.Add((int)annotation);
+            return patterns;
+        }
+
+        public XmlILOptimizerVisitor(QilExpression qil, bool optimize) : base(qil.HasStreamedInputs ? s_patternsStreamed : optimize ? s_patternsOpt : s_patternsNoOpt, qil.Factory)
         {
             _qil = qil;
             _elemAnalyzer = new XmlILElementAnalyzer(qil.Factory);
@@ -75,12 +101,18 @@ namespace Xsl3.IlGen
         /// </summary>
         public QilExpression Optimize()
         {
+#if DEBUG
+            Streaming.StreamedQilVerifier? streamed = _qil.HasStreamedInputs ? Streaming.StreamedQilVerifier.Capture(_qil) : null;
+#endif
             QilExpression qil = (QilExpression)Visit(_qil);
 
             // Perform tail-call analysis on all functions within the Qil expression
             if (this[XmlILOptimization.TailCall])
                 TailCallAnalyzer.Analyze(qil);
 
+#if DEBUG
+            streamed?.Verify(qil);
+#endif
             return qil;
         }
 

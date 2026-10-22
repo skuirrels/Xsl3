@@ -360,6 +360,12 @@ namespace Xsl3.Xslt
         {
             static string Norm(string? type) => type == null ? "" : string.Concat(type.Where(c => !char.IsWhiteSpace(c)));
             bool SameType(string? x, string? y) => Norm(x) == Norm(y) || SameUnions(Norm(x), Norm(y), schemas);
+            if (kind == 'A')
+            {
+                // §3.5.3.3: an override must preserve a streamable attribute set's contract.
+                return !original.Content.Any(d => d.V2?.Streamable == TriState.True)
+                    || o.Content.All(d => d.V2?.Streamable == TriState.True);
+            }
             if (kind == 'V' || kind == 'F' || kind == 'T')
             {
                 if (!SameType(o.V2?.As, original.V2?.As))
@@ -373,9 +379,12 @@ namespace Xsl3.Xslt
                 var b = original.Content.OfType<VarPar>().Where(v => v.NodeType == XslNodeType.Param).ToList();
                 if (kind == 'F')
                 {
-                    // The same parameter types, and the same determinism (new-each-time).
+                    // §19.8.5 also requires the same streamability category. Compare extension
+                    // categories by expanded name, so different prefixes for one URI are compatible.
+                    static XmlQualifiedName Category(XslNode node) => node.V2?.StreamabilityName
+                        ?? new XmlQualifiedName(node.V2?.StreamabilityCategory ?? "unclassified");
                     return a.Count == b.Count && a.Zip(b).All(x => SameType(x.First.V2?.As, x.Second.V2?.As)) &&
-                        (o.V2?.NewEachTime ?? "maybe") == (original.V2?.NewEachTime ?? "maybe");
+                        (o.V2?.NewEachTime ?? "maybe") == (original.V2?.NewEachTime ?? "maybe") && Category(o).Equals(Category(original));
                 }
                 // Templates: the overridden template's non-tunnel parameters, by name and type; others not required.
                 VarPar? Same(VarPar q) => a.FirstOrDefault(x => x.Name!.LocalName == q.Name!.LocalName && Demangle(x.Name.NamespaceUri).Ns == Demangle(q.Name.NamespaceUri).Ns);

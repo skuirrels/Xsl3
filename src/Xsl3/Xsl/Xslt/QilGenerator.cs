@@ -241,6 +241,9 @@ namespace Xsl3.Xslt
 
             QilExpression qil = _f.QilExpression(root, _f.BaseFactory);
             {
+                qil.HasStreamedInputs = _streamedInputs31;
+                if (compiler.StreamabilityResults is { Count: > 0 } streamability)
+                    qil.Annotation = streamability.Values.Cast<object>().ToList();
                 qil.EarlyBoundTypes = ebTypes;
                 qil.FunctionList = _functions;
                 qil.GlobalParameterList = _extPars;
@@ -933,6 +936,7 @@ namespace Xsl3.Xslt
                 }
             }
             tmpl.Function.Definition = body;
+            Streaming.StreamabilityVerdict.Attach(_compiler, tmpl, tmpl.Function);
             _currentTemplateRule = null;
             _currentTunnel = null;
             // tmpl.Function.Definition = AddCurrentPositionLast(tmpl.Function.Definition); We don't mask Cur,Pos,Last parameters with Cur,Pos,Last wariables any more
@@ -1023,6 +1027,8 @@ namespace Xsl3.Xslt
 
                 ExitScope();
                 Debug.Assert(result != null, "Result of compilation should not be null");
+                if (node.V2?.IsSourceDocument == true)
+                    Streaming.StreamabilityVerdict.Attach(_compiler, node, result);
                 if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
                 {
                     result = Validate31(result, validated, copy: nodeType is XslNodeType.Copy or XslNodeType.CopyOf, attribute: nodeType == XslNodeType.Attribute);
