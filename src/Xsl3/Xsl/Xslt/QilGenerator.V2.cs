@@ -743,7 +743,15 @@ namespace Xsl3.Xslt
                     QilNode qilName = CompileStringAvt(node.Select!);
                     if (qilName.NodeType == QilNodeType.LiteralString)
                     {
-                        Compiler.ValidatePiName((string)(QilLiteral)qilName, (IErrorHelper)this);
+                        // A fixed name that isn't an NCName, or xml, is XTDE0890 (reported statically).
+                        try
+                        {
+                            ValidateNames.ValidateNameThrow(string.Empty, (string)(QilLiteral)qilName, string.Empty, System.Xml.XPath.XPathNodeType.ProcessingInstruction, ValidateNames.Flags.AllExceptPrefixMapping);
+                        }
+                        catch (XmlException e)
+                        {
+                            ReportError(SR.Xml_UserException, "XTDE0890: " + e.Message);
+                        }
                     }
                     return _f.PICtor(qilName, _f.TextCtor(SimpleContent31(SelectOrContent31(node, node.V2?.Select), _f.String(" "))));
                 }
