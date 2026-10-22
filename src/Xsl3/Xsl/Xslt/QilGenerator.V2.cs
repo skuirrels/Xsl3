@@ -3415,6 +3415,11 @@ namespace Xsl3.Xslt
 
         private QilNode CompileKey31(QilNode name, QilNode values, QilNode top, bool subtree)
         {
+            if (name is QilLiteral { NodeType: QilNodeType.LiteralString } literal && KeyUsesItself31((string)literal))
+            {
+                // The key's match or use pattern calls key() with its own name: its index can't be built (XTDE0640).
+                return _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0640"), _f.String($"The definition of the key {(string)literal} depends on itself")), T.NodeNotRtfS);
+            }
             // key() may use its context node and name once per key definition: they are shared through Lets.
             QilIterator context = _f.Let(Node31(top, "XTDE1270"));
             QilIterator? nameLet = name.NodeType == QilNodeType.LiteralString ? null : _f.Let(name);
@@ -3440,6 +3445,24 @@ namespace Xsl3.Xslt
             result = _f.Conditional(_f.IsType(_f.Root(context), T.Document), result,
                 _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1270"), _f.String("key(): the tree is not rooted at a document node")), T.NodeNotRtfS));
             return _f.Loop(context, nameLet != null ? _f.Loop(nameLet, result) : result);
+        }
+
+        // Whether a key's match or use calls key() with the key's own (lexical) name (error-0640a).
+        private bool KeyUsesItself31(string lexical)
+        {
+            var pattern = new System.Text.RegularExpressions.Regex(@"\bkey\s*\(\s*['""]" + System.Text.RegularExpressions.Regex.Escape(lexical.Trim()) + @"['""]");
+            foreach (List<Key> keys in _compiler.Keys)
+            {
+                foreach (Key key in keys)
+                {
+                    if (key.Name!.LocalName == (lexical.Contains(':') ? lexical[(lexical.IndexOf(':') + 1)..].Trim() : lexical.Trim()) &&
+                        (key.Match != null && pattern.IsMatch(key.Match) || key.Use != null && pattern.IsMatch(key.Use)))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         // An IFocus with a fixed current node (key()'s context).
