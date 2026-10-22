@@ -229,14 +229,15 @@ namespace Xsl3.Xslt
                         continue;
                     }
                     if (!q.Visible.TryGetValue((o.Kind, o.Ns, o.Local, o.Arity), out PackageComponent? original) ||
-                        original.Visibility is "private" or "hidden")
+                        original.Visibility == "hidden")
                     {
                         Error(o.Decl.SourceLine, $"XTSE3058: xsl:override declares {o.Local}, which the used package doesn't make visible");
                         continue;
                     }
-                    if (original.Visibility == "final")
+                    if (original.Visibility is "final" or "private")
                     {
-                        Error(o.Decl.SourceLine, $"XTSE3060: {o.Local} is final in the used package and can't be overridden");
+                        // Only public and abstract components can be overridden (XTSE3060; override-t-010).
+                        Error(o.Decl.SourceLine, $"XTSE3060: {o.Local} is {original.Visibility} in the used package and can't be overridden");
                         continue;
                     }
                     if (original.Declaration != null && !SameSignature(o.Kind, o.Decl, original.Declaration, compiler.Schemas))
