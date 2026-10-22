@@ -128,6 +128,7 @@ has the history.
 | 2026-10-22 | 8,839 | 28 | 42 | 99.7% | An element validated with `type="xs:untypedAtomic"` is annotated `xs:untypedAtomic`. Schema-aware tests: 837 passed, 7 failed (99.2%) |
 | 2026-10-22 | 8,842 | 25 | 42 | 99.7% | Of two schemas for one namespace, the higher import precedence's components win; stripped copies keep is-idrefs; a validated copy-accumulators copy takes its original's values. Schema-aware tests: 840 passed, 4 failed (99.5%) |
 | 2026-10-22 | 8,843 | 24 | 42 | 99.7% | A validated xsl:result-document with an item-separator is built as a tree with the separators between its items, then validated (validation-0214). Expected errors without a matching code: 68, from 218 |
+| 2026-10-22 | 8,844 | 23 | 42 | 99.7% | The W3C runner checks typed assertions on result documents against their typed trees (si-result-document-116). Schema-aware tests: 842 passed, 2 failed. Expected errors without a matching code: 32 |
 
 ### P5 exit sets
 

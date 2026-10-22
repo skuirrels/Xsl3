@@ -13,7 +13,6 @@ namespace-alias/namespace-alias-1903
 namespace/namespace-2001
 namespace/namespace-2614
 namespace/namespace-2615
-si-result-document/si-result-document-116
 snapshot/snapshot-0102a
 static/static-013c
 streamable/streamable-141

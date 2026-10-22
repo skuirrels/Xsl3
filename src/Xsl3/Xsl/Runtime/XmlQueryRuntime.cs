@@ -127,6 +127,17 @@ namespace Xsl3.Runtime
             set => t_resultDocuments = value;
         }
 
+        // Xsl3: given each secondary result's tree (with its type annotations) as it is written, by its absolute URI;
+        // for the W3C test runner's assertions on typed result documents (si-result-document-116). Not public.
+        [System.ThreadStatic]
+        private static System.Action<string, XPathNavigator>? t_resultTrees;
+
+        internal static System.Action<string, XPathNavigator>? ResultTreeHandler
+        {
+            get => t_resultTrees;
+            set => t_resultTrees = value;
+        }
+
         // Xsl3: the base output URI (XSLT 3.0 §2.3.6): what secondary results' href resolves against and what
         // current-output-uri() returns for the principal result. Null: absent.
         [System.ThreadStatic]

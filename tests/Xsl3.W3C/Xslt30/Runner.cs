@@ -365,12 +365,19 @@ public sealed partial class Runner
             : new XmlQualifiedName(value[(colon + 1)..], element!.GetNamespaceOfPrefix(value[..colon])?.NamespaceName ?? "");
     }
 
+    // The result documents' trees of the run on this thread, by URI.
+    [ThreadStatic]
+    private static Dictionary<string, XPathNavigator>? t_resultTrees;
+
     private RunResult Execute(TestCase test, List<TestEnvironment> envs, string stylesheet, XmlQualifiedName? initialTemplate, XmlQualifiedName? initialMode,
         List<TestEnvironment.Param> parameters, XElement? initialFunction)
     {
         var messages = new List<string>();
         var secondary = new Dictionary<string, StringWriter>(StringComparer.Ordinal);
         Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new Utf8StringWriter();
+        // The result documents' trees, typed (schema-aware assertions on them: si-result-document-116).
+        t_resultTrees = new Dictionary<string, XPathNavigator>(StringComparer.Ordinal);
+        Xsl3.Runtime.XmlQueryRuntime.ResultTreeHandler = (uri, tree) => t_resultTrees![uri] = tree;
         // The base output URI: where the test says the principal result goes.
         Xsl3.Runtime.XmlQueryRuntime.BaseOutputUri = test.TestElement.Element(Catalog.Ns + "output")?.Attribute("file") is { Value: not "#absent" } output
             ? new Uri(Path.Combine(test.Set.Directory, output.Value)).AbsoluteUri : null;
@@ -890,7 +897,8 @@ public sealed partial class Runner
                     {
                         if (written == uri || written.EndsWith("/" + uri, StringComparison.Ordinal))
                         {
-                            var docRun = new RunResult(text.ToString(), null, Array.Empty<string>()) { BaseUri = written };
+                            XPathNavigator? tree = t_resultTrees != null && t_resultTrees.TryGetValue(written, out XPathNavigator? typed) ? typed : null;
+                            var docRun = new RunResult(text.ToString(), null, Array.Empty<string>()) { BaseUri = written, Tree = tree != null && TestEnvironment.SchemaAware ? () => tree : null };
                             foreach (XElement a in assertion.Elements())
                             {
                                 Outcome o = Check(test, a, docRun);

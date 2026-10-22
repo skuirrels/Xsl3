@@ -566,6 +566,7 @@ namespace Xsl3.Runtime
                     output.Dispose();
                     return Sequences.Empty;
                 }
+                XmlQueryRuntime.ResultTreeHandler?.Invoke(uri, doc.Clone());
                 settings.CloseOutput = true;
                 using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, s, extras), s), settings, extras))
                 {
