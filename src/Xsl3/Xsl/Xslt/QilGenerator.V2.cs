@@ -1561,7 +1561,51 @@ namespace Xsl3.Xslt
         // A terminating message's error: err:XTMM9000 (or error-code), the message as its description and the
         // message's document as its value.
         private QilNode Terminate31(XslNode node, QilNode message, QilNode document) =>
-            _f.TypeAssert(X31(nameof(XsltLibrary.X31RaiseWithValue), T.ItemS, _f.String(node.V2?.ErrorCode ?? "XTMM9000"), message, Box(document)), T.ItemS);
+            _f.TypeAssert(X31(nameof(XsltLibrary.X31RaiseWithValue), T.ItemS,
+                node.V2?.ErrorCodeAvt is string avt ? String31(CompileXPath31(ErrorCodeExpression31(avt))) : _f.String(node.V2?.ErrorCode ?? "XTMM9000"),
+                message, Box(document)), T.ItemS);
+
+        /// <summary>
+        /// Xsl3: a computed error-code (an attribute value template, message-0009) as an XPath expression of the code
+        /// X31RaiseWithValue takes: an EQName as written, else the lexical QName resolved against the instruction's
+        /// namespaces (unprefixed, no namespace), as Q{uri}local, or the local name alone in the err namespace.
+        /// </summary>
+        private static string ErrorCodeExpression31(string avt)
+        {
+            var parts = new List<string>();
+            var literal = new System.Text.StringBuilder();
+            void Flush()
+            {
+                parts.Add("'" + literal.ToString().Replace("'", "''") + "'");
+                literal.Clear();
+            }
+            for (int i = 0; i < avt.Length; i++)
+            {
+                if (avt[i] == '{' && i + 1 < avt.Length && avt[i + 1] == '{' || avt[i] == '}' && i + 1 < avt.Length && avt[i + 1] == '}')
+                {
+                    literal.Append(avt[i++]);
+                }
+                else if (avt[i] == '{')
+                {
+                    Parser.ParseEnclosedExpr(avt, i + 1, out int end);
+                    Flush();
+                    parts.Add($"string-join(({avt[(i + 1)..end]}) ! string(.), ' ')");
+                    i = end;
+                }
+                else
+                {
+                    literal.Append(avt[i]);
+                }
+            }
+            Flush();
+            string value = $"normalize-space(concat({string.Join(", ", parts)}, ''))";
+            const string Xs = "Q{http://www.w3.org/2001/XMLSchema}";
+            // (A value that isn't a QName leaves the default code, XTMM9000: message-0406.)
+            return $"let $s := {value} return if (starts-with($s, 'Q{{')) then $s else if (not($s castable as {Xs}QName)) then 'XTMM9000' else " +
+                $"let $q := if (contains($s, ':')) then {Xs}QName($s) else QName('', $s) return " +
+                $"if (namespace-uri-from-QName($q) = '{Xdm.XdmException.ErrorNamespace}') then local-name-from-QName($q) " +
+                "else 'Q{' || namespace-uri-from-QName($q) || '}' || local-name-from-QName($q)";
+        }
 
         private QilNode CompileCopy31(XslNode copy)
         {

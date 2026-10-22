@@ -107,6 +107,7 @@ namespace Xsl3.Xslt
         public string? Ordinal;
         public string? StartAt; // xsl:number/@start-at (XSLT 3.0)
         public string? ErrorCode; // xsl:message: the error a terminating message raises
+        public string? ErrorCodeAvt; // Xsl3: xsl:message's error-code when it is an attribute value template with expressions
         public string? NewEachTime; // xsl:function/@new-each-time, normalized: yes, no or maybe
         public bool Cache; // xsl:function/@cache="yes": results may be remembered (with new-each-time other than yes)
         public string? Select;

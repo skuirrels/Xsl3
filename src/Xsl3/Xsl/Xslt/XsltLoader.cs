@@ -2415,6 +2415,7 @@ namespace Xsl3.Xslt
             // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
             // another: a local name for one in the err namespace, else an EQName.
             string errorCode = "XTMM9000";
+            string? errorCodeAvt = V2 && _input.MoveToXsltAttribute(2, "error-code") && _input.Value.Replace("{{", "").Replace("}}", "") is var computed && computed.Contains('{') ? _input.Value : null;
             // (An attribute value template with no expressions, only doubled braces, is a literal: Q{{ns}}local.)
             if (V2 && _input.MoveToXsltAttribute(2, "error-code") && _input.Value.Replace("{{", "").Replace("}}", "") is var unescaped && !unescaped.Contains('{') && !unescaped.Contains('}'))
             {
@@ -2451,7 +2452,7 @@ namespace Xsl3.Xslt
             XslNode message = SetInfo(F.Message(terminate), content, ctxInfo);
             if (V2)
             {
-                message.V2 = new XslNodeV2 { NameAvt = terminateAvt, ErrorCode = errorCode };
+                message.V2 = new XslNodeV2 { NameAvt = terminateAvt, ErrorCode = errorCode, ErrorCodeAvt = errorCodeAvt };
             }
             return message;
         }
