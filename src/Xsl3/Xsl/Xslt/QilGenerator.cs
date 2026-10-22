@@ -717,7 +717,13 @@ namespace Xsl3.Xslt
                             }
                             else
                             {
-                                if (IsV2 && xslPar.V2 is { Required: true })
+                                if (IsV2 && tmpl.Visibility == "abstract")
+                                {
+                                    // Xsl3: an abstract template called without an override: XTDE3052 (the caller computes
+                                    // the defaults, before the template's own body raises it; accept-905).
+                                    param.DefaultValue = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"{tmpl.Name?.QualifiedName} is abstract and has no implementation"));
+                                }
+                                else if (IsV2 && xslPar.V2 is { Required: true })
                                 {
                                     // Xsl3: a required parameter that isn't supplied is a dynamic error here (XTSE0690 statically).
                                     param.DefaultValue = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0700"), _f.String($"The required parameter ${xslPar.Name.QualifiedName} was not supplied"));
@@ -898,6 +904,12 @@ namespace Xsl3.Xslt
                 if (ruleFrame != null)
                 {
                     body = _f.Loop(ruleFrame, body);
+                }
+                if (tmpl.Visibility == "abstract")
+                {
+                    // Xsl3: an abstract component reached without an override (an accepted hidden one) is XTDE3052,
+                    // before its parameters are bound (accept-905).
+                    body = _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"{tmpl.Name?.QualifiedName} is abstract and has no implementation")), body.XmlType!);
                 }
             }
             _inNamedTemplate31 = false;
@@ -2719,6 +2731,9 @@ namespace Xsl3.Xslt
             QilNode content = IsV2 && varPar.NodeType == XslNodeType.Param && varPar.V2 is { Required: true, StaticValue: null }
                 // Xsl3: a required stylesheet parameter that isn't supplied (XTDE0050), when its value is used.
                 ? _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0050"), _f.String($"No value was supplied for the required parameter ${varPar.Name!.QualifiedName}")), T.ItemS)
+                : IsV2 && varPar.Visibility == "abstract"
+                // Xsl3: an abstract variable used without an override (XTDE3052).
+                ? _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"${varPar.Name!.QualifiedName} is abstract and has no implementation")), T.ItemS)
                 : CompileVarParValue(varPar);
             SetLineInfo(content, it.SourceLine);
             content = AddCurrentPositionLast(content);
