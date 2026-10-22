@@ -335,8 +335,11 @@ namespace Xsl3.Xslt
             }
             switch (name.LocalName, args.Count)
             {
+                case ("current", 0) when _patternNode31 == null && FocusAbsent:
+                    // A function body or another place with no current item: XTDE1360 if it is evaluated (error-1360a).
+                    return X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE1360"), _f.String("current() is used where there is no current item"));
                 case ("current", 0):
-                    return _patternNode31 ?? (FocusAbsent ? null : GetCurrentNode());
+                    return _patternNode31 ?? GetCurrentNode();
                 case ("current-group", 0) when _patternNode31 != null:
                     return ReportXPath31Error("XTSE1060", "current-group() can't be used in a pattern");
                 case ("current-grouping-key", 0) when _patternNode31 != null:
