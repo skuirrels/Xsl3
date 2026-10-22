@@ -16,6 +16,15 @@
     <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
   </ItemGroup>
 
+  <!-- The SaxonCS-HE comparison (remaining-scope 3): built only with -p:Saxon=true, and only for .NET 10, which is
+       all SaxonCS-HE targets. SaxonCS-HE is MPL-2.0, from Saxonica Limited; it isn't redistributed. -->
+  <PropertyGroup Condition="'$(Saxon)' == 'true' And '$(TargetFramework)' == 'net10.0'">
+    <DefineConstants>$(DefineConstants);SAXON</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Saxon)' == 'true' And '$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="SaxonCS-HE" Version="13.1.0" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="..\corpus\xslt10\*.xsl" Link="corpus\xslt10\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\corpus\xslt30\*.xsl" Link="corpus\xslt30\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

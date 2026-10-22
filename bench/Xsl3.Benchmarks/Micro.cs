@@ -23,7 +23,7 @@ public static class Micro
     public static readonly string[] Names = { "grouping", "sorting", "keys", "join", "regex", "strings", "maps", "fold-left", "iterate", "identity", "dispatch", "recursion", "json" };
 
     // Orders and products for each size: about 1 KB, 1 MB and 100 MB of input.
-    private static readonly Dictionary<string, (int Orders, int Products)> s_sizes = new(StringComparer.Ordinal)
+    internal static readonly Dictionary<string, (int Orders, int Products)> Sizes = new(StringComparer.Ordinal)
     {
         ["1kb"] = (2, 2),
         ["1mb"] = (2_200, 500),
@@ -49,7 +49,7 @@ public static class Micro
             switch (args[i])
             {
                 case "--sizes":
-                    sizes = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries).Where(s_sizes.ContainsKey).ToArray(); // "none": compile only
+                    sizes = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries).Where(Sizes.ContainsKey).ToArray(); // "none": compile only
                     break;
                 case "--ms":
                     budget = int.Parse(args[++i], CultureInfo.InvariantCulture);
@@ -284,7 +284,7 @@ public static class Micro
     {
         if (!s_inputs.TryGetValue(size, out Tree.CompactDocument? document))
         {
-            (int orders, int products) = s_sizes[size];
+            (int orders, int products) = Sizes[size];
             s_inputs[size] = document = Tree.CompactDocument.Load(new StringReader(Corpus.Orders(orders, products)));
         }
         return document;

@@ -47,6 +47,20 @@ if (args.Length > 0 && args[0] == "docbook")
     Xsl3.Benchmarks.Micro.RunDocBook(args[1..]);
     return;
 }
+#if SAXON
+if (args.Length > 0 && args[0] == "saxon")
+{
+    // dotnet run ... -f net10.0 -p:Saxon=true -- saxon [--sizes 1kb,1mb] [--ms budget] [--cold-runs n] [--json file] [name...]:
+    // the micro suite on Xsl3 and on SaxonCS-HE (remaining-scope 3).
+    Xsl3.Benchmarks.SaxonComparison.Run(args[1..]);
+    return;
+}
+if (args.Length == 5 && args[0] == "saxon-child")
+{
+    Xsl3.Benchmarks.SaxonComparison.RunChild(args[1..]);
+    return;
+}
+#endif
 if (args.Length > 0 && args[0] == "quick")
 {
     Xsl3.Benchmarks.Quick.Run(args[1..]);
