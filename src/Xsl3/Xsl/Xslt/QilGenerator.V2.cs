@@ -1004,6 +1004,11 @@ namespace Xsl3.Xslt
             QilNode groupingSize = num.GroupingSize != null ? CompileStringAvt(num.GroupingSize)! : _f.String("");
             QilNode ordinal = num.V2?.Ordinal != null ? CompileStringAvt(num.V2.Ordinal)! : _f.String("");
             QilNode lang = num.Lang != null ? CompileStringAvt(num.Lang)! : _f.String("");
+            if (num.V2?.StartAt is string literal && !literal.Contains('{') && !System.Text.RegularExpressions.Regex.IsMatch(literal, @"^\s*-?[0-9]+(\s+-?[0-9]+)*\s*$"))
+            {
+                // A fixed start-at that isn't a list of integers is a static error (XTSE0020; computed, XTDE0030).
+                return ReportXPath31Error("XTSE0020", $"xsl:number: start-at=\"{literal}\" is not a list of integers");
+            }
             QilNode startAt = num.V2?.StartAt != null ? CompileStringAvt(num.V2.StartAt)! : _f.String("");
             if (num.Value != null)
             {
