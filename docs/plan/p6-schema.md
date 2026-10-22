@@ -58,8 +58,8 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 | 2026-10-21, fourth part | 827 passed, 17 failed, 2 not run (98.0%) |
 | 2026-10-22, after 1.0.0-rc.1 | 837 passed, 7 failed, 2 not run (99.2%) |
 | 2026-10-22, later | 840 passed, 4 failed, 2 not run (99.5%) |
+| 2026-10-22, item-separator in a validated result document | 841 passed, 3 failed, 2 not run (99.6%) |
 
-The four left: validation-0201 and -0202 (the expected xhtml has no
-attributes the XHTML schema defaults, and isn't indented before inline elements); validation-0214 (an item-separator
-inside a validated result document); and si-result-document-116, which the runner can't pass: it receives result
+The three left: validation-0201 and -0202 (the expected xhtml has no
+attributes the XHTML schema defaults, and isn't indented before inline elements); and si-result-document-116, which the runner can't pass: it receives result
 documents as text through the `TextWriter` handler, so their type annotations don't reach the assertion.

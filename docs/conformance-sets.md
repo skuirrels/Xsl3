@@ -6,7 +6,7 @@ A test counts under each spec and feature it or its test set depends on.
 
 ## XSLT 3.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 3.0 profile): 8842 passed, 25 failed, 42 not run; 99.7% of those run (218 expected errors passed without a matching code)**
+**xslt30-test (XSLT 3.0 profile): 8843 passed, 24 failed, 42 not run; 99.7% of those run (68 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (17), environment: schema: XSD 1.1 (2), initial match selection by expression (22)
 
@@ -19,11 +19,11 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | feature dynamic_evaluation | 44 | 0 | 0 | 100.0% |
 | feature higher_order_functions | 221 | 1 | 0 | 99.5% |
 | feature namespace_axis | 70 | 1 | 0 | 98.6% |
-| feature schema_aware | 840 | 4 | 2 | 99.5% |
+| feature schema_aware | 841 | 3 | 2 | 99.6% |
 | feature serialization | 370 | 0 | 0 | 100.0% |
 | feature xsl-stylesheet-processing-instruction | 18 | 0 | 0 | 100.0% |
 | spec XSLT10+ | 1892 | 3 | 0 | 99.8% |
-| spec XSLT20+ | 3260 | 9 | 7 | 99.7% |
+| spec XSLT20+ | 3261 | 8 | 7 | 99.8% |
 | spec XSLT30+ | 3685 | 13 | 35 | 99.6% |
 
 | Test set | Passed | Failed | Not run | Pass rate |
@@ -174,7 +174,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 | unparsed-text-lines | 6 | 0 | 0 | 100.0% |
 | use-package | 47 | 2 | 0 | 95.9% |
 | use-when | 99 | 0 | 0 | 100.0% |
-| validation | 53 | 3 | 0 | 94.6% |
+| validation | 54 | 2 | 0 | 96.4% |
 | variable | 108 | 0 | 0 | 100.0% |
 | version | 33 | 0 | 0 | 100.0% |
 | where-populated | 27 | 0 | 0 | 100.0% |
@@ -187,7 +187,7 @@ Not run: compares the result tree, not its serialization (1), environment: colle
 
 ## XSLT 2.0 profile (xslt30-test)
 
-**xslt30-test (XSLT 2.0 profile): 4588 passed, 9 failed, 11 not run; 99.8% of those run (83 expected errors passed without a matching code)**
+**xslt30-test (XSLT 2.0 profile): 4588 passed, 9 failed, 11 not run; 99.8% of those run (21 expected errors passed without a matching code)**
 
 Not run: compares the result tree, not its serialization (1), environment: collection (6), environment: schema (4)
 

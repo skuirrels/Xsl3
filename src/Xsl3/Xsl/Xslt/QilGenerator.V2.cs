@@ -875,6 +875,23 @@ namespace Xsl3.Xslt
                             p.Name == "build-tree" && p.Value.Trim() is "no" or "false" or "0") ||
                         // A format computed at run time may name a json or adaptive output definition.
                         formatName is not QilLiteral && _compiler.NamedOutputs.Values.Any(o => ResultFormat31(o).Extras?.RawMethod is "json" or "adaptive");
+                    bool validating = v2.Validation is "strict" or "lax" || v2.ValidationType != null;
+                    QilNode? separator = v2.Serialization!.Exists(p => p.Name == "item-separator") ? CompileStringAvt(v2.Serialization.Find(p => p.Name == "item-separator").Value)
+                        : baseFormat.Extras?.ItemSeparator is string declared ? _f.String(declared) : null;
+                    if (raw && validating && separator != null && baseFormat.Extras?.RawMethod is null or "sequence" && formatName is QilLiteral &&
+                        !v2.Serialization.Exists(p => p.Name is "method" or "build-tree"))
+                    {
+                        // Xsl3 (P6): validated, the result is a tree after all: the items with the item-separator between
+                        // them (Serialization 3.1 §2, sequence normalization), then validated (validation-0214).
+                        QilIterator item;
+                        QilNode items = _f.Loop(item = _f.For(Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))),
+                            _f.Sequence(_f.Conditional(_f.Gt(_f.PositionOf(item), _f.Int32(1)), _f.TextCtor(separator), _f.Sequence()), item));
+                        QilNode tree = Validate31(_f.DocumentCtor(ContentNodes(items)), v2);
+                        _currentTunnel = savedTunnel;
+                        return _f.Loop(href, _f.Loop(outputFrame, X31(nameof(XsltLibrary.X31ResultDocument), T.ItemS, href, tree, _f.String(StaticBaseUri31() ?? ""),
+                            _f.Double(ConstantPool.Add(baseFormat)), formatName, _f.Double(ResultFormats31()),
+                            parameters.Count == 0 ? _f.String("") : _f.StrConcat(parameters), _f.Double(NameContext31()), callerFrame)));
+                    }
                     QilNode doc = raw
                         ? Box(WithoutTemplateRule(() => CompileInstructions(node.Content)))
                         : _f.DocumentCtor(ContentNodes(WithoutTemplateRule(() => CompileInstructions(node.Content))));
