@@ -3214,7 +3214,8 @@ namespace Xsl3.Xslt
             if (fallbacksArray.Count == 0)
             {
                 fallbacksArray.Add(
-                    F.Error(XslLoadException.CreateMessage(extElmLineInfo, SR.Xslt_UnknownExtensionElement, instrName))
+                    // Xsl3: in 2.0+, XTDE1450 when it is evaluated.
+                    F.Error((V2 ? "XTDE1450: " : "") + XslLoadException.CreateMessage(extElmLineInfo, SR.Xslt_UnknownExtensionElement, instrName))
                 );
             }
             return fallbacksArray;

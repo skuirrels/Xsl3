@@ -1026,7 +1026,9 @@ namespace Xsl3.XPath31
             if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "current" or "current-group" or "current-grouping-key")
             {
                 // XSLT's focus-dependent functions have no focus in a function body (the host's would be out of scope).
-                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String($"{name.LocalName}() can't be used in a function body"));
+                // (XSLT 3.0 §20.4.1 and §14.2.1: XTDE1360 for current(), XTDE1061 and XTDE1071 for the grouping functions.)
+                string code = name.LocalName switch { "current" => "XTDE1360", "current-group" => "XTDE1061", _ => "XTDE1071" };
+                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(code), _f.String($"{name.LocalName}() can't be used in a function body"));
             }
 
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).
