@@ -1861,7 +1861,17 @@ namespace Xsl3.Runtime
             }
 
             // Validate the name parts
-            prefix = EnsureValidName(prefix, localName, ns, nodeType);
+            try
+            {
+                prefix = EnsureValidName(prefix, localName, ns, nodeType);
+            }
+            catch (XmlException e) when (_runtime.IsXslt2)
+            {
+                // Xsl3: the xmlns prefix (XTDE0835, XTDE0865), an attribute named xmlns (XTDE0855), or another bad name.
+                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute
+                    ? (prefix.Length == 0 && localName == "xmlns" ? "XTDE0855" : prefix == "xmlns" ? "XTDE0865" : "XTDE0850")
+                    : prefix == "xmlns" ? "XTDE0835" : "XTDE0820", e.Message);
+            }
 
             if (nodeType == XPathNodeType.Element)
                 WriteStartElement(prefix, localName, ns);

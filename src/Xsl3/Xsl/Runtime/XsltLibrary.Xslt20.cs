@@ -271,7 +271,17 @@ namespace Xsl3.Runtime
                 // Already converted to this type (a recursive call passing its parameter on): nothing to check again.
                 return value;
             }
-            IList<XPathItem> coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            IList<XPathItem> coerced;
+            try
+            {
+                coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            }
+            catch (XdmException e) when (e.Code == "FORG0001" && errorCode.StartsWith("XT", System.StringComparison.Ordinal))
+            {
+                // An untyped value that doesn't cast to the required type: the XSLT conversion's own error (XTTE0570
+                // for a variable, XTTE0505 for a function result, ...), not the cast's FORG0001.
+                throw new XdmException(errorCode, e.Message);
+            }
             if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test)
             {
                 return CoerceFunctions(coerced, test);
