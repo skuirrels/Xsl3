@@ -2144,6 +2144,12 @@ namespace Xsl3.Xslt
             {
                 if (n is VarPar { NodeType: XslNodeType.Param } p)
                 {
+                    if (p.Select == null && p.Content.Count == 0 && p.V2?.As is string asType &&
+                        !(asType.TrimEnd().EndsWith('?') || asType.TrimEnd().EndsWith('*') || asType.Trim().StartsWith("empty-sequence", StringComparison.Ordinal)))
+                    {
+                        // Its initial value, the empty sequence, isn't of its type (XTSE3520; iterate-902).
+                        return ReportXPath31Error("XTSE3520", $"the parameter ${p.Name!.QualifiedName} of xsl:iterate needs an initial value of type {asType}");
+                    }
                     parameters.Add(p);
                 }
                 else if (n.NodeType == XslNodeType.OnCompletion)
