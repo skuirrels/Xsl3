@@ -3760,7 +3760,7 @@ namespace Xsl3.Xslt
                         QilNode value = p;
                         if (n.V2?.As is string asType)
                         {
-                            QilIterator let = _f.Let(Coerce31(p, asType, "XTTE0790"));
+                            QilIterator let = _f.Let(Coerce31(p, asType, "XPTY0004")); // (XSLT 3.0 §10.3.1; 2.0 had XTTE0790)
                             coerced.Add((let, value));
                             _scope.AddVariable(n.Name!, let);
                         }

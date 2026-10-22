@@ -3273,6 +3273,19 @@ namespace Xsl3.Xslt
 
         // Parse mode when it is list. V1: -, V2: xsl:template
         // Suppresses errors if FCB is enabled
+        private static bool IsLexicalQName(string name)
+        {
+            try
+            {
+                ValidateNames.ParseQNameThrow(name, out _, out _);
+                return true;
+            }
+            catch (XmlException)
+            {
+                return false;
+            }
+        }
+
         private QilName ParseModeListAttribute(int attNum)
         {
             //Debug.Assert(input.IsXsltKeyword(atoms.Template) && !V1);
@@ -3320,6 +3333,12 @@ namespace Xsl3.Xslt
                         else if (qname == "#all")
                         {
                             ReportError(SR.Xslt_ModeListAll);
+                            break;
+                        }
+                        else if (V2 && !qname.StartsWith("Q{", System.StringComparison.Ordinal) && !IsLexicalQName(qname))
+                        {
+                            // Xsl3: a token that is neither a QName nor #default, #unnamed or #all (XTSE0550).
+                            ReportError(SR.Xml_UserException, $"XTSE0550: '{qname}' in the mode attribute is not a mode name");
                             break;
                         }
                         else
