@@ -240,8 +240,10 @@ round trip passes; the `Xsl3.Build` package is ready to publish (with the owner'
 
 ### 3. The SaxonCS comparison (G5, §19.5–19.6)
 
-**State.** Not started. G5 asks for 2.0/3.0 to be faster than SaxonCS-HE on every benchmark, with a median
-of 2× or more, and cold start 2× or more (10× with Sink B).
+**State.** Measured for 1.0.0 (docs/performance.md, "Against SaxonCS-HE"): the micro suite is 1.22× SaxonCS-HE 13.1.0
+at 1 MB (median; regex and iterate slower), start-up 1.11×, and 2.7× precompiled, so G5 isn't met. G5 asks for 2.0/3.0
+to be faster than SaxonCS-HE on every benchmark, with a median of 2× or more, and cold start 2× or more (10× with Sink B).
+Left: TEI, DocBook and the 100 MB size on Saxon.
 
 3.1 **Licence check first** (S). Confirm what licence the SaxonCS edition used carries, and whether it
    allows benchmarking and publishing results. Saxonica's .NET product has had commercial editions; check the
@@ -541,7 +543,8 @@ A sensible sequence:
 
 1. Whether 1.0 needs Sink C (an interpreter), or ships with `xsl:evaluate` unavailable under NativeAOT. *Decided
    (owner, 2026-10-22): 1.0 ships without it; a 1.x to-do.*
-2. Which SaxonCS edition to compare against, given its licence (3.1). *Deferred (owner, 2026-10-22): no SaxonCS work for 1.0.*
+2. Which SaxonCS edition to compare against, given its licence (3.1). *Deferred (owner, 2026-10-22): no SaxonCS work for 1.0.
+   Decided after 1.0 (owner, 2026-10-22): SaxonCS-HE 13.1.0, MPL-2.0, as an optional benchmark-only reference.*
 3. The shape of the public 3.0 API (4.1): follow §7.2 as written, or a smaller first version. *Decided (owner,
    2026-10-22): the `Xsl3` namespace, as shipped in the release candidates; no backend settings in 1.0.*
 4. XSD 1.1 (6.1): options a, b or c. *Decided (owner, 2026-10-22): c, XSD 1.0 only; XSD 1.1 a 1.x to-do.*

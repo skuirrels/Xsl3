@@ -547,6 +547,94 @@ trees, and the trees themselves. Compiling: the XPath compiler makes its namespa
 constant only when an expression needs them, and boxing a value shares one static context, so compiling `docbook.xsl`
 allocates 139 MB, not 179 MB, and the micro benchmarks' compiles up to 23% less (geometric mean of time 0.94).
 
+## Against SaxonCS-HE (remaining-scope 3, SPEC §19.6)
+
+The XSLT 3.0 micro suite on Xsl3 and on SaxonCS-HE 13.1.0, "The Saxon XSLT and XQuery Processor from Saxonica
+Limited" ([saxonica.com](https://www.saxonica.com/); MPL-2.0, the free .NET edition). Times are milliseconds, and lower
+is better. "Faster" names the winner of each row; within 3% counts as about the same.
+
+Run on 2026-10-22 · .NET 10.0.11 · macOS 27 · Apple M4 Pro · Xsl3 at 18d2ba6 (the code of 1.0.0, less one unused
+method) · `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon --sizes 1kb,1mb
+--cold-runs 5`, three times; each figure is the median of the three runs. Both engines read the same document, parsed
+once into each engine's own tree (whitespace-only text left out, as `XPathDocument` and Xsl3's compact tree do), write
+to `Stream.Null`, and gave identical output for all 13 tests.
+
+### Run speed, 1 MB input
+
+Xsl3 wins 11 of 13, Saxon 2.
+
+| Test | Xsl3 ms | Saxon ms | Faster |
+|---|---|---|---|
+| join | 2.55 | 72.45 | Xsl3, 28.5× faster |
+| identity | 2.04 | 5.24 | Xsl3, 2.6× faster |
+| dispatch | 1.49 | 3.37 | Xsl3, 2.3× faster |
+| keys | 3.87 | 5.32 | Xsl3, 38% faster |
+| json | 9.90 | 13.60 | Xsl3, 37% faster |
+| maps | 4.60 | 5.83 | Xsl3, 27% faster |
+| grouping | 0.93 | 1.14 | Xsl3, 22% faster |
+| recursion | 1.31 | 1.57 | Xsl3, 20% faster |
+| strings | 3.07 | 3.53 | Xsl3, 15% faster |
+| sorting | 2.78 | 3.09 | Xsl3, 11% faster |
+| fold-left | 3.38 | 3.70 | Xsl3, 9% faster |
+| iterate | 2.09 | 1.62 | **Saxon**, 29% faster |
+| regex | 28.77 | 14.88 | **Saxon**, 93% faster |
+
+### Run speed, 1 KB input
+
+Xsl3 wins 8 of 13, Saxon 5. A run at this size takes microseconds, so these rows are the noisiest.
+
+| Test | Xsl3 ms | Saxon ms | Faster |
+|---|---|---|---|
+| identity | 0.004 | 0.009 | Xsl3, 2.2× faster |
+| grouping | 0.012 | 0.019 | Xsl3, 59% faster |
+| join | 0.005 | 0.008 | Xsl3, 54% faster |
+| fold-left | 0.006 | 0.009 | Xsl3, 52% faster |
+| json | 0.008 | 0.011 | Xsl3, 32% faster |
+| sorting | 0.006 | 0.007 | Xsl3, 29% faster |
+| keys | 0.007 | 0.008 | Xsl3, 26% faster |
+| maps | 0.012 | 0.014 | Xsl3, 13% faster |
+| strings | 0.006 | 0.006 | **Saxon**, 3% faster |
+| iterate | 0.006 | 0.006 | **Saxon**, 9% faster |
+| recursion | 0.005 | 0.005 | **Saxon**, 15% faster |
+| dispatch | 0.009 | 0.007 | **Saxon**, 32% faster |
+| regex | 0.019 | 0.011 | **Saxon**, 72% faster |
+
+### Start-up
+
+Loading the stylesheet and running it once on the 1 MB input, in a new process, with the input already parsed;
+the median of five processes per run. "Precompiled" is Xsl3 loading the stylesheet from an assembly saved by
+`CompileToAssembly`, as Xsl3.Build does at build time. Xsl3 wins 13 of 13 from source, and 13 of 13 precompiled.
+
+| Test | Xsl3 ms | Xsl3 precompiled ms | Saxon ms | Faster: Xsl3 or Saxon | Faster: Xsl3 precompiled or Saxon |
+|---|---|---|---|---|---|
+| join | 138 | 58 | 411 | Xsl3, 3.0× faster | Xsl3, 7.1× faster |
+| dispatch | 123 | 44 | 167 | Xsl3, 36% faster | Xsl3, 3.8× faster |
+| json | 156 | 81 | 191 | Xsl3, 22% faster | Xsl3, 2.4× faster |
+| identity | 133 | 56 | 162 | Xsl3, 21% faster | Xsl3, 2.9× faster |
+| keys | 151 | 62 | 179 | Xsl3, 18% faster | Xsl3, 2.9× faster |
+| recursion | 143 | 54 | 168 | Xsl3, 17% faster | Xsl3, 3.1× faster |
+| strings | 142 | 61 | 166 | Xsl3, 17% faster | Xsl3, 2.7× faster |
+| regex | 199 | 129 | 227 | Xsl3, 14% faster | Xsl3, 75% faster |
+| fold-left | 159 | 65 | 176 | Xsl3, 11% faster | Xsl3, 2.7× faster |
+| maps | 180 | 85 | 197 | Xsl3, 10% faster | Xsl3, 2.3× faster |
+| grouping | 144 | 62 | 156 | Xsl3, 9% faster | Xsl3, 2.5× faster |
+| sorting | 156 | 63 | 166 | Xsl3, 7% faster | Xsl3, 2.6× faster |
+| iterate | 152 | 60 | 162 | Xsl3, 7% faster | Xsl3, 2.7× faster |
+| **median** | **151** | **62** | **168** | **Xsl3, 11% faster** | **Xsl3, 2.7× faster** |
+
+### Compile and memory
+
+- Compiling a stylesheet, warm, in one process: Xsl3 wins 10 of 13, Saxon 3 (dispatch, fold-left, iterate). Median 0.13 ms against 0.16 ms.
+- Memory allocated per 1 MB run: Xsl3 allocates 49% of Saxon's at the median (join 2%, iterate 101%).
+- Peak memory of the start-up process: Xsl3 uses 7% less.
+
+### Against the targets
+
+SPEC §19.6 asks for 2.0/3.0 stylesheets to run at least twice as fast as on SaxonCS-HE and never slower, and to start
+at least twice as fast, ten times precompiled. 1.0.0 doesn't meet them: run speed at 1 MB is 1.22× Saxon's at the
+median, with regex and iterate slower; start-up is 1.11× from source and 2.72× precompiled. regex and
+iterate are the first 1.x speed work.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:
@@ -571,3 +659,6 @@ comparison.
 two engines interleaved, checks their output is identical, and prints the median and minimum ratios. Set
 `XSL3_QUICK_MS` to change the time per engine (default 3000). BenchmarkDotNet is the record. CPU profiles:
 `--filter '*Xsl3Profile*' --job short` writes speedscope traces to the artifacts folder.
+`dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon [--sizes 1kb,1mb] [--ms budget]
+[--cold-runs n] [--json file] [name...]` runs the comparison with SaxonCS-HE; without `-p:Saxon=true` the project doesn't
+reference Saxon.
