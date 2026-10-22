@@ -1641,7 +1641,9 @@ namespace Xsl3.Xslt
             }
             if (asType != null)
             {
-                value = Coerce31(value, asType, node.NodeType == XslNodeType.Variable ? "XTTE0570" : "XTTE0590");
+                // A parameter not supplied whose implicit default, the empty sequence, isn't of its type: XTDE0700.
+                value = Coerce31(value, asType, node.NodeType == XslNodeType.Variable ? "XTTE0570"
+                    : node.NodeType == XslNodeType.Param && select == null && content.Count == 0 ? "XTDE0700" : "XTTE0590");
             }
             return _f.TypeAssert(Box(value), T.ItemS);
         }
