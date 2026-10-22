@@ -2415,11 +2415,18 @@ namespace Xsl3.Xslt
             // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
             // another: a local name for one in the err namespace, else an EQName.
             string errorCode = "XTMM9000";
-            if (V2 && _input.MoveToXsltAttribute(2, "error-code") && !_input.Value.Contains('{'))
+            // (An attribute value template with no expressions, only doubled braces, is a literal: Q{{ns}}local.)
+            if (V2 && _input.MoveToXsltAttribute(2, "error-code") && _input.Value.Replace("{{", "").Replace("}}", "") is var unescaped && !unescaped.Contains('{') && !unescaped.Contains('}'))
             {
-                string token = _input.Value.Trim();
-                int colon = token.IndexOf(':');
-                string? ns = colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                string token = _input.Value.Replace("{{", "{").Replace("}}", "}").Trim();
+                int colon = token.StartsWith("Q{", System.StringComparison.Ordinal) ? -1 : token.IndexOf(':');
+                string? ns = token.StartsWith("Q{", System.StringComparison.Ordinal) && token.IndexOf('}') is int close and > 1
+                    ? token[2..close] : colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                {
+                    token = token[(token.IndexOf('}') + 1)..]; // (the local name, below)
+                    colon = -1;
+                }
                 if (ns == "http://www.w3.org/2005/xqt-errors")
                 {
                     errorCode = token[(colon + 1)..];

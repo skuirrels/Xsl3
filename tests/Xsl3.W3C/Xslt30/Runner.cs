@@ -782,7 +782,14 @@ public sealed partial class Runner
                 }
                 // Any error passes, as the suite allows; one that doesn't name the expected code is recorded.
                 string described = Describe(run.Error);
-                return code == "*" || described.Contains(code, StringComparison.Ordinal) ? Outcome.Pass() : Outcome.Pass($"error code {code} expected; got {described}");
+                // (An EQName code, Q{ns}local, is compared with the error's expanded name.)
+                bool named = code.StartsWith("Q{", StringComparison.Ordinal) && run.Error switch
+                {
+                    Xsl3.XsltDynamicException { Code: var raised } => raised.EQName == code,
+                    Xsl3.Xdm.XdmException { Name: { } raised } => raised.EQName == code, // (a saved assembly's error, as it is raised)
+                    _ => false,
+                };
+                return code == "*" || named || described.Contains(code, StringComparison.Ordinal) ? Outcome.Pass() : Outcome.Pass($"error code {code} expected; got {described}");
             }
         }
         if (run.Error != null)
