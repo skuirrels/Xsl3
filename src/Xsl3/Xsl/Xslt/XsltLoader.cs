@@ -916,6 +916,11 @@ namespace Xsl3.Xslt
                 {
                     _compiler.EnterForwardsCompatible();
                     XmlOutputMethod outputMethod;
+                    if (V2 && _input.Value.Trim() is var methodValue && !methodValue.StartsWith("Q{", StringComparison.Ordinal) && !IsLexicalQName(methodValue))
+                    {
+                        // Xsl3: a method that isn't a QName (XTSE1570).
+                        ReportError(SR.Xml_UserException, $"XTSE1570: method=\"{_input.Value}\" is not an output method");
+                    }
                     XmlQualifiedName? method = ParseOutputMethod(_input.Value, out outputMethod);
                     if (_compiler.ExitForwardsCompatible(_input.ForwardCompatibility) && method != null)
                     {
@@ -1628,6 +1633,7 @@ namespace Xsl3.Xslt
             string? resultPrefix = null;
             string? resultNsUri = null;
 
+            _input.PrefixErrorCode = V2 ? "XTSE0812" : null; // Xsl3: an undeclared prefix of xsl:namespace-alias
             if (_input.MoveToXsltAttribute(0, "stylesheet-prefix"))
             {
                 if (_input.Value.Length == 0)
@@ -1653,6 +1659,7 @@ namespace Xsl3.Xslt
                 }
             }
 
+            _input.PrefixErrorCode = null;
             CheckNoContent();
 
             if (stylesheetNsUri == null || resultNsUri == null)
@@ -3628,6 +3635,12 @@ namespace Xsl3.Xslt
             _compiler.EnterForwardsCompatible();
             foreach (string qname in XmlConvert.SplitString(_input.Value))
             {
+                if (V2 && !qname.StartsWith("Q{", StringComparison.Ordinal) && !IsLexicalQName(qname))
+                {
+                    // Xsl3: a token that isn't an attribute set's name (XTSE0710).
+                    ReportError(SR.Xml_UserException, $"XTSE0710: '{qname}' in use-attribute-sets is not a QName");
+                    continue;
+                }
                 AddInstruction(list, SetLineInfo(F.UseAttributeSet(CreateXPathQName(qname)), _input.BuildLineInfo()));
             }
             if (!_compiler.ExitForwardsCompatible(_input.ForwardCompatibility))

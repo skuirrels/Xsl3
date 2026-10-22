@@ -554,6 +554,9 @@ namespace Xsl3.Xslt
         // Xsl3: the error code for an undeclared prefix while a prefix list attribute is read (2.0+).
         private string? _prefixListCode;
 
+        /// <summary>Xsl3: the code an undeclared prefix is reported with while it is set (XTSE0812 for xsl:namespace-alias).</summary>
+        internal string? PrefixErrorCode { get => _prefixListCode; set => _prefixListCode = value; }
+
         public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _records[0].baseUri ?? _reader.BaseURI;
 
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
