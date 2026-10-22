@@ -12,7 +12,7 @@ The full design is in [SPEC.md](SPEC.md).
 
 > **Status: release candidate.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. 1.0.0-rc.1 is the first release candidate of 1.0.0 on NuGet
+> behind `XsltSettings.SchemaAware`. 1.0.0-rc.2 is the latest release candidate of 1.0.0 on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [releases](https://github.com/skuirrels/Xsl3/releases)); its public API
 > is what 1.0.0 will ship. See [what works](#what-works) and [what's outstanding](#whats-outstanding).
 
@@ -104,7 +104,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases**: streaming (P7) hasn't started.
-- **Packaging**: 1.0.0-rc.1 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.0.0-rc.2 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
