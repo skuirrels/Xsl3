@@ -1004,6 +1004,11 @@ namespace Xsl3.Xslt
             QilNode groupingSeparator = num.GroupingSeparator != null ? CompileStringAvt(num.GroupingSeparator)! : _f.String("");
             QilNode groupingSize = num.GroupingSize != null ? CompileStringAvt(num.GroupingSize)! : _f.String("");
             QilNode ordinal = num.V2?.Ordinal != null ? CompileStringAvt(num.V2.Ordinal)! : _f.String("");
+            if (num.Lang is string fixedLang && !fixedLang.Contains('{') && !System.Text.RegularExpressions.Regex.IsMatch(fixedLang.Trim(), "^([a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*)?$"))
+            {
+                // A fixed lang that isn't an xs:language, reported statically (XTDE0030; number-0825).
+                return ReportXPath31Error("XTDE0030", $"xsl:number: lang=\"{fixedLang}\" is not a language code");
+            }
             QilNode lang = num.Lang != null ? CompileStringAvt(num.Lang)! : _f.String("");
             if (num.V2?.StartAt is string literal && !literal.Contains('{') && !System.Text.RegularExpressions.Regex.IsMatch(literal, @"^\s*-?[0-9]+(\s+-?[0-9]+)*\s*$"))
             {
