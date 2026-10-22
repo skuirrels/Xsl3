@@ -10,11 +10,12 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **Status: release candidate.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **Status: 1.0.0.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. 1.0.0-rc.2 is the latest release candidate of 1.0.0 on NuGet
-> ([Xsl3](https://www.nuget.org/packages/Xsl3), [releases](https://github.com/skuirrels/Xsl3/releases)); its public API
-> is what 1.0.0 will ship. See [what works](#what-works) and [what's outstanding](#whats-outstanding).
+> behind `XsltSettings.SchemaAware`. 1.0.0 is on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
+> [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
+> [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
+> [what's outstanding](#whats-outstanding).
 
 ## What works
 
@@ -106,7 +107,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
   (P7) hasn't started; a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.0.0-rc.2 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
@@ -237,7 +238,7 @@ much raises `Q{http://xsl3/err}output-limit`. An extension function's .NET excep
 
 ### The `xsl3` command line
 
-`src/Xsl3.Cli` is a .NET tool, `xsl3` (not on nuget.org yet; see [its readme](src/Xsl3.Cli/README.md)):
+`Xsl3.Cli` is a .NET tool, `xsl3` (`dotnet tool install --global Xsl3.Cli`; see [its readme](src/Xsl3.Cli/README.md)):
 
 ```bash
 xsl3 transform -xsl:style.xsl -s:input.xml -o:output.html title=Report --trace
@@ -249,7 +250,7 @@ xsl3 transform -xsl:style.xsl -s:input.xml -o:output.html title=Report --trace
 
 `XslCompiledTransform.CompileToAssembly` (on .NET 9 or later) saves a compiled stylesheet as an assembly holding one
 type; `Load(Type, XsltSettings)` loads it without compiling, so it runs under NativeAOT. The `Xsl3.Build` targets
-(`src/Xsl3.Build`, not on nuget.org yet) do it at build time:
+(the `Xsl3.Build` package) do it at build time:
 
 ```xml
 <XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />

@@ -1,6 +1,8 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Xml;
 using System.Xml.XPath;
 
@@ -8,11 +10,20 @@ namespace Xsl3.Runtime
 {
     public sealed partial class XsltLibrary
     {
+        /// <summary>fn:snapshot without schema-awareness.</summary>
+        /// <param name="items">The items to snapshot.</param>
+        // Xsl3: the signature 1.0.0-rc.1 shipped, kept so that assemblies Xsl3.Build saved with it still bind;
+        // the compiler calls the two-argument form.
+        [Obsolete("Compiled stylesheets call X31Snapshot(items, schemaAware).")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public IList<XPathItem> X31Snapshot(IList<XPathItem> items) => X31Snapshot(items, false);
+
         /// <summary>
         /// fn:snapshot (XSLT 3.0 §20.3.2): each node is copied with its subtree, its ancestors (shallow, with their
         /// attributes and namespaces) and, for an attribute or a namespace node, its parent's other attributes.
         /// </summary>
-        /// <summary>fn:snapshot; <paramref name="schemaAware"/>: a typed document's snapshot keeps its type annotations (P6).</summary>
+        /// <param name="items">The items to snapshot.</param>
+        /// <param name="schemaAware">A typed document's snapshot keeps its type annotations (P6).</param>
         public IList<XPathItem> X31Snapshot(IList<XPathItem> items, bool schemaAware)
         {
             var result = new List<XPathItem>(items.Count);
