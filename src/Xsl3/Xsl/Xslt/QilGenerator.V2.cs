@@ -3651,6 +3651,10 @@ namespace Xsl3.Xslt
         private QilNode CompileForEachGroup31(XslNodeEx node)
         {
             XslNodeV2 v2 = node.V2!;
+            if (v2.GroupBy == null && v2.GroupAdjacent == null && v2.GroupStartingWith == null && v2.GroupEndingWith == null)
+            {
+                return _f.Sequence(); // (XTSE1080, reported by the loader; nothing to compile the grouping key from)
+            }
             IList<XslNode> content = node.Content;
             int varScope = _varHelper.StartVariables();
 
