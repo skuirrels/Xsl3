@@ -455,6 +455,11 @@ namespace Xsl3.Xslt
                 return mode.LocalName.Length != 0 && (owner != p.Id ||
                     p.Visible.TryGetValue(('M', ns, mode.LocalName, -1), out PackageComponent? seen) && seen.Owner != p.Id && seen.Visibility != "hidden");
             }
+            // The top-level package's default-mode names a mode it must declare too (package-914d).
+            if (p.Id == 0 && compiler.DefaultInitialMode is { LocalName.Length: > 0 } defaultMode && !Declared(defaultMode))
+            {
+                compiler.ReportError(NoSource, SR.Xml_UserException, $"XTSE3085: the default mode {defaultMode.LocalName} isn't declared by xsl:mode");
+            }
             void Check(XslNode node)
             {
                 foreach (XslNode child in node.Content)
