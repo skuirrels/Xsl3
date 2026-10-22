@@ -3103,6 +3103,8 @@ namespace Xsl3.Xslt
             }
             else if (var.Select != null)
             {
+                // (A static parameter whose default isn't of its type is implicitly required: XTDE0050, static-013.)
+                conversionCode = var.NodeType == XslNodeType.Param ? "XTDE0050" : conversionCode;
                 try
                 {
                     value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);

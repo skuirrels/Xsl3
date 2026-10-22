@@ -85,10 +85,12 @@ namespace Xsl3.Xslt
             try
             {
                 IList<XPathItem> value;
+                string conversionCode = "XTTE0590";
                 if (declaration.LocalName == "param" && _compiler.StaticParameters != null &&
                     _compiler.StaticParameters.TryGetValue(new XmlQualifiedName(name.LocalName, name.NamespaceUri), out var supplied))
                 {
                     value = supplied;
+                    conversionCode = "XTDE0050"; // (a supplied value that isn't of the type; static-013)
                 }
                 else
                 {
@@ -100,12 +102,13 @@ namespace Xsl3.Xslt
                     {
                         return; // (no select: the real load works out the default value, or the error)
                     }
+                    conversionCode = declaration.LocalName == "param" ? "XTDE0050" : conversionCode; // (static-013)
                     value = UseWhen.EvaluateValue(select, namespaces, "", BaseOf(declaration), _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
                 }
                 if (declaration.GetAttribute("as", "") is { Length: > 0 } asType)
                 {
                     var types = new Xsl3.XPath31.StaticTypeResolver(p => namespaces.TryGetValue(p, out string? ns) ? ns : null, "");
-                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, types.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(asType)), "XTTE0590", () => "$" + lexical);
+                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, types.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(asType)), conversionCode, () => "$" + lexical);
                 }
                 _compiler.StaticValues[name] = Xsl3.XPath31.ConstantPool.Add(value);
             }
