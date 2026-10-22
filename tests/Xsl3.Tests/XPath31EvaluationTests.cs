@@ -97,6 +97,24 @@ public class XPath31EvaluationTests
         Assert.Equal(expected, Render(expression));
     }
 
+    /// <summary>
+    /// Regexes run a BMP-only translation on strings without surrogates (XPathRegex.For) and the full one otherwise;
+    /// each pair of rows is the same check on a string without and with a supplementary code point.
+    /// </summary>
+    [Theory]
+    [InlineData("matches('ab', '^\\w+$'), matches('a\U0001D49Cb', '^\\w+$'), matches('a,b', '^\\w+$')", "true true false")]
+    [InlineData("matches('a\U0001F600', '^\\w+$'), matches('a' || codepoints-to-string(119964) || 'b', '^\\w\\w\\w$')", "true true")]
+    [InlineData("replace('xéy', '.', 'z'), replace('x\U0001D49Cy', '.', 'z')", "zzz zzz")]
+    [InlineData("string-length(replace('héllo, wörld', '\\w', '')), string-length(replace('h\U0001D49Cllo, w', '\\w', ''))", "2 2")]
+    [InlineData("count(tokenize('a bé c', '\\s+')), count(tokenize('a b\U0001D49C c', '\\s+'))", "3 3")]
+    [InlineData("matches('é', '^[^a]$'), matches('\U0001D49C', '^[^a]$'), matches('\U0001D49C', '^[^\\p{Lu}]$')", "true true false")]
+    [InlineData("matches('K', '^k$', 'i'), matches('\U0001D49CK', '^.k$', 'i'), matches('\U0001F600', '^.$'), matches('\U0001F600', '^..$')", "true true true false")]
+    [InlineData("string-join(analyze-string('ab cd', '\\w+')//*:match, '|'), string-join(analyze-string('a\U0001D49C cd', '\\w+')//*:match, '|')", "ab|cd a\U0001D49C|cd")]
+    public void RegexesMatchTheSameWithAndWithoutSupplementaryCharacters(string expression, string expected)
+    {
+        Assert.Equal(expected, Render(expression));
+    }
+
     [Theory]
     [InlineData("/doc/a", "x y")]
     [InlineData("//a", "x y z")]

@@ -243,7 +243,8 @@ round trip passes; the `Xsl3.Build` package is ready to publish (with the owner'
 **State.** Measured for 1.0.0 (docs/performance.md, "Against SaxonCS-HE"): the micro suite is 1.22× SaxonCS-HE 13.1.0
 at 1 MB (median; regex and iterate slower), start-up 1.11×, and 2.7× precompiled, so G5 isn't met. G5 asks for 2.0/3.0
 to be faster than SaxonCS-HE on every benchmark, with a median of 2× or more, and cold start 2× or more (10× with Sink B).
-Left: TEI, DocBook and the 100 MB size on Saxon.
+Since 1.0.0, regex (2.4× Saxon's speed) and iterate (1.13×) are faster than SaxonCS-HE too. Left: TEI, DocBook and
+the 100 MB size on Saxon, and the 2× target.
 
 3.1 **Licence check first** (S). Confirm what licence the SaxonCS edition used carries, and whether it
    allows benchmarking and publishing results. Saxonica's .NET product has had commercial editions; check the

@@ -80,11 +80,12 @@ namespace Xsl3.Runtime
         public PendingCall(FunctionItem function)
         {
             Function = function;
+            Arguments = new(function.Arity);
         }
 
         public FunctionItem Function { get; }
 
-        public List<IList<XPathItem>> Arguments { get; } = new();
+        public List<IList<XPathItem>> Arguments { get; }
 
         public override int Arity => 0;
 
@@ -129,7 +130,7 @@ namespace Xsl3.Runtime
             var c = (PendingCall)call;
             // The function conversion rules to the declared parameter type (XPath 3.1 §3.1.5.2).
             int i = c.Arguments.Count;
-            c.Arguments.Add(Coercion.CoerceTo(Copy(value), c.Function.ParameterType(i), "XPTY0004", () => $"Argument {i + 1} of {c.Function.Describe()}"));
+            c.Arguments.Add(Coercion.CoerceArgument(Copy(value), c.Function.ParameterType(i), c.Function, i));
             return c;
         }
 
@@ -184,12 +185,23 @@ namespace Xsl3.Runtime
             value.Count == 1 && value[0] is BooleanValue b ? b.Boolean : throw Err.XPTY0004($"The function must return a single xs:boolean, not {Coercion.Describe(value)}");
 
         /// <summary>Calls a function item from the run-time library: compiled functions through the dispatcher.</summary>
-        internal IList<XPathItem> CallFunction(FunctionItem function, params IList<XPathItem>[] arguments)
+        internal IList<XPathItem> CallFunction(FunctionItem function, params IList<XPathItem>[] arguments) => CallFunction(function, arguments, owned: false);
+
+        /// <param name="owned">Xsl3 (P4): the argument lists are the callee's to keep (made for this call, their nodes
+        /// cloned), so they aren't copied again.</param>
+        internal IList<XPathItem> CallFunction(FunctionItem function, IList<XPathItem>[] arguments, bool owned)
         {
             var call = new PendingCall(function);
             foreach (IList<XPathItem> argument in arguments)
             {
-                X31CallArgument(call, argument);
+                if (owned)
+                {
+                    call.Arguments.Add(Coercion.CoerceArgument(argument, function.ParameterType(call.Arguments.Count), function, call.Arguments.Count));
+                }
+                else
+                {
+                    X31CallArgument(call, argument);
+                }
             }
             if (function is CompiledFunction cf)
             {

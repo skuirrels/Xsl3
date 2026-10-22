@@ -20,14 +20,31 @@ namespace Xsl3.XPath31.Functions
     {
         private static readonly ConcurrentDictionary<(string, string, System.TimeSpan?), XPathRegex> s_cache = new();
 
-        private XPathRegex(Regex regex, int groupCount, int[] parents)
+        private XPathRegex(Regex regex, int groupCount, int[] parents, string? bmpPattern = null)
         {
             Regex = regex;
             GroupCount = groupCount;
             GroupParents = parents;
+            _bmpPattern = bmpPattern;
         }
 
+        /// <summary>The regex for any input. <see cref="For"/> picks a faster one where it can.</summary>
         public Regex Regex { get; }
+
+        // Xsl3 (P4): the pattern translated for strings without surrogates, when that differs (character classes and '.'
+        // without the alternation for supplementary code points); its Regex is made on first use.
+        private readonly string? _bmpPattern;
+        private Regex? _bmp;
+
+        /// <summary>The regex to run on <paramref name="input"/>: the BMP-only one when the input has no surrogates.</summary>
+        public Regex For(string input)
+        {
+            if (_bmpPattern == null || input.AsSpan().ContainsAnyInRange('\uD800', '\uDFFF'))
+            {
+                return Regex;
+            }
+            return _bmp ??= new Regex(_bmpPattern, Regex.Options, Regex.MatchTimeout);
+        }
 
         public int GroupCount { get; }
 
@@ -71,9 +88,10 @@ namespace Xsl3.XPath31.Functions
             // Case-insensitivity is translated too: .NET's IgnoreCase would also widen \p{Lu} and friends.
             var translator = new Translator(pattern, dotAll, multiline, ignoreCase);
             string net = translator.Translate();
+            string bmp = new Translator(pattern, dotAll, multiline, ignoreCase, bmpOnly: true).Translate();
             try
             {
-                return new XPathRegex(new Regex(net, options, timeout), translator.GroupCount, translator.Parents.ToArray());
+                return new XPathRegex(new Regex(net, options, timeout), translator.GroupCount, translator.Parents.ToArray(), bmp == net ? null : bmp);
             }
             catch (System.ArgumentException e)
             {
@@ -128,17 +146,21 @@ namespace Xsl3.XPath31.Functions
 
             private static readonly string s_dot = CodePointSet.All.Subtract(CodePointSet.Of(('\n', '\n'), ('\r', '\r'))).ToPattern();
             private static readonly string s_dotAll = CodePointSet.All.ToPattern();
+            private static readonly string s_dotBmp = CodePointSet.All.Subtract(CodePointSet.Of(('\n', '\n'), ('\r', '\r'))).ToBmpPattern();
+            private static readonly string s_dotAllBmp = CodePointSet.All.ToBmpPattern();
 
             private readonly string _p;
-            private readonly bool _dotAll, _multiline, _ignoreCase;
+            private readonly bool _dotAll, _multiline, _ignoreCase, _bmpOnly;
             private readonly StringBuilder _out = new();
             private readonly Stack<int> _open = new();
             private readonly HashSet<int> _closed = new();
             private int _i;
 
-            public Translator(string pattern, bool dotAll, bool multiline, bool ignoreCase)
+            /// <param name="bmpOnly">Xsl3 (P4): translate for strings without surrogates (see <see cref="XPathRegex.For"/>).</param>
+            public Translator(string pattern, bool dotAll, bool multiline, bool ignoreCase, bool bmpOnly = false)
             {
                 _p = pattern;
+                _bmpOnly = bmpOnly;
                 _dotAll = dotAll;
                 _multiline = multiline;
                 _ignoreCase = ignoreCase;
@@ -162,7 +184,7 @@ namespace Xsl3.XPath31.Functions
                             canQuantify = true;
                             break;
                         case '[':
-                            _out.Append(CharClass().ToPattern());
+                            _out.Append(Set(CharClass()));
                             canQuantify = true;
                             break;
                         case '(':
@@ -196,7 +218,7 @@ namespace Xsl3.XPath31.Functions
                             break;
                         case '.':
                             // One code point; except newline and carriage return unless the s flag is set.
-                            _out.Append(_dotAll ? s_dotAll : s_dot);
+                            _out.Append(_bmpOnly ? (_dotAll ? s_dotAllBmp : s_dotBmp) : (_dotAll ? s_dotAll : s_dot));
                             canQuantify = true;
                             break;
                         case '^':
@@ -282,6 +304,8 @@ namespace Xsl3.XPath31.Functions
                 Reluctant();
             }
 
+            private string Set(CodePointSet set) => _bmpOnly ? set.ToBmpPattern() : set.ToPattern();
+
             // A literal code point; with the i flag, any of its case variants.
             private void Literal(int cp)
             {
@@ -290,7 +314,7 @@ namespace Xsl3.XPath31.Functions
                     CodePointSet variants = CodePointSet.Single(cp).WithCaseVariants();
                     if (variants.Ranges.Count > 1 || variants.Ranges[0].Low != variants.Ranges[0].High)
                     {
-                        _out.Append(variants.ToPattern());
+                        _out.Append(Set(variants));
                         return;
                     }
                 }
@@ -325,7 +349,7 @@ namespace Xsl3.XPath31.Functions
                 }
                 else
                 {
-                    _out.Append(set!.ToPattern());
+                    _out.Append(Set(set!));
                 }
             }
 
@@ -494,8 +518,8 @@ namespace Xsl3.XPath31.Functions
     {
         private static void RegisterRegex()
         {
-            Define("fn:matches($input as xs:string?, $pattern as xs:string) as xs:boolean", (c, a) => Bool(XPathRegex.Get(S(a[1]), "").Regex.IsMatch(S(a[0]))));
-            Define("fn:matches($input as xs:string?, $pattern as xs:string, $flags as xs:string) as xs:boolean", (c, a) => Bool(XPathRegex.Get(S(a[1]), S(a[2])).Regex.IsMatch(S(a[0]))));
+            Define("fn:matches($input as xs:string?, $pattern as xs:string) as xs:boolean", (c, a) => Bool(XPathRegex.Get(S(a[1]), "").For(S(a[0])).IsMatch(S(a[0]))));
+            Define("fn:matches($input as xs:string?, $pattern as xs:string, $flags as xs:string) as xs:boolean", (c, a) => Bool(XPathRegex.Get(S(a[1]), S(a[2])).For(S(a[0])).IsMatch(S(a[0]))));
             Define("fn:replace($input as xs:string?, $pattern as xs:string, $replacement as xs:string) as xs:string", (c, a) => Str(Replace(S(a[0]), S(a[1]), S(a[2]), "")));
             Define("fn:replace($input as xs:string?, $pattern as xs:string, $replacement as xs:string, $flags as xs:string) as xs:string", (c, a) => Str(Replace(S(a[0]), S(a[1]), S(a[2]), S(a[3]))));
             Define("fn:tokenize($input as xs:string?) as xs:string*", (c, a) => Tokenize(Lexical.Collapse(S(a[0])), " ", ""));
@@ -567,7 +591,7 @@ namespace Xsl3.XPath31.Functions
             {
                 parts.Add((text.ToString(), 0));
             }
-            return re.Regex.Replace(input, m =>
+            return re.For(input).Replace(input, m =>
             {
                 var sb = new StringBuilder();
                 foreach (var (t, g) in parts)
@@ -629,7 +653,7 @@ namespace Xsl3.XPath31.Functions
             }
             var tokens = new List<XPathItem>();
             int pos = 0;
-            for (Match m = re.Regex.Match(input); m.Success; m = m.NextMatch())
+            for (Match m = re.For(input).Match(input); m.Success; m = m.NextMatch())
             {
                 tokens.Add(AtomicValue.OfString(input[pos..m.Index]));
                 pos = m.Index + m.Length;
@@ -650,7 +674,7 @@ namespace Xsl3.XPath31.Functions
             int pos = 0;
             if (input.Length > 0)
             {
-                for (Match m = re.Regex.Match(input); m.Success; m = m.NextMatch())
+                for (Match m = re.For(input).Match(input); m.Success; m = m.NextMatch())
                 {
                     if (m.Index > pos)
                     {

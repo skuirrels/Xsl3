@@ -635,6 +635,27 @@ at least twice as fast, ten times precompiled. 1.0.0 doesn't meet them: run spee
 median, with regex and iterate slower; start-up is 1.11× from source and 2.72× precompiled. regex and
 iterate are the first 1.x speed work.
 
+### After 1.0.0: regex and iterate
+
+The two tests Saxon won, measured again with the same command (three runs, medians), 1 MB input, milliseconds:
+
+| Test | Xsl3 1.0.0 | Xsl3 now | Saxon | Faster now |
+|---|---|---|---|---|
+| regex | 28.77 | 5.71 | 13.90 | Xsl3, 2.4× faster |
+| iterate | 2.09 | 1.33 | 1.51 | Xsl3, 13% faster |
+| fold-left | 3.38 | 2.76 | 3.59 | Xsl3, 30% faster |
+| maps | 4.61 | 4.56 | 6.17 | Xsl3, 35% faster |
+
+- **regex:** XPath's `\w` (and `.` and every character class) was translated to a .NET pattern with an alternation for
+  the supplementary planes; `(\w)(\w*)` became 28 KB, and .NET couldn't run it as a set loop. Each regex now also has
+  a translation for strings without surrogates, a plain character class, which `XPathRegex.For` picks after a
+  vectorised check of the input: `xsl:analyze-string` with `\w` is 20× faster.
+- **iterate:** each step of `xsl:iterate` is a dynamic call of its body. A dynamic call no longer makes a closure
+  per argument for its error message, nor copies arguments `xsl:iterate` has already copied; `fn:min` and `fn:max`
+  of values of one numeric type take one pass without LINQ. fold-left and maps gain from the same dynamic-call change.
+- At 1 KB a run of these tests takes microseconds, and their times move with what ran before them in the process:
+  iterate at 1 KB read 0.006 ms in one harness and 0.018 ms alone, on 1.0.0 and now alike.
+
 ## Where the rest of the time goes
 
 The remaining cost is mostly shared with stock and outside Xsl3's code:

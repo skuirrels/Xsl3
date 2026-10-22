@@ -67,7 +67,12 @@ namespace Xsl3.XPath31.Functions
         public static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string> what) =>
             CoerceTo(value, expected, errorCode, what, null, 0);
 
-        private static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string>? what, FunctionDefinition? function, int argIndex)
+        /// <summary>An argument of a dynamic call; the message names the function only if there is an error.</summary>
+        public static IList<XPathItem> CoerceArgument(IList<XPathItem> value, SequenceTypeTest expected, FunctionItem function, int argIndex) =>
+            CoerceTo(value, expected, "XPTY0004", null, function, argIndex);
+
+        // (function: a FunctionDefinition or a FunctionItem, described in the message.)
+        private static IList<XPathItem> CoerceTo(IList<XPathItem> value, SequenceTypeTest expected, string errorCode, System.Func<string>? what, object? function, int argIndex)
         {
             ItemTest? itemTest = expected.Item;
             if (itemTest is AnyItemTest && expected.Cardinality == Cardinality.ZeroOrMore)
@@ -96,7 +101,7 @@ namespace Xsl3.XPath31.Functions
             }
             if (!expected.Matches(value) && !(itemTest is FunctionItemTest { Parameters: not null } ft && FunctionCoercible(value, expected, ft)))
             {
-                throw new XdmException(errorCode, $"{(what != null ? what() : $"Argument {argIndex + 1} of {function}")} must be {expected}, but is {Describe(value)}");
+                throw new XdmException(errorCode, $"{(what != null ? what() : $"Argument {argIndex + 1} of {(function is FunctionItem item ? item.Describe() : function)}")} must be {expected}, but is {Describe(value)}");
             }
             return value;
         }

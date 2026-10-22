@@ -98,8 +98,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   - The XSLT 3.0 micro suite (13 stylesheets at 1 KB, 1 MB and 100 MB, compile and cold start) runs on every pull
     request against its base, and fails on 5% more time or allocation.
   - Sink B (`Xsl3.Build`, saved assemblies) and NativeAOT are in. Against SaxonCS-HE 13.1.0, Xsl3 runs the XSLT 3.0
-    micro suite faster on 11 of 13 tests (1.22× at the median on 1 MB; regex and iterate slower) and starts faster on
-    all 13 ([docs/performance.md](docs/performance.md#against-saxoncs-he-remaining-scope-3-spec-196)). Still to do:
+    micro suite faster on 11 of 13 tests in 1.0.0 (1.22× at the median on 1 MB; regex and iterate slower, both faster
+    than Saxon since) and starts faster on all 13 ([docs/performance.md](docs/performance.md#against-saxoncs-he-remaining-scope-3-spec-196)). Still to do:
     template dispatch tables if a stylesheet with hundreds of rules shows the need (measured: 17 ns per element for
     200 extra rules).
 - **Schema-awareness (P6)**: claimed in the xslt30-test 3.0 profile, with `XsltSettings.SchemaAware` on (it is off
