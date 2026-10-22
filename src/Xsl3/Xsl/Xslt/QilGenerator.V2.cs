@@ -1530,7 +1530,7 @@ namespace Xsl3.Xslt
             {
                 string name = (string)(QilLiteral)qilName;
                 bool isValid = _compiler.ParseQName(name, out string prefix, out string local, (IErrorHelper)this, "XTDE0850");
-                string nsUri = qilNs == null ? (isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix) : _compiler.CreatePhantomNamespace()) : (string)(QilLiteral)qilNs;
+                string nsUri = qilNs == null ? (isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix, "XTDE0860") : _compiler.CreatePhantomNamespace()) : (string)(QilLiteral)qilNs;
                 if (name == "xmlns" || local == "xmlns" && nsUri.Length == 0)
                 {
                     ReportError(/*[XTDE0850]*/SR.Xslt_XmlnsAttr, "name", name);

@@ -1190,7 +1190,7 @@ namespace Xsl3.Xslt
 
                 if (qilNs == null)
                 {
-                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/false, prefix) : _compiler.CreatePhantomNamespace();
+                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/false, prefix, "XTDE0830") : _compiler.CreatePhantomNamespace();
                 }
                 else
                 {
@@ -1258,7 +1258,7 @@ namespace Xsl3.Xslt
 
                 if (qilNs == null)
                 {
-                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix) : _compiler.CreatePhantomNamespace();
+                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix, "XTDE0860") : _compiler.CreatePhantomNamespace();
                 }
                 else
                 {
@@ -3343,7 +3343,9 @@ namespace Xsl3.Xslt
             );
         }
 
-        private string ResolvePrefix(bool ignoreDefaultNs, string prefix)
+        /// <param name="code">Xsl3: in 2.0+, the code for an undeclared prefix (XTDE0830 for xsl:element's name, XTDE0860
+        /// for xsl:attribute's); else the general XTSE0280.</param>
+        private string ResolvePrefix(bool ignoreDefaultNs, string prefix, string? code = null)
         {
             if (ignoreDefaultNs && prefix.Length == 0)
             {
@@ -3360,7 +3362,14 @@ namespace Xsl3.Xslt
                     }
                     else
                     {
-                        ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+                        if (IsV2 && code != null)
+                        {
+                            ReportError(SR.Xml_UserException, $"{code}: " + XslTransformException.CreateMessage(SR.Xslt_InvalidPrefix, prefix));
+                        }
+                        else
+                        {
+                            ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+                        }
                         ns = _compiler.CreatePhantomNamespace();
                     }
                 }

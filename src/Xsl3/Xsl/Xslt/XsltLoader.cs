@@ -3793,6 +3793,14 @@ namespace Xsl3.Xslt
         // Xsl3 (P6): a type attribute's name; an unprefixed one is in the xpath-default-namespace (XSLT 3.0 §5.1.2).
         private XmlQualifiedName ResolveTypeName(string value)
         {
+            string trimmed = value.Trim();
+            if (!trimmed.StartsWith("Q{", StringComparison.Ordinal) && (!IsLexicalQName(trimmed) ||
+                trimmed.IndexOf(':') is int colon and > 0 && _input.LookupXmlNamespace(trimmed[..colon]) == null))
+            {
+                // A type attribute that isn't a QName with a declared prefix (XTSE1520).
+                ReportError(SR.Xml_UserException, $"XTSE1520: type=\"{value}\" is not the name of a type");
+                return new XmlQualifiedName("error", _compiler.CreatePhantomNamespace());
+            }
             XmlQualifiedName name = ResolveQName(/*ignoreDefaultNs:*/true, value);
             return name.Namespace.Length == 0 && !value.TrimStart().StartsWith("Q{", StringComparison.Ordinal) && _input.XPathDefaultNamespace.Length > 0
                 ? new XmlQualifiedName(name.Name, _input.XPathDefaultNamespace)
