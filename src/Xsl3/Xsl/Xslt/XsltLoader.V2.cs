@@ -516,7 +516,7 @@ namespace Xsl3.Xslt
             }
             else if (use == "absent" && asType != null)
             {
-                ReportError(SR.Xml_UserException, "XTSE3089: xsl:context-item with use=\"absent\" can't have an as attribute");
+                ReportError(SR.Xml_UserException, "XTSE3088: xsl:context-item with use=\"absent\" can't have an as attribute");
             }
             else if (use is "optional" or "absent" && _curTemplate is { Name: null })
             {

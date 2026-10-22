@@ -2670,7 +2670,8 @@ namespace Xsl3.Xslt
                     {
                         if (content.Count != 0)
                         {
-                            ReportError(SR.Xml_UserException, "XTSE0010: a static variable or parameter takes its value from select");
+                            // (With a select attribute too, the general rule's XTSE0620; use-when-0431.)
+                            ReportError(SR.Xml_UserException, (select != null ? "XTSE0620" : "XTSE0010") + ": a static variable or parameter takes its value from select");
                         }
                         if (visibility != null)
                         {
