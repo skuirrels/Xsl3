@@ -1990,7 +1990,12 @@ namespace Xsl3.Runtime
                 case XPathNodeType.Attribute:
                 case XPathNodeType.Namespace:
                     if (_depth == 1)
+                    {
+                        // Xsl3: in 2.0+ an attribute or namespace node in a document node is XTDE0420.
+                        if (_runtime.IsXslt2 && _rootType == XPathNodeType.Root)
+                            throw new Xsl3.Xdm.XdmException("XTDE0420", XslTransformException.CreateMessage(SR.XmlIl_BadXmlState, constructorType.ToString(), _rootType.ToString()));
                         throw new XslTransformException(SR.XmlIl_BadXmlState, new string[] { constructorType.ToString(), _rootType.ToString() });
+                    }
 
                     if (_xstate == XmlState.WithinContent)
                     {

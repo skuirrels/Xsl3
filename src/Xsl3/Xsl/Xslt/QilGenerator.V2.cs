@@ -1554,6 +1554,11 @@ namespace Xsl3.Xslt
 
         private QilNode CompileCopy31(XslNode copy)
         {
+            if (FocusAbsent)
+            {
+                // A function body or another place with no focus (XSLT 3.0 §11.9.1): copy-4307.
+                return _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTTE0945"), _f.String("xsl:copy is used where there is no context item")), T.ItemS);
+            }
             QilNode current = GetCurrentNode();
             _outputScope.InvalidateAllPrefixes();
             if (copy.V2?.CopyNamespaces == TriState.False)
