@@ -1559,6 +1559,12 @@ namespace Xsl3.Xslt
             Debug.Assert(node.NodeType == XslNodeType.ApplyImports);
             Debug.Assert(!_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each");
 
+            if (IsV2 && _currentTemplateRule is { OverrideOf: >= 0 })
+            {
+                // Xsl3: in a template rule of xsl:override, xsl:next-match reaches the overridden rule (XTSE3460).
+                ReportError(SR.Xml_UserException, "XTSE3460: xsl:apply-imports can't be used in a template rule of xsl:override");
+                return _f.Sequence();
+            }
             if (IsV2 && _currentTemplateRule == null)
             {
                 // Xsl3: in a named template, the caller's current template rule decides (XSLT 3.0 §6.8).
