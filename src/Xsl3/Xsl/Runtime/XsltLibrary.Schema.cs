@@ -130,7 +130,16 @@ namespace Xsl3.Runtime
             for (int i = 0; i < result.Length; i++)
             {
                 // (Atomic values, as xsl:copy-of copies them, aren't validated.)
-                result[i] = items[i] is XPathNavigator node ? NodeValidator.Validate(node, schemas, validation == "strict", schemaType) : items[i];
+                try
+                {
+                    result[i] = items[i] is XPathNavigator node ? NodeValidator.Validate(node, schemas, validation == "strict", schemaType) : items[i];
+                }
+                catch (XdmException e) when (validation == "copy" && e.Code == "XTTE1540" && items[i] is XPathNavigator { NodeType: XPathNodeType.Attribute })
+                {
+                    // An attribute copied by xsl:copy-of or xsl:copy with a type attribute (si-copy-of-117; a copied
+                    // element or document stays XTTE1540, si-copy-of-110).
+                    throw new XdmException("XTTE1510", e.Message);
+                }
                 if (_accumulatorCopies != null && items[i] is XPathNavigator && !ReferenceEquals(result[i], items[i]))
                 {
                     // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.

@@ -1003,7 +1003,7 @@ namespace Xsl3.Xslt
                 Debug.Assert(result != null, "Result of compilation should not be null");
                 if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
                 {
-                    result = Validate31(result, validated);
+                    result = Validate31(result, validated, copy: nodeType is XslNodeType.Copy or XslNodeType.CopyOf);
                 }
                 else if (IsV2 && node.V2?.Validation is string kept and ("preserve" or "strip") && nodeType is XslNodeType.LiteralElement or XslNodeType.Element or XslNodeType.Copy or XslNodeType.Document)
                 {

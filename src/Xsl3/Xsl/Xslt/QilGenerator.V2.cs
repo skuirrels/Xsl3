@@ -519,7 +519,8 @@ namespace Xsl3.Xslt
         /// Xsl3 (P6): the nodes an instruction constructs or copies, validated (XSLT 3.0 §25.4): strictly or laxly
         /// against the imported schemas' declarations, or against the type its type attribute names.
         /// </summary>
-        private QilNode Validate31(QilNode nodes, XslNodeV2 v2)
+        /// <param name="copy">xsl:copy or xsl:copy-of: invalid against a type attribute is XTTE1510, not a constructor's XTTE1540.</param>
+        private QilNode Validate31(QilNode nodes, XslNodeV2 v2, bool copy = false)
         {
             string type = "";
             if (v2.ValidationType is { } name)
@@ -531,7 +532,7 @@ namespace Xsl3.Xslt
                 }
                 type = $"Q{{{name.Namespace}}}{name.Name}";
             }
-            return X31(nameof(XsltLibrary.X31Validate), T.ItemS, Box(nodes), _f.Double(SchemasId31()), _f.String(v2.Validation ?? ""), _f.String(type));
+            return X31(nameof(XsltLibrary.X31Validate), T.ItemS, Box(nodes), _f.Double(SchemasId31()), _f.String(copy && type.Length > 0 ? "copy" : v2.Validation ?? ""), _f.String(type));
         }
 
         // The imported schemas as a run-time constant; with no schema imported, an empty set: the built-in types, and no
