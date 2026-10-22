@@ -97,7 +97,7 @@ namespace Xsl3.Xslt
                 {
                     if (namespaceUri != null && (inline.TargetNamespace ?? "") != namespaceUri)
                     {
-                        ReportError(lineInfo, SR.Xml_UserException, $"XTSE0220: the inline schema's target namespace is not '{namespaceUri}'");
+                        ReportError(lineInfo, SR.Xml_UserException, $"XTSE0215: the inline schema's target namespace is not '{namespaceUri}'"); // (XSLT 3.0 §3.14.2)
                         return;
                     }
                     _schemas.Add(inline);
