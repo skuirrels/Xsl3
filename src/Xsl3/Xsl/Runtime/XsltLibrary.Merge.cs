@@ -81,15 +81,32 @@ namespace Xsl3.Runtime
                     }
                     if (spec.SortBeforeMerge[s])
                     {
-                        input = input.Select((e, i) => (e, i)).OrderBy(x => x.e.Key, Comparer<IList<XPathItem>[]>.Create((a, b) => CompareMergeKeys(a, b, spec)))
-                            .ThenBy(x => x.i).Select(x => x.e).ToList();
+                        try
+                        {
+                            input = input.Select((e, i) => (e, i)).OrderBy(x => x.e.Key, Comparer<IList<XPathItem>[]>.Create((a, b) => CompareMergeKeys(a, b, spec)))
+                                .ThenBy(x => x.i).Select(x => x.e).ToList();
+                        }
+                        catch (System.InvalidOperationException e) when (e.InnerException is XdmException inner)
+                        {
+                            throw inner; // (the sort wraps its comparer's error)
+                        }
                     }
                     entries.AddRange(input);
                 }
             }
             // Stable: equal keys keep the order of their sources, inputs and items.
-            List<(IList<XPathItem>[] Key, int Source, XPathItem Item)> merged = entries.Select((e, i) => (e, i))
-                .OrderBy(x => x.e.Key, Comparer<IList<XPathItem>[]>.Create((a, b) => CompareMergeKeys(a, b, spec))).ThenBy(x => x.i).Select(x => x.e).ToList();
+            List<(IList<XPathItem>[] Key, int Source, XPathItem Item)> merged;
+            try
+            {
+                merged = entries.Select((e, i) => (e, i))
+                    .OrderBy(x => x.e.Key, Comparer<IList<XPathItem>[]>.Create((a, b) => CompareMergeKeys(a, b, spec))).ThenBy(x => x.i).Select(x => x.e).ToList();
+            }
+            catch (System.InvalidOperationException e) when (e.InnerException is XdmException inner)
+            {
+                // Keys of different merge sources that aren't comparable: XTTE2230 (within one source, XTDE2210).
+                throw inner.Code == "XTDE2210" && entries.Select(x => x.Source).Distinct().Skip(1).Any()
+                    ? new XdmException("XTTE2230", inner.Message.Replace("Merge keys", "The merge keys of different sources", System.StringComparison.Ordinal)) : inner;
+            }
 
             var groups = new List<List<(IList<XPathItem>[] Key, int Source, XPathItem Item)>>();
             foreach (var entry in merged)

@@ -199,6 +199,11 @@ namespace Xsl3.Runtime
                 {
                     throw;
                 }
+                if (_runtime.IsXslt2)
+                {
+                    // Xsl3: in 2.0+ a document that can't be retrieved or parsed is FODC0002 (XSLT 3.0 §20.1).
+                    throw new Xsl3.Xdm.XdmException("FODC0002", XslTransformException.CreateMessage(SR.XmlIl_DocumentLoadError, uriRelative) + " " + e.Message);
+                }
                 throw new XslTransformException(e, SR.XmlIl_DocumentLoadError, uriRelative);
             }
 
