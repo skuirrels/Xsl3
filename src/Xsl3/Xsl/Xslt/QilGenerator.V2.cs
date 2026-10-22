@@ -520,14 +520,20 @@ namespace Xsl3.Xslt
         /// against the imported schemas' declarations, or against the type its type attribute names.
         /// </summary>
         /// <param name="copy">xsl:copy or xsl:copy-of: invalid against a type attribute is XTTE1510, not a constructor's XTTE1540.</param>
-        private QilNode Validate31(QilNode nodes, XslNodeV2 v2, bool copy = false)
+        /// <param name="attribute">xsl:attribute: a complex type is a static error (XTSE1530).</param>
+        private QilNode Validate31(QilNode nodes, XslNodeV2 v2, bool copy = false, bool attribute = false)
         {
             string type = "";
             if (v2.ValidationType is { } name)
             {
-                if (ValidationType31(name) == null)
+                if (ValidationType31(name) is not { } schemaType)
                 {
                     ReportError(SR.Xml_UserException, $"XTSE1520: the type Q{{{name.Namespace}}}{name.Name} is not defined by an imported schema");
+                    return nodes;
+                }
+                if (attribute && schemaType is System.Xml.Schema.XmlSchemaComplexType)
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE1530: xsl:attribute's type Q{{{name.Namespace}}}{name.Name} is a complex type");
                     return nodes;
                 }
                 type = $"Q{{{name.Namespace}}}{name.Name}";
@@ -3086,7 +3092,8 @@ namespace Xsl3.Xslt
             XPath31.BinaryExpr { Op: XPath31.BinaryOp.Union } u => u with { Left = StrictPattern31(u.Left, lax), Right = StrictPattern31(u.Right, lax) },
             XPath31.PathExpr { Left: XPath31.RootExpr } path => path with { Right = StrictPattern31(path.Right, lax) },
             XPath31.PathExpr path => path with { Left = StrictPattern31(path.Left, lax) },
-            XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name } step when !lax || Declared31(name, local) =>
+            // (An undeclared name in a strict mode stays a name test: CheckStrictPatterns31 reports XTSE3105.)
+            XPath31.AxisStep { Axis: XPath31.Axis.Child, Test: XPath31.NameTest { LocalName: string local, AnyNamespace: false } name } step when Declared31(name, local) =>
                 step with { Test = new XPath31.KindNodeTest(new XPath31.SchemaElementTest(new LexicalQName(name.Prefix, local, name.BracedUri))) },
             _ => e,
         };
