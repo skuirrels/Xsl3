@@ -392,6 +392,16 @@ namespace Xsl3.Xslt
                 // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
                 return Box(result);
             }
+            if (IsV2 && !result.XmlType!.IsSubtypeOf(T.NodeNotRtfS) && !result.XmlType.IsSubtypeOf(T.AnyAtomicTypeS))
+            {
+                // Xsl3: a map or function in the principal result can't be serialized (SENR0001; output-0710), rather
+                // than the XTDE0450 of a node's content. (Arrays are flattened.)
+                QilIterator i;
+                result = _f.Loop(i = _f.For(Box(result)), _f.Conditional(
+                    _f.Or(_f.Or(_f.IsType(i, T.Node), _f.IsType(i, T.AnyAtomicType)), X31(nameof(XsltLibrary.X31IsArray), T.BooleanX, i)),
+                    i,
+                    _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("SENR0001"), _f.String("A map or function item can't be serialized with this output method")), T.Item)));
+            }
             return _f.DocumentCtor(IsV2 ? ContentNodes(result) : result);
         }
 
