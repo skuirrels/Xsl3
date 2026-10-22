@@ -39,13 +39,11 @@ namespace Xsl3.Runtime
                 if (item is XPathNavigator n)
                 {
                     // The snapshot keeps the accumulator values of the node and its descendants.
-                    XPathNavigator copy = Snapshot(n);
+                    XPathNavigator copy = Snapshot(n, schemaAware);
                     XPathNavigator top = copy.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace ? null! : copy;
                     if (top != null)
                     {
-                        XPathNavigator root = copy.Clone();
-                        root.MoveToRoot();
-                        (_accumulatorCopies ??= new())[_runtime.GenerateId(root)] = (copy.Clone(), n.Clone());
+                        (_accumulatorCopies ??= new()).Set(copy, n);
                     }
                     result.Add(copy);
                 }
@@ -57,8 +55,10 @@ namespace Xsl3.Runtime
             return result;
         }
 
-        private static XPathNavigator Snapshot(XPathNavigator node)
+        private static XPathNavigator Snapshot(XPathNavigator node, bool schemaAware)
         {
+            using var consumption = node is Streaming.StreamedNavigator streamed && node.NodeType is XPathNodeType.Element or XPathNodeType.Root
+                ? streamed.BeginConsumption() : default;
             // The chain from the root down to the element that holds the node (or the node itself).
             var chain = new List<XPathNavigator>();
             XPathNavigator top = node.Clone();
@@ -66,10 +66,10 @@ namespace Xsl3.Runtime
             {
                 if (!top.MoveToParent())
                 {
-                    return CopyParentless(node);
+                    return schemaAware && node.NodeType == XPathNodeType.Attribute
+                        ? Schema.NodeValidator.Preserve(node, copyNamespaces: true) : CopyParentless(node);
                 }
             }
-            XPathNavigator target = top.Clone();
             do
             {
                 chain.Add(top.Clone());
@@ -77,29 +77,10 @@ namespace Xsl3.Runtime
             while (top.MoveToParent());
             chain.Reverse();
             bool rooted = chain[0].NodeType == XPathNodeType.Root;
-            var (w, root) = Xsl3.Tree.CompactDocument.TemporaryTree(node.NameTable, target.BaseURI, fragment: !rooted, noDocumentUri: !rooted, compact: true);
             int start = rooted ? 1 : 0;
-            for (int i = start; i < chain.Count - 1; i++)
-            {
-                WriteStartShallow(w, chain[i]);
-            }
-            if (chain.Count - 1 >= start)
-            {
-                CopyDeep(w, chain[^1]);
-            }
-            else
-            {
-                // The document node itself.
-                CopyChildren(w, chain[0]);
-            }
-            for (int i = chain.Count - 2; i >= start; i--)
-            {
-                w.WriteFullEndElement(chain[i].Prefix, chain[i].LocalName, chain[i].NamespaceURI);
-            }
-            w.Close();
-
             // Each copied ancestor has the next one as its only child (a fragment's root is its top element).
-            XPathNavigator nav = root();
+            bool shallow = node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace;
+            XPathNavigator nav = schemaAware ? TypedSnapshotRoot(chain, rooted, start, shallow) : SnapshotRoot(chain, rooted, start, shallow);
             for (int i = 1; i < chain.Count; i++)
             {
                 nav.MoveToFirstChild();
@@ -122,9 +103,54 @@ namespace Xsl3.Runtime
             return nav;
         }
 
+        private static XPathNavigator SnapshotRoot(List<XPathNavigator> chain, bool rooted, int start, bool shallow)
+        {
+            XPathNavigator target = chain[^1];
+            var (w, root) = Tree.CompactDocument.TemporaryTree(target.NameTable, chain[0].BaseURI, fragment: !rooted, noDocumentUri: !rooted, compact: true);
+            for (int i = start; i < chain.Count - 1; i++) WriteStartShallow(w, chain[i]);
+            if (shallow)
+            {
+                WriteStartShallow(w, target);
+                w.WriteFullEndElement(target.Prefix, target.LocalName, target.NamespaceURI);
+            }
+            else if (chain.Count - 1 >= start) CopyDeep(w, target);
+            else CopyChildren(w, chain[0]);
+            for (int i = chain.Count - 2; i >= start; i--) w.WriteFullEndElement(chain[i].Prefix, chain[i].LocalName, chain[i].NamespaceURI);
+            w.Close();
+            return root();
+        }
+
+        private static XPathNavigator TypedSnapshotRoot(List<XPathNavigator> chain, bool rooted, int start, bool shallow)
+        {
+            XPathNavigator target = chain[^1];
+            var builder = new Tree.CompactDocument.Builder(target.NameTable, chain[0].BaseURI, fragment: !rooted, small: true);
+            for (int i = start; i < chain.Count - 1; i++)
+                Schema.NodeValidator.CopyElementStart(builder, chain[i].Clone(), copyNamespaces: true, top: i == start, keepTypes: true, snapshotAncestor: true);
+            if (shallow)
+            {
+                Schema.NodeValidator.CopyElementStart(builder, target.Clone(), copyNamespaces: true, top: start == chain.Count - 1, keepTypes: true, snapshotAncestor: true);
+                builder.EndElement(emptyTag: true);
+            }
+            else if (chain.Count - 1 >= start)
+                Schema.NodeValidator.CopyChild(builder, target, copyNamespaces: true, keepTypes: true);
+            else
+            {
+                XPathNavigator child = target.Clone();
+                if (child.MoveToFirstChild())
+                    do { Schema.NodeValidator.CopyChild(builder, child, copyNamespaces: true, keepTypes: true); } while (child.MoveToNext());
+            }
+            for (int i = chain.Count - 2; i >= start; i--) builder.EndElement(emptyTag: false);
+            Tree.CompactDocument tree = builder.Finish();
+            tree._constructed = true;
+            tree.NoDocumentUri = !rooted;
+            return tree.CreateNavigator();
+        }
+
         // A deep copy of a node, in a new tree (a parentless node, or a document for a document node).
         private static XPathNavigator CopyTree(XPathNavigator node)
         {
+            if (node is Streaming.StreamedNavigator streamed && node.NodeType is XPathNodeType.Element or XPathNodeType.Root)
+                return streamed.Ground();
             if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace)
             {
                 return CopyParentless(node);

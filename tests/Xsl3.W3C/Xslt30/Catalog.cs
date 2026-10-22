@@ -48,7 +48,7 @@ public sealed class Catalog
         return null;
     }
 
-    public static Catalog Load(string root)
+    public static Catalog Load(string root, bool includePostureAndSweep = false)
     {
         XElement catalog = XDocument.Load(Path.Combine(root, "catalog.xml")).Root!;
         var result = new Catalog(root);
@@ -57,6 +57,20 @@ public sealed class Catalog
         result.TestSets = catalog.Elements(Ns + "test-set")
             .Select(e => TestSet.Load(result, (string)e.Attribute("name")!, Path.Combine(root, (string)e.Attribute("file")!)))
             .ToList();
+        if (includePostureAndSweep)
+        {
+            // The suite ships sandp's sets but comments their entries out of catalog.xml. Read their
+            // actual test-set files only for the analysis profile; never interpret XML comments as data.
+            string directory = Path.Combine(root, "tests", "sandp");
+            string[] files = Directory.GetFiles(directory, "_*-test-set.xml", SearchOption.AllDirectories);
+            if (files.Length == 0)
+            {
+                throw new InvalidDataException("No posture-and-sweep test sets found in " + directory);
+            }
+            var listed = result.TestSets.Select(s => Path.GetFullPath(s.File)).ToHashSet(StringComparer.Ordinal);
+            result.TestSets = result.TestSets.Concat(files.Order(StringComparer.Ordinal)
+                .Where(f => !listed.Contains(Path.GetFullPath(f))).Select(f => TestSet.Load(result, null, f))).ToList();
+        }
         return result;
     }
 }
@@ -87,11 +101,11 @@ public sealed class TestSet
     public TestEnvironment? FindEnvironment(string name) =>
         Environments.TryGetValue(name, out TestEnvironment? e) ? e : Catalog.Environments.GetValueOrDefault(name);
 
-    internal static TestSet Load(Catalog catalog, string name, string file)
+    internal static TestSet Load(Catalog catalog, string? name, string file)
     {
         // Whitespace is kept: expected results may be whitespace-sensitive.
         XElement root = XDocument.Load(file, LoadOptions.PreserveWhitespace | LoadOptions.SetBaseUri).Root!;
-        var set = new TestSet(catalog, name, file);
+        var set = new TestSet(catalog, name ?? (string)root.Attribute("name")!, file);
         set.Environments = root.Elements(Catalog.Ns + "environment").Where(e => e.Attribute("name") != null)
             .ToDictionary(e => (string)e.Attribute("name")!, e => TestEnvironment.Read(e, set.Directory));
         set.Dependencies = Dependency.Read(root.Element(Catalog.Ns + "dependencies"));

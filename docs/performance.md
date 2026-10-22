@@ -685,3 +685,19 @@ two engines interleaved, checks their output is identical, and prints the median
 `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon [--sizes 1kb,1mb] [--ms budget]
 [--cold-runs n] [--json file] [name...]` runs the comparison with SaxonCS-HE; without `-p:Saxon=true` the project doesn't
 reference Saxon.
+
+## P7 analysis development
+
+The streaming-expression analyser serves the W3C `sandp` profile and the compiler's declaration checks.
+There are no streamed-execution or streaming-memory measurements yet; the `strm` development profile
+still builds trees. See [the P7 plan](plan/p7-streaming.md#s1-expression-rules).
+
+S2 compiler analysis runs only when the loader has seen a declared-streamable component. Ordinary stylesheets
+skip declaration analysis and XPath syntax caching. QIL annotations carry declaration verdicts into `Explain`.
+Execution still builds trees; this is not a streamed-runtime measurement. See
+[S2 progress](plan/p7-streaming.md#s2-compiler-enforcement) for the measured performance gate.
+
+The initial forward navigator is tested over 100 and 10,000 records with at most four cursor frames retained
+for that shape. Compiled count/sum and per-record grounding tests consume its reader. These are functional
+and structural checks; they do not establish the process-memory budgets or the strict streamed-suite exit.
+See [S3 foundation](plan/p7-streaming.md#s2-package-compatibility-and-s3-forward-navigator-foundation).

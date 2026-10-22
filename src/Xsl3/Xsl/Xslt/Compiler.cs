@@ -35,6 +35,8 @@ namespace Xsl3.Xslt
     {
         public XsltSettings Settings;
         public bool IsDebug;
+        public bool HasStreamableDeclarations;
+        public Dictionary<XslNode, Streaming.StreamabilityVerdict>? StreamabilityResults;
         public string? ScriptAssemblyPath;
         public int Version;                // 0 - Auto; 1 - XSLT 1.0; 2 - XSLT 2.0
         public string? inputTypeAnnotations;   // null - "unspecified"; "preserve"; "strip"
@@ -139,6 +141,11 @@ namespace Xsl3.Xslt
 
             new XsltLoader().Load(this, stylesheet, xmlResolver, origResolver);
             PackageComponents.Build(this); // Xsl3: the packages' component tables (Packages.cs)
+            if (Version == 2 && HasStreamableDeclarations && !System.Linq.Enumerable.Any(
+                System.Linq.Enumerable.Cast<CompilerError>(CompilerErrorColl), error => !error.IsWarning))
+            {
+                Streaming.ConstructAnalysis.CheckDeclarations(this);
+            }
             if (Version == 2)
             {
                 // Xsl3: the merged declarations of each decimal format must give distinct characters (XTSE1300).

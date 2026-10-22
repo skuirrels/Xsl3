@@ -27,7 +27,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,588 passed, 9 failed (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,844 passed, 23 failed, 42 not run (99.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,845 passed, 22 failed, 42 not run (99.8%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -107,7 +107,9 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
-  (P7) hasn't started; a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
+  (P7) has started with expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
+  ([plan and limits](docs/plan/p7-streaming.md#s3-forward-source-validation)). Normal execution still builds trees; a development switch enables forward source-document inputs, including schema validation. Streaming is not
+  claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
 - **Packaging**: 1.0.1. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
@@ -315,7 +317,7 @@ From [SPEC.md §22](SPEC.md):
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.71–0.96× of stock's time (target ≤ 1× met); automatic indexing; a micro suite and a performance gate in CI; Sink B (saved assemblies, `Xsl3.Build`) and NativeAOT done; SaxonCS-HE comparison measured, 2× target not met |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
 | P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
-| P7 | Streaming | Not started |
+| P7 | Streaming | S1 expression rules, S2 compiler checks and forward source-document entry with validation in development ([plan](docs/plan/p7-streaming.md#s3-forward-source-validation)); exact static-error conformance, remaining runtime integration and memory gates remain outstanding |
 
 ## Licence
 

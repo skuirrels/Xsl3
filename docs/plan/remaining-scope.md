@@ -22,7 +22,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
 | W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 3.0 profile | 8,844 passed, 23 failed, 42 not run (99.7%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 3.0 profile | 8,845 passed, 22 failed, 42 not run (99.8%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
 | W3C xslt30-test, 2.0 profile | 4,588 passed, 9 failed (99.8%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
@@ -452,16 +452,27 @@ identical across packages (override-v-005, override-f-031).
 
 ### 7. Phase 7: streaming (§17; 6–12 person-months)
 
-**State.** Not started. 2,983 xslt30-test cases need `streaming`, and the runner marks posture-and-sweep
-assertions "not run (P7)". `xsl:source-document`, `xsl:merge`, accumulators and `xsl:fork` work unstreamed; `streamable="yes"` is
-validated and otherwise ignored.
+**State.** Started (2026-10-22): S1 adds internal U-types, expression analysis and separate
+`strm` and `sandp` runner profiles. The analysis profile runs all 919 cases, including sets commented out of the
+suite catalogue: 790 pass, 129 fail (documented in [the plan](p7-streaming.md#s1-first-increment)). This is not
+the S1 exit or a streaming claim. The remaining expression rules are implemented (see the plan's
+[S1 progress](p7-streaming.md#s1-expression-rules)). S2 has started with retained source declarations, an internal
+construct/category analyser and XTSE3155. Compiler enforcement, strict/fallback settings and QIL verdict annotations
+are now connected (see [S2 progress](p7-streaming.md#s2-compiler-enforcement)). The unstreamed development profile
+is 2,681 passed, 30 failed and one not run; S2's exact error-code gate remains open.
+`xsl:source-document`, `xsl:merge`, accumulators and `xsl:fork` work unstreamed;
+`streamable="yes"` is checked during compilation. Normal execution still builds trees; S3 now includes a
+shared-reader navigator, compact subtree grounding and forward source-document entry behind a development switch
+(see [S3 progress and limits](p7-streaming.md#s3-fused-operands-and-copy-lifetimes)). The linked plan details execution and packaging
+alternatives; the owner approved all six recommended decisions on 2026-10-22 (recorded in SPEC §17 and §6.3).
 
-7.1 **Plan** (M): `docs/plan/p7-streaming.md`.
+7.1 **Plan** (M): `docs/plan/p7-streaming.md`. Written 2026-10-22, with an unstreamed baseline (2,544 of 2,711
+   streaming tests pass); all six design decisions were approved by the owner on 2026-10-22.
 7.2 **Streamability analysis**, exactly as XSLT 3.0 §19 defines it: posture, sweep, the general rules and
    the rules for every construct. Run it on the XSL and XPath ASTs, attach the results to QIL, and raise
    XTSE3430 for non-streamable constructs in streamable contexts.
 7.3 **Execution**:
-   - a push-based event pipeline over `XmlReader`, with streamed-node proxies;
+   - a pull navigator over `XmlReader`, with bounded push fan-out for fork prongs;
    - grounded subtrees (`copy-of()`, `snapshot()`) built into small compact trees;
    - streamable modes, `xsl:source-document streamable="yes"`, streamable `xsl:merge`, streamed
      accumulators, `xsl:fork` with consuming branches (fan-out), and streamable functions and
@@ -532,7 +543,7 @@ These tracks touch mostly separate files, so they can run in parallel sessions:
 | D: API and settings | 4.1–4.5, 4.7 | `src/Xsl3/Xslt`, new public types, XmlILCommand, runner | B (XslCompiledTransform.Load) |
 | E: infrastructure | 8 | tests, eng, .github | none |
 | F: schema (P6) | 6 | new `Xsl3.Schema`, Tree, Xdm, loader | C |
-| G: streaming (P7) | 7 | new `Xsl3.Streaming`, a new AST analysis, runtime | C, F |
+| G: streaming (P7) | 7 | streaming in the core assembly, a new AST analysis and runtime | C, F |
 
 A sensible sequence:
 1. A and B in parallel, with E alongside.

@@ -103,6 +103,7 @@ against the .NET 8 and .NET 10 runtimes; the upstream test suite exercises all o
 | `XmlWriterSettings.CreateWriter` | Copy, building the vendored raw writer chain | `XmlWriterSettingsInternals.CreateRawWriter` |
 | `XmlReader.DtdInfo` and `IDtdInfo` (DTD-declared ID attributes) | Reflection | `DtdInfoBridge` |
 | `XmlTextReaderImpl.GetResolver`, `WhitespaceHandling`; `XmlTextReader.Impl` | Reflection | `XmlReaderInternals` |
+| `XsdValidatingReader(XmlReader, XmlResolver, XmlReaderSettings, XmlSchemaObject)` (partial source types) | Reflection, once per validated source; constructor metadata retained for NativeAOT | `SchemaReaderBridge` |
 | `XmlValidatingReader.Impl.Reader` | Public `XmlValidatingReader.Reader` | `QueryReaderSettings` |
 | `XPathNavigatorReader.Create` | Public `XPathNavigator.ReadSubtree` | `XsltLoader` |
 | `FeatureSwitchDefinitionAttribute` (.NET 9+) | Polyfill on .NET 8 | `Polyfills.cs` |

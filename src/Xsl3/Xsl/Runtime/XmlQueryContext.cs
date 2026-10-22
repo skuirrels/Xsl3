@@ -211,7 +211,58 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>Xsl3: whether the transformation has read the document at this absolute URI (XTDE1500).</summary>
-        internal bool HasRead(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out Uri? absolute) && _dataSourceCache.ContainsKey(absolute);
+        internal bool HasRead(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out Uri? absolute) &&
+            (_dataSourceCache.ContainsKey(absolute) || _streamedSourceUris?.Contains(absolute) == true);
+
+        private HashSet<Uri>? _streamedSourceUris;
+
+        internal XPathNavigator OpenStreamedSource(string href, string baseUri, bool stripAnnotations, Streaming.StreamedValidation? validation = null)
+        {
+            XmlReader? reader = null;
+            Stream? stream = null;
+            bool ownsReader = false;
+            try
+            {
+                Uri? resolvedBase = baseUri.Length == 0 ? null : _dataSources.ResolveUri(null, baseUri);
+                Uri uri = _dataSources.ResolveUri(resolvedBase, href);
+                if (!uri.IsAbsoluteUri || uri.Fragment.Length != 0)
+                    throw new Xsl3.Xdm.XdmException("FODC0005", $"Invalid streamed source URI '{href}'");
+                if (_runtime.ResultDocumentUris.Contains(uri.OriginalString))
+                    throw new Xsl3.Xdm.XdmException("XTDE1500", $"'{uri}' is written by xsl:result-document and can't be read in the same transformation");
+
+                object? entity = _dataSources.GetEntity(uri, null, null);
+                if (entity is Stream input)
+                {
+                    stream = input;
+                    reader = _readerSettings.CreateReader(input, uri.ToString());
+                    ownsReader = true;
+                }
+                else if (entity is XmlReader supplied) reader = supplied;
+                else throw new Xsl3.Xdm.XdmException("FODC0002", "A streamed source resolver must return a Stream or XmlReader");
+
+                XmlReader validating = validation?.Wrap(reader, ownsReader) ?? reader;
+                var chain = new Streaming.StreamedInputReader(WhitespaceRuleReader.CreateReader(validating, _wsRules), ownsReader || validation != null, XmlQueryRuntime.Cancellation, stripAnnotations);
+                var document = new Streaming.StreamedDocument(chain, ownsReader: true, cancellation: XmlQueryRuntime.Cancellation, completeValidation: validation != null);
+                _runtime.RegisterStreamedSource(document);
+                (_streamedSourceUris ??= new()).Add(uri);
+                validation?.Attach(document);
+                return document.CreateNavigator();
+            }
+            catch (Exception e) when (XmlException.IsCatchableException(e))
+            {
+                try
+                {
+                    if (ownsReader) reader?.Dispose();
+                    else if (reader == null) stream?.Dispose();
+                }
+                catch (Exception cleanup) when (XmlException.IsCatchableException(cleanup))
+                {
+                    // Preserve the source-opening error if a provider also fails while closing it.
+                }
+                if (e is Xsl3.Xdm.XdmException or OperationCanceledException) throw;
+                throw new Xsl3.Xdm.XdmException("FODC0002", $"Could not open streamed source '{href}': {e.Message}");
+            }
+        }
 
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.

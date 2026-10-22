@@ -321,6 +321,7 @@ namespace Xsl3.Xslt
             }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            string? sourceForEachSource = forEachSource;
             string? validation = ParseValidationAttribute(7, /*defVal:*/false);
             XmlQualifiedName? type = ParseTypeAttribute(8);
             if (validation != null && type != null)
@@ -339,7 +340,8 @@ namespace Xsl3.Xslt
                 forEachSource = ApplicableAccumulators31(documents, accumulators);
             }
             string? select = ParseStringAttribute(3, "select");
-            ParseYesNoAttribute(4, "streamable");
+            TriState streamable = ParseYesNoAttribute(4, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             TriState sortBefore = ParseYesNoAttribute(6, "sort-before-merge");
             if (forEachItem != null && forEachSource != null)
             {
@@ -382,7 +384,8 @@ namespace Xsl3.Xslt
                 ReportError(SR.Xml_UserException, "XTSE0010: xsl:merge-source needs one or more xsl:merge-key elements");
             }
             XslNode source = F.XslNode(XslNodeType.MergeSource, null, select, _input.XslVersion);
-            source.V2 = new XslNodeV2 { NameAvt = name, ForEachItem = forEachItem, ForEachSource = forEachSource, SortBeforeMerge = sortBefore == TriState.True };
+            source.V2 = new XslNodeV2 { NameAvt = name, ForEachItem = forEachItem, ForEachSource = forEachSource,
+                SourceForEachSource = sourceForEachSource, Streamable = streamable, SortBeforeMerge = sortBefore == TriState.True };
             return SetInfo(source, keys, ctxInfo);
         }
 
@@ -410,7 +413,8 @@ namespace Xsl3.Xslt
             }
             string? initial = ParseStringAttribute(1, "initial-value");
             string? asType = ParseStringAttribute(2, "as");
-            ParseYesNoAttribute(3, "streamable");
+            TriState streamable = ParseYesNoAttribute(3, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             var rules = new List<XslNode>();
             if (_input.MoveToFirstChild())
             {
@@ -454,7 +458,7 @@ namespace Xsl3.Xslt
             }
             XslNode decl = F.XslNode(XslNodeType.Accumulator, name, initial, _input.XslVersion);
             decl.PackageId = _packageId;
-            decl.V2 = new XslNodeV2 { As = asType };
+            decl.V2 = new XslNodeV2 { As = asType, Streamable = streamable };
             SetInfo(decl, rules, ctxInfo);
             int precedence = _curStylesheet!.ImportPrecedence;
             if (_compiler.Accumulators.TryGetValue(name, out var existing))
@@ -574,7 +578,8 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_sourceDocumentAttributes);
             string href = ParseStringAttribute(0, "href") ?? "";
-            ParseYesNoAttribute(1, "streamable");
+            TriState streamable = ParseYesNoAttribute(1, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             string? accumulators = ParseStringAttribute(2, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
             string? validation = ParseValidationAttribute(3, /*defVal:*/false);
             XmlQualifiedName? type = ParseTypeAttribute(4);
@@ -591,7 +596,10 @@ namespace Xsl3.Xslt
             _input.CanHaveApplyImports = false;
             List<XslNode> content = LoadInstructions();
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
+            XslNode source = F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion);
+            source.V2 = new XslNodeV2 { IsSourceDocument = true, SourceHref = href, Streamable = streamable,
+                SourceAccumulators = accumulators, SourceValidation = validation, SourceType = type };
+            return SetInfo(source, content, ctxInfo);
         }
 
         // XSLT 3.0 §10.4
@@ -625,6 +633,7 @@ namespace Xsl3.Xslt
             string? contextItem = ParseStringAttribute(4, "context-item");
             string? namespaceContext = ParseStringAttribute(5, "namespace-context");
             string? schemaAware = ParseStringAttribute(6, "schema-aware");
+            string sourceXPath = xpath;
             if (schemaAware != null && !schemaAware.Contains('{') && schemaAware.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0"))
             {
                 ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "schema-aware", schemaAware);
@@ -719,7 +728,10 @@ namespace Xsl3.Xslt
                 content.Add(v);
                 content.Add(SetLineInfo(F.XslNode(XslNodeType.Sequence, null, $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{result.LocalName}", _input.XslVersion), ctxInfo.lineInfo));
             }
-            return SetInfo(F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion), content, ctxInfo);
+            XslNode evaluate = F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion);
+            evaluate.V2 = new XslNodeV2 { As = asType,
+                Evaluate = new EvaluateSyntax(sourceXPath, contextItem, withParams, baseUri, namespaceContext, schemaAware, parameters) };
+            return SetInfo(evaluate, content, ctxInfo);
         }
 
         // XSLT 3.0 §23.2
@@ -790,6 +802,7 @@ namespace Xsl3.Xslt
                 $"error({code}, string-join(for $i in {reference} return if ($i instance of function(*)) then '' else string($i), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
             // (Parenthesized, so a test that is a sequence expression stays one argument.)
             XslNode check = F.XslNode(XslNodeType.If, null, $"not(({test}))", _input.XslVersion);
+            check.V2 = new XslNodeV2 { Assert = new AssertSyntax(test, select, errorCode, content) };
             return SetInfo(check, new List<XslNode> { variable, raise }, ctxInfo);
         }
 
@@ -962,11 +975,17 @@ namespace Xsl3.Xslt
             return $"Q{{{ns}}}{local}";
         }
 
-        // XSLT 3.0 §18.2.4: without streaming, xsl:fork is the concatenation of its prongs.
+        // XSLT 3.0 §16.1: without streaming, xsl:fork is the concatenation of its prongs.
         private XslNode XslFork()
         {
             ContextInfo ctxInfo = _input.GetAttributes();
-            return SetInfo(F.List(), LoadEndTag(LoadInstructions()), ctxInfo);
+            XslNode fork = F.List();
+            fork.V2 = new XslNodeV2 { IsFork = true };
+            List<XslNode> content = LoadEndTag(LoadInstructions());
+            if (content.Any(n => n.NodeType != XslNodeType.Sequence)
+                && !(content.Count == 1 && content[0].NodeType == XslNodeType.ForEachGroup))
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:fork requires xsl:sequence prongs or a single xsl:for-each-group");
+            return SetInfo(fork, content, ctxInfo);
         }
 
         private XslNode XslOnEmpty(XslNodeType kind)
@@ -1268,6 +1287,16 @@ namespace Xsl3.Xslt
 
             QilName? name = ParseQNameAttribute(0);
             string? asType = ParseStringAttribute(1, "as");
+            string streamability = ParseStringAttribute(4, "streamability")?.Trim() ?? "unclassified";
+            XmlQualifiedName? streamabilityName = null;
+            if (!Xsl3.Streaming.FunctionStreamability.TryParse(streamability, out var category))
+            {
+                // Unknown categories must still be valid EQNames. Unrecognized categories are
+                // analysed as unclassified (§19.8.5), including extension EQNames.
+                if (ResolveQName(ignoreDefaultNs: true, streamability, out string localCategory, out string categoryNamespace, out _))
+                    streamabilityName = new(localCategory, categoryNamespace);
+            }
+            _compiler.HasStreamableDeclarations |= category != Xsl3.Streaming.FunctionStreamabilityCategory.Unclassified;
             // Validated (XTSE0020); stylesheet functions never override extension functions.
             TriState overrides = ParseYesNoAttribute(2, "override");
             TriState overridesExtension = ParseYesNoAttribute(5, "override-extension-function");
@@ -1301,7 +1330,7 @@ namespace Xsl3.Xslt
             function.IsFunction = true;
             PackageDeclaration(function, functionVisibility);
             bool cache = ParseYesNoAttribute(7, "cache") == TriState.True;
-            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache };
+            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache, StreamabilityCategory = streamability, StreamabilityName = streamabilityName };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;
@@ -1333,6 +1362,11 @@ namespace Xsl3.Xslt
                 foreach (XslNode n in function.Content)
                 {
                     if (n.NodeType == XslNodeType.Param) arity++;
+                }
+                if (arity == 0 && streamability != "unclassified")
+                {
+                    _compiler.ReportError(function.SourceLine ?? SourceLineInfo.NoSource, SR.Xml_UserException,
+                        $"XTSE3155: the zero-arity function {name.QualifiedName} must have streamability='unclassified'");
                 }
                 if (!_compiler.AddFunction(name, arity, function, _curStylesheet!.ImportPrecedence))
                 {
@@ -1452,7 +1486,7 @@ namespace Xsl3.Xslt
             }
             ParseYesNoAttribute(3, "warning-on-no-match");
             ParseYesNoAttribute(4, "warning-on-multiple-match");
-            ParseYesNoAttribute(7, "streamable");
+            _compiler.HasStreamableDeclarations |= ParseYesNoAttribute(7, "streamable") == TriState.True;
             for (int i = 1; i < _modeAttributes.Length; i++)
             {
                 if (_input.MoveToXsltAttribute(i, _modeAttributes[i].name))

@@ -197,6 +197,9 @@ namespace Xsl3.XPath31.Functions
 
         public static FunctionDefinition ById(int id) => s_byId[id];
 
+        // Xsl3 (P7): validate analysis metadata against the canonical function registry.
+        internal static IReadOnlyList<FunctionDefinition> Definitions => s_byId;
+
         private static int? s_fingerprint;
 
         /// <summary>

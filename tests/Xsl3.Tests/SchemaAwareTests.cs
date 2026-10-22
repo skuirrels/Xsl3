@@ -11,6 +11,18 @@ namespace Xsl3.Tests;
 /// <summary>P6, schema-awareness (docs/plan/p6-schema.md): xsl:import-schema, schema types, validation.</summary>
 public class SchemaAwareTests
 {
+    [Fact]
+    public void LaxValidationUsesAnyTypeAndRecursivelyAssessesUndeclaredElements()
+    {
+        Assert.Equal("true true true", Run("<xsl:template name='xsl:initial-template'><xsl:variable name='tree' as='element()'><unknown xsl:validation='lax'><child/><s:e>7</s:e></unknown></xsl:variable><xsl:value-of select='$tree instance of element(*, xs:anyType), $tree/child instance of element(*, xs:anyType), $tree/s:e instance of element(*, xs:integer)'/></xsl:template>"));
+    }
+
+    [Fact]
+    public void UntypedAtomicAnnotationsProduceUntypedAtomicValues()
+    {
+        Assert.Equal("true five", Run("<xsl:template name='xsl:initial-template'><xsl:variable name='tree' as='element()'><e xsl:type='xs:untypedAtomic'>five</e></xsl:variable><xsl:value-of select='data($tree) instance of xs:untypedAtomic, data($tree)'/></xsl:template>"));
+    }
+
     private const string Xsl = "http://www.w3.org/1999/XSL/Transform";
 
     private const string Schema =

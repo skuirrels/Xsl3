@@ -8,6 +8,9 @@ as they do with stock .NET.
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
+Streaming development has begun with static analysis, strict/fallback compiler checks and W3C development profiles. Streamed execution
+is still outstanding; this does not change the package's supported features.
+
 ## Getting started
 
 Xsl3 keeps `XslCompiledTransform`'s API, so switching from `System.Xml.Xsl` is a `using` change:
@@ -53,16 +56,16 @@ Guides: [getting started](https://github.com/skuirrels/Xsl3/blob/main/docs/getti
 
 | | |
 |---|---|
-| XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
-| XPath 3.1 | 99.6% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,738 of the 7,907 applicable W3C xslt30-test cases pass (97.9%); 98.7% of the XSLT 2.0 profile |
+| XSLT 1.0 | Passes all 1,654 applicable dotnet/runtime `XslCompiledTransform` tests on each target framework and matches stock output byte for byte |
+| XPath 3.1 | 21,884 W3C QT3 cases pass, none fail, 99 are not run |
+| XSLT 3.0 | 8,845 W3C xslt30-test cases pass, 22 known failures, 42 not run (99.8% of those run) |
 | Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
 templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,
 `xsl:override`), the JSON functions, and json and adaptive output.
 
-Not yet: schema awareness and streaming.
+Schema awareness is opt-in through `XsltSettings.SchemaAware`. Streamed execution is not yet implemented.
 
 ## Secure by default
 

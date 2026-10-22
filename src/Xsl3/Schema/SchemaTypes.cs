@@ -84,6 +84,7 @@ namespace Xsl3.Schema
             {
                 return null;
             }
+            if (simple.TypeCode == XmlTypeCode.UntypedAtomic) return AtomicTypes.UntypedAtomic;
             if (IsBuiltIn(simple))
             {
                 return AtomicTypes.Find(QName.Ns.Xs, simple.QualifiedName.Name);
@@ -143,6 +144,10 @@ namespace Xsl3.Schema
                 return compact.SchemaType;
             }
             IXmlSchemaInfo? info = node.SchemaInfo;
+            // A forward validator knows an element's type at its start tag; validity is only established
+            // at the end tag (XSLT 3.0 §18.1.1). Waiting for Valid would erase its streamed annotation.
+            if (node is Streaming.StreamedNavigator && info != null && info.Validity != XmlSchemaValidity.Invalid)
+                return info.SchemaType;
             return info is { Validity: XmlSchemaValidity.Valid } ? info.SchemaType : null;
         }
 

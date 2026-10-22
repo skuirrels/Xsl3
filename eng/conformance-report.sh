@@ -24,6 +24,8 @@ section() { # title, report file: the report without its failure list, its headi
   echo
   section "XSLT 3.0 profile (xslt30-test)" xslt30-run.md
   section "XSLT 2.0 profile (xslt30-test)" xslt30-run-2.0.md
+  section "P7 streaming development (unstreamed execution)" xslt30-run-strm.md
+  section "P7 posture and sweep analysis" xslt30-run-sandp.md
   section "XPath 3.1 evaluation (QT3)" qt3-run.md
   section "XPath 3.1 parsing (QT3)" qt3-parse.md
 } > "$OUT"

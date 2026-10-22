@@ -171,7 +171,7 @@ A module whose `version` differs from the module that includes it compiles in th
 /src
   Xsl3/                     core: API, compiler, QIL, IL gen, runtime
   Xsl3.Schema/              schema-awareness (P6), separate so it can be trimmed
-  Xsl3.Streaming/           streaming (P7)
+  Xsl3/Streaming/           streaming analysis and runtime within the core assembly (P7)
   Xsl3.Build/               MSBuild task + targets for build-time compilation (§12.2)
   Xsl3.Cli/                 `xsl3` command-line tool (transform, compile, test, bench)
 /tests
@@ -192,9 +192,8 @@ A module whose `version` differs from the module that includes it compiles in th
 
 | Package | Contents |
 |---------|----------|
-| `Xsl3` | Core engine, all target frameworks |
+| `Xsl3` | Core engine, including streaming (P7), all target frameworks |
 | `Xsl3.Schema` | Schema-awareness |
-| `Xsl3.Streaming` | Streaming |
 | `Xsl3.Build` | Build-time compilation (development dependency) |
 
 ### 6.4 Licence and upstream sync
@@ -694,7 +693,8 @@ The vendored raw writers are kept and modernised:
 Streaming is the most expensive feature in this spec. It builds on everything earlier and does not affect the earlier phases' design, beyond keeping QIL annotations open-ended.
 
 - **Streamability analysis:** implement spec §19 exactly. That covers posture, sweep (`motionless`, `consuming`, `free-ranging`), the general streamability rules, and the per-construct rules for every instruction and function. The analysis runs over the XSL AST plus XPath ASTs, because the spec's rules are defined on constructs, not on QIL. Results are attached to QIL. A non-streamable construct in a streamable context is a static error (`XTSE3430`).
-- **Execution model:** a push-based event pipeline over `XmlReader`, with a "streamed node" proxy that is valid only while it's being read. Grounded subtrees (`copy-of()`, `snapshot()`) are materialised into small compact trees.
+- **Execution model (owner decision, 22 October 2026):** a pull-based forward-only navigator over `XmlReader`, reusing the existing code generator. Navigators share a reader and retain the open ancestor stack. Grounded subtrees (`copy-of()`, `snapshot()`) are materialised into small compact trees. `xsl:fork` uses bounded push fan-out with one thread per prong; this exception to the earlier no-parallelism decision is for streaming semantics.
+- **Settings and API (owner decision, 22 October 2026):** `XsltSettings.Streamability` defaults to `Strict` (XTSE3430); callers may explicitly select `Fallback`. The 3.0 API accepts a reader, stream or URI as an initial match selection; legacy `Transform(XmlReader)` streams when the default mode is streamable. Streaming remains in the core `Xsl3` assembly.
 - **Constructs to cover:**
   - `xsl:source-document streamable="yes"`
   - streamable modes
@@ -702,7 +702,7 @@ Streaming is the most expensive feature in this spec. It builds on everything ea
   - streamed accumulators
   - `xsl:fork` with several consuming branches, implemented by fanning events out to each branch
   - streamable functions (`streamability` attribute) and `xsl:iterate` over streamed input
-- **Memory target:** constant memory with respect to document size for a guaranteed-streamable stylesheet. CI checks this on a 2 GB generated document with the memory limit set to 200 MB.
+- **Memory target:** constant memory with respect to document size for a guaranteed-streamable stylesheet. Nightly CI checks this on a 2 GB generated document with the memory limit set to 200 MB; each push checks 200 MB under a 20 MB limit (owner decision, 22 October 2026). The detailed stages and verification requirements are in `docs/plan/p7-streaming.md`.
 
 ---
 

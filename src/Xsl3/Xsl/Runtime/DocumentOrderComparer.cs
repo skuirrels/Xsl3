@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Xml;
 using System.Xml.XPath;
 
@@ -18,8 +19,9 @@ namespace Xsl3.Runtime
     internal sealed class DocumentOrderComparer : IComparer<XPathNavigator>
     {
         private List<(XPathNavigator Root, int Index)>? _roots;     // foreign trees, by root
-        private Dictionary<object, int>? _documents;              // Xsl3's trees, by document
+        private ConditionalWeakTable<object, DocumentIndex>? _documents; // live Xsl3 trees, by document
         private int _count;
+        private sealed record DocumentIndex(int Value);
 
         /// <summary>
         /// Return:
@@ -64,16 +66,17 @@ namespace Xsl3.Runtime
             {
                 Xsl3.Tree.CompactNavigator compact => compact.Document,
                 MS.Internal.Xml.Cache.XPathDocumentNavigator vendored => vendored.OwnerDocument,
+                Xsl3.Streaming.StreamedNavigator streamed => streamed.Document,
                 _ => null,
             };
             if (document != null)
             {
-                _documents ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
-                if (!_documents.TryGetValue(document, out int index))
+                _documents ??= new ConditionalWeakTable<object, DocumentIndex>();
+                if (!_documents.TryGetValue(document, out DocumentIndex? index))
                 {
-                    _documents[document] = index = _count++;
+                    _documents.Add(document, index = new DocumentIndex(_count++));
                 }
-                return index;
+                return index.Value;
             }
 
             XPathNavigator navRoot;
