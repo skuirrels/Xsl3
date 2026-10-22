@@ -665,6 +665,7 @@ Xsl3.Runtime.XsltLibrary.X31SimpleContent(System.Collections.Generic.IList<Syste
 Xsl3.Runtime.XsltLibrary.X31SingleItemOf(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Xml.XPath.XPathItem!
 Xsl3.Runtime.XsltLibrary.X31SingleNode(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, string! code) -> System.Xml.XPath.XPathNavigator!
 Xsl3.Runtime.XsltLibrary.X31Snapshot(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31Snapshot(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, bool schemaAware) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
 Xsl3.Runtime.XsltLibrary.X31SortByKeys(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! wrappedKeys, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! collation, double sc) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
 Xsl3.Runtime.XsltLibrary.X31SortKey(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, string! dataType, string! collation, string! lang, double site, double position) -> string!
 Xsl3.Runtime.XsltLibrary.X31SourceDocuments(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! documents, string! names) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!

@@ -1,3 +1,1 @@
 #nullable enable
-Xsl3.Runtime.XsltLibrary.X31Snapshot(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items, bool schemaAware) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
-*REMOVED*Xsl3.Runtime.XsltLibrary.X31Snapshot(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! items) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!

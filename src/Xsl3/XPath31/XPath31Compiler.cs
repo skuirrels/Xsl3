@@ -260,12 +260,13 @@ namespace Xsl3.XPath31
 
         private static readonly Dictionary<string, MethodInfo> s_methods = X31Methods();
 
-        // Xsl3: only the X31* methods are bound; the extension-function members the enumeration also meets aren't.
+        // Xsl3: only the X31* methods are bound; the extension-function members the enumeration also meets aren't, nor
+        // the obsolete overloads kept for assemblies saved by earlier versions.
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
             Justification = "Binds only XsltLibrary's X31* methods, none of which is RequiresUnreferencedCode.")]
         private static Dictionary<string, MethodInfo> X31Methods() => typeof(XsltLibrary)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(m => m.Name.StartsWith("X31", System.StringComparison.Ordinal))
+            .Where(m => m.Name.StartsWith("X31", System.StringComparison.Ordinal) && !m.IsDefined(typeof(System.ObsoleteAttribute), false))
             .ToDictionary(m => m.Name);
 
         private QilNode Call(string method, XmlQueryType type, params QilNode[] args) =>

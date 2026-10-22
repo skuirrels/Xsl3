@@ -2,11 +2,8 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Not on nuget.org yet. From a clone of the repository:
-
 ```
-dotnet pack src/Xsl3.Cli -c Release -o artifacts
-dotnet tool install --global Xsl3.Cli --prerelease --add-source artifacts
+dotnet tool install --global Xsl3.Cli
 ```
 
 ```
