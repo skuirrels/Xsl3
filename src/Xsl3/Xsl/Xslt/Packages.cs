@@ -344,7 +344,7 @@ namespace Xsl3.Xslt
                 m.Visibility is not ("public" or "final"))
             {
                 compiler.ReportError(m.Declaration?.SourceLine ?? NoSource, SR.Xml_UserException,
-                    $"XTDE0044: the initial mode {mode.LocalName} isn't public");
+                    $"XTDE0045: the initial mode {mode.LocalName} isn't public");
             }
         }
 

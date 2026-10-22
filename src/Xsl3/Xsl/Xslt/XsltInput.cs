@@ -815,7 +815,15 @@ namespace Xsl3.Xslt
             }
             if (double.IsNaN(version))
             {
-                ReportError(/*[XT0110]*/SR.Xslt_InvalidAttrValue, _atoms.Version, Value);
+                if (Compiler.Xslt2Enabled)
+                {
+                    // Xsl3: not a number at all (XTSE0110).
+                    _compiler.ReportError(BuildNameLineInfo(), SR.Xml_UserException, $"XTSE0110: version=\"{Value}\" is not a decimal");
+                }
+                else
+                {
+                    ReportError(/*[XT0110]*/SR.Xslt_InvalidAttrValue, _atoms.Version, Value);
+                }
 #if XSLT2
                 version = 2.0;
 #else

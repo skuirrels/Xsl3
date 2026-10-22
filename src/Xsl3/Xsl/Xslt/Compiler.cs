@@ -462,7 +462,7 @@ namespace Xsl3.Xslt
                 _ when res == SR.Xslt_ModeWithoutMatch || res == SR.Xslt_PriorityWithoutMatch || res == SR.Xslt_BothMatchNameAbsent => "XTSE0500",
                 _ when res == SR.Xslt_KeyCntUse => "XTSE1205",
                 _ when res == SR.Xslt_NullNsAtTopLevel => "XTSE0130",
-                _ when res == SR.Xslt_NoWhen || res == SR.Xslt_WhenAfterOtherwise || res == SR.Xslt_DupOtherwise => "XTSE0010",
+                _ when res == SR.Xslt_NoWhen || res == SR.Xslt_WhenAfterOtherwise || res == SR.Xslt_DupOtherwise || res == SR.Xslt_AnalyzeStringChildOrder => "XTSE0010",
                 _ when res == SR.Xslt_CharAttribute || res == SR.Xslt_NonTemplateTunnel => "XTSE0020",
                 _ when res == SR.Xslt_CollationSyntax => "XTSE0125",
                 _ when res == SR.Xslt_InputTypeAnnotations => "XTSE0265",

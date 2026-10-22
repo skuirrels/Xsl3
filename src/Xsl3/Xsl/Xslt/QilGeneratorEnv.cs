@@ -425,7 +425,9 @@ namespace Xsl3.Xslt
 
                 if (!_compiler.Keys.Contains(qname))
                 {
-                    throw new XslLoadException(SR.Xslt_UndefinedKey, keyName);
+                    // Xsl3: in 2.0+, XTDE1260 (here found statically).
+                    throw IsV2 ? new XslLoadException(SR.Xml_UserException, "XTDE1260: " + XslTransformException.CreateMessage(SR.Xslt_UndefinedKey, keyName))
+                        : new XslLoadException(SR.Xslt_UndefinedKey, keyName);
                 }
                 result = CompileSingleKey(_compiler.Keys[qname], key, env);
             }
@@ -478,7 +480,9 @@ namespace Xsl3.Xslt
             QilIterator key = _f.Parameter(T.StringX);
             QilIterator context = _f.Parameter(T.NodeNotRtf);
 
-            QilNode fdef = _f.Error(SR.Xslt_UndefinedKey, name);
+            QilNode fdef = IsV2
+                ? _f.Error(_f.StrConcat(_f.String("XTDE1260: "), _f.InvokeFormatMessage(_f.String(SR.Xslt_UndefinedKey), name))) // Xsl3
+                : _f.Error(SR.Xslt_UndefinedKey, name);
             for (int idx = 0; idx < _compiler.Keys.Count; idx++)
             {
                 fdef = _f.Conditional(_f.Eq(resolvedName, _compiler.Keys[idx][0].Name!.DeepClone(_f.BaseFactory)),
