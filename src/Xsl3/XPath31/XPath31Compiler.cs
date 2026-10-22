@@ -323,11 +323,11 @@ namespace Xsl3.XPath31
 
         // ------------------------------------------------------------ focus
 
-        private QilNode FocusItem() =>
+        private QilNode FocusItem(string? absentCode = null) =>
             _focus?.Item
-            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent in a function body")) : null)
+            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent in a function body")) : null)
             ?? (_env != null
-                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent"))
+                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent"))
                 : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
 
         private QilNode FocusNode()
@@ -432,8 +432,8 @@ namespace Xsl3.XPath31
                     return _f.Sequence();
                 case SequenceExpr s:
                     return _f.Sequence(s.Items.Select(i => Items(Build(i))).ToArray());
-                case ContextItemExpr:
-                    return FocusItem();
+                case ContextItemExpr dot:
+                    return FocusItem(dot.AbsentCode);
                 case VarRef v:
                     return Variable(v);
                 case BinaryExpr b:

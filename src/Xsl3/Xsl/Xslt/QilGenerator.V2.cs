@@ -369,7 +369,7 @@ namespace Xsl3.Xslt
                     return CompileKey31(args[0] is XPath31.StringLiteral s ? _f.String(s.Value) : String31(compile(args[0])),
                         // Backwards-compatible behaviour: the key values are compared as strings (XSLT 3.0 §20.2.2).
                         Backwards31 ? X31(nameof(XsltLibrary.X31CompatStrings), T.ItemS, compile(args[1])) : compile(args[1]),
-                        compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr()), subtree: args.Count == 3);
+                        compile(args.Count == 3 ? args[2] : new XPath31.ContextItemExpr { AbsentCode = "XTDE1270" }), subtree: args.Count == 3);
                 case ("document", 1):
                 case ("document", 2):
                     return CompileFnDocument31(compile(args[0]), args.Count == 2 ? X31(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, compile(args[1]), _f.String("XPTY0004")) : null);

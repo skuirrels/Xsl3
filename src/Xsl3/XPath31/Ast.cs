@@ -66,6 +66,9 @@ namespace Xsl3.XPath31
 
     internal sealed record ContextItemExpr : Expr
     {
+        /// <summary>Xsl3: the error when the context item is absent, if not XPDY0002 (key()'s implicit context: XTDE1270).</summary>
+        public string? AbsentCode { get; init; }
+
         public override string ToString() => ".";
     }
 
