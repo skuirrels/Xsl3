@@ -553,51 +553,52 @@ The XSLT 3.0 micro suite on Xsl3 and on SaxonCS-HE 13.1.0, "The Saxon XSLT and X
 Limited" ([saxonica.com](https://www.saxonica.com/); MPL-2.0, the free .NET edition). Times are milliseconds, and lower
 is better. "Faster" names the winner of each row; within 3% counts as about the same.
 
-Run on 2026-10-22 · .NET 10.0.11 · macOS 27 · Apple M4 Pro · Xsl3 at 18d2ba6 (the code of 1.0.0, less one unused
-method) · `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon --sizes 1kb,1mb
---cold-runs 5`, three times; each figure is the median of the three runs. Both engines read the same document, parsed
-once into each engine's own tree (whitespace-only text left out, as `XPathDocument` and Xsl3's compact tree do), write
-to `Stream.Null`, and gave identical output for all 13 tests.
+Run on 2026-10-22 · .NET 10.0.11 · macOS 27 · Apple M4 Pro · Xsl3 at f691818 (main after 1.0.0) · `dotnet run -c Release
+--project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon --sizes 1kb,1mb --cold-runs 5`, three times; each
+figure is the median of the three runs. The 1.0.0 column is the same command on 1.0.0's code. Both engines read the
+same document, parsed once into each engine's own tree (whitespace-only text left out, as `XPathDocument` and Xsl3's
+compact tree do), write to `Stream.Null`, and gave identical output for all 13 tests in every run.
 
 ### Run speed, 1 MB input
 
-Xsl3 wins 11 of 13, Saxon 2.
+Xsl3 wins 13 of 13. At the median Xsl3 is 1.33× Saxon's speed; 1.0.0 was 1.22×, and lost 2 (iterate, regex).
 
-| Test | Xsl3 ms | Saxon ms | Faster |
-|---|---|---|---|
-| join | 2.55 | 72.45 | Xsl3, 28.5× faster |
-| identity | 2.04 | 5.24 | Xsl3, 2.6× faster |
-| dispatch | 1.49 | 3.37 | Xsl3, 2.3× faster |
-| keys | 3.87 | 5.32 | Xsl3, 38% faster |
-| json | 9.90 | 13.60 | Xsl3, 37% faster |
-| maps | 4.60 | 5.83 | Xsl3, 27% faster |
-| grouping | 0.93 | 1.14 | Xsl3, 22% faster |
-| recursion | 1.31 | 1.57 | Xsl3, 20% faster |
-| strings | 3.07 | 3.53 | Xsl3, 15% faster |
-| sorting | 2.78 | 3.09 | Xsl3, 11% faster |
-| fold-left | 3.38 | 3.70 | Xsl3, 9% faster |
-| iterate | 2.09 | 1.62 | **Saxon**, 29% faster |
-| regex | 28.77 | 14.88 | **Saxon**, 93% faster |
+| Test | Xsl3 1.0.0 ms | Xsl3 ms | Saxon ms | Faster |
+|---|---|---|---|---|
+| join | 2.55 | 2.31 | 68.53 | Xsl3, 29.6× faster |
+| identity | 2.04 | 1.94 | 4.94 | Xsl3, 2.5× faster |
+| regex | 28.77 | 5.95 | 13.99 | Xsl3, 2.4× faster |
+| dispatch | 1.49 | 1.38 | 3.14 | Xsl3, 2.3× faster |
+| maps | 4.60 | 4.21 | 5.63 | Xsl3, 34% faster |
+| json | 9.90 | 9.50 | 12.64 | Xsl3, 33% faster |
+| keys | 3.87 | 3.51 | 4.66 | Xsl3, 33% faster |
+| fold-left | 3.38 | 2.72 | 3.58 | Xsl3, 32% faster |
+| iterate | 2.09 | 1.17 | 1.53 | Xsl3, 32% faster |
+| sorting | 2.78 | 2.13 | 2.77 | Xsl3, 30% faster |
+| grouping | 0.93 | 0.84 | 1.02 | Xsl3, 22% faster |
+| recursion | 1.31 | 1.24 | 1.47 | Xsl3, 18% faster |
+| strings | 3.07 | 2.91 | 3.31 | Xsl3, 14% faster |
 
 ### Run speed, 1 KB input
 
-Xsl3 wins 8 of 13, Saxon 5. A run at this size takes microseconds, so these rows are the noisiest.
+Xsl3 wins 9 of 13, Saxon 3 (dispatch, iterate, recursion), 1 about the same. A run at this size takes microseconds, and its time moves with what ran
+before it in the process, so these rows are the noisiest.
 
 | Test | Xsl3 ms | Saxon ms | Faster |
 |---|---|---|---|
 | identity | 0.004 | 0.009 | Xsl3, 2.2× faster |
-| grouping | 0.012 | 0.019 | Xsl3, 59% faster |
-| join | 0.005 | 0.008 | Xsl3, 54% faster |
-| fold-left | 0.006 | 0.009 | Xsl3, 52% faster |
-| json | 0.008 | 0.011 | Xsl3, 32% faster |
-| sorting | 0.006 | 0.007 | Xsl3, 29% faster |
-| keys | 0.007 | 0.008 | Xsl3, 26% faster |
-| maps | 0.012 | 0.014 | Xsl3, 13% faster |
-| strings | 0.006 | 0.006 | **Saxon**, 3% faster |
-| iterate | 0.006 | 0.006 | **Saxon**, 9% faster |
-| recursion | 0.005 | 0.005 | **Saxon**, 15% faster |
-| dispatch | 0.009 | 0.007 | **Saxon**, 32% faster |
-| regex | 0.019 | 0.011 | **Saxon**, 72% faster |
+| join | 0.005 | 0.008 | Xsl3, 58% faster |
+| fold-left | 0.006 | 0.009 | Xsl3, 57% faster |
+| grouping | 0.012 | 0.018 | Xsl3, 55% faster |
+| keys | 0.006 | 0.008 | Xsl3, 35% faster |
+| regex | 0.008 | 0.010 | Xsl3, 28% faster |
+| sorting | 0.006 | 0.007 | Xsl3, 26% faster |
+| json | 0.008 | 0.010 | Xsl3, 26% faster |
+| maps | 0.011 | 0.012 | Xsl3, 3% faster |
+| strings | 0.006 | 0.006 | about the same |
+| iterate | 0.006 | 0.005 | **Saxon**, 9% faster |
+| recursion | 0.005 | 0.004 | **Saxon**, 11% faster |
+| dispatch | 0.009 | 0.006 | **Saxon**, 32% faster |
 
 ### Start-up
 
@@ -607,44 +608,28 @@ the median of five processes per run. "Precompiled" is Xsl3 loading the styleshe
 
 | Test | Xsl3 ms | Xsl3 precompiled ms | Saxon ms | Faster: Xsl3 or Saxon | Faster: Xsl3 precompiled or Saxon |
 |---|---|---|---|---|---|
-| join | 138 | 58 | 411 | Xsl3, 3.0× faster | Xsl3, 7.1× faster |
-| dispatch | 123 | 44 | 167 | Xsl3, 36% faster | Xsl3, 3.8× faster |
-| json | 156 | 81 | 191 | Xsl3, 22% faster | Xsl3, 2.4× faster |
-| identity | 133 | 56 | 162 | Xsl3, 21% faster | Xsl3, 2.9× faster |
-| keys | 151 | 62 | 179 | Xsl3, 18% faster | Xsl3, 2.9× faster |
-| recursion | 143 | 54 | 168 | Xsl3, 17% faster | Xsl3, 3.1× faster |
-| strings | 142 | 61 | 166 | Xsl3, 17% faster | Xsl3, 2.7× faster |
-| regex | 199 | 129 | 227 | Xsl3, 14% faster | Xsl3, 75% faster |
-| fold-left | 159 | 65 | 176 | Xsl3, 11% faster | Xsl3, 2.7× faster |
-| maps | 180 | 85 | 197 | Xsl3, 10% faster | Xsl3, 2.3× faster |
-| grouping | 144 | 62 | 156 | Xsl3, 9% faster | Xsl3, 2.5× faster |
-| sorting | 156 | 63 | 166 | Xsl3, 7% faster | Xsl3, 2.6× faster |
-| iterate | 152 | 60 | 162 | Xsl3, 7% faster | Xsl3, 2.7× faster |
-| **median** | **151** | **62** | **168** | **Xsl3, 11% faster** | **Xsl3, 2.7× faster** |
+| join | 125 | 50 | 415 | Xsl3, 3.3× faster | Xsl3, 8.3× faster |
+| regex | 157 | 96 | 220 | Xsl3, 40% faster | Xsl3, 2.3× faster |
+| dispatch | 111 | 41 | 153 | Xsl3, 38% faster | Xsl3, 3.7× faster |
+| json | 144 | 75 | 183 | Xsl3, 27% faster | Xsl3, 2.4× faster |
+| identity | 121 | 51 | 152 | Xsl3, 26% faster | Xsl3, 3.0× faster |
+| keys | 135 | 57 | 165 | Xsl3, 22% faster | Xsl3, 2.9× faster |
+| grouping | 126 | 48 | 148 | Xsl3, 18% faster | Xsl3, 3.1× faster |
+| recursion | 131 | 51 | 152 | Xsl3, 16% faster | Xsl3, 3.0× faster |
+| maps | 162 | 81 | 183 | Xsl3, 13% faster | Xsl3, 2.3× faster |
+| strings | 138 | 59 | 155 | Xsl3, 12% faster | Xsl3, 2.6× faster |
+| fold-left | 149 | 58 | 166 | Xsl3, 11% faster | Xsl3, 2.8× faster |
+| iterate | 136 | 52 | 149 | Xsl3, 10% faster | Xsl3, 2.9× faster |
+| sorting | 141 | 57 | 149 | Xsl3, 6% faster | Xsl3, 2.6× faster |
+| **median** | **136** | **57** | **155** | **Xsl3, 14% faster** | **Xsl3, 2.7× faster** |
 
 ### Compile and memory
 
-- Compiling a stylesheet, warm, in one process: Xsl3 wins 10 of 13, Saxon 3 (dispatch, fold-left, iterate). Median 0.13 ms against 0.16 ms.
-- Memory allocated per 1 MB run: Xsl3 allocates 49% of Saxon's at the median (join 2%, iterate 101%).
+- Compiling a stylesheet, warm, in one process: Xsl3 wins 10 of 13, Saxon 3 (dispatch, fold-left, iterate). Median 0.13 ms against 0.15 ms.
+- Memory allocated per 1 MB run: Xsl3 allocates 49% of Saxon's at the median (join 2%, fold-left 66%).
 - Peak memory of the start-up process: Xsl3 uses 7% less.
 
-### Against the targets
-
-SPEC §19.6 asks for 2.0/3.0 stylesheets to run at least twice as fast as on SaxonCS-HE and never slower, and to start
-at least twice as fast, ten times precompiled. 1.0.0 doesn't meet them: run speed at 1 MB is 1.22× Saxon's at the
-median, with regex and iterate slower; start-up is 1.11× from source and 2.72× precompiled. regex and
-iterate are the first 1.x speed work.
-
-### After 1.0.0: regex and iterate
-
-The two tests Saxon won, measured again with the same command (three runs, medians), 1 MB input, milliseconds:
-
-| Test | Xsl3 1.0.0 | Xsl3 now | Saxon | Faster now |
-|---|---|---|---|---|
-| regex | 28.77 | 5.71 | 13.90 | Xsl3, 2.4× faster |
-| iterate | 2.09 | 1.33 | 1.51 | Xsl3, 13% faster |
-| fold-left | 3.38 | 2.76 | 3.59 | Xsl3, 30% faster |
-| maps | 4.61 | 4.56 | 6.17 | Xsl3, 35% faster |
+### What changed since 1.0.0
 
 - **regex:** XPath's `\w` (and `.` and every character class) was translated to a .NET pattern with an alternation for
   the supplementary planes; `(\w)(\w*)` became 28 KB, and .NET couldn't run it as a set loop. Each regex now also has
@@ -653,8 +638,12 @@ The two tests Saxon won, measured again with the same command (three runs, media
 - **iterate:** each step of `xsl:iterate` is a dynamic call of its body. A dynamic call no longer makes a closure
   per argument for its error message, nor copies arguments `xsl:iterate` has already copied; `fn:min` and `fn:max`
   of values of one numeric type take one pass without LINQ. fold-left and maps gain from the same dynamic-call change.
-- At 1 KB a run of these tests takes microseconds, and their times move with what ran before them in the process:
-  iterate at 1 KB read 0.006 ms in one harness and 0.018 ms alone, on 1.0.0 and now alike.
+
+### Against the targets
+
+SPEC §19.6 asks for 2.0/3.0 stylesheets to run at least twice as fast as on SaxonCS-HE and never slower, and to start
+at least twice as fast, ten times precompiled. Xsl3 is never slower at 1 MB now, but the rest isn't met: run speed is
+1.33× Saxon's at the median, start-up 1.14× from source and 2.71× precompiled.
 
 ## Where the rest of the time goes
 
