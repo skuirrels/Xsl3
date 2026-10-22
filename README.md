@@ -10,9 +10,9 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **Status: 1.0.0.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **Status: 1.0.1.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. 1.0.0 is on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
+> behind `XsltSettings.SchemaAware`. 1.0.1 is on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
 > [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
@@ -98,8 +98,8 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   - The XSLT 3.0 micro suite (13 stylesheets at 1 KB, 1 MB and 100 MB, compile and cold start) runs on every pull
     request against its base, and fails on 5% more time or allocation.
   - Sink B (`Xsl3.Build`, saved assemblies) and NativeAOT are in. Against SaxonCS-HE 13.1.0, Xsl3 runs the XSLT 3.0
-    micro suite faster on 11 of 13 tests in 1.0.0 (1.22× at the median on 1 MB; regex and iterate slower, both faster
-    than Saxon since) and starts faster on all 13 ([docs/performance.md](docs/performance.md#against-saxoncs-he-remaining-scope-3-spec-196)). Still to do:
+    micro suite faster on all 13 tests (1.33× at the median on 1 MB; 1.0.0 lost regex and iterate) and starts faster
+    on all 13 ([docs/performance.md](docs/performance.md#against-saxoncs-he-remaining-scope-3-spec-196)). Still to do:
     template dispatch tables if a stylesheet with hundreds of rules shows the need (measured: 17 ns per element for
     200 extra rules).
 - **Schema-awareness (P6)**: claimed in the xslt30-test 3.0 profile, with `XsltSettings.SchemaAware` on (it is off
@@ -109,7 +109,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
   (P7) hasn't started; a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.0.1. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
