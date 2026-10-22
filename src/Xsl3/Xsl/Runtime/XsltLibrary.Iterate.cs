@@ -57,11 +57,13 @@ namespace Xsl3.Runtime
             for (int i = 0; i < items.Count; i++)
             {
                 var arguments = new IList<XPathItem>[3 + values.Count];
-                arguments[0] = Sequences.One(items[i]);
+                // (The lists are the call's own: the item cloned as X31CallArgument would, the parameters' values copied
+                // by X31IterationAdd.)
+                arguments[0] = Sequences.One(Unshare(items[i]));
                 arguments[1] = Sequences.One(AtomicValue.OfInteger(i + 1));
                 arguments[2] = size;
                 values.CopyTo(arguments, 3);
-                IList<XPathItem> result = CallFunction(bodyFunction, arguments);
+                IList<XPathItem> result = CallFunction(bodyFunction, arguments, owned: true);
                 // The control item is last (xsl:next-iteration and xsl:break are in tail position, XTSE3120).
                 int count = result.Count;
                 if (count > 0 && result[count - 1] is IterationControl control)

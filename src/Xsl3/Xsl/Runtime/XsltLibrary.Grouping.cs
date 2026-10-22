@@ -505,7 +505,7 @@ namespace Xsl3.Runtime
             }
             var segments = new List<XPathItem>();
             int pos = 0;
-            for (Match m = re.Regex.Match(s); m.Success; m = m.NextMatch())
+            for (Match m = re.For(s).Match(s); m.Success; m = m.NextMatch())
             {
                 if (m.Index > pos)
                 {

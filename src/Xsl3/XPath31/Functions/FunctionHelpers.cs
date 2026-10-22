@@ -398,11 +398,51 @@ namespace Xsl3.XPath31.Functions
             return Sequences.One(Arithmetic.Apply(ArithmeticOp.Divide, total, AtomicValue.OfInteger(seq.Count), c.ImplicitTimezoneMinutes));
         }
 
+        // Xsl3 (P4): fn:min and fn:max in one pass, without LINQ, when every value is numeric of one primitive type (no
+        // promotion, the usual case, as in max(($best, $t))); null otherwise. The first NaN wins, as in MinMax.
+        private static AtomicValue? MinMaxSameNumeric(IList<XPathItem> seq, FunctionContext c, bool max)
+        {
+            if (seq[0] is not AtomicValue { Type.IsNumeric: true } first)
+            {
+                return null;
+            }
+            Primitive primitive = first.Type.Primitive;
+            for (int i = 1; i < seq.Count; i++)
+            {
+                if (seq[i] is not AtomicValue v || v.Type.Primitive != primitive)
+                {
+                    return null;
+                }
+            }
+            for (int i = 0; i < seq.Count; i++)
+            {
+                if (seq[i] is DoubleValue d && double.IsNaN(d.Double) || seq[i] is FloatValue f && float.IsNaN(f.Float))
+                {
+                    return (AtomicValue)seq[i];
+                }
+            }
+            AtomicValue best = first;
+            ValueComparisonOp op = max ? ValueComparisonOp.Gt : ValueComparisonOp.Lt;
+            for (int i = 1; i < seq.Count; i++)
+            {
+                var v = (AtomicValue)seq[i];
+                if (Comparison.Compare(v, best, op, c.ImplicitTimezoneMinutes, c.DefaultCollation))
+                {
+                    best = v;
+                }
+            }
+            return best;
+        }
+
         public static IList<XPathItem> MinMax(IList<XPathItem> seq, FunctionContext c, bool max)
         {
             if (seq.Count == 0)
             {
                 return Sequences.Empty;
+            }
+            if (MinMaxSameNumeric(seq, c, max) is AtomicValue fast)
+            {
+                return Sequences.One(fast);
             }
             var values = seq.Select(i => (AtomicValue)i).Select(v => v.Type.Primitive == Primitive.UntypedAtomic ? Casting.Cast(v, AtomicTypes.Double) : v).ToList();
 

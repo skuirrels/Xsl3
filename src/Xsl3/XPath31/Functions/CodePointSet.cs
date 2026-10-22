@@ -134,6 +134,31 @@ namespace Xsl3.XPath31.Functions
             return bmp.Length == 0 ? "(?:" + pairs + ")" : "(?:[" + bmp + "]|" + pairs + ")";
         }
 
+        /// <summary>
+        /// Xsl3 (P4): a .NET character class for the set's code points in the Basic Multilingual Plane, surrogates left
+        /// out. It matches exactly what <see cref="ToPattern"/> matches in a string without surrogates, and without
+        /// ToPattern's alternation for the supplementary planes, which keeps .NET's set loops (\w+ 41× faster).
+        /// </summary>
+        public string ToBmpPattern()
+        {
+            var bmp = new StringBuilder();
+            foreach (var (low, high) in _ranges)
+            {
+                foreach (var (l, h) in new[] { (low, System.Math.Min(high, 0xD7FF)), (System.Math.Max(low, 0xE000), System.Math.Min(high, 0xFFFF)) })
+                {
+                    if (l <= h)
+                    {
+                        bmp.Append(Escape(l));
+                        if (h > l)
+                        {
+                            bmp.Append(h > l + 1 ? "-" : "").Append(Escape(h));
+                        }
+                    }
+                }
+            }
+            return bmp.Length == 0 ? "(?!)" : "[" + bmp + "]";
+        }
+
         private static string Escape(int cp) =>
             cp is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' ? ((char)cp).ToString() : "\\u" + cp.ToString("X4", CultureInfo.InvariantCulture);
 
