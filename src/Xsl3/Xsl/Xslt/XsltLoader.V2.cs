@@ -1421,9 +1421,11 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(6, "visibility"))
             {
                 decl.Declaration.Visibility = _input.Value.Trim();
-                if (mode.LocalName.Length == 0 && decl.Declaration.Visibility != "private")
+                if (mode.LocalName.Length == 0 && decl.Declaration.Visibility != "private" ||
+                    decl.Declaration.Visibility is not ("public" or "private" or "final"))
                 {
-                    // The unnamed mode is always private (XSLT 3.0 §3.5.4.1).
+                    // The unnamed mode is always private; a mode is public, private or final, never abstract
+                    // (XSLT 3.0 §3.5.4.1; mode-1509).
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", decl.Declaration.Visibility);
                 }
             }
