@@ -90,7 +90,9 @@ namespace Xsl3.Schema
             v._validator.EndValidation();
             if (v._error != null)
             {
-                throw new XdmException(v._documentConstraint ? "XTTE1555" : code, v._error);
+                // (Laxly, a value invalid for its datatype is XTTE1515; other failures, an xsi:type say, stay XTTE1510.)
+                throw new XdmException(v._documentConstraint ? "XTTE1555"
+                    : !strict && code == "XTTE1510" && v._error.Contains("according to its datatype", StringComparison.Ordinal) ? "XTTE1515" : code, v._error);
             }
             return Constructed(v._builder.Finish(), node);
         }
@@ -289,7 +291,7 @@ namespace Xsl3.Schema
                     // A QName or NOTATION whose prefix has no namespace in scope: XTTE1545 (XSLT 3.0 §25.4.1).
                     string code = SchemaTypes.AtomicTypeOf(simple)?.Primitive is Xsl3.Xdm.Primitive.QName or Xsl3.Xdm.Primitive.Notation && attribute.Value.Contains(':')
                         && attribute.LookupNamespace(attribute.Value[..attribute.Value.IndexOf(':')].Trim()) == null
-                        ? "XTTE1545" : type != null ? "XTTE1540" : "XTTE1510";
+                        ? "XTTE1545" : type != null ? "XTTE1540" : strict ? "XTTE1510" : "XTTE1515";
                     throw new XdmException(code, $"The attribute {attribute.Name}=\"{attribute.Value}\" is not valid: {e.Message}");
                 }
             }

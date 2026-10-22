@@ -1424,7 +1424,22 @@ namespace Xsl3.Xslt
             if (qilName.NodeType == QilNodeType.LiteralString)
             {
                 string name = (string)(QilLiteral)qilName;
-                Compiler.ValidatePiName(name, (IErrorHelper)this);
+                if (IsV2)
+                {
+                    // Xsl3: a fixed name that isn't an NCName, or xml, is XTDE0890 (reported statically).
+                    try
+                    {
+                        ValidateNames.ValidateNameThrow(string.Empty, name, string.Empty, System.Xml.XPath.XPathNodeType.ProcessingInstruction, ValidateNames.Flags.AllExceptPrefixMapping);
+                    }
+                    catch (XmlException e)
+                    {
+                        ReportError(SR.Xml_UserException, "XTDE0890: " + e.Message);
+                    }
+                }
+                else
+                {
+                    Compiler.ValidatePiName(name, (IErrorHelper)this);
+                }
             }
             return _f.PICtor(qilName, CompileInstructions(node.Content));
         }

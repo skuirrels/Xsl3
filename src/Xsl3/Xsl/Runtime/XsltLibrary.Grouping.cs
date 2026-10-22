@@ -271,7 +271,16 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Groups(IList<XPathItem> tuples, double kind, string collation, bool composite)
         {
             var groups = new List<XPathItem>();
-            FunctionContext c = collation.Length == 0 ? X31Context : X31Context.WithDefaultCollation(Collation.Resolve(collation));
+            FunctionContext c;
+            try
+            {
+                c = collation.Length == 0 ? X31Context : X31Context.WithDefaultCollation(Collation.Resolve(collation));
+            }
+            catch (XdmException e) when (e.Code == "FOCH0002")
+            {
+                // xsl:for-each-group's collation isn't one the processor knows (XTDE1110).
+                throw new XdmException("XTDE1110", e.Message);
+            }
             switch ((int)kind)
             {
                 case 0:
