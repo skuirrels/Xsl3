@@ -229,7 +229,7 @@ and the gates in 1.7 run in CI.
    - tiered execution, which is optional.
 
    It must pass the same W3C suites. Without it, `xsl:evaluate` and `Load(string)` must raise a clear error
-   under AOT. Decide whether 1.0 ships without it.
+   under AOT. *Decided (owner, 2026-10-22): 1.0 ships without it; the interpreter is a 1.x to-do (see "After 1.0").*
 
 **Touches.** `src/Xsl3/Xsl/IlGen/XmlILModule.cs`, `XmlIlGenerator.cs`, `src/Xsl3/Xsl/Runtime/ConstantPool.cs`,
 `XmlQueryStaticData.cs`, `src/Xsl3/Xslt/XslCompiledTransform.cs`, new `src/Xsl3.Build/`. Mostly separate from
@@ -340,8 +340,8 @@ Some of the machinery exists internally, as thread-statics on `XmlQueryRuntime` 
    - unparsed entities of temporary trees;
    - memoized functions (`new-each-time="no"`, `cache`);
    - the `xsl-stylesheet-processing-instruction` feature;
-   - XML 1.1 input: .NET's `XmlReader` doesn't support it, so probably declare it unsupported in
-     docs/conformance.md and the runner profile.
+   - XML 1.1 input: .NET's `XmlReader` doesn't support it. *Decided (owner, 2026-10-22): unsupported for now
+     (docs/divergences.md).*
 
 4.7 **Diagnostics** (§21.3, M):
    - debug mode with PDBs (shared with 2.2);
@@ -430,7 +430,8 @@ XHTML schema defaults, no indentation before inline elements). Union types of th
 identical across packages (override-v-005, override-f-031).
 
 6.1 **Plan** (S): `docs/plan/p6-schema.md`.
-   - Decide XSD 1.1 (§18 options a/b/c; open question 3). XSD 1.0 only is conformant.
+   - Decide XSD 1.1 (§18 options a/b/c; open question 3). XSD 1.0 only is conformant. *Decided (owner,
+     2026-10-22): option c, XSD 1.0 only for 1.0; XSD 1.1 is a 1.x to-do (see "After 1.0").*
    - Decide the package split: §6.3 has `Xsl3.Schema` as a separate package, so non-schema-aware users pay
      nothing.
 6.2 **`xsl:import-schema`** into an `XmlSchemaSet`. Schema types in sequence types and patterns:
@@ -500,7 +501,13 @@ in 1.x minor releases.
    - 5: no parallelism in 1.0;
    - 6: MIT, as upstream, with no further contribution terms;
    - streaming (P7) after 1.0, in a 1.x release; no SaxonCS comparison for 1.0 (the W3C suites stay the oracle);
-   - the error-code long tail stops at 32 (5.4).
+   - the error-code long tail stops at 32 (5.4);
+   - no interpreter (Sink C) in 1.0: `xsl:evaluate`, `fn:transform` and loading from source keep raising a clear
+     error under NativeAOT; the interpreter is a 1.x to-do;
+   - the 3.0 API stays in the `Xsl3` namespace, and `OptimisationLevel` and `CodeGenBackend` (SPEC §7.2) are left
+     out of 1.0;
+   - XSD 1.0 only (§18 option c); XSD 1.1 is a 1.x to-do;
+   - XML 1.1 input is unsupported for now.
 9.2 **API freeze**: run a public API analyzer (`Microsoft.CodeAnalysis.PublicApiAnalyzers`) from the first
    release candidate. Done for 1.0.0-rc.1 (owner's decision to cut it, 2026-10-21): `src/Xsl3/PublicAPI.Shipped.txt`
    records 955 members, and `PublicAPI/net10.0` the .NET 10-only `CompileToAssembly`.
@@ -532,12 +539,27 @@ A sensible sequence:
 
 ## Decisions the owner needs to make
 
-1. Whether 1.0 needs Sink C (an interpreter), or ships with `xsl:evaluate` unavailable under NativeAOT.
+1. Whether 1.0 needs Sink C (an interpreter), or ships with `xsl:evaluate` unavailable under NativeAOT. *Decided
+   (owner, 2026-10-22): 1.0 ships without it; a 1.x to-do.*
 2. Which SaxonCS edition to compare against, given its licence (3.1). *Deferred (owner, 2026-10-22): no SaxonCS work for 1.0.*
-3. The shape of the public 3.0 API (4.1): follow §7.2 as written, or a smaller first version.
-4. XSD 1.1 (6.1): options a, b or c.
-5. XML 1.1 input: declare it unsupported?
+3. The shape of the public 3.0 API (4.1): follow §7.2 as written, or a smaller first version. *Decided (owner,
+   2026-10-22): the `Xsl3` namespace, as shipped in the release candidates; no backend settings in 1.0.*
+4. XSD 1.1 (6.1): options a, b or c. *Decided (owner, 2026-10-22): c, XSD 1.0 only; XSD 1.1 a 1.x to-do.*
+5. XML 1.1 input: declare it unsupported? *Decided (owner, 2026-10-22): unsupported for now.*
 6. §25 questions 4–6: framework floor, parallelism in 1.0, licence and contribution terms. *Decided (owner, 2026-10-22): .NET 8 and .NET 10, no parallelism in 1.0, MIT (9.1).*
+
+## After 1.0 (1.x to-do)
+
+Owner's decisions of 2026-10-22 leave these for 1.x releases:
+
+- [ ] **Sink C: QIL interpreter** (2.4). `xsl:evaluate`, `fn:transform` and stylesheets loaded from source under
+  NativeAOT, then `CodeGenBackend` (`Auto | Jit | Interpreter`) and `OptimisationLevel` in `XsltCompilerOptions`
+  (SPEC §7.2). Must pass the same W3C suites.
+- [ ] **XSD 1.1** (6.1, SPEC §18). Choose between option a (the 1.1 additions on System.Xml's 1.0 validator) and
+  option b (an external validator); 8 `XSD_1.1` tests are unclaimed until then.
+- [ ] **Streaming** (P7, section 7).
+- [ ] **Parallelism** (`xsl3:threads`, SPEC §25 question 5).
+- [ ] **Schemas per package** (section 6).
 
 ## Review and progress (2026-10-21)
 

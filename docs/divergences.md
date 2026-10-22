@@ -40,7 +40,7 @@ choices for the W3C suites.
 | Backwards-compatible behaviour (§3.9) | claimed: `version="1.0"` regions of 2.0+ stylesheets run in backwards-compatible mode, and whole 1.0 stylesheets do with `XsltSettings.VersionMode = BackwardsCompatible`; by default (`Legacy`) a 1.0 stylesheet runs on the XSLT 1.0 engine, byte for byte as stock. Gaps: an `xsl:key` defined in both modes (backwards-043), `exsl:document` | remaining-scope 4.6 |
 | `fn:transform` | not available (XPST0017) | remaining-scope 5 |
 | `fn:random-number-generator` | the unseeded generator is seeded once per transformation, so its numbers differ between runs | |
-| XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | not planned |
+| XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | unsupported for now (owner, 2026-10-22) |
 | `xsl:stylesheet` found through an `<?xml-stylesheet?>` processing instruction | not supported | remaining-scope 4.6 |
 
 ### Implementation-defined choices
@@ -58,7 +58,7 @@ choices for the W3C suites.
 | Year range | above 9999 and negative years, up to ±(2^31 − 1) (FODT0001 beyond); no year zero (XSD 1.0) |
 | Errors known statically | an unknown literal `collation` on `xsl:sort` (XTDE1035) is reported when the stylesheet is compiled, as XSLT 3.0 §2.14 allows |
 | Document access (`fn:doc`, `fn:unparsed-text`, `fn:json-doc`, `xsl:source-document`) | refused unless `XsltSettings.EnableDocumentFunction`, as `document()` is; then through the transformation's resolver |
-| XSD version | 1.0 |
+| XSD version | 1.0 (owner, 2026-10-22); XSD 1.1 is a 1.x to-do |
 | `xs:decimal` | .NET `decimal`: 28–29 significant digits; `xs:integer` is unbounded |
 | Implicit timezone | the local timezone |
 | Collations | the codepoint collation, the HTML ASCII case-insensitive collation, and UCA collations (`http://www.w3.org/2013/collation/UCA?…`) mapped onto .NET's culture-aware comparison; other URIs raise FOCH0002 |

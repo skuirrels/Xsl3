@@ -103,7 +103,9 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   by default). 98% of the cases that need a schema-aware processor pass: `xsl:import-schema`, schema types, typed input
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
-- **Later phases**: streaming (P7) hasn't started.
+- **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
+  (P7) hasn't started; a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
+  (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
 - **Packaging**: 1.0.0-rc.2 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its

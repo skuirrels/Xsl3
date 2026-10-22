@@ -169,6 +169,6 @@ Internal access is left for diagnostics and for the saved-assembly round trip (`
 ## Open questions for the owner
 
 - **Namespace.** The new types could go in `Xsl3`, next to `XslCompiledTransform`, or in `Xsl3.S9`, which mirrors
-  Saxon's API names for familiarity. This plan uses `Xsl3`.
+  Saxon's API names for familiarity. This plan uses `Xsl3`. *Decided (owner, 2026-10-22): `Xsl3`.*
 - **Backends.** `OptimisationLevel` and `CodeGenBackend` (SPEC §7.2) depend on whether Sink C ships in 1.0
-  (remaining-scope "Decisions" 1).
+  (remaining-scope "Decisions" 1). *Decided (owner, 2026-10-22): left out of 1.0; they come with Sink C in 1.x.*

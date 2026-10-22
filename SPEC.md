@@ -242,8 +242,8 @@ var compiler = new XsltCompiler(new XsltCompilerOptions
     Resolver          = myResolver,          // module, package, doc(), unparsed-text, collection()
     StaticParameters  = { [new QName("debug")] = XdmValue.From(false) },
     PackageLibrary    = packages,            // resolves xsl:use-package
-    Optimisation      = OptimisationLevel.Full,   // None | Fast | Full
-    Backend           = CodeGenBackend.Auto,      // Auto | Jit | Interpreter
+    Optimisation      = OptimisationLevel.Full,   // None | Fast | Full    (1.x, not in 1.0)
+    Backend           = CodeGenBackend.Auto,      // Auto | Jit | Interpreter (1.x, with Sink C)
     Errors            = diagnostics => { ... },
 });
 XsltExecutable exe = compiler.Compile(new Uri("file:///styles/main.xsl"));
@@ -455,6 +455,8 @@ Portable PDBs are written with a line mapping from IL back to the stylesheet, so
 On .NET 8, which has no `PersistedAssemblyBuilder`, the build task runs on the .NET 10 SDK, and its output assembly targets .NET 8.
 
 ### 12.3 Sink C: QIL interpreter
+
+*Not in 1.0 (owner, 22 October 2026): it is a 1.x to-do. Until then, `xsl:evaluate`, `fn:transform` and compiling from source raise a clear error under NativeAOT, and static evaluation uses the JIT path.*
 
 The interpreter is a tree-walking interpreter over optimised QIL. It is used for:
 
@@ -715,7 +717,7 @@ Streaming is the most expensive feature in this spec. It builds on everything ea
   - (b) offer an optional integration with an external validator
   - (c) declare XSD 1.0 only
 
-  1.0 only is conformant: the spec lets processors choose their XSD version.
+  1.0 only is conformant: the spec lets processors choose their XSD version. *Decided (owner, 22 October 2026): (c) for 1.0; (a) or (b) in 1.x.*
 - Schema-aware compilation is only active when the stylesheet uses `xsl:import-schema`. Without it, nothing in the type system or trees costs anything extra.
 
 ---
@@ -945,7 +947,7 @@ The design must leave room for these. Nothing here is implemented in this spec.
 
 1. **Final name and namespace.** It must avoid the `System.` prefix and trademarks (§1).
 2. **Legacy 1.0 defaults.** Should `XslCompiledTransform.Load` of a 1.0 stylesheet use the compact tree by default after P4? That would be faster but no longer byte-identical in edge cases such as `generate-id()` strings and whitespace-only text node handling. The current proposal is opt-in. *Implemented that way (October 2026): `XslCompiledTransform.UseCompactTree`, off by default for 1.0 and always on for 2.0+. The trees read alike except for `generate-id()` strings.*
-3. **XSD 1.1.** Choose between options (a), (b) and (c) in §18 during P6.
+3. **XSD 1.1.** Choose between options (a), (b) and (c) in §18 during P6. *Decided (owner, 22 October 2026): (c), XSD 1.0 only, for 1.0; XSD 1.1 by (a) or (b) is a 1.x to-do.*
 4. **Minimum framework.** .NET 8 needs a .NET 10 build host for Sink B. Is a .NET 10-only release simpler? *Decided (owner, 22 October 2026): 1.0 targets .NET 8 and .NET 10; `CompileToAssembly` (Sink B) stays .NET 10-only.*
 5. **Parallelism.** Should `xsl3:threads` ship in 1.0, or wait until there's feedback? *Decided (owner, 22 October 2026): not in 1.0; a 1.x release.*
 6. **Project licence.** MIT matches upstream. Is a dual licence or a commercial support offering wanted? That affects contribution terms (a CLA or the DCO). *Decided (owner, 22 October 2026): MIT, as upstream, with no further contribution terms.*
