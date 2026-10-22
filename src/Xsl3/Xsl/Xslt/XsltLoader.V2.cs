@@ -57,6 +57,27 @@ namespace Xsl3.Xslt
         /// as an import, so the using package's declarations, including those in xsl:override, take precedence over
         /// it. Visibility isn't enforced: the packages' components share one name space.
         /// </summary>
+        // XSLT 3.0 §3.5.1: ranges separated by commas, each *, V, V+, V.*, "to V" or "V to V" (V a package version).
+        private static bool IsPackageVersionRanges(string ranges)
+        {
+            foreach (string part in ranges.Split(','))
+            {
+                string range = part.Trim();
+                string[] words = range.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                bool ok = range == "*"
+                    || words is ["to", var high] && IsPackageVersion(high)
+                    || words is [var low, "to", var high2] && IsPackageVersion(low) && IsPackageVersion(high2)
+                    || words.Length == 1 && (IsPackageVersion(range)
+                        || range.EndsWith('+') && IsPackageVersion(range[..^1])
+                        || range.EndsWith(".*", StringComparison.Ordinal) && IsPackageVersion(range[..^2]));
+                if (!ok)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private void LoadUsePackage(ContextInfo ctxInfo, QName parentName)
         {
             _input.GetAttributes(_usePackageAttributes);
@@ -69,7 +90,12 @@ namespace Xsl3.Xslt
             ISourceLineInfo line = _input.BuildNameLineInfo();
             Uri? location = Xsl3.Xslt.PackageVersions.Find(_compiler.Packages, name, version);
             UsedPackage? used = null;
-            if (location == null)
+            if (!IsPackageVersionRanges(version))
+            {
+                // Xsl3: not a list of package version ranges (XSLT 3.0 §3.5.1): XTSE0020.
+                ReportError(SR.Xml_UserException, $"XTSE0020: '{version}' is not a package-version range");
+            }
+            else if (location == null)
             {
                 ReportError(SR.Xml_UserException, $"XTSE3000: no package named {name} with version {version} is available");
             }
