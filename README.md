@@ -311,7 +311,7 @@ From [SPEC.md §22](SPEC.md):
 | P3 | XSLT 3.0 basic, XPath 3.1, higher-order functions | Done: QT3 99.4%, xslt30-test 3.0 profile 95.1% at exit; 100% and 99.7% now ([plan](docs/plan/p3-xslt30.md)) |
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.71–0.96× of stock's time (target ≤ 1× met); automatic indexing; a micro suite and a performance gate in CI; Sink B (saved assemblies, `Xsl3.Build`) and NativeAOT done; the SaxonCS comparison to do |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
-| P6 | Schema-awareness | Not started |
+| P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
 | P7 | Streaming | Not started |
 
 ## Licence
