@@ -1756,6 +1756,15 @@ namespace Xsl3.Xslt
         // xsl:call-template: a non-tunnel xsl:with-param must name a parameter of the template (XTSE0680).
         private void CheckWithParams31(IList<XslNode> withParams, Template tmpl, XslNode call)
         {
+            // A required non-tunnel parameter the call doesn't supply (XTSE0690, statically).
+            foreach (XslNode p in tmpl.Content)
+            {
+                if (p.NodeType == XslNodeType.Param && p.V2 is { Required: true, Tunnel: false } &&
+                    !withParams.Any(w => w.NodeType == XslNodeType.WithParam && w.V2?.Tunnel != true && w.Name!.Equals(p.Name)))
+                {
+                    ReportError(SR.Xml_UserException, $"XTSE0690: xsl:call-template doesn't supply the required parameter {p.Name!.QualifiedName} of the template {tmpl.Name!.QualifiedName}");
+                }
+            }
             if (call.XslVersion == XslVersion.BackwardsCompatible)
             {
                 return; // backwards-compatible behaviour: parameters the template doesn't declare are ignored (XTSE0680)
