@@ -1661,7 +1661,8 @@ namespace Xsl3.Xslt
                 // (xsl:evaluate's as attribute, lowered to a variable, converts as XPath does: XPTY0004.)
                 value = Coerce31(value, asType, node.NodeType == XslNodeType.Variable && node.Name!.NamespaceUri == Runtime.DynamicEvaluation.Namespace ? "XPTY0004"
                     : node.NodeType == XslNodeType.Variable ? "XTTE0570"
-                    : node.NodeType == XslNodeType.Param && select == null && content.Count == 0 ? "XTDE0700" : "XTTE0590");
+                    : node.NodeType == XslNodeType.Param && select == null && content.Count == 0 ? "XTDE0700"
+                    : node.NodeType == XslNodeType.Param && _templateParamDefault31 ? "XTTE0600" : "XTTE0590");
             }
             return _f.TypeAssert(Box(value), T.ItemS);
         }
@@ -1703,6 +1704,23 @@ namespace Xsl3.Xslt
 
         // While compiling a variable's content: a temporary tree, where xsl:result-document is an error (XTDE1480).
         private int _temporaryOutput31;
+
+        // Compiling a template parameter's default value: one that doesn't match the as type is XTTE0600 (error-0600a).
+        private bool _templateParamDefault31;
+
+        private QilNode TemplateParamDefault31(System.Func<QilNode> compile)
+        {
+            bool saved = _templateParamDefault31;
+            _templateParamDefault31 = true;
+            try
+            {
+                return compile();
+            }
+            finally
+            {
+                _templateParamDefault31 = saved;
+            }
+        }
 
         // Content compiled in temporary output state (XSLT 3.0 §25.2).
         private QilNode TemporaryOutput31(System.Func<QilNode> compile)

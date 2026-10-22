@@ -714,7 +714,7 @@ namespace Xsl3.Xslt
                                 }
                                 else if ((xslPar.DefValueFlags & XslFlags.HasCalls) == 0)
                                 {
-                                    param.DefaultValue = CompileVarParValue(xslPar);
+                                    param.DefaultValue = TemplateParamDefault31(() => CompileVarParValue(xslPar));
                                 }
                                 else
                                 {
@@ -811,7 +811,7 @@ namespace Xsl3.Xslt
                         _inNamedTemplate31 = tmpl.Match == null;
                         _currentTunnel = func.Arguments.Cast<QilParameter>().FirstOrDefault(a => a.Name!.Equals(_nameTunnel));
                     }
-                    func.Definition = CompileVarParValue(par);
+                    func.Definition = TemplateParamDefault31(() => CompileVarParValue(par));
                     (_currentTemplateRule, _inNamedTemplate31, _currentTunnel) = (savedRule, savedNamed, savedTunnel);
                     SetLineInfo(func.Definition, par.SourceLine);
                     ExitScope();
@@ -849,7 +849,7 @@ namespace Xsl3.Xslt
                         Debug.Assert(arg.DefaultValue == null, "Argument must not be compiled yet");
                         VarPar xslParam = (VarPar)arg.Annotation!;
                         QilList? nsListParam = EnterScope(xslParam);
-                        arg.DefaultValue = CompileVarParValue(xslParam);
+                        arg.DefaultValue = TemplateParamDefault31(() => CompileVarParValue(xslParam));
                         ExitScope();
                         arg.DefaultValue = SetDebugNs(arg.DefaultValue, nsListParam);
                     }
