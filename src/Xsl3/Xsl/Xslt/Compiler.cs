@@ -431,6 +431,11 @@ namespace Xsl3.Xslt
                     _ => null,
                 };
             }
+            if (res == SR.Xslt_UnexpectedElement)
+            {
+                // xsl:include and xsl:import are top-level only (XTSE0170, XTSE0190).
+                return Local(0) switch { "include" => "XTSE0170", "import" => "XTSE0190", _ => "XTSE0010" };
+            }
             if (res == SR.Xslt_NotAtTop)
             {
                 return Local(0) == "import" ? "XTSE0200" : "XTSE0010";
@@ -465,6 +470,7 @@ namespace Xsl3.Xslt
                 _ when res == SR.Xslt_NoWhen || res == SR.Xslt_WhenAfterOtherwise || res == SR.Xslt_DupOtherwise || res == SR.Xslt_AnalyzeStringChildOrder => "XTSE0010",
                 _ when res == SR.Xslt_CharAttribute || res == SR.Xslt_NonTemplateTunnel => "XTSE0020",
                 _ when res == SR.Xslt_CollationSyntax => "XTSE0125",
+                _ when res == SR.Xslt_SingleRightBraceInAvt => "XTSE0370",
                 _ when res == SR.Xslt_InputTypeAnnotations => "XTSE0265",
                 _ when res == SR.Xslt_ExcludeDefault => "XTSE0809",
                 _ when res == SR.Xslt_PerformSortCntSel => "XTSE1040",

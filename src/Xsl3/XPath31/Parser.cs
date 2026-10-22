@@ -78,7 +78,8 @@ namespace Xsl3.XPath31
                 bool space = Lexer.SkipSpace(text, ref i);
                 if (i >= text.Length)
                 {
-                    throw XPathStaticException.Syntax("Missing '}' at the end of an expression in a value template", start);
+                    // A left curly bracket with no matching right one (XSLT 3.0 §5.6.1).
+                    throw new XPathStaticException("XTSE0350", "Missing '}' at the end of an expression in a value template", start);
                 }
                 Token t = Lexer.NextToken(text, ref i, space);
                 if (t.Is("{"))
