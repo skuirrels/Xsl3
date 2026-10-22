@@ -581,24 +581,37 @@ Xsl3 wins 13 of 13. At the median Xsl3 is 1.33× Saxon's speed; 1.0.0 was 1.22×
 
 ### Run speed, 1 KB input
 
-Xsl3 wins 9 of 13, Saxon 3 (dispatch, iterate, recursion), 1 about the same. A run at this size takes microseconds, and its time moves with what ran
-before it in the process, so these rows are the noisiest.
+A run at this size takes a few microseconds, so the order the engines run in matters: whichever runs second finds
+the caches and the JIT in a different state. The first measurements here ran Xsl3 before Saxon on every row, and
+their 1 KB results changed when a test ran on its own. These rows are measured again, with the writer change below and the order alternated: six
+rounds per row, the engine that goes first swapped each round, three seconds per row (`--ms 3000`), three runs. Every
+row had the same winner in all three runs (the last column).
 
-| Test | Xsl3 ms | Saxon ms | Faster |
-|---|---|---|---|
-| identity | 0.004 | 0.009 | Xsl3, 2.2× faster |
-| join | 0.005 | 0.008 | Xsl3, 58% faster |
-| fold-left | 0.006 | 0.009 | Xsl3, 57% faster |
-| grouping | 0.012 | 0.018 | Xsl3, 55% faster |
-| keys | 0.006 | 0.008 | Xsl3, 35% faster |
-| regex | 0.008 | 0.010 | Xsl3, 28% faster |
-| sorting | 0.006 | 0.007 | Xsl3, 26% faster |
-| json | 0.008 | 0.010 | Xsl3, 26% faster |
-| maps | 0.011 | 0.012 | Xsl3, 3% faster |
-| strings | 0.006 | 0.006 | about the same |
-| iterate | 0.006 | 0.005 | **Saxon**, 9% faster |
-| recursion | 0.005 | 0.004 | **Saxon**, 11% faster |
-| dispatch | 0.009 | 0.006 | **Saxon**, 32% faster |
+Xsl3 wins 9 of 13, Saxon 4 (dispatch, grouping, iterate, recursion). Saxon's wins are by 0.3 to 1.8 µs a run.
+
+| Test | Xsl3 ms | Saxon ms | Faster | Saxon's time / Xsl3's, per run |
+|---|---|---|---|---|
+| identity | 0.0038 | 0.0087 | Xsl3, 2.3× faster | 2.28, 2.29, 2.35 |
+| regex | 0.0062 | 0.0101 | Xsl3, 63% faster | 1.63, 1.64, 1.51 |
+| fold-left | 0.0056 | 0.0089 | Xsl3, 59% faster | 1.62, 1.56, 1.59 |
+| join | 0.0048 | 0.0075 | Xsl3, 56% faster | 1.60, 1.56, 1.58 |
+| keys | 0.0057 | 0.0079 | Xsl3, 39% faster | 1.40, 1.39, 1.34 |
+| maps | 0.0083 | 0.0115 | Xsl3, 39% faster | 1.41, 1.39, 1.40 |
+| sorting | 0.0040 | 0.0055 | Xsl3, 38% faster | 1.38, 1.50, 1.22 |
+| json | 0.0072 | 0.0097 | Xsl3, 35% faster | 1.35, 1.35, 1.35 |
+| strings | 0.0047 | 0.0059 | Xsl3, 26% faster | 1.31, 1.23, 1.28 |
+| iterate | 0.0058 | 0.0055 | **Saxon**, 5% faster | 0.95, 0.93, 0.95 |
+| recursion | 0.0048 | 0.0044 | **Saxon**, 9% faster | 0.94, 0.88, 0.89 |
+| grouping | 0.0085 | 0.0074 | **Saxon**, 15% faster | 0.87, 0.96, 0.85 |
+| dispatch | 0.0085 | 0.0067 | **Saxon**, 27% faster | 0.79, 0.79, 0.77 |
+
+Every transformation to a stream or a `TextWriter` makes a writer, and its buffer, 6 KB of bytes for UTF-8 or 12 KB
+of characters otherwise, was most of what a small transformation allocated: an almost empty stylesheet allocated
+11,032 bytes a run, now 4,832. The writers now keep one buffer per thread for the next writer (`WriterBuffers`).
+Allocation per 1 KB run fell by 6.1 KB at the median (json, which writes through its own serializer, is unchanged);
+Xsl3 now allocates less than Saxon on every row but iterate (22.5 KB against 22.1 KB). It saves allocation, not
+time: `eng/perf-gate.sh` against the commit before shows 18–36% less allocation on the 1 KB rows and no measurable
+change in their time.
 
 ### Start-up
 
