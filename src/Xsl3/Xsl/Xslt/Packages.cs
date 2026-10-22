@@ -283,7 +283,12 @@ namespace Xsl3.Xslt
                     // xsl:accept only applies to components the used package makes visible; private ones stay hidden.
                     if (!param && component.Visibility is "public" or "final" or "abstract" && MatchRule(use.Accept, kind, ns, local, arity) is PackageRule accept)
                     {
-                        if (!AcceptCompatible(component.Visibility, accept.Visibility))
+                        if (!AcceptCompatible(component.Visibility, accept.Visibility) && !accept.Names.Any(n => !n.IsWildcard && n.Matches(ns, local, arity)))
+                        {
+                            // A wildcard whose visibility the component can't take doesn't match it: the default stays
+                            // (hidden for an abstract one, whose use is then XTDE3052; accept-903).
+                        }
+                        else if (!AcceptCompatible(component.Visibility, accept.Visibility))
                         {
                             Error(accept.Line, $"XTSE3040: xsl:accept can't give {local}, {component.Visibility} in the used package, visibility {accept.Visibility}");
                         }
