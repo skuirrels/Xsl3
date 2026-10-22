@@ -2983,6 +2983,9 @@ namespace Xsl3.Xslt
                 IncludeContentType = output.IncludeContentType ?? true,
                 Encoding = output.Encoding ?? "UTF-8",
                 MediaType = output.MediaTypePrec != Output.NeverDeclaredPrec && output.Settings.MediaType is string mediaType ? mediaType : "text/html",
+                // (xml with standalone: a well-formed document, SEPM0004; output-0182. With only doctype-system the
+                // writer's own checks stay: the wrapper would write the DOCTYPE differently, output-0311.)
+                SingleRoot = output.Settings.OutputMethod == XmlOutputMethod.Xml && output.Settings.Standalone != XmlStandalone.Omit,
             };
             if (output.Method is { Namespace.Length: 0, Name: "json" or "adaptive" } raw)
             {
