@@ -472,8 +472,9 @@ namespace Xsl3.XPath31
                     }
                     catch (XPathStaticException x) when (x.Code == "XPST0017" && _types.Expand(c.Name, _sc.DefaultFunctionNamespace).NamespaceUri != QName.Ns.Fn)
                     {
-                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called.
-                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPST0017"), _f.String(x.Message));
+                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called
+                        // (XTDE1425, XSLT 3.0 §24.1).
+                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XTDE1425"), _f.String(x.Message));
                     }
                 case FunctionCall c:
                     return FunctionCall(c, c.Name, c.Arguments);
