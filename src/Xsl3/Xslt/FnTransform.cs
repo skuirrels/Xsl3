@@ -142,6 +142,11 @@ namespace Xsl3
             {
                 throw new XdmException("FOXT0002", "fn:transform: the stylesheet has a static error: " + e.Message);
             }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or XmlException or NotSupportedException or System.Net.WebException)
+            {
+                // A stylesheet that can't be read or parsed (transform-001).
+                throw new XdmException("FOXT0002", "fn:transform: the stylesheet can't be loaded: " + e.Message);
+            }
             if (Uri.TryCreate(baseOutput, UriKind.Absolute, out Uri? baseOutputUri))
             {
                 transform.BaseOutputUri = baseOutputUri;

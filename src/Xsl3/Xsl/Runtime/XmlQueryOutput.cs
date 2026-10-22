@@ -1864,17 +1864,7 @@ namespace Xsl3.Runtime
             }
 
             // Validate the name parts
-            try
-            {
-                prefix = EnsureValidName(prefix, localName, ns, nodeType);
-            }
-            catch (XmlException e) when (_runtime.IsXslt2)
-            {
-                // Xsl3: the xmlns prefix (XTDE0835, XTDE0865), an attribute named xmlns (XTDE0855), or another bad name.
-                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute
-                    ? (prefix.Length == 0 && localName == "xmlns" ? "XTDE0855" : prefix == "xmlns" ? "XTDE0865" : "XTDE0850")
-                    : prefix == "xmlns" ? "XTDE0835" : "XTDE0820", e.Message);
-            }
+            prefix = EnsureValidName(prefix, localName, ns, nodeType);
 
             if (nodeType == XPathNodeType.Element)
                 WriteStartElement(prefix, localName, ns);
@@ -1948,6 +1938,23 @@ namespace Xsl3.Runtime
         /// remapped) prefix.
         /// </summary>
         private string EnsureValidName(string prefix, string localName, string ns, XPathNodeType nodeType)
+        {
+            try
+            {
+                return EnsureValidName1(prefix, localName, ns, nodeType);
+            }
+            catch (XmlException e) when (_runtime.IsXslt2)
+            {
+                // Xsl3: the xmlns prefix or namespace (XTDE0835, XTDE0865), an attribute named xmlns (XTDE0855), or
+                // another name that isn't valid (XTDE0820, XTDE0850).
+                bool xmlns = prefix == "xmlns" || ns == XmlReservedNs.NsXmlNs;
+                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute
+                    ? (prefix.Length == 0 && localName == "xmlns" ? "XTDE0855" : xmlns ? "XTDE0865" : "XTDE0850")
+                    : xmlns ? "XTDE0835" : "XTDE0820", e.Message);
+            }
+        }
+
+        private string EnsureValidName1(string prefix, string localName, string ns, XPathNodeType nodeType)
         {
             if (!ValidateNames.ValidateName(prefix, localName, ns, nodeType, ValidateNames.Flags.AllExceptNCNames))
             {
