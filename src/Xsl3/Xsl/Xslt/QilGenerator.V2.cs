@@ -1652,7 +1652,9 @@ namespace Xsl3.Xslt
             if (asType != null)
             {
                 // A parameter not supplied whose implicit default, the empty sequence, isn't of its type: XTDE0700.
-                value = Coerce31(value, asType, node.NodeType == XslNodeType.Variable ? "XTTE0570"
+                // (xsl:evaluate's as attribute, lowered to a variable, converts as XPath does: XPTY0004.)
+                value = Coerce31(value, asType, node.NodeType == XslNodeType.Variable && node.Name!.NamespaceUri == Runtime.DynamicEvaluation.Namespace ? "XPTY0004"
+                    : node.NodeType == XslNodeType.Variable ? "XTTE0570"
                     : node.NodeType == XslNodeType.Param && select == null && content.Count == 0 ? "XTDE0700" : "XTTE0590");
             }
             return _f.TypeAssert(Box(value), T.ItemS);

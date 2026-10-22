@@ -203,7 +203,8 @@ namespace Xsl3.Runtime
                 {
                     if (key is not QNameValue q)
                     {
-                        throw Err.XPTY0004($"The keys of {what} of xsl:evaluate must be xs:QName values, not {key.Type.Name}");
+                        // XSLT 3.0 §10.4.1: XTTE3165.
+                        throw new XdmException("XTTE3165", $"The keys of {what} of xsl:evaluate must be xs:QName values, not {key.Type.Name}");
                     }
                     variables[new QName(q.QName.NamespaceUri, q.QName.LocalName)] = Copy(value);
                 }

@@ -782,7 +782,12 @@ public sealed partial class Runner
                 }
                 // Any error passes, as the suite allows; one that doesn't name the expected code is recorded.
                 string described = Describe(run.Error);
-                // (An EQName code, Q{ns}local, is compared with the error's expanded name.)
+                // (An EQName code, Q{ns}local, or a prefixed one, is compared with the error's expanded name.)
+                if (!code.StartsWith("Q{", StringComparison.Ordinal) && code.IndexOf(':') is int colon and > 0
+                    && assertion.GetNamespaceOfPrefix(code[..colon]) is { } prefixNs)
+                {
+                    code = "Q{" + prefixNs.NamespaceName + "}" + code[(colon + 1)..];
+                }
                 bool named = code.StartsWith("Q{", StringComparison.Ordinal) && run.Error switch
                 {
                     Xsl3.XsltDynamicException { Code: var raised } => raised.EQName == code,
