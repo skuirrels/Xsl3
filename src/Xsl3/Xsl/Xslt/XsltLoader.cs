@@ -1853,7 +1853,15 @@ namespace Xsl3.Xslt
 
             if (!_curStylesheet!.AddTemplate(_curTemplate))
             {
-                ReportError(/*[XT0660]*/SR.Xslt_DupTemplateName, _curTemplate.Name!.QualifiedName);
+                if (V2 && (_curTemplate.OverrideOf >= 0 || _compiler.NamedTemplates.TryGetValue(_curTemplate.Name!, out Template? other) && other.OverrideOf >= 0))
+                {
+                    // Xsl3: a declaration in xsl:override with the name of another of the package (XTSE3055).
+                    ReportError(SR.Xml_UserException, $"XTSE3055: the template {_curTemplate.Name!.QualifiedName} in xsl:override has the name of another declaration of the package");
+                }
+                else
+                {
+                    ReportError(/*[XT0660]*/SR.Xslt_DupTemplateName, _curTemplate.Name!.QualifiedName);
+                }
             }
             _curTemplate = null;
         }
