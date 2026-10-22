@@ -3450,16 +3450,30 @@ namespace Xsl3.Xslt
             return _f.Loop(context, nameLet != null ? _f.Loop(nameLet, result) : result);
         }
 
-        // Whether a key's match or use calls key() with the key's own (lexical) name (error-0640a).
+        // Whether a key's match or use calls key() with the key's own (lexical) name (error-0640a); by name, once.
+        private Dictionary<string, bool>? _keysUsingThemselves31;
+
         private bool KeyUsesItself31(string lexical)
         {
-            var pattern = new System.Text.RegularExpressions.Regex(@"\bkey\s*\(\s*['""]" + System.Text.RegularExpressions.Regex.Escape(lexical.Trim()) + @"['""]");
+            _keysUsingThemselves31 ??= new Dictionary<string, bool>(System.StringComparer.Ordinal);
+            if (!_keysUsingThemselves31.TryGetValue(lexical, out bool known))
+            {
+                _keysUsingThemselves31[lexical] = known = KeyUsesItselfUncached31(lexical);
+            }
+            return known;
+        }
+
+        private bool KeyUsesItselfUncached31(string lexical)
+        {
+            string local = lexical.Contains(':') ? lexical[(lexical.IndexOf(':') + 1)..].Trim() : lexical.Trim();
+            System.Text.RegularExpressions.Regex? pattern = null; // (made only for a definition that mentions key at all)
+            bool Calls(string? text) => text != null && text.Contains("key", System.StringComparison.Ordinal) &&
+                (pattern ??= new System.Text.RegularExpressions.Regex(@"\bkey\s*\(\s*['""]" + System.Text.RegularExpressions.Regex.Escape(lexical.Trim()) + @"['""]")).IsMatch(text);
             foreach (List<Key> keys in _compiler.Keys)
             {
                 foreach (Key key in keys)
                 {
-                    if (key.Name!.LocalName == (lexical.Contains(':') ? lexical[(lexical.IndexOf(':') + 1)..].Trim() : lexical.Trim()) &&
-                        (key.Match != null && pattern.IsMatch(key.Match) || key.Use != null && pattern.IsMatch(key.Use)))
+                    if (key.Name!.LocalName == local && (Calls(key.Match) || Calls(key.Use)))
                     {
                         return true;
                     }
