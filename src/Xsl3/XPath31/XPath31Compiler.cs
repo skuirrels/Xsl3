@@ -323,11 +323,11 @@ namespace Xsl3.XPath31
 
         // ------------------------------------------------------------ focus
 
-        private QilNode FocusItem() =>
+        private QilNode FocusItem(string? absentCode = null) =>
             _focus?.Item
-            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent in a function body")) : null)
+            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent in a function body")) : null)
             ?? (_env != null
-                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String("The context item is absent"))
+                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent"))
                 : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
 
         private QilNode FocusNode()
@@ -432,8 +432,8 @@ namespace Xsl3.XPath31
                     return _f.Sequence();
                 case SequenceExpr s:
                     return _f.Sequence(s.Items.Select(i => Items(Build(i))).ToArray());
-                case ContextItemExpr:
-                    return FocusItem();
+                case ContextItemExpr dot:
+                    return FocusItem(dot.AbsentCode);
                 case VarRef v:
                     return Variable(v);
                 case BinaryExpr b:
@@ -472,8 +472,9 @@ namespace Xsl3.XPath31
                     }
                     catch (XPathStaticException x) when (x.Code == "XPST0017" && _types.Expand(c.Name, _sc.DefaultFunctionNamespace).NamespaceUri != QName.Ns.Fn)
                     {
-                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called.
-                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPST0017"), _f.String(x.Message));
+                        // Backwards-compatible behaviour: an unknown extension function is an error only if it is called
+                        // (XTDE1425, XSLT 3.0 §24.1).
+                        return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XTDE1425"), _f.String(x.Message));
                     }
                 case FunctionCall c:
                     return FunctionCall(c, c.Name, c.Arguments);
@@ -1026,7 +1027,9 @@ namespace Xsl3.XPath31
             if (_focusAbsent && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "current" or "current-group" or "current-grouping-key")
             {
                 // XSLT's focus-dependent functions have no focus in a function body (the host's would be out of scope).
-                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String("XPDY0002"), _f.String($"{name.LocalName}() can't be used in a function body"));
+                // (XSLT 3.0 §20.4.1 and §14.2.1: XTDE1360 for current(), XTDE1061 and XTDE1071 for the grouping functions.)
+                string code = name.LocalName switch { "current" => "XTDE1360", "current-group" => "XTDE1061", _ => "XTDE1071" };
+                return Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(code), _f.String($"{name.LocalName}() can't be used in a function body"));
             }
 
             // Constructor functions: xs:T($arg) is $arg cast as xs:T? (XPath 3.1 §3.1.5.1).

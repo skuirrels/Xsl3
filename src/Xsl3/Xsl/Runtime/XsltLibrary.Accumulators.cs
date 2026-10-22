@@ -49,19 +49,23 @@ namespace Xsl3.Runtime
             }
             XPathNavigator root = node.Clone();
             root.MoveToRoot();
+            bool validatedCopy = false;
             if (_accumulatorCopies != null && _accumulatorCopies.TryGetValue(_runtime.GenerateId(root), out var copied) && Original(node, copied.Top, copied.Original) is XPathNavigator original)
             {
-                // A copy made with copy-accumulators="yes": the original node's values.
+                // A copy made with copy-accumulators="yes": the original node's values. Applicable as they are to the
+                // original's tree (copy-3002, XTDE3362), unless validation made the copy: a new temporary tree, to which
+                // every accumulator applies (accumulator-073).
+                validatedCopy = _validatedAccumulatorCopies?.Contains(_runtime.GenerateId(root)) == true;
                 node = original;
                 root = node.Clone();
                 root.MoveToRoot();
             }
-            if (_sourceDocumentAccumulators != null && _sourceDocumentAccumulators.TryGetValue(_runtime.GenerateId(root), out HashSet<string>? applicable) &&
+            if (!validatedCopy && _sourceDocumentAccumulators != null && _sourceDocumentAccumulators.TryGetValue(_runtime.GenerateId(root), out HashSet<string>? applicable) &&
                 applicable != null && !applicable.Contains(new QName(ns, local).EQName))
             {
                 throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
             }
-            if (!info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
+            if (!validatedCopy && !info.OnPrincipal && _runtime.ExternalContext.HasDefaultDataSource)
             {
                 XPathNavigator principal = _runtime.ExternalContext.DefaultDataSource.Clone();
                 principal.MoveToRoot();
@@ -117,6 +121,9 @@ namespace Xsl3.Runtime
 
         // The trees made by xsl:copy-of copy-accumulators="yes": each copy's root, its copied node and the original.
         private Dictionary<string, (XPathNavigator Top, XPathNavigator Original)>? _accumulatorCopies;
+
+        // Xsl3 (P6): the roots of those copies that validation made (by generated id).
+        private HashSet<string>? _validatedAccumulatorCopies;
 
         /// <summary>xsl:copy-of with copy-accumulators="yes": copies of the nodes that keep the originals' accumulator values.</summary>
         public IList<XPathItem> X31CopyWithAccumulators(IList<XPathItem> items)

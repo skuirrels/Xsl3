@@ -97,7 +97,7 @@ namespace Xsl3.Xslt
                 {
                     if (namespaceUri != null && (inline.TargetNamespace ?? "") != namespaceUri)
                     {
-                        ReportError(lineInfo, SR.Xml_UserException, $"XTSE0220: the inline schema's target namespace is not '{namespaceUri}'");
+                        ReportError(lineInfo, SR.Xml_UserException, $"XTSE0215: the inline schema's target namespace is not '{namespaceUri}'"); // (XSLT 3.0 §3.14.2)
                         return;
                     }
                     _schemas.Add(inline);
@@ -154,21 +154,19 @@ namespace Xsl3.Xslt
                     {
                         earlier.Add(schema);
                     }
-                    _schemas.Add(target, location.AbsoluteUri);
-                    if (earlier.Count > 0)
+                    XmlSchema? added = _schemas.Add(target, location.AbsoluteUri);
+                    if (earlier.Count > 0 && added != null)
                     {
-                        // Two schemas for one namespace: where their components clash, the one imported later, whose
-                        // import precedence is the higher (imported modules are loaded first), is kept.
+                        // Two schemas for one namespace: where their components clash, the one imported first is kept.
+                        // Its import precedence is the higher: a module is loaded before the modules it imports, and
+                        // those last to first (import-schema-177).
                         try
                         {
                             _schemas.Compile();
                         }
                         catch (XmlSchemaException)
                         {
-                            foreach (XmlSchema schema in earlier)
-                            {
-                                _schemas.Remove(schema);
-                            }
+                            _schemas.Remove(added);
                         }
                     }
                 }

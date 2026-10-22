@@ -63,7 +63,13 @@ namespace Xsl3.Runtime
 
         public OutputExtras Clone() => (OutputExtras)MemberwiseClone();
 
-        public bool IsEmpty => !Xhtml && !Html5 && RawMethod == null && EscapeUriAttributes && IncludeContentType && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
+        /// <summary>
+        /// Xsl3: standalone is given (xml method): the result must be a well-formed document, one element and no text at
+        /// the top level, else SEPM0004 (Serialization 3.1 §5.1).
+        /// </summary>
+        public bool SingleRoot { get; set; }
+
+        public bool IsEmpty => !Xhtml && !Html5 && !SingleRoot && RawMethod == null && EscapeUriAttributes && IncludeContentType && Normalization == null && (CharacterMap == null || CharacterMap.Count == 0);
 
         /// <param name="settings">The writer's settings as they were given (its own Settings lose the cdata-section-elements).</param>
         public XmlWriter Wrap(XmlWriter writer, XmlWriterSettings? settings = null) => IsEmpty ? writer : new SerializationWriter(writer, this, settings);
@@ -201,6 +207,10 @@ namespace Xsl3.Runtime
 
         public override void WriteString(string? text)
         {
+            if (_extras.SingleRoot && _depth == 0 && !string.IsNullOrWhiteSpace(text))
+            {
+                throw new Xsl3.Xdm.XdmException("SEPM0004", "With standalone or doctype-system, the result can't have text at the top level");
+            }
             if (_meta?.Current is StringBuilder metaValue)
             {
                 metaValue.Append(text);
@@ -371,8 +381,15 @@ namespace Xsl3.Runtime
             }
         }
 
+        // Xsl3: the top-level elements written so far (SingleRoot).
+        private int _roots;
+
         public override void WriteStartElement(string? prefix, string localName, string? ns)
         {
+            if (_extras.SingleRoot && _depth == 0 && ++_roots > 1)
+            {
+                throw new Xsl3.Xdm.XdmException("SEPM0004", "With standalone or doctype-system, the result must have a single document element");
+            }
             Content();
             if (_extras.Xhtml && _extras.IncludeContentType && _depth == _headDepth && localName == "meta" && (ns == XhtmlNs || _extras.Html5 && string.IsNullOrEmpty(ns)))
             {

@@ -28,6 +28,9 @@ namespace Xsl3.Schema
         private XPathNavigator _scope = null!;   // the element whose namespaces resolve QNames being validated
         private int _depth;
         private string? _error;
+
+        // Whether _error is a document-level constraint's (XTTE1555).
+        private bool _documentConstraint;
         private bool _document;
 
         private NodeValidator(XmlSchemaSet schemas, XPathNavigator node, bool strict, XmlSchemaObject? partial, bool fragment)
@@ -87,7 +90,9 @@ namespace Xsl3.Schema
             v._validator.EndValidation();
             if (v._error != null)
             {
-                throw new XdmException(code, v._error);
+                // (Laxly, a value invalid for its datatype is XTTE1515; other failures, an xsi:type say, stay XTTE1510.)
+                throw new XdmException(v._documentConstraint ? "XTTE1555"
+                    : !strict && code == "XTTE1510" && v._error.Contains("according to its datatype", StringComparison.Ordinal) ? "XTTE1515" : code, v._error);
             }
             return Constructed(v._builder.Finish(), node);
         }
@@ -260,7 +265,7 @@ namespace Xsl3.Schema
             XmlSchemaSimpleType? simple;
             if (type != null)
             {
-                simple = type as XmlSchemaSimpleType ?? throw new XdmException("XTTE1540", $"An attribute can't have the complex type {SchemaTypes.NameOf(type)}");
+                simple = type as XmlSchemaSimpleType ?? throw new XdmException("XTTE1535", $"An attribute can't have the complex type {SchemaTypes.NameOf(type)}");
             }
             else
             {
@@ -283,7 +288,11 @@ namespace Xsl3.Schema
                 }
                 catch (Exception e) when (e is XmlSchemaException or FormatException or OverflowException)
                 {
-                    throw new XdmException(type != null ? "XTTE1540" : "XTTE1510", $"The attribute {attribute.Name}=\"{attribute.Value}\" is not valid: {e.Message}");
+                    // A QName or NOTATION whose prefix has no namespace in scope: XTTE1545 (XSLT 3.0 §25.4.1).
+                    string code = SchemaTypes.AtomicTypeOf(simple)?.Primitive is Xsl3.Xdm.Primitive.QName or Xsl3.Xdm.Primitive.Notation && attribute.Value.Contains(':')
+                        && attribute.LookupNamespace(attribute.Value[..attribute.Value.IndexOf(':')].Trim()) == null
+                        ? "XTTE1545" : type != null ? "XTTE1540" : strict ? "XTTE1510" : "XTTE1515";
+                    throw new XdmException(code, $"The attribute {attribute.Name}=\"{attribute.Value}\" is not valid: {e.Message}");
                 }
             }
             var builder = new CompactDocument.Builder(attribute.NameTable, attribute.BaseURI, fragment: true, small: true);
@@ -467,11 +476,17 @@ namespace Xsl3.Schema
             {
                 return; // (an undeclared element or attribute: validated laxly)
             }
-            if (!_document && (e.Message.Contains("already used as an ID", StringComparison.Ordinal) || e.Message.Contains("undeclared ID", StringComparison.Ordinal)))
+            bool idConstraint = e.Message.Contains("already used as an ID", StringComparison.Ordinal) || e.Message.Contains("undeclared ID", StringComparison.Ordinal);
+            if (!_document && idConstraint)
             {
                 return; // ID and IDREF constraints are checked only for a document node (XSLT 3.0 §25.4.3)
             }
-            _error ??= e.Message;
+            if (_error == null)
+            {
+                _error = e.Message;
+                // A document-level constraint (IDs, IDREFs, xs:unique, xs:key, xs:keyref): XTTE1555 (§25.4.3).
+                _documentConstraint = idConstraint || e.Exception?.SourceSchemaObject is XmlSchemaIdentityConstraint;
+            }
         }
 
         IDictionary<string, string> IXmlNamespaceResolver.GetNamespacesInScope(XmlNamespaceScope scope) => _scope.GetNamespacesInScope(scope);

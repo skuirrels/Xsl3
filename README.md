@@ -12,7 +12,7 @@ The full design is in [SPEC.md](SPEC.md).
 
 > **Status: release candidate.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. 1.0.0-rc.1 is the first release candidate of 1.0.0 on NuGet
+> behind `XsltSettings.SchemaAware`. 1.0.0-rc.2 is the latest release candidate of 1.0.0 on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [releases](https://github.com/skuirrels/Xsl3/releases)); its public API
 > is what 1.0.0 will ship. See [what works](#what-works) and [what's outstanding](#whats-outstanding).
 
@@ -26,7 +26,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,588 passed, 9 failed (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,839 passed, 28 failed, 42 not run (99.7%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,844 passed, 23 failed, 42 not run (99.7%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -104,7 +104,7 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases**: streaming (P7) hasn't started.
-- **Packaging**: 1.0.0-rc.1 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.0.0-rc.2 is a release candidate of 1.0.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.

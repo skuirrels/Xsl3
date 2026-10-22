@@ -554,6 +554,9 @@ namespace Xsl3.Xslt
         // Xsl3: the error code for an undeclared prefix while a prefix list attribute is read (2.0+).
         private string? _prefixListCode;
 
+        /// <summary>Xsl3: the code an undeclared prefix is reported with while it is set (XTSE0812 for xsl:namespace-alias).</summary>
+        internal string? PrefixErrorCode { get => _prefixListCode; set => _prefixListCode = value; }
+
         public string? StaticBaseUri => _scopeManager.LookupNamespace(XmlBasePrefix) ?? _records[0].baseUri ?? _reader.BaseURI;
 
         /// <summary>Xsl3: the [xsl:]xpath-default-namespace in scope at the current element.</summary>
@@ -815,7 +818,15 @@ namespace Xsl3.Xslt
             }
             if (double.IsNaN(version))
             {
-                ReportError(/*[XT0110]*/SR.Xslt_InvalidAttrValue, _atoms.Version, Value);
+                if (Compiler.Xslt2Enabled)
+                {
+                    // Xsl3: not a number at all (XTSE0110).
+                    _compiler.ReportError(BuildNameLineInfo(), SR.Xml_UserException, $"XTSE0110: version=\"{Value}\" is not a decimal");
+                }
+                else
+                {
+                    ReportError(/*[XT0110]*/SR.Xslt_InvalidAttrValue, _atoms.Version, Value);
+                }
 #if XSLT2
                 version = 2.0;
 #else

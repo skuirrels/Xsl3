@@ -68,6 +68,9 @@ namespace Xsl3.Tree
         /// <summary>Xsl3 (P6): whether the node is an attribute that is an ID by its schema type (the is-id property).</summary>
         internal bool IsIdAttribute => _attr != None && _ns == None && _doc._idAttrs != null && _doc._idAttrs.Contains(_attr);
 
+        /// <summary>Xsl3 (P6): whether the node is an attribute fn:idref finds, typed or declared IDREF or IDREFS (is-idrefs).</summary>
+        internal bool IsIdrefAttribute => _attr != None && _ns == None && _doc._idrefAttributes is { Count: > 0 } idrefs && idrefs.BinarySearch(_attr) >= 0;
+
         /// <summary>Xsl3 (P6): whether the node is an element whose content (typed xs:ID) is its ID.</summary>
         internal bool IsIdContent => OnContent && _doc._idContent != null && _doc._idContent.Contains(_node);
 

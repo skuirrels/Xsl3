@@ -549,6 +549,15 @@ namespace Xsl3.Tree
                 }
             }
 
+            /// <summary>Xsl3 (P6): the attribute just added is an IDREF or IDREFS (fn:idref finds it), though untyped.</summary>
+            internal void MarkAttributeIdref()
+            {
+                if (_doc._attrOwner[_doc._attrCount - 1] != None)
+                {
+                    (_doc._idrefAttributes ??= new List<int>()).Add(_doc._attrCount - 1);
+                }
+            }
+
             /// <summary>Xsl3 (P6): the attribute just added is an ID (its element can be found by its value), though untyped.</summary>
             internal void MarkAttributeId(string value)
             {

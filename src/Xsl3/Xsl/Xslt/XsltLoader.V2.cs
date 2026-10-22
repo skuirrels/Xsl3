@@ -57,6 +57,27 @@ namespace Xsl3.Xslt
         /// as an import, so the using package's declarations, including those in xsl:override, take precedence over
         /// it. Visibility isn't enforced: the packages' components share one name space.
         /// </summary>
+        // XSLT 3.0 §3.5.1: ranges separated by commas, each *, V, V+, V.*, "to V" or "V to V" (V a package version).
+        private static bool IsPackageVersionRanges(string ranges)
+        {
+            foreach (string part in ranges.Split(','))
+            {
+                string range = part.Trim();
+                string[] words = range.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                bool ok = range == "*"
+                    || words is ["to", var high] && IsPackageVersion(high)
+                    || words is [var low, "to", var high2] && IsPackageVersion(low) && IsPackageVersion(high2)
+                    || words.Length == 1 && (IsPackageVersion(range)
+                        || range.EndsWith('+') && IsPackageVersion(range[..^1])
+                        || range.EndsWith(".*", StringComparison.Ordinal) && IsPackageVersion(range[..^2]));
+                if (!ok)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private void LoadUsePackage(ContextInfo ctxInfo, QName parentName)
         {
             _input.GetAttributes(_usePackageAttributes);
@@ -69,7 +90,12 @@ namespace Xsl3.Xslt
             ISourceLineInfo line = _input.BuildNameLineInfo();
             Uri? location = Xsl3.Xslt.PackageVersions.Find(_compiler.Packages, name, version);
             UsedPackage? used = null;
-            if (location == null)
+            if (!IsPackageVersionRanges(version))
+            {
+                // Xsl3: not a list of package version ranges (XSLT 3.0 §3.5.1): XTSE0020.
+                ReportError(SR.Xml_UserException, $"XTSE0020: '{version}' is not a package-version range");
+            }
+            else if (location == null)
             {
                 ReportError(SR.Xml_UserException, $"XTSE3000: no package named {name} with version {version} is available");
             }
@@ -490,7 +516,7 @@ namespace Xsl3.Xslt
             }
             else if (use == "absent" && asType != null)
             {
-                ReportError(SR.Xml_UserException, "XTSE3089: xsl:context-item with use=\"absent\" can't have an as attribute");
+                ReportError(SR.Xml_UserException, "XTSE3088: xsl:context-item with use=\"absent\" can't have an as attribute");
             }
             else if (use is "optional" or "absent" && _curTemplate is { Name: null })
             {
@@ -1395,9 +1421,11 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(6, "visibility"))
             {
                 decl.Declaration.Visibility = _input.Value.Trim();
-                if (mode.LocalName.Length == 0 && decl.Declaration.Visibility != "private")
+                if (mode.LocalName.Length == 0 && decl.Declaration.Visibility != "private" ||
+                    decl.Declaration.Visibility is not ("public" or "private" or "final"))
                 {
-                    // The unnamed mode is always private (XSLT 3.0 §3.5.4.1).
+                    // The unnamed mode is always private; a mode is public, private or final, never abstract
+                    // (XSLT 3.0 §3.5.4.1; mode-1509).
                     ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "visibility", decl.Declaration.Visibility);
                 }
             }

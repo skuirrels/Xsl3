@@ -392,6 +392,16 @@ namespace Xsl3.Xslt
                 // Xsl3: the json and adaptive methods serialize the raw result (XslCompiledTransform.TransformRaw).
                 return Box(result);
             }
+            if (IsV2 && !result.XmlType!.IsSubtypeOf(T.NodeNotRtfS) && !result.XmlType.IsSubtypeOf(T.AnyAtomicTypeS))
+            {
+                // Xsl3: a map or function in the principal result can't be serialized (SENR0001; output-0710), rather
+                // than the XTDE0450 of a node's content. (Arrays are flattened.)
+                QilIterator i;
+                result = _f.Loop(i = _f.For(Box(result)), _f.Conditional(
+                    _f.Or(_f.Or(_f.IsType(i, T.Node), _f.IsType(i, T.AnyAtomicType)), X31(nameof(XsltLibrary.X31IsArray), T.BooleanX, i)),
+                    i,
+                    _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("SENR0001"), _f.String("A map or function item can't be serialized with this output method")), T.Item)));
+            }
             return _f.DocumentCtor(IsV2 ? ContentNodes(result) : result);
         }
 
@@ -707,14 +717,20 @@ namespace Xsl3.Xslt
                             }
                             else
                             {
-                                if (IsV2 && xslPar.V2 is { Required: true })
+                                if (IsV2 && tmpl.Visibility == "abstract")
+                                {
+                                    // Xsl3: an abstract template called without an override: XTDE3052 (the caller computes
+                                    // the defaults, before the template's own body raises it; accept-905).
+                                    param.DefaultValue = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"{tmpl.Name?.QualifiedName} is abstract and has no implementation"));
+                                }
+                                else if (IsV2 && xslPar.V2 is { Required: true })
                                 {
                                     // Xsl3: a required parameter that isn't supplied is a dynamic error here (XTSE0690 statically).
                                     param.DefaultValue = X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0700"), _f.String($"The required parameter ${xslPar.Name.QualifiedName} was not supplied"));
                                 }
                                 else if ((xslPar.DefValueFlags & XslFlags.HasCalls) == 0)
                                 {
-                                    param.DefaultValue = CompileVarParValue(xslPar);
+                                    param.DefaultValue = TemplateParamDefault31(() => CompileVarParValue(xslPar));
                                 }
                                 else
                                 {
@@ -811,7 +827,7 @@ namespace Xsl3.Xslt
                         _inNamedTemplate31 = tmpl.Match == null;
                         _currentTunnel = func.Arguments.Cast<QilParameter>().FirstOrDefault(a => a.Name!.Equals(_nameTunnel));
                     }
-                    func.Definition = CompileVarParValue(par);
+                    func.Definition = TemplateParamDefault31(() => CompileVarParValue(par));
                     (_currentTemplateRule, _inNamedTemplate31, _currentTunnel) = (savedRule, savedNamed, savedTunnel);
                     SetLineInfo(func.Definition, par.SourceLine);
                     ExitScope();
@@ -849,7 +865,7 @@ namespace Xsl3.Xslt
                         Debug.Assert(arg.DefaultValue == null, "Argument must not be compiled yet");
                         VarPar xslParam = (VarPar)arg.Annotation!;
                         QilList? nsListParam = EnterScope(xslParam);
-                        arg.DefaultValue = CompileVarParValue(xslParam);
+                        arg.DefaultValue = TemplateParamDefault31(() => CompileVarParValue(xslParam));
                         ExitScope();
                         arg.DefaultValue = SetDebugNs(arg.DefaultValue, nsListParam);
                     }
@@ -888,6 +904,12 @@ namespace Xsl3.Xslt
                 if (ruleFrame != null)
                 {
                     body = _f.Loop(ruleFrame, body);
+                }
+                if (tmpl.Visibility == "abstract")
+                {
+                    // Xsl3: an abstract component reached without an override (an accepted hidden one) is XTDE3052,
+                    // before its parameters are bound (accept-905).
+                    body = _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"{tmpl.Name?.QualifiedName} is abstract and has no implementation")), body.XmlType!);
                 }
             }
             _inNamedTemplate31 = false;
@@ -1003,7 +1025,7 @@ namespace Xsl3.Xslt
                 Debug.Assert(result != null, "Result of compilation should not be null");
                 if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
                 {
-                    result = Validate31(result, validated);
+                    result = Validate31(result, validated, copy: nodeType is XslNodeType.Copy or XslNodeType.CopyOf, attribute: nodeType == XslNodeType.Attribute);
                 }
                 else if (IsV2 && node.V2?.Validation is string kept and ("preserve" or "strip") && nodeType is XslNodeType.LiteralElement or XslNodeType.Element or XslNodeType.Copy or XslNodeType.Document)
                 {
@@ -1176,11 +1198,11 @@ namespace Xsl3.Xslt
                 string name = (string)(QilLiteral)qilName;
                 string prefix, local, nsUri;
 
-                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this);
+                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this, "XTDE0820");
 
                 if (qilNs == null)
                 {
-                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/false, prefix) : _compiler.CreatePhantomNamespace();
+                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/false, prefix, "XTDE0830") : _compiler.CreatePhantomNamespace();
                 }
                 else
                 {
@@ -1244,11 +1266,11 @@ namespace Xsl3.Xslt
                 string name = (string)(QilLiteral)qilName;
                 string prefix, local, nsUri;
 
-                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this);
+                bool isValid = _compiler.ParseQName(name, out prefix, out local, (IErrorHelper)this, "XTDE0850");
 
                 if (qilNs == null)
                 {
-                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix) : _compiler.CreatePhantomNamespace();
+                    nsUri = isValid ? ResolvePrefix(/*ignoreDefaultNs:*/true, prefix, "XTDE0860") : _compiler.CreatePhantomNamespace();
                 }
                 else
                 {
@@ -1424,7 +1446,22 @@ namespace Xsl3.Xslt
             if (qilName.NodeType == QilNodeType.LiteralString)
             {
                 string name = (string)(QilLiteral)qilName;
-                Compiler.ValidatePiName(name, (IErrorHelper)this);
+                if (IsV2)
+                {
+                    // Xsl3: a fixed name that isn't an NCName, or xml, is XTDE0890 (reported statically).
+                    try
+                    {
+                        ValidateNames.ValidateNameThrow(string.Empty, name, string.Empty, System.Xml.XPath.XPathNodeType.ProcessingInstruction, ValidateNames.Flags.AllExceptPrefixMapping);
+                    }
+                    catch (XmlException e)
+                    {
+                        ReportError(SR.Xml_UserException, "XTDE0890: " + e.Message);
+                    }
+                }
+                else
+                {
+                    Compiler.ValidatePiName(name, (IErrorHelper)this);
+                }
             }
             return _f.PICtor(qilName, CompileInstructions(node.Content));
         }
@@ -1534,6 +1571,12 @@ namespace Xsl3.Xslt
             Debug.Assert(node.NodeType == XslNodeType.ApplyImports);
             Debug.Assert(!_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each");
 
+            if (IsV2 && _currentTemplateRule is { OverrideOf: >= 0 })
+            {
+                // Xsl3: in a template rule of xsl:override, xsl:next-match reaches the overridden rule (XTSE3460).
+                ReportError(SR.Xml_UserException, "XTSE3460: xsl:apply-imports can't be used in a template rule of xsl:override");
+                return _f.Sequence();
+            }
             if (IsV2 && _currentTemplateRule == null)
             {
                 // Xsl3: in a named template, the caller's current template rule decides (XSLT 3.0 §6.8).
@@ -2688,6 +2731,9 @@ namespace Xsl3.Xslt
             QilNode content = IsV2 && varPar.NodeType == XslNodeType.Param && varPar.V2 is { Required: true, StaticValue: null }
                 // Xsl3: a required stylesheet parameter that isn't supplied (XTDE0050), when its value is used.
                 ? _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE0050"), _f.String($"No value was supplied for the required parameter ${varPar.Name!.QualifiedName}")), T.ItemS)
+                : IsV2 && varPar.Visibility == "abstract"
+                // Xsl3: an abstract variable used without an override (XTDE3052).
+                ? _f.TypeAssert(X31(nameof(XsltLibrary.X31Raise), T.ItemS, _f.String("XTDE3052"), _f.String($"${varPar.Name!.QualifiedName} is abstract and has no implementation")), T.ItemS)
                 : CompileVarParValue(varPar);
             SetLineInfo(content, it.SourceLine);
             content = AddCurrentPositionLast(content);
@@ -3318,7 +3364,9 @@ namespace Xsl3.Xslt
             );
         }
 
-        private string ResolvePrefix(bool ignoreDefaultNs, string prefix)
+        /// <param name="code">Xsl3: in 2.0+, the code for an undeclared prefix (XTDE0830 for xsl:element's name, XTDE0860
+        /// for xsl:attribute's); else the general XTSE0280.</param>
+        private string ResolvePrefix(bool ignoreDefaultNs, string prefix, string? code = null)
         {
             if (ignoreDefaultNs && prefix.Length == 0)
             {
@@ -3335,7 +3383,14 @@ namespace Xsl3.Xslt
                     }
                     else
                     {
-                        ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+                        if (IsV2 && code != null)
+                        {
+                            ReportError(SR.Xml_UserException, $"{code}: " + XslTransformException.CreateMessage(SR.Xslt_InvalidPrefix, prefix));
+                        }
+                        else
+                        {
+                            ReportError(/*[XT0280]*/SR.Xslt_InvalidPrefix, prefix);
+                        }
                         ns = _compiler.CreatePhantomNamespace();
                     }
                 }

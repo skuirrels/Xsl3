@@ -439,7 +439,7 @@ namespace Xsl3.Xslt
                     new SourceLineInfo(ex.SourceUri, ex.LineNumber, ex.LinePosition, ex.LineNumber, ex.LinePosition) :
                     _input.BuildReaderLineInfo()
                 );
-                if (V2 && e is System.IO.IOException or UnauthorizedAccessException or System.Net.WebException)
+                if (V2 && e is System.IO.IOException or UnauthorizedAccessException or System.Net.WebException or NotSupportedException)
                 {
                     // Xsl3: a module that xsl:import or xsl:include names and that can't be read (XTSE0165).
                     var load = new XslLoadException(SR.Xml_UserException, $"XTSE0165: {e.Message}");
@@ -916,6 +916,11 @@ namespace Xsl3.Xslt
                 {
                     _compiler.EnterForwardsCompatible();
                     XmlOutputMethod outputMethod;
+                    if (V2 && _input.Value.Trim() is var methodValue && !methodValue.StartsWith("Q{", StringComparison.Ordinal) && !IsLexicalQName(methodValue))
+                    {
+                        // Xsl3: a method that isn't a QName (XTSE1570).
+                        ReportError(SR.Xml_UserException, $"XTSE1570: method=\"{_input.Value}\" is not an output method");
+                    }
                     XmlQualifiedName? method = ParseOutputMethod(_input.Value, out outputMethod);
                     if (_compiler.ExitForwardsCompatible(_input.ForwardCompatibility) && method != null)
                     {
@@ -1628,6 +1633,7 @@ namespace Xsl3.Xslt
             string? resultPrefix = null;
             string? resultNsUri = null;
 
+            _input.PrefixErrorCode = V2 ? "XTSE0812" : null; // Xsl3: an undeclared prefix of xsl:namespace-alias
             if (_input.MoveToXsltAttribute(0, "stylesheet-prefix"))
             {
                 if (_input.Value.Length == 0)
@@ -1653,6 +1659,7 @@ namespace Xsl3.Xslt
                 }
             }
 
+            _input.PrefixErrorCode = null;
             CheckNoContent();
 
             if (stylesheetNsUri == null || resultNsUri == null)
@@ -1846,7 +1853,15 @@ namespace Xsl3.Xslt
 
             if (!_curStylesheet!.AddTemplate(_curTemplate))
             {
-                ReportError(/*[XT0660]*/SR.Xslt_DupTemplateName, _curTemplate.Name!.QualifiedName);
+                if (V2 && (_curTemplate.OverrideOf >= 0 || _compiler.NamedTemplates.TryGetValue(_curTemplate.Name!, out Template? other) && other.OverrideOf >= 0))
+                {
+                    // Xsl3: a declaration in xsl:override with the name of another of the package (XTSE3055).
+                    ReportError(SR.Xml_UserException, $"XTSE3055: the template {_curTemplate.Name!.QualifiedName} in xsl:override has the name of another declaration of the package");
+                }
+                else
+                {
+                    ReportError(/*[XT0660]*/SR.Xslt_DupTemplateName, _curTemplate.Name!.QualifiedName);
+                }
             }
             _curTemplate = null;
         }
@@ -2180,14 +2195,15 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_applyTemplatesAttributes);
 
-            string select = ParseStringAttribute(0, "select") ?? "node()";
+            string? explicitSelect = ParseStringAttribute(0, "select");
+            string select = explicitSelect ?? "node()";
             QilName mode = ParseModeAttribute(1);
 
             List<XslNode> content = LoadWithParams(InstructionFlags.AllowSort);
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ApplyTemplates(mode, select, ctxInfo, _input.XslVersion),
-                content, ctxInfo
-            );
+            XslNodeEx applyTemplates = F.ApplyTemplates(mode, select, ctxInfo, _input.XslVersion);
+            applyTemplates.DefaultSelect = explicitSelect == null;
+            return SetInfo(applyTemplates, content, ctxInfo);
         }
 
         // http://www.w3.org/TR/xslt#named-templates
@@ -2414,11 +2430,19 @@ namespace Xsl3.Xslt
             // Xsl3: the error a terminating message raises (XSLT 3.0 §23.1): err:XTMM9000 unless error-code names
             // another: a local name for one in the err namespace, else an EQName.
             string errorCode = "XTMM9000";
-            if (V2 && _input.MoveToXsltAttribute(2, "error-code") && !_input.Value.Contains('{'))
+            string? errorCodeAvt = V2 && _input.MoveToXsltAttribute(2, "error-code") && _input.Value.Replace("{{", "").Replace("}}", "") is var computed && computed.Contains('{') ? _input.Value : null;
+            // (An attribute value template with no expressions, only doubled braces, is a literal: Q{{ns}}local.)
+            if (V2 && _input.MoveToXsltAttribute(2, "error-code") && _input.Value.Replace("{{", "").Replace("}}", "") is var unescaped && !unescaped.Contains('{') && !unescaped.Contains('}'))
             {
-                string token = _input.Value.Trim();
-                int colon = token.IndexOf(':');
-                string? ns = colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                string token = _input.Value.Replace("{{", "{").Replace("}}", "}").Trim();
+                int colon = token.StartsWith("Q{", System.StringComparison.Ordinal) ? -1 : token.IndexOf(':');
+                string? ns = token.StartsWith("Q{", System.StringComparison.Ordinal) && token.IndexOf('}') is int close and > 1
+                    ? token[2..close] : colon > 0 ? _input.LookupXmlNamespace(token[..colon]) : "";
+                if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                {
+                    token = token[(token.IndexOf('}') + 1)..]; // (the local name, below)
+                    colon = -1;
+                }
                 if (ns == "http://www.w3.org/2005/xqt-errors")
                 {
                     errorCode = token[(colon + 1)..];
@@ -2443,7 +2467,7 @@ namespace Xsl3.Xslt
             XslNode message = SetInfo(F.Message(terminate), content, ctxInfo);
             if (V2)
             {
-                message.V2 = new XslNodeV2 { NameAvt = terminateAvt, ErrorCode = errorCode };
+                message.V2 = new XslNodeV2 { NameAvt = terminateAvt, ErrorCode = errorCode, ErrorCodeAvt = errorCodeAvt };
             }
             return message;
         }
@@ -2662,7 +2686,8 @@ namespace Xsl3.Xslt
                     {
                         if (content.Count != 0)
                         {
-                            ReportError(SR.Xml_UserException, "XTSE0010: a static variable or parameter takes its value from select");
+                            // (With a select attribute too, the general rule's XTSE0620; use-when-0431.)
+                            ReportError(SR.Xml_UserException, (select != null ? "XTSE0620" : "XTSE0010") + ": a static variable or parameter takes its value from select");
                         }
                         if (visibility != null)
                         {
@@ -3068,12 +3093,18 @@ namespace Xsl3.Xslt
             var name = new Xsl3.Xdm.QName(var.Name!.NamespaceUri, var.Name.LocalName);
             IList<System.Xml.XPath.XPathItem> value;
             var key = new XmlQualifiedName(var.Name.LocalName, var.Name.NamespaceUri);
+            // The error when the value doesn't match the as type: XTDE0050 for a supplied value, XTDE0700 for a parameter's
+            // implicit default (the empty sequence), else XTTE0590 (static-012, static-013).
+            string conversionCode = "XTTE0590";
             if (var.NodeType == XslNodeType.Param && _compiler.StaticParameters != null && _compiler.StaticParameters.TryGetValue(key, out var supplied))
             {
                 value = supplied;
+                conversionCode = "XTDE0050";
             }
             else if (var.Select != null)
             {
+                // (A static parameter whose default isn't of its type is implicitly required: XTDE0050, static-013.)
+                conversionCode = var.NodeType == XslNodeType.Param ? "XTDE0050" : conversionCode;
                 try
                 {
                     value = UseWhen.EvaluateValue(var.Select, _input.StaticNamespaces(), _input.XPathDefaultNamespace, _input.StaticBaseUri, _compiler.StaticValues, _compiler.Settings.EnableEvaluate);
@@ -3098,13 +3129,14 @@ namespace Xsl3.Xslt
             {
                 // Without select: a zero-length string, or the empty sequence when there is an as attribute (§9.3).
                 value = var.V2!.As != null ? System.Array.Empty<System.Xml.XPath.XPathItem>() : Xsl3.Xdm.Sequences.One(Xsl3.Xdm.AtomicValue.OfString(""));
+                conversionCode = var.NodeType == XslNodeType.Param ? "XTDE0700" : conversionCode;
             }
             if (var.V2!.As != null)
             {
                 try
                 {
                     var sc = new Xsl3.XPath31.StaticTypeResolver(p => _input.StaticNamespaces().TryGetValue(p, out string? uri) ? uri : null, _input.XPathDefaultNamespace);
-                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, sc.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(var.V2.As)), "XTTE0590", () => $"${var.Name.QualifiedName}");
+                    value = Xsl3.XPath31.Functions.Coercion.CoerceTo(value, sc.Resolve(Xsl3.XPath31.Parser.ParseSequenceType(var.V2.As)), conversionCode, () => $"${var.Name.QualifiedName}");
                 }
                 catch (Xsl3.Xdm.XdmException e)
                 {
@@ -3206,7 +3238,8 @@ namespace Xsl3.Xslt
             if (fallbacksArray.Count == 0)
             {
                 fallbacksArray.Add(
-                    F.Error(XslLoadException.CreateMessage(extElmLineInfo, SR.Xslt_UnknownExtensionElement, instrName))
+                    // Xsl3: in 2.0+, XTDE1450 when it is evaluated.
+                    F.Error((V2 ? "XTDE1450: " : "") + XslLoadException.CreateMessage(extElmLineInfo, SR.Xslt_UnknownExtensionElement, instrName))
                 );
             }
             return fallbacksArray;
@@ -3272,6 +3305,19 @@ namespace Xsl3.Xslt
 
         // Parse mode when it is list. V1: -, V2: xsl:template
         // Suppresses errors if FCB is enabled
+        private static bool IsLexicalQName(string name)
+        {
+            try
+            {
+                ValidateNames.ParseQNameThrow(name, out _, out _);
+                return true;
+            }
+            catch (XmlException)
+            {
+                return false;
+            }
+        }
+
         private QilName ParseModeListAttribute(int attNum)
         {
             //Debug.Assert(input.IsXsltKeyword(atoms.Template) && !V1);
@@ -3319,6 +3365,12 @@ namespace Xsl3.Xslt
                         else if (qname == "#all")
                         {
                             ReportError(SR.Xslt_ModeListAll);
+                            break;
+                        }
+                        else if (V2 && !qname.StartsWith("Q{", System.StringComparison.Ordinal) && !IsLexicalQName(qname))
+                        {
+                            // Xsl3: a token that is neither a QName nor #default, #unnamed or #all (XTSE0550).
+                            ReportError(SR.Xml_UserException, $"XTSE0550: '{qname}' in the mode attribute is not a mode name");
                             break;
                         }
                         else
@@ -3593,6 +3645,12 @@ namespace Xsl3.Xslt
             _compiler.EnterForwardsCompatible();
             foreach (string qname in XmlConvert.SplitString(_input.Value))
             {
+                if (V2 && !qname.StartsWith("Q{", StringComparison.Ordinal) && !IsLexicalQName(qname))
+                {
+                    // Xsl3: a token that isn't an attribute set's name (XTSE0710).
+                    ReportError(SR.Xml_UserException, $"XTSE0710: '{qname}' in use-attribute-sets is not a QName");
+                    continue;
+                }
                 AddInstruction(list, SetLineInfo(F.UseAttributeSet(CreateXPathQName(qname)), _input.BuildLineInfo()));
             }
             if (!_compiler.ExitForwardsCompatible(_input.ForwardCompatibility))
@@ -3758,6 +3816,14 @@ namespace Xsl3.Xslt
         // Xsl3 (P6): a type attribute's name; an unprefixed one is in the xpath-default-namespace (XSLT 3.0 §5.1.2).
         private XmlQualifiedName ResolveTypeName(string value)
         {
+            string trimmed = value.Trim();
+            if (!trimmed.StartsWith("Q{", StringComparison.Ordinal) && (!IsLexicalQName(trimmed) ||
+                trimmed.IndexOf(':') is int colon and > 0 && _input.LookupXmlNamespace(trimmed[..colon]) == null))
+            {
+                // A type attribute that isn't a QName with a declared prefix (XTSE1520).
+                ReportError(SR.Xml_UserException, $"XTSE1520: type=\"{value}\" is not the name of a type");
+                return new XmlQualifiedName("error", _compiler.CreatePhantomNamespace());
+            }
             XmlQualifiedName name = ResolveQName(/*ignoreDefaultNs:*/true, value);
             return name.Namespace.Length == 0 && !value.TrimStart().StartsWith("Q{", StringComparison.Ordinal) && _input.XPathDefaultNamespace.Length > 0
                 ? new XmlQualifiedName(name.Name, _input.XPathDefaultNamespace)

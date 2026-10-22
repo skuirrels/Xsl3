@@ -934,6 +934,9 @@ namespace Xsl3.Runtime
                         // Then throw an error except if the prefix trying to redefine is already used
                         if (_usedPrefixes.Contains(prefix))
                         {
+                            // Xsl3: in 2.0+ two namespace nodes binding one prefix to different URIs is XTDE0430.
+                            if (_runtime.IsXslt2)
+                                throw new Xsl3.Xdm.XdmException("XTDE0430", XslTransformException.CreateMessage(SR.XmlIl_NmspConflict, prefix.Length == 0 ? "" : ":", prefix, ns, nsExisting));
                             throw new XslTransformException(SR.XmlIl_NmspConflict, new string[] { prefix.Length == 0 ? "" : ":", prefix, ns, nsExisting });
                         }
                     }
@@ -1417,9 +1420,17 @@ namespace Xsl3.Runtime
             {
                 typedCopy.AnnotateAttribute(compact.NamespaceURI, compact.LocalName, type);
             }
-            else if (compact.IsIdAttribute && _runtime.IsXslt2)
+            else if (_runtime.IsXslt2)
             {
-                Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+                // (Its is-idrefs property too: copy-5034.)
+                if (compact.IsIdAttribute)
+                {
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+                }
+                if (compact.IsIdrefAttribute)
+                {
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdrefAttribute(compact.NamespaceURI, compact.LocalName);
+                }
             }
         }
 
@@ -1846,6 +1857,11 @@ namespace Xsl3.Runtime
             {
                 throw new Xsl3.Xdm.XdmException("XTDE0860", e.Message);
             }
+            catch (XmlException e) when (_runtime.IsXslt2)
+            {
+                // Xsl3: a computed name that isn't a lexical QName (XSLT 3.0 §11.2, §11.3).
+                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute ? "XTDE0850" : "XTDE0820", e.Message);
+            }
 
             // Validate the name parts
             prefix = EnsureValidName(prefix, localName, ns, nodeType);
@@ -1923,6 +1939,23 @@ namespace Xsl3.Runtime
         /// </summary>
         private string EnsureValidName(string prefix, string localName, string ns, XPathNodeType nodeType)
         {
+            try
+            {
+                return EnsureValidName1(prefix, localName, ns, nodeType);
+            }
+            catch (XmlException e) when (_runtime.IsXslt2)
+            {
+                // Xsl3: the xmlns prefix or namespace (XTDE0835, XTDE0865), an attribute named xmlns (XTDE0855), or
+                // another name that isn't valid (XTDE0820, XTDE0850).
+                bool xmlns = prefix == "xmlns" || ns == XmlReservedNs.NsXmlNs;
+                throw new Xsl3.Xdm.XdmException(nodeType == XPathNodeType.Attribute
+                    ? (prefix.Length == 0 && localName == "xmlns" ? "XTDE0855" : xmlns ? "XTDE0865" : "XTDE0850")
+                    : xmlns ? "XTDE0835" : "XTDE0820", e.Message);
+            }
+        }
+
+        private string EnsureValidName1(string prefix, string localName, string ns, XPathNodeType nodeType)
+        {
             if (!ValidateNames.ValidateName(prefix, localName, ns, nodeType, ValidateNames.Flags.AllExceptNCNames))
             {
                 // Name parts are not valid as is.  Try to re-map the prefix.
@@ -1977,7 +2010,12 @@ namespace Xsl3.Runtime
                 case XPathNodeType.Attribute:
                 case XPathNodeType.Namespace:
                     if (_depth == 1)
+                    {
+                        // Xsl3: in 2.0+ an attribute or namespace node in a document node is XTDE0420.
+                        if (_runtime.IsXslt2 && _rootType == XPathNodeType.Root)
+                            throw new Xsl3.Xdm.XdmException("XTDE0420", XslTransformException.CreateMessage(SR.XmlIl_BadXmlState, constructorType.ToString(), _rootType.ToString()));
                         throw new XslTransformException(SR.XmlIl_BadXmlState, new string[] { constructorType.ToString(), _rootType.ToString() });
+                    }
 
                     if (_xstate == XmlState.WithinContent)
                     {

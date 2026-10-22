@@ -145,6 +145,12 @@ namespace Xsl3.Xslt
                 foreach (DecimalFormatDecl format in DecimalFormats)
                 {
                     int[] cp = format.CodePoints;
+                    if (cp[4] is var zeroDigit && (System.Globalization.CharUnicodeInfo.GetDecimalDigitValue(char.ConvertFromUtf32(zeroDigit), 0) != 0))
+                    {
+                        // zero-digit must be a digit whose value is zero (XTSE1295).
+                        ReportError(format.Line ?? SourceLineInfo.NoSource, SR.Xml_UserException, $"XTSE1295: the zero-digit of the decimal format {format.Name} is not a digit with value zero");
+                        continue;
+                    }
                     var signs = new[] { cp[0], cp[1], cp[2], cp[3], cp[5], cp[6], format.Exponent };
                     if (System.Linq.Enumerable.Count(System.Linq.Enumerable.Distinct(signs)) != signs.Length || cp[4] is var zero && System.Linq.Enumerable.Any(signs, c => c >= zero && c <= zero + 9))
                     {
@@ -270,7 +276,8 @@ namespace Xsl3.Xslt
             }
         }
 
-        public bool ParseQName(string qname, out string prefix, out string localName, IErrorHelper errorHelper)
+        /// <param name="code">Xsl3: the 2.0+ error code (XTDE0820 for a static xsl:element name, XTDE0850 for xsl:attribute's).</param>
+        public bool ParseQName(string qname, out string prefix, out string localName, IErrorHelper errorHelper, string code = "XTSE0020")
         {
             Debug.Assert(qname != null);
             try
@@ -282,7 +289,7 @@ namespace Xsl3.Xslt
             {
                 // Xsl3: in 2.0+ an attribute value that isn't a QName is XTSE0020.
                 if (Version == 2)
-                    errorHelper.ReportError(SR.Xml_UserException, "XTSE0020: " + e.Message);
+                    errorHelper.ReportError(SR.Xml_UserException, code + ": " + e.Message);
                 else
                     errorHelper.ReportError(/*[XT_042]*/e.Message, null);
                 prefix = PhantomNCName;
@@ -424,6 +431,11 @@ namespace Xsl3.Xslt
                     _ => null,
                 };
             }
+            if (res == SR.Xslt_UnexpectedElement)
+            {
+                // xsl:include and xsl:import are top-level only (XTSE0170, XTSE0190).
+                return Local(0) switch { "include" => "XTSE0170", "import" => "XTSE0190", _ => "XTSE0010" };
+            }
             if (res == SR.Xslt_NotAtTop)
             {
                 return Local(0) == "import" ? "XTSE0200" : "XTSE0010";
@@ -455,6 +467,14 @@ namespace Xsl3.Xslt
                 _ when res == SR.Xslt_ModeWithoutMatch || res == SR.Xslt_PriorityWithoutMatch || res == SR.Xslt_BothMatchNameAbsent => "XTSE0500",
                 _ when res == SR.Xslt_KeyCntUse => "XTSE1205",
                 _ when res == SR.Xslt_NullNsAtTopLevel => "XTSE0130",
+                _ when res == SR.Xslt_NoWhen || res == SR.Xslt_WhenAfterOtherwise || res == SR.Xslt_DupOtherwise || res == SR.Xslt_AnalyzeStringChildOrder => "XTSE0010",
+                _ when res == SR.Xslt_CharAttribute || res == SR.Xslt_NonTemplateTunnel => "XTSE0020",
+                _ when res == SR.Xslt_CollationSyntax => "XTSE0125",
+                _ when res == SR.Xslt_SingleRightBraceInAvt => "XTSE0370",
+                _ when res == SR.Xslt_InputTypeAnnotations => "XTSE0265",
+                _ when res == SR.Xslt_ExcludeDefault => "XTSE0809",
+                _ when res == SR.Xslt_PerformSortCntSel => "XTSE1040",
+                _ when res == SR.Xslt_InvalidApplyImports => "XTDE0560", // (no current template rule, XSLT 3.0 §6.9)
                 _ => null,
             };
         }

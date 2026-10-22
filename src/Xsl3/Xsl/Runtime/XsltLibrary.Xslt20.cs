@@ -176,6 +176,11 @@ namespace Xsl3.Runtime
                         // to its items (P6).
                         run.Append(string.Join(" ", Sequences.Atomize(Sequences.One(item)).Select(a => a.Value)));
                     }
+                    else if (item is FunctionItem function)
+                    {
+                        // A map or function in the content of a node (XSLT 3.0 §5.7.1).
+                        throw new XdmException("XTDE0450", $"{function.Describe()} can't be in the content of a node");
+                    }
                     else
                     {
                         run.Append(Sequences.Atomize(item).Value);
@@ -266,7 +271,17 @@ namespace Xsl3.Runtime
                 // Already converted to this type (a recursive call passing its parameter on): nothing to check again.
                 return value;
             }
-            IList<XPathItem> coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            IList<XPathItem> coerced;
+            try
+            {
+                coerced = Unshared(Coercion.CoerceTo(value, type, errorCode, () => "The value"), new[] { value });
+            }
+            catch (XdmException e) when (e.Code == "FORG0001" && errorCode.StartsWith("XT", System.StringComparison.Ordinal))
+            {
+                // An untyped value that doesn't cast to the required type: the XSLT conversion's own error (XTTE0570
+                // for a variable, XTTE0505 for a function result, ...), not the cast's FORG0001.
+                throw new XdmException(errorCode, e.Message);
+            }
             if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test)
             {
                 return CoerceFunctions(coerced, test);
@@ -551,6 +566,7 @@ namespace Xsl3.Runtime
                     output.Dispose();
                     return Sequences.Empty;
                 }
+                XmlQueryRuntime.ResultTreeHandler?.Invoke(uri, doc.Clone());
                 settings.CloseOutput = true;
                 using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, s, extras), s), settings, extras))
                 {

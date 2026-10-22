@@ -186,7 +186,8 @@ namespace Xsl3.Xslt
             foreach (var c in components.Where(c => c.Package == p.Id && c.OverrideOf < 0))
             {
                 string visibility = OwnVisibility(compiler, p, c.Kind, c.Ns, c.Local, c.Arity, c.Decl);
-                if (visibility == "abstract" && p.Id == 0 && p.IsPackage)
+                // (Made abstract only by xsl:expose, it is XTSE3025, reported by OwnVisibility.)
+                if (visibility == "abstract" && p.Id == 0 && p.IsPackage && (c.Kind == 'M' ? (c.Decl as ModeDeclNode)?.Visibility : c.Decl.Visibility) == "abstract")
                 {
                     Error(c.Decl.SourceLine, $"XTSE3080: the top-level package contains the abstract component {c.Local}");
                 }
@@ -228,14 +229,15 @@ namespace Xsl3.Xslt
                         continue;
                     }
                     if (!q.Visible.TryGetValue((o.Kind, o.Ns, o.Local, o.Arity), out PackageComponent? original) ||
-                        original.Visibility is "private" or "hidden")
+                        original.Visibility == "hidden")
                     {
                         Error(o.Decl.SourceLine, $"XTSE3058: xsl:override declares {o.Local}, which the used package doesn't make visible");
                         continue;
                     }
-                    if (original.Visibility == "final")
+                    if (original.Visibility is "final" or "private")
                     {
-                        Error(o.Decl.SourceLine, $"XTSE3060: {o.Local} is final in the used package and can't be overridden");
+                        // Only public and abstract components can be overridden (XTSE3060; override-t-010).
+                        Error(o.Decl.SourceLine, $"XTSE3060: {o.Local} is {original.Visibility} in the used package and can't be overridden");
                         continue;
                     }
                     if (original.Declaration != null && !SameSignature(o.Kind, o.Decl, original.Declaration, compiler.Schemas))
@@ -281,7 +283,12 @@ namespace Xsl3.Xslt
                     // xsl:accept only applies to components the used package makes visible; private ones stay hidden.
                     if (!param && component.Visibility is "public" or "final" or "abstract" && MatchRule(use.Accept, kind, ns, local, arity) is PackageRule accept)
                     {
-                        if (!AcceptCompatible(component.Visibility, accept.Visibility))
+                        if (!AcceptCompatible(component.Visibility, accept.Visibility) && !accept.Names.Any(n => !n.IsWildcard && n.Matches(ns, local, arity)))
+                        {
+                            // A wildcard whose visibility the component can't take doesn't match it: the default stays
+                            // (hidden for an abstract one, whose use is then XTDE3052; accept-903).
+                        }
+                        else if (!AcceptCompatible(component.Visibility, accept.Visibility))
                         {
                             Error(accept.Line, $"XTSE3040: xsl:accept can't give {local}, {component.Visibility} in the used package, visibility {accept.Visibility}");
                         }
@@ -343,7 +350,7 @@ namespace Xsl3.Xslt
                 m.Visibility is not ("public" or "final"))
             {
                 compiler.ReportError(m.Declaration?.SourceLine ?? NoSource, SR.Xml_UserException,
-                    $"XTDE0044: the initial mode {mode.LocalName} isn't public");
+                    $"XTDE0045: the initial mode {mode.LocalName} isn't public");
             }
         }
 
@@ -447,6 +454,11 @@ namespace Xsl3.Xslt
                 var (owner, ns) = Demangle(mode.NamespaceUri);
                 return mode.LocalName.Length != 0 && (owner != p.Id ||
                     p.Visible.TryGetValue(('M', ns, mode.LocalName, -1), out PackageComponent? seen) && seen.Owner != p.Id && seen.Visibility != "hidden");
+            }
+            // The top-level package's default-mode names a mode it must declare too (package-914d).
+            if (p.Id == 0 && compiler.DefaultInitialMode is { LocalName.Length: > 0 } defaultMode && !Declared(defaultMode))
+            {
+                compiler.ReportError(NoSource, SR.Xml_UserException, $"XTSE3085: the default mode {defaultMode.LocalName} isn't declared by xsl:mode");
             }
             void Check(XslNode node)
             {
