@@ -423,8 +423,11 @@ annotations; `xsl:mode typed` (XTTE3100, XTTE3110); `input-type-annotations="str
 json-to-xml `validate`; `nilled()`, typed IDs and IDREFs (`id()`, `element-with-id()`, `idref()`); typed grouping,
 comparison and `xsl:value-of`; `xsl:evaluate schema-aware`; schema locations as hints; `[xsl:]default-validation` on
 any element; the is-id property kept when annotations are stripped; the runner asserts on the result tree the engine
-builds. `XsltSettings.SchemaAware` stays off by default (owner's decision, 2026-10-21). Open: schemas per package,
-structural identity of union types across packages, the remaining 17 failures.
+builds. `XsltSettings.SchemaAware` stays off by default (owner's decision, 2026-10-21). Open: schemas per package (one
+compiled set serves all the packages of a compilation; no test depends on it, so it is left for 1.x), and the
+remaining 2 failures, validation-0201 and -0202, whose expected XHTML is Saxon's serialization (no attributes the
+XHTML schema defaults, no indentation before inline elements). Union types of the same members are taken as
+identical across packages (override-v-005, override-f-031).
 
 6.1 **Plan** (S): `docs/plan/p6-schema.md`.
    - Decide XSD 1.1 (§18 options a/b/c; open question 3). XSD 1.0 only is conformant.
