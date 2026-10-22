@@ -188,4 +188,45 @@ public class SerializationTests
             <xsl:template match="/"><e/></xsl:template>
             """));
     }
+
+    /// <summary>
+    /// Writers keep their buffer per thread for the next writer (WriterBuffers): transformations one after another on
+    /// one thread, to streams in UTF-8 and UTF-16 and to a TextWriter, each give their own output, whatever the one
+    /// before left in the buffer (a supplementary character last, a byte order mark).
+    /// </summary>
+    [Fact]
+    public void WritersReusingABufferWriteTheirOwnOutput()
+    {
+        static string Sheet(string encoding, string text) =>
+            $"<xsl:output method='text' encoding='{encoding}'/><xsl:template match='/'><xsl:value-of select=\"'{text}'\"/></xsl:template>";
+        string big = new string('x', 7000) + "\U0001F600";
+        for (int round = 0; round < 3; round++)
+        {
+            Assert.Equal(big, Run(Sheet("UTF-8", big)));
+            Assert.Equal("a]]>b", Run(Sheet("UTF-8", "a]]>b")));
+            Assert.Equal("\U0001F600z", Run(Sheet("UTF-8", "\U0001F600z")));
+            byte[] utf16 = RunBytes(Sheet("UTF-16", "q\U0001F600"));
+            Assert.Equal("q\U0001F600", Encoding.Unicode.GetString(utf16).TrimStart('\uFEFF'));
+            Assert.Equal("<out>" + big + "</out>", RunText("<xsl:output omit-xml-declaration='yes'/><xsl:template match='/'><out><xsl:value-of select=\"'" + big + "'\"/></out></xsl:template>"));
+            Assert.Equal("<e/>", RunText("<xsl:output omit-xml-declaration='yes'/><xsl:template match='/'><e/></xsl:template>"));
+        }
+    }
+
+    private static byte[] RunBytes(string body)
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>{body}</xsl:stylesheet>")));
+        var bytes = new MemoryStream();
+        transform.Transform(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")), null, bytes);
+        return bytes.ToArray();
+    }
+
+    private static string RunText(string body)
+    {
+        var transform = new XslCompiledTransform();
+        transform.Load(XmlReader.Create(new StringReader($"<xsl:stylesheet version='3.0' xmlns:xsl='{Xsl}'>{body}</xsl:stylesheet>")));
+        var writer = new StringWriter();
+        transform.Transform(new System.Xml.XPath.XPathDocument(new StringReader("<doc/>")), null, writer);
+        return writer.ToString();
+    }
 }

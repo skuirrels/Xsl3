@@ -120,7 +120,8 @@ namespace System.Xml
             {
                 _bufLen = ASYNCBUFSIZE;
             }
-            this._bufChars = new char[_bufLen + OVERFLOW];
+            // Xsl3 (P4): the synchronous buffer is kept per thread between writers (WriterBuffers).
+            this._bufChars = _bufLen == BUFSIZE ? WriterBuffers<char>.Rent() : new char[_bufLen + OVERFLOW];
 
             // Write the xml declaration
             if (settings.AutoXmlDeclaration)
@@ -144,8 +145,9 @@ namespace System.Xml
                 _bufLen = ASYNCBUFSIZE;
             }
 
-            _bufChars = new char[_bufLen + OVERFLOW];
-            _bufBytes = new byte[_bufChars.Length];
+            // Xsl3 (P4): the synchronous buffers are kept per thread between writers (WriterBuffers).
+            _bufChars = _bufLen == BUFSIZE ? WriterBuffers<char>.Rent() : new char[_bufLen + OVERFLOW];
+            _bufBytes = _bufLen == BUFSIZE ? WriterBuffers<byte>.Rent() : new byte[_bufChars.Length];
             _bufBytesUsed = 0;
 
             // Init escaping of characters not fitting into the target encoding
@@ -722,6 +724,19 @@ namespace System.Xml
             {
                 // Future calls to Close or Flush shouldn't write to Stream or Writer
                 _writeToNull = true;
+
+                // Xsl3 (P4): the buffers go back for the thread's next writer; anything written after Close lands in
+                // WriterBuffers.Closed instead.
+                if (_bufLen == BUFSIZE)
+                {
+                    WriterBuffers<char>.Return(_bufChars);
+                    _bufChars = WriterBuffers<char>.Closed;
+                    if (_bufBytes != null)
+                    {
+                        WriterBuffers<byte>.Return(_bufBytes);
+                        _bufBytes = WriterBuffers<byte>.Closed;
+                    }
+                }
 
                 if (_stream != null)
                 {

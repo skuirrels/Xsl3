@@ -107,7 +107,8 @@ namespace System.Xml
                 _bufLen = ASYNCBUFSIZE;
             }
 
-            _bufBytes = new byte[_bufLen + OVERFLOW];
+            // Xsl3 (P4): the synchronous buffer is kept per thread between writers (WriterBuffers).
+            _bufBytes = _bufLen == BUFSIZE ? WriterBuffers<byte>.Rent() : new byte[_bufLen + OVERFLOW];
             // Output UTF-8 byte order mark if Encoding object wants it
             if (!stream.CanSeek || stream.Position == 0)
             {
@@ -630,6 +631,14 @@ namespace System.Xml
             {
                 // Future calls to Close or Flush shouldn't write to Stream or Writer
                 _writeToNull = true;
+
+                // Xsl3 (P4): the buffer goes back for the thread's next writer; anything written after Close lands in
+                // WriterBuffers.Closed instead.
+                if (_bufLen == BUFSIZE)
+                {
+                    WriterBuffers<byte>.Return(_bufBytes);
+                    _bufBytes = WriterBuffers<byte>.Closed;
+                }
 
                 if (_stream != null)
                 {

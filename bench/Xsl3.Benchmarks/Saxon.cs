@@ -92,8 +92,9 @@ public static class SaxonComparison
         var rows = new List<Row>();
         foreach (string name in comparable)
         {
-            rows.Add(Measure(name, "compile", "xsl3", budget, () => new XslCompiledTransform().Load(Path30(name))));
-            rows.Add(Measure(name, "compile", "saxon", budget, () => s_processor.NewXsltCompiler().Compile(new Uri(Path30(name)))));
+            rows.AddRange(MeasurePair(name, "compile", budget,
+                () => new XslCompiledTransform().Load(Path30(name)),
+                () => s_processor.NewXsltCompiler().Compile(new Uri(Path30(name)))));
         }
         foreach (string size in sizes)
         {
@@ -104,10 +105,11 @@ public static class SaxonComparison
             {
                 var ours = new XslCompiledTransform();
                 ours.Load(Path30(name));
-                rows.Add(Measure(name, size, "xsl3", budget, () => ours.Transform(ourInput, null, Stream.Null)));
                 S.Xslt30Transformer theirs = s_processor.NewXsltCompiler().Compile(new Uri(Path30(name))).Load30();
                 theirs.GlobalContextItem = theirInput;
-                rows.Add(Measure(name, size, "saxon", budget, () => theirs.ApplyTemplates(theirInput, s_processor.NewSerializer(Stream.Null))));
+                rows.AddRange(MeasurePair(name, size, budget,
+                    () => ours.Transform(ourInput, null, Stream.Null),
+                    () => theirs.ApplyTemplates(theirInput, s_processor.NewSerializer(Stream.Null))));
             }
         }
 
@@ -275,29 +277,44 @@ public static class SaxonComparison
         return text.StartsWith("<?xml", StringComparison.Ordinal) ? text[(text.IndexOf("?>", StringComparison.Ordinal) + 2)..].TrimStart() : text;
     }
 
-    /// <summary>Warm up, then run for about <paramref name="budget"/> ms (at least five runs); allocation on every thread.</summary>
-    private static Row Measure(string name, string size, string engine, int budget, Action action)
+    /// <summary>
+    /// Both engines on one row, interleaved so that neither always runs first: after a warm-up, <paramref name="rounds"/>
+    /// rounds, the order swapped each round, each engine running for its share of about <paramref name="budget"/> ms
+    /// (at least three runs a round). Times and allocation (on every thread) are pooled over the rounds.
+    /// </summary>
+    private static Row[] MeasurePair(string name, string size, int budget, Action ours, Action theirs, int rounds = 6)
     {
+        Action[] actions = { ours, theirs };
+        var times = new[] { new List<double>(), new List<double>() };
+        var bytes = new long[2];
         for (int i = 0; i < 3; i++)
         {
-            action();
+            ours();
+            theirs();
         }
-        var times = new List<double>();
-        long bytes = 0;
-        var total = Stopwatch.StartNew();
-        while (total.ElapsedMilliseconds < budget || times.Count < 5)
+        int slice = Math.Max(1, budget / (2 * rounds));
+        for (int round = 0; round < rounds; round++)
         {
-            long before = GC.GetTotalAllocatedBytes(precise: true);
-            var watch = Stopwatch.StartNew();
-            action();
-            times.Add(watch.Elapsed.TotalMilliseconds);
-            bytes += GC.GetTotalAllocatedBytes(precise: true) - before;
-            if (times.Count >= 10_000)
+            foreach (int k in round % 2 == 0 ? new[] { 0, 1 } : new[] { 1, 0 })
             {
-                break;
+                var total = Stopwatch.StartNew();
+                int runs = 0;
+                while ((total.ElapsedMilliseconds < slice || runs < 3) && runs < 5_000)
+                {
+                    long before = GC.GetTotalAllocatedBytes(precise: true);
+                    var watch = Stopwatch.StartNew();
+                    actions[k]();
+                    times[k].Add(watch.Elapsed.TotalMilliseconds);
+                    bytes[k] += GC.GetTotalAllocatedBytes(precise: true) - before;
+                    runs++;
+                }
             }
         }
-        return new Row(name, size, engine, Median(times), times.Min(), bytes / times.Count, times.Count);
+        return new[]
+        {
+            new Row(name, size, "xsl3", Median(times[0]), times[0].Min(), bytes[0] / times[0].Count, times[0].Count),
+            new Row(name, size, "saxon", Median(times[1]), times[1].Min(), bytes[1] / times[1].Count, times[1].Count),
+        };
     }
 
     private static void Report(List<Row> rows, string coldSize)
