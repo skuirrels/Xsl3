@@ -934,6 +934,9 @@ namespace Xsl3.Runtime
                         // Then throw an error except if the prefix trying to redefine is already used
                         if (_usedPrefixes.Contains(prefix))
                         {
+                            // Xsl3: in 2.0+ two namespace nodes binding one prefix to different URIs is XTDE0430.
+                            if (_runtime.IsXslt2)
+                                throw new Xsl3.Xdm.XdmException("XTDE0430", XslTransformException.CreateMessage(SR.XmlIl_NmspConflict, prefix.Length == 0 ? "" : ":", prefix, ns, nsExisting));
                             throw new XslTransformException(SR.XmlIl_NmspConflict, new string[] { prefix.Length == 0 ? "" : ":", prefix, ns, nsExisting });
                         }
                     }
