@@ -76,6 +76,51 @@ public class StreamingDeclarationTests
     }
 
     [Theory]
+    [InlineData("<xsl:value-of version='1.0' select='42'/>")]
+    [InlineData("<xsl:if version='1.0' test='true()'><xsl:value-of select='42'/></xsl:if>")]
+    [InlineData("<out xsl:version='1.0'><xsl:value-of version='3.0' select='42'/></out>")]
+    public void StrictRejectsBackwardsCompatibleInstructionsEvenWhenMotionless(string body)
+    {
+        string sheet = Stylesheet($"<xsl:mode streamable='yes'/><xsl:template match='*'>{body}</xsl:template>");
+        XsltStaticException error = Assert.Throws<XsltStaticException>(() => new XsltCompiler().Compile(new StringReader(sheet)));
+        Assert.Contains(error.Errors, e => e.Code?.LocalName == "XTSE3430" && e.LineNumber > 0);
+        Assert.NotNull(new XsltCompiler { Settings = new() { Streamability = XsltStreamabilityMode.Fallback } }.Compile(new StringReader(sheet)));
+        Assert.NotNull(new XsltCompiler().Compile(new StringReader(sheet.Replace("'1.0'", "'2.0'", StringComparison.Ordinal))));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StreamabilityDiagnosticsSurviveRejectedNumberLowering(bool debug)
+    {
+        string sheet = Stylesheet("<xsl:mode streamable='yes' on-no-match='shallow-copy'/>"
+            + "<xsl:template match='v'><xsl:copy><xsl:number/></xsl:copy></xsl:template>"
+            + "<xsl:template match='other'><xsl:value-of select='a'/><xsl:value-of select='b'/></xsl:template>");
+        var compiler = new XsltCompiler { Settings = new() { IncludeDebugInformation = debug } };
+        XsltStaticException error = Assert.Throws<XsltStaticException>(() => compiler.Compile(new StringReader(sheet)));
+        Assert.Equal(2, error.Errors.Count(e => e.Code?.LocalName == "XTSE3430" && e.LineNumber > 0));
+        Assert.DoesNotContain("QIL Validation Error", error.Message, StringComparison.Ordinal);
+        using var reader = XmlReader.Create(new StringReader(sheet));
+        var legacy = new XslCompiledTransform(enableDebug: debug);
+        Assert.Contains("XTSE3430", Assert.ThrowsAny<XsltException>(() => legacy.Load(reader, new XsltSettings(), null)).Message);
+    }
+
+    [Fact]
+    public void ExplainRetainsStaticDiagnosticsWhenTheSourceIsRecompiled()
+    {
+        string file = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(file, Stylesheet("<xsl:template match='/'><out/></xsl:template>"));
+            XsltExecutable executable = new XsltCompiler().Compile(new Uri(file));
+            File.WriteAllText(file, Stylesheet("<xsl:mode streamable='yes'/><xsl:template match='v'><xsl:number/></xsl:template>"));
+            var error = Assert.Throws<XsltStaticException>(() => executable.Explain(new StringWriter()));
+            Assert.Contains(error.Errors, e => e.Code?.LocalName == "XTSE3430" && e.LineNumber > 0);
+        }
+        finally { File.Delete(file); }
+    }
+
+    [Theory]
     [InlineData("<xsl:mode streamable='yes'/><xsl:template match='*'><xsl:value-of select='a'/><xsl:value-of select='b'/></xsl:template>")]
     [InlineData("<xsl:mode streamable='yes'/><xsl:template match='*[a]'><out/></xsl:template>")]
     [InlineData("<xsl:mode streamable='yes'/><xsl:template match='*'><xsl:param name='p' select='a'/><out/></xsl:template>")]

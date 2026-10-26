@@ -117,11 +117,12 @@ if (command == "runcompiled")
 if (command is "qil" or "qilopt")
 {
     var compiler = new Compiler(settings, debug: false, scriptAssemblyPath: null);
-    var errors = compiler.Compile(new Uri(stylesheet).AbsoluteUri, new XmlUrlResolver(), new XmlUrlResolver(), out QilExpression qil);
+    var errors = compiler.Compile(new Uri(stylesheet).AbsoluteUri, new XmlUrlResolver(), new XmlUrlResolver(), out QilExpression? qil);
     foreach (CompilerError e in errors)
     {
         Console.Error.WriteLine($"{e.FileName}({e.Line},{e.Column}): {e.ErrorText}");
     }
+    if (qil == null) return 1;
     if (command == "qilopt")
     {
         qil = new Xsl3.IlGen.XmlILOptimizerVisitor(qil, !qil.IsDebug).Optimize();

@@ -56,6 +56,10 @@ internal sealed partial class ConstructAnalysis
         try
         {
             Streamability value = Instruction(node, context, forkChild);
+            // §3.9.1 overrides the ordinary instruction rules, even for a motionless body.
+            // Assess the instruction first so nested declarations and operand diagnostics survive.
+            if (node.XslVersion == XslVersion.BackwardsCompatible)
+                value = value with { Posture = Posture.Roaming, Sweep = Sweep.FreeRanging, Rule = "3.9.1" };
             _results[node] = value;
             return value;
         }

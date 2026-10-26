@@ -78,6 +78,39 @@ public class FunctionStreamabilityTests
         Assert.Equal(Sweep.Motionless, result.Sweep);
     }
 
+    [Theory]
+    [InlineData("Grounded", "Motionless", "Grounded", "Motionless")]
+    [InlineData("Striding", "Motionless", "Climbing", "Motionless")]
+    [InlineData("Crawling", "Motionless", "Climbing", "Motionless")]
+    [InlineData("Climbing", "Motionless", "Climbing", "Motionless")]
+    [InlineData("Roaming", "Motionless", "Roaming", "FreeRanging")]
+    [InlineData("Striding", "Consuming", "Roaming", "FreeRanging")]
+    [InlineData("Climbing", "FreeRanging", "Roaming", "FreeRanging")]
+    public void AscentTransmitsTheFirstArgumentUnderProposedErratumE31(string inputPosture, string inputSweep, string posture, string sweep)
+    {
+        AnalysisFunction function = FunctionStreamability.Describe(Signature("function(node()) as node()*"), FunctionStreamabilityCategory.Ascent);
+        Streamability result = FunctionStreamability.Call(function, new[] { new Streamability(UType.Element, Enum.Parse<Posture>(inputPosture), Enum.Parse<Sweep>(inputSweep), "input") });
+        Assert.Equal(Enum.Parse<Posture>(posture), result.Posture);
+        Assert.Equal(Enum.Parse<Sweep>(sweep), result.Sweep);
+    }
+
+    [Theory]
+    [InlineData("xs:string", "Motionless", "Grounded", "Motionless")]
+    [InlineData("node()*", "Motionless", "Climbing", "Motionless")]
+    [InlineData("node()*", "Consuming", "Roaming", "FreeRanging")]
+    [InlineData("node()*", "FreeRanging", "Roaming", "FreeRanging")]
+    public void AscentChecksRemainingOperandsAndTheReturnType(string returnType, string remainingSweep, string posture, string sweep)
+    {
+        AnalysisFunction function = FunctionStreamability.Describe(Signature($"function(node(), xs:string) as {returnType}"), FunctionStreamabilityCategory.Ascent);
+        Streamability result = FunctionStreamability.Call(function, new[]
+        {
+            new Streamability(UType.Element, Posture.Striding, Sweep.Motionless, "first"),
+            new Streamability(UType.String, Posture.Grounded, Enum.Parse<Sweep>(remainingSweep), "remaining"),
+        });
+        Assert.Equal(Enum.Parse<Posture>(posture), result.Posture);
+        Assert.Equal(Enum.Parse<Sweep>(sweep), result.Sweep);
+    }
+
     [Fact]
     public void FilterCategoryMayReturnAttributesOfItsInput()
     {

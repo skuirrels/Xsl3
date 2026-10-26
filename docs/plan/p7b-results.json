@@ -1,0 +1,87 @@
+{
+  "acceptance_revision": "Owner-approved P7B reviewed population; official upstream results retained separately.",
+  "xslt30_revision": "fddf1cf920087e791f13315d68dfbe874d97dc56",
+  "original_s1": {
+    "cases": 919,
+    "passed": 790,
+    "failed": 129,
+    "not_run": 0
+  },
+  "reviewed_s1": {
+    "cases": 1000,
+    "passed": 1000,
+    "failed": 0,
+    "not_run": 0
+  },
+  "original_s2": {
+    "cases": 155,
+    "passed": 153,
+    "failed": 2,
+    "not_run": 0,
+    "exact_static_codes": 152,
+    "checked_results": 1
+  },
+  "reviewed_s2": {
+    "cases": 155,
+    "passed": 155,
+    "failed": 0,
+    "not_run": 0,
+    "exact_static_codes": 152,
+    "checked_results": 3
+  },
+  "reviewed_s2_debug": {
+    "cases": 155,
+    "passed": 155,
+    "failed": 0,
+    "not_run": 0,
+    "exact_static_codes": 152,
+    "checked_results": 3
+  },
+  "coverage": {
+    "original_cases_mapped": 919,
+    "reviewed_cases": 1000,
+    "original_expressions_preserved_once": 66643,
+    "invalid_original_cases_checked_negatively": 8,
+    "mapping_sha256": "3795c7961ce3d891b021420d488f501bfc5fac071983add0977ec3f82f10b269"
+  },
+  "definition_sha256": {
+    "prepare-streamability-suite.py": "65eed320ba62273aa440cfdcf18de553b3660e74c5c741a2052c795e73af0a9c",
+    "audit-streamability.py": "5f41c44dca1721d168499064189efc18bd5c7b92f59719adf96365d1ecb80264"
+  },
+  "retained_raw_evidence": {
+    "failure_ids": "tests/Xsl3.W3C/baselines/xslt30-run-sandp.txt",
+    "s1_inventory": "docs/plan/p7b-s1-cases.csv",
+    "s2_inventory": "docs/plan/p7b-s2-cases.csv",
+    "ci_reports": [
+      "xslt30-run-sandp.md",
+      "xslt30-static-streamability.md",
+      "xslt30-static-streamability.json"
+    ]
+  },
+  "supports_streaming": "no",
+  "full_p7": "deferred",
+  "validation": {
+    "unit_release_and_debug": {
+      "net10.0": 3584,
+      "net8.0": 3433
+    },
+    "upstream_per_framework": 1654,
+    "differential_per_framework": 394,
+    "w3c_with_saved_sampling": 66,
+    "focused_harness_release_and_debug": 32,
+    "python_tests": 26,
+    "globalized_native_aot": "macOS ARM64 publish/run passed with warnings as errors",
+    "ordinary_performance_gate": {
+      "gated_rows": 39,
+      "time_geomean": 0.9982528805100525,
+      "max_allocation_ratio": 1.0007178237991559
+    },
+    "hosted_ci": "configured; not run for this local close-out",
+    "unstreamed_development": {
+      "passed": 2693,
+      "failed": 18,
+      "not_run": 1,
+      "unmatched_error_codes": 1
+    }
+  }
+}

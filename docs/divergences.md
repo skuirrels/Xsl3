@@ -36,12 +36,23 @@ choices for the W3C suites.
 | Feature | Behaviour | Plan |
 |---|---|---|
 | Schema-awareness (XSLT 3.0 §27.3) | `xsl:import-schema` raises XTSE1650; `validation="strict"`/`"lax"` and `type` raise XTSE1660; `schema-element()` and `schema-attribute()` raise XPST0008 | P6 |
-| Streaming (§27.4) | `streamable="yes"` is checked and otherwise ignored: the input is read into a tree | P7 |
+| Streaming (§27.4) | Strict/Fallback analysis is available; normal execution builds trees. Internal forward execution remains experimental, with `supports-streaming="no"`. | [P7A limits](plan/p7a-closeout.md), [P7B checkpoint](plan/p7b-analysis-closeout.md#implementation-checkpoint) |
 | Backwards-compatible behaviour (§3.9) | claimed: `version="1.0"` regions of 2.0+ stylesheets run in backwards-compatible mode, and whole 1.0 stylesheets do with `XsltSettings.VersionMode = BackwardsCompatible`; by default (`Legacy`) a 1.0 stylesheet runs on the XSLT 1.0 engine, byte for byte as stock. Gaps: an `xsl:key` defined in both modes (backwards-043), `exsl:document` | remaining-scope 4.6 |
 | `fn:transform` | not available (XPST0017) | remaining-scope 5 |
 | `fn:random-number-generator` | the unseeded generator is seeded once per transformation, so its numbers differ between runs | |
 | XML 1.1 | input and output are XML 1.0 (.NET's `XmlReader` doesn't read XML 1.1) | unsupported for now (owner, 2026-10-22) |
 | `xsl:stylesheet` found through an `<?xml-stylesheet?>` processing instruction | not supported | remaining-scope 4.6 |
+
+### Experimental ascent analysis
+
+The internal streamability analysis follows proposed
+[XT30.E31 / Bug 30289](https://github.com/w3c/qtspecs/blob/6cef5545618cd2edfd94f32af488a16bb19c598c/errata/xslt-30/errata.xml)
+for `streamability="ascent"`: the first argument uses transmission, and an atomic return type grounds
+the result. The published Recommendation's [§19.8.5.7](https://www.w3.org/TR/xslt-30/#category-ascent)
+instead says inspection. The pinned errata source records the correction as **proposed**, not a normative
+amendment. This explicit interpretation preserves the implemented behavior; it is not a claim of literal
+conformance to that part of the published text. `FunctionStreamabilityTests` covers first-argument postures,
+non-motionless operands, remaining arguments and node/atomic return types. Full streaming remains unsupported.
 
 ### Implementation-defined choices
 

@@ -94,7 +94,8 @@ internal static class FunctionStreamability
             if ((UTypes.FromSequence(signature.Parameters[0]) & values[0].Type & UType.ParentNodes) != 0) sweep = Sweep.Consuming;
             return new(type, category == FunctionStreamabilityCategory.DeepDescent ? Posture.Crawling : Posture.Striding, sweep, rule);
         }
-        // XT30.E31 / Bug 30289 corrects ascent's first-argument usage to transmission.
+        // Follow proposed XT30.E31 / Bug 30289: ascent's first argument uses transmission.
+        // This differs from the published Recommendation's inspection rule; see docs/divergences.md.
         // https://github.com/w3c/qtspecs/blob/6cef5545618cd2edfd94f32af488a16bb19c598c/errata/xslt-30/errata.xml
         Streamability result = ExpressionAnalysis.General_19_8_1(type, rule,
             values.Select((v, i) => new AnalysisOperand(v, function.Usages[i])).ToArray());

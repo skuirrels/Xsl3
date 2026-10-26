@@ -136,17 +136,20 @@ namespace Xsl3.Xslt
 #pragma warning restore SYSLIB0062
         }
 
-        public CompilerErrorCollection Compile(object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver, out QilExpression qil)
+        public CompilerErrorCollection Compile(object stylesheet, XmlResolver? xmlResolver, XmlResolver? origResolver, out QilExpression? qil)
         {
             Debug.Assert(stylesheet != null);
             Debug.Assert(Root == null, "Compiler cannot be reused");
 
             new XsltLoader().Load(this, stylesheet, xmlResolver, origResolver);
             PackageComponents.Build(this); // Xsl3: the packages' component tables (Packages.cs)
+            bool rejectedByStreamability = false;
             if (Version == 2 && HasStreamableDeclarations && !System.Linq.Enumerable.Any(
                 System.Linq.Enumerable.Cast<CompilerError>(CompilerErrorColl), error => !error.IsWarning))
             {
                 Streaming.ConstructAnalysis.CheckDeclarations(this);
+                rejectedByStreamability = System.Linq.Enumerable.Any(
+                    System.Linq.Enumerable.Cast<CompilerError>(CompilerErrorColl), error => !error.IsWarning);
             }
             if (Version == 2)
             {
@@ -182,6 +185,14 @@ namespace Xsl3.Xslt
                         $"Q{{{Runtime.InitialFunctionArguments.Namespace}}}source()", XslVersion.Current);
                     foreach (XslNode child in start.Content) StartApplyTemplates.AddContent(child);
                 }
+            }
+            if (rejectedByStreamability)
+            {
+                // The source analysis has already rejected this unit. Lowering it can assert on
+                // unsupported streamed shapes in Debug and obscure the recorded static diagnostic.
+                qil = null;
+                SortErrors();
+                return CompilerErrorColl;
             }
             qil = QilGenerator.CompileStylesheet(this);
             SortErrors();

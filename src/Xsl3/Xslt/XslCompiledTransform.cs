@@ -173,7 +173,6 @@ namespace Xsl3
         }
 
         [MemberNotNull(nameof(_compilerErrorColl))]
-        [MemberNotNull(nameof(_qil))]
         [RequiresDynamicCode(CompilesIL)]
         private void CompileXsltToQil(object stylesheet, XsltSettings settings, XmlResolver? stylesheetResolver, XmlResolver? originalStylesheetResolver)
         {
@@ -188,7 +187,7 @@ namespace Xsl3
             {
                 _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             }
-            _qil.CompactTree = UseCompactTree;
+            if (_qil != null) _qil.CompactTree = UseCompactTree;
             if (Xsl3.XPath31.ConstantPool.Compilation is { } constants) constants.SchemaContext = compiler.Schemas;
         }
 

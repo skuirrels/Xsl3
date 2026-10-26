@@ -296,11 +296,13 @@ namespace Xsl3
                 RegisteredFunctions = _extensionFunctions,
             };
             using var constants = XPath31.ConstantPool.Use(new XPath31.ConstantTable());
-            Qil.QilExpression qil;
+            Qil.QilExpression? qil;
             using (XmlReader reader = _open())
             {
                 compiler.Compile(reader, _resolver, _resolver, out qil);
             }
+            if (qil == null)
+                throw new XsltStaticException(compiler.CompilerErrorColl.Cast<CompilerError>().Select(e => new XsltStaticError(e)).ToArray(), null);
             if (optimized)
             {
                 qil = new IlGen.XmlILOptimizerVisitor(qil, !qil.IsDebug).Optimize();

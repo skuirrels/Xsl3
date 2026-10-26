@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Reject instructions processed with XSLT 1.0 behavior in declared-streamable content with `XTSE3430`,
+  as required by §3.9.1. Explicit `Fallback` and ordinary non-streamable compatibility processing remain available.
+- Complete bounded P7B with the owner-approved 1,000-case reviewed analysis suite and all 155 reviewed
+  static-diagnostic/result cases, preserving original case/part mappings and unmodified suite results.
+  Expected outputs come from specification rules and canonical fixture data; streaming remains unsupported.
+- Preserve recorded streamability diagnostics before lowering rejected units, including Debug `xsl:number`
+  cases and Explain recompilation.
+
 ## [1.1.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.0) — 2026-10-26
 
 P7A closes the implemented streaming foundations. Streaming remains experimental and unsupported;

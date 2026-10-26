@@ -25,6 +25,10 @@ public sealed partial class Runner
 {
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(30);
 
+    // Preserve the actual exception for the separate exact static-diagnostic audit. Ordinary
+    // conformance keeps its established assertion/error-code accounting.
+    internal Action<TestCase, Exception?>? ExecutionCompleted { get; init; }
+
     private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
     {
         /// <summary>P7: analysis-only tests have no stylesheet or principal result.</summary>
@@ -317,6 +321,7 @@ public sealed partial class Runner
         using var resolver = new TestResolver(envs);
         RunResult run = Execute(test, envs, resolver, stylesheetPath,
             ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), mode, parameters, t.Element(Catalog.Ns + "initial-function"));
+        ExecutionCompleted?.Invoke(test, run.Error);
         return Check(test, test.Result, run);
     }
 

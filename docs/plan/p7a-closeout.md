@@ -22,6 +22,10 @@ Normal execution continues to build trees. `XsltSettings.Streamability` controls
 switch `XSL3_STREAM_STRICT=1` enables experimental forward execution. `supports-streaming` remains `no`.
 See [release notes and migration guidance](../releases/1.1.0.md).
 
+The subsequent [P7B static analysis phase is closed](p7b-analysis-closeout.md#p7b-completion) under the
+owner-approved reviewed-suite revision, retaining raw official-suite results. It addresses static analysis
+and diagnostics only; full-P7 memory, throughput and execution obligations remain deferred.
+
 ## Exit evidence
 
 The frozen implementation has 418 source/configuration files, recorded by SHA-256 in the local release evidence.
@@ -56,9 +60,10 @@ Hosted Linux x64/Windows CI must still run against the integrated release commit
 
 ## Deferred full-P7 obligations
 
-These remain failures or unfinished work, rather than release claims:
+These were failures or unfinished work at the P7A freeze, rather than release claims. P7B later closed
+reviewed static-analysis acceptance; the runtime and performance obligations remain deferred:
 
-| Original P7 obligation | Current evidence |
+| Original P7 obligation | Evidence at the P7A freeze |
 |---|---|
 | S1 exact analysis conformance (at least 99%) | Posture/sweep profile: 790 passed, 129 failed; reconciliation remains open |
 | 200 MiB input within 20 MiB absolute RSS/heap guard | macOS ARM64: 13/16 budget passes; virtualized Linux ARM64: 0/16 |

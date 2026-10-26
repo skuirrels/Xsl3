@@ -34,8 +34,8 @@ public class StreamedSourceDocumentTests
         return new XsltCompiler { Settings = new() { StreamedExecution = streamed, EnableDocumentFunction = documentFunctions, SchemaAware = schemaAware } }.Compile(new StringReader(sheet)).CreateTransformer();
     }
 
-    private static string Source(string body, string attributes = "", string href = "file:///stream/input.xml") =>
-        $"<xsl:source-document href='{href}' streamable='yes' {attributes}>{body}</xsl:source-document>";
+    private static string Source(string body, string attributes = "", string href = "file:///stream/input.xml", bool streamable = true) =>
+        $"<xsl:source-document href='{href}' streamable='{(streamable ? "yes" : "no")}' {attributes}>{body}</xsl:source-document>";
 
     [Theory]
     [InlineData(false, false, "x-15 6y")]
@@ -47,8 +47,10 @@ public class StreamedSourceDocumentTests
         string declarations = "<xsl:import-schema><xs:schema><xs:simpleType name='values'><xs:list itemType='xs:double'/></xs:simpleType>"
             + "<xs:element name='doc'><xs:complexType><xs:attribute name='values' type='values'/></xs:complexType></xs:element></xs:schema></xsl:import-schema>";
         string version = backwards ? "xsl:version='1.0'" : "";
+        // §3.9.1 forbids a backwards-compatible instruction in guaranteed-streamable content.
+        // Preserve typed-value/truncation coverage using an explicitly unstreamed source in that case.
         var transform = Transformer(Source("<xsl:for-each select='doc'><xsl:variable name='temp'><out " + version
-            + " a='x{@values}y'/></xsl:variable><xsl:value-of select='$temp/out/@a'/></xsl:for-each>", "validation='strict'"), declarations,
+            + " a='x{@values}y'/></xsl:variable><xsl:value-of select='$temp/out/@a'/></xsl:for-each>", "validation='strict'", streamable: !backwards), declarations,
             streamed: forward, schemaAware: true);
         transform.DocumentResolver = new SourceResolver("<doc values=' -15.00 6.00 '/>");
         Assert.Equal(expected, transform.CallTemplate(null).ToString());

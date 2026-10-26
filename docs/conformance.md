@@ -155,6 +155,29 @@ in docs/divergences.md) and the xhtml default method on the direct result path (
 
 ## P7 development: static streamability analysis
 
+**P7B completed under the owner's explicit suite revision:** reviewed S1 passes **1,000/0/0** and reviewed
+S2 passes **155/0/0** (152 exact static codes and three checked positive results). All 66,643 original XPath
+expressions retain their case/part mappings; eight empty generator outputs remain negative-source checks.
+The original 919-case **790/129/0** and raw S2 **153/2/0** reports and baselines remain separate and unchanged.
+These are reviewed project fixtures, not altered claims about the official suite. See the
+[close-out and result snapshot](plan/p7b-analysis-closeout.md#p7b-completion). The new reviewed profiles require
+zero failures/not-run cases and full population coverage, including in Debug. Full P7 streaming remains unsupported.
+
+**2026-10-26 P7B checkpoint:** all 66,643 exported posture/sweep outcomes agree with the independent
+axis/path inspection in `eng/audit-streamability.py`, using the pinned suite's base productions and the
+Recommendation's rules. This does not change the raw **790/129/0** result. Full-case inspection distinguishes
+65 uniform expectation conflicts, 56 cases containing different required outcomes, and eight empty generated
+inputs. The mixed cases cannot be repaired by changing one label for the whole case.
+
+`XSL3_XSLT30_PROFILE=s2` audits all 155 applicable catalogue cases mentioning XTSE3430/XTSE3155:
+**152 matching static codes, one allowed result, two visible expectation conflicts**, with zero not run.
+It checks the primary structured static diagnostic, not error codes appearing elsewhere in a message or
+another error. Every matching diagnostic has a recorded source location and reason. This audit found and
+fixed the existing `streamable/streamable-141` failure: §3.9.1 makes backwards-compatible instructions
+roaming/free-ranging even when their ordinary analysis is motionless. Ordinary XSLT 3.0 improves to
+**8,850/18/41** with 34 unmatched expected codes; QT3 remains **21,884/0/99** with 25 unmatched codes.
+The raw S1/S2 exit gates remain open. See the [bounded checkpoint and decision](plan/p7b-analysis-closeout.md#implementation-checkpoint).
+
 Measured 2026-10-22, Release, .NET 10: the analysis-only `sandp` profile runs 919 cases containing 66,643 XPath
 expressions. 790 cases pass and 129 fail (86.0%); each case stops at its first mismatch. The failures comprise
 99 old attribute/namespace posture expectations, 22 expectations involving statically empty paths, and eight cases
