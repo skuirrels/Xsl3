@@ -18,6 +18,37 @@ public class ImportedSchemaSaveTests
     private const string Schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'><xs:element name='doc'><xs:complexType><xs:sequence><xs:element name='record' type='xs:integer'/></xs:sequence></xs:complexType></xs:element></xs:schema>";
 
     [Theory]
+    [InlineData("string", false)]
+    [InlineData("string", true)]
+    [InlineData("token", false)]
+    [InlineData("token", true)]
+    public void SavedSchemaAttributePatternsKeepTheirBuiltInType(string type, bool debug)
+    {
+        string schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='urn:attribute-save' xmlns:s='urn:attribute-save'>"
+            + "<xs:attribute name='code' type='xs:" + type + "'/><xs:element name='doc'><xs:complexType><xs:attribute ref='s:code'/></xs:complexType></xs:element></xs:schema>";
+        string sheet = "<xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform' xmlns:s='urn:attribute-save'>"
+            + "<xsl:import-schema namespace='urn:attribute-save'>" + schema + "</xsl:import-schema><xsl:output method='text'/>"
+            + "<xsl:template match='/'><xsl:apply-templates select='/*/@*'/></xsl:template>"
+            + "<xsl:template match='schema-attribute(s:code)'><xsl:value-of select='.'/></xsl:template>"
+            + "<xsl:template match='@*'>unmatched</xsl:template></xsl:stylesheet>";
+        var schemas = new System.Xml.Schema.XmlSchemaSet();
+        using (var schemaReader = XmlReader.Create(new StringReader(schema))) schemas.Add(null, schemaReader);
+        schemas.Compile();
+        var settings = new XsltSettings { SchemaAware = true };
+        using var saved = new MemoryStream();
+        using (var stylesheet = XmlReader.Create(new StringReader(sheet)))
+            new XslCompiledTransform(debug).CompileToAssembly(stylesheet, settings, null,
+                "AttributeSave" + Guid.NewGuid().ToString("N"), "Saved.Attribute", saved);
+        var transform = new XslCompiledTransform();
+        transform.Load(Assembly.Load(saved.ToArray()).GetType("Saved.Attribute", throwOnError: true)!, settings);
+        const string input = "<s:doc xmlns:s='urn:attribute-save' s:code='retained'/>";
+        using var reader = XmlReader.Create(new StringReader(input), new() { ValidationType = ValidationType.Schema, Schemas = schemas });
+        using var output = new StringWriter();
+        transform.Transform(reader, null, output);
+        Assert.Equal("retained", output.ToString());
+    }
+
+    [Theory]
     [InlineData(false, false, "strict", "<doc><record>7</record></doc>", "7")]
     [InlineData(false, true, "strict", "<doc><record>7</record></doc>", "7")]
     [InlineData(true, false, "strict", "<doc><record>7</record></doc>", "7")]

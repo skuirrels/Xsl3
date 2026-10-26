@@ -61,7 +61,11 @@ internal sealed class SchemaConstantContext
             case SequenceTypeTest type: Visit(type.Item); break;
             case AtomicTypeTest atomic: Atomic(atomic.Type); break;
             case NodeKindTest node:
-                Required |= node.Names != null || node.SchemaType != null && !BuiltIn(node.SchemaType);
+                // Schema-attribute diagnostics name the declaration, not its built-in type.
+                // Legacy tables recover types from TypeName, so retain the explicit type
+                // whenever that name cannot identify it, as well as for user types.
+                Required |= node.Names != null || node.SchemaType is { } schema &&
+                    (!BuiltIn(schema) || node.TypeName != null && node.TypeName != schema.QualifiedName.Name);
                 Visit(node.DocumentElement); break;
             case FunctionSignature function:
                 foreach (SequenceTypeTest parameter in function.Parameters) Visit(parameter);

@@ -20,6 +20,7 @@ P7A closes the implemented streaming foundations. Streaming remains experimental
 - Source validation and annotation/whitespace handling.
 - Saved stylesheet portability across .NET 8/10, persisted schema graphs and typed static nodes, with explicit
   errors for unsupported metadata and compatibility coverage for retained formats.
+- Preserve the built-in type of schema-qualified attribute patterns when saving stylesheets.
 - Temporal context initialization is deferred until needed; integer lexical parsing preserves arbitrary precision.
 
 ### Upgrade notes

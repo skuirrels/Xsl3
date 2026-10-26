@@ -25,7 +25,11 @@ See [release notes and migration guidance](../releases/1.1.0.md).
 ## Exit evidence
 
 The frozen implementation has 418 source/configuration files, recorded by SHA-256 in the local release evidence.
-The close-out changes documentation and CI scope; it does not alter that implementation.
+The close-out initially changed documentation and CI scope only. Release CI then exposed test assumptions about
+Windows newlines/thread scheduling and one saved schema-attribute pattern regression. Release finalization fixes
+those test assumptions and preserves the built-in attribute type in saved metadata, with four new .NET 10 cases.
+The original frozen measurements below retain their provenance; finalized Release tests pass 3,567 on .NET 10
+and 3,416 on .NET 8. The targeted saved `match` conformance set passes 286/286 with no baseline changes.
 
 | Check | Result at the frozen checkpoint |
 |---|---|
