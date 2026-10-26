@@ -76,8 +76,11 @@ jobs:
           XSL3_XSLT30_ASSESSMENTS: ${{ github.workspace }}/artifacts/test-results/streamability-assessments.jsonl
         run: |
           mkdir -p artifacts/test-results
-          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p test_streamability_audit.py
+          sandp_exit=0
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability || sandp_exit=$?
+          cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-run-sandp.md artifacts/test-results/
+          if [ "$sandp_exit" -ne 0 ]; then exit "$sandp_exit"; fi
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_*streamability*.py'
           python3 eng/audit-streamability.py --suite external/xslt30-test --assessments "$XSL3_XSLT30_ASSESSMENTS" --output artifacts/test-results/streamability-audit.json
 
       # An exact-code audit, separate from the ordinary runner's permissive error accounting.
@@ -91,6 +94,51 @@ jobs:
           dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-static || s2_exit=$?
           cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-static-streamability.* artifacts/test-results/
           exit "$s2_exit"
+
+      # The explicit P7B revision preserves the raw 919-case run above and maps every source part.
+      - name: Prepare reviewed P7B fixtures
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 eng/prepare-streamability-suite.py --suite external/xslt30-test --output "$RUNNER_TEMP/xsl3-p7b-reviewed"
+          cp "$RUNNER_TEMP/xsl3-p7b-reviewed/review.json" artifacts/test-results/p7b-review.json
+
+      - name: Reviewed posture and sweep acceptance (1000 cases)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: sandp-reviewed
+          XSL3_XSLT30_REVIEWED: ${{ runner.temp }}/xsl3-p7b-reviewed
+          XSL3_XSLT30_ASSESSMENTS: ${{ github.workspace }}/artifacts/test-results/streamability-reviewed-assessments.jsonl
+        run: |
+          reviewed_exit=0
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-reviewed || reviewed_exit=$?
+          cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-run-sandp-reviewed.md artifacts/test-results/
+          exit "$reviewed_exit"
+
+      - name: Reviewed static streamability acceptance (155 cases)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: s2-reviewed
+          XSL3_XSLT30_REVIEWED: ${{ runner.temp }}/xsl3-p7b-reviewed
+        run: |
+          reviewed_exit=0
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-static-reviewed || reviewed_exit=$?
+          cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-static-streamability-reviewed.* artifacts/test-results/
+          exit "$reviewed_exit"
+
+      - name: Debug static streamability acceptance
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_REVIEWED: ${{ runner.temp }}/xsl3-p7b-reviewed
+        run: |
+          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
+          dotnet build tests/Xsl3.W3C -c Debug -m:1 -p:UseSharedCompilation=false
+          XSL3_XSLT30_PROFILE=sandp-reviewed dotnet test tests/Xsl3.W3C -c Debug --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-reviewed-debug
+          debug_exit=0
+          XSL3_XSLT30_PROFILE=s2-reviewed dotnet test tests/Xsl3.W3C -c Debug --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-static-reviewed-debug || debug_exit=$?
+          cp tests/Xsl3.W3C/bin/Debug/net10.0/w3c-reports/xslt30-run-sandp-reviewed.md artifacts/test-results/xslt30-run-sandp-reviewed-debug.md
+          cp tests/Xsl3.W3C/bin/Debug/net10.0/w3c-reports/xslt30-static-streamability-reviewed.json artifacts/test-results/xslt30-static-streamability-reviewed-debug.json
+          cp tests/Xsl3.W3C/bin/Debug/net10.0/w3c-reports/xslt30-static-streamability-reviewed.md artifacts/test-results/xslt30-static-streamability-reviewed-debug.md
+          exit "$debug_exit"
 
       - name: Streaming development baseline (UNSTREAMED)
         if: matrix.os == 'ubuntu-latest'

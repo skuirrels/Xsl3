@@ -1,12 +1,13 @@
 # P7: streaming
 
 > **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
-> Full P7 is deferred, streaming remains unsupported, and the original targets below are unchanged.
+> Full P7 runtime/performance work is deferred and streaming remains unsupported.
 > Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
 > entries below do not expand this release. Release version: 1.1.0.
 >
-> **Next bounded phase:** [P7B analysis close-out](p7b-analysis-closeout.md) has six tickets and exact
-> S1/S2 case inventories. It does not resume the full runtime or performance workstream.
+> **P7B completed:** [analysis close-out](p7b-analysis-closeout.md#p7b-completion) passes the owner-approved
+> 1,000-case reviewed S1 suite and all 155 reviewed S2 cases, retaining the original raw results.
+> This explicitly revises static-analysis fixture acceptance; runtime, memory and throughput targets remain unchanged.
 
 docs/plan/remaining-scope.md, workstream 7 (items 7.1 to 7.5): XSLT 3.0 streaming, the streaming feature of XSLT 3.0
 §27.5. SPEC §17, §22 (P7), §19.6 (the streaming row). A 1.x release, after 1.0 (owner's decision, 2026-10-22).
@@ -351,8 +352,8 @@ Sizes follow remaining-scope.md: S is days, M is one to three weeks, L is a mont
 | Stage | What | Size | Exit |
 |---|---|---|---|
 | S0 | This plan; the owner's decisions below (approved 2026-10-22) | S | Complete: decisions recorded here and in SPEC §17 and §6.3 where they change them |
-| S1 | **The `strm` profile** in the runner (`XSL3_XSLT30_PROFILE=strm`: the 3.0 profile plus `streaming`, selecting only tests that need it; its own report, `xslt30-run-strm.md`), and the expression analysis: U-types, postures, sweeps, §19.1 to §19.8.1, §19.8.8 and §19.8.9. The runner's `assert-posture-and-sweep` and the `sweep_and_posture` dependency, through the test hook | L | `sandp` (919 tests) at 99% or more. The baseline above reproduced |
-| S2 | **The construct analysis**: §19.8.3 to §19.8.7, §19.8.10, and the declaration rules of §6.6.4, §10.2.3, §10.3.5, §15.4, §18.1 and §18.2.9. XTSE3430 with reasons, XTSE3155, `XsltSettings.Streamability`, `Explain` | L | The 136 XTSE3430 tests and the 2 XTSE3155 tests pass. No regression among the 2,544, which still run unstreamed. The perf gate shows no cost for stylesheets that don't stream |
+| S1 | **The `strm` profile** in the runner (`XSL3_XSLT30_PROFILE=strm`: the 3.0 profile plus `streaming`, selecting only tests that need it; its own report, `xslt30-run-strm.md`), and the expression analysis: U-types, postures, sweeps, §19.1 to §19.8.1, §19.8.8 and §19.8.9. The runner's `assert-posture-and-sweep` and the `sweep_and_posture` dependency, through the test hook | L | At least 99% on the explicitly approved P7B reviewed population: 1,000 cases preserving all 66,643 expressions from the original 919; raw results retained. Achieved 1,000/0/0. See the P7B acceptance revision |
+| S2 | **The construct analysis**: §19.8.3 to §19.8.7, §19.8.10, and the declaration rules of §6.6.4, §10.2.3, §10.3.5, §15.4, §18.1 and §18.2.9. XTSE3430 with reasons, XTSE3155, `XsltSettings.Streamability`, `Explain` | L | All 155 reviewed catalogue cases pass: 152 exact static codes (including both XTSE3155 cases) and three positive results. This reconciles the original 136+2 failing-case target with the complete catalogue inventory; raw results retained. Ordinary conformance and performance gates remain required |
 | S3 | **`StreamedDocument` and `StreamedNavigator`**, grounding (`copy-of`, `snapshot`), `xsl:source-document streamable="yes"`, and the optimizer restrictions and debug verifier. The runner's **strict streamed mode** (`XSL3_STREAM_STRICT=1`): a streamed input can't be built as a tree, so a guaranteed-streamable construct that falls back fails its test | L | In strict mode: `source-document`, `sf-*`, `sx-*` and the `si-*` sets other than fork, merge, iterate and for-each-group pass at the levels of the baseline |
 | S4 | **Streamable modes**: the initial match selection streamed, the new API overloads, the legacy `Transform(XmlReader)` path, the global context item rules, and `xsl:attribute-set` and streamable functions in streamed templates | M | `si-apply-templates`, `si-next-match`, `si-apply-imports`, `su-*` and `streamable` in strict mode |
 | S5 | **Streamed accumulators, `xsl:iterate`, `xsl:for-each-group` and `xsl:merge`** (section 3) | L | `accumulator`, `si-iterate`, `si-for-each-group`, `si-merge`, `merge` (the 9 XTDE2220 cases included) in strict mode |

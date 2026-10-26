@@ -38,12 +38,12 @@ public partial class Xslt30RunTests
     internal static bool MatchesStaticCode(StaticDiagnostic actual, string code) =>
         actual.IsStatic && actual.Code == new Xdm.QName("http://www.w3.org/2005/xqt-errors", code).EQName;
 
-    private void RunStaticDiagnostics(Xslt30.Catalog catalog)
+    private void RunStaticDiagnostics(Xslt30.Catalog catalog, bool reviewed)
     {
         XNamespace ns = Xslt30.Catalog.Ns;
         bool Target(XElement e) => e.Name == ns + "error" && (string?)e.Attribute("code") is "XTSE3430" or "XTSE3155";
         var tests = catalog.TestCases.Where(Xslt30.Profile.Streaming.Applies)
-            .Where(t => t.Result.DescendantsAndSelf().Any(Target)).OrderBy(t => t.Id, StringComparer.Ordinal).ToArray();
+            .Where(t => t.Result.DescendantsAndSelf().Any(Target) || catalog.ReviewedOriginalCodes.ContainsKey(t.Id)).OrderBy(t => t.Id, StringComparer.Ordinal).ToArray();
         // Sourced from the pinned catalogue inventory, not a selectable subset of passing cases.
         Assert.True(tests.Length == 155, $"P7B catalogue scope changed: expected 155 cases, got {tests.Length}; reconcile the manifest and plan.");
         var failures = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -65,25 +65,33 @@ public partial class Xslt30RunTests
             if (pass && exact) matchingCodes++;
             if (pass && result) allowedResults++;
             if (outcome.Kind == OutcomeKind.NotRun) notRun++;
-            string detail = $"expected {string.Join(" or ", expected)}{(required ? "" : " or allowed result")}; " +
+            string expectedDescription = expected.Length == 0 ? "reviewed XML result" : string.Join(" or ", expected) + (required ? "" : " or allowed result");
+            string detail = $"expected {expectedDescription}; " +
                 $"actual {actual.Code ?? (executed && raised == null ? "result" : "no coded diagnostic")}; {outcome.Detail}";
             if (exact && !located) detail += "; static diagnostic lacks a source location or reason";
             if (!pass) failures.Add(test.Id, detail);
-            records.Add(new { Case = test.Id, Expected = expected, Required = required, Executed = executed,
+            records.Add(new { Case = test.Id, Expected = expected, OriginalCode = catalog.ReviewedOriginalCodes.GetValueOrDefault(test.Id), Required = required, Executed = executed,
                 Outcome = pass ? "Pass" : outcome.Kind == OutcomeKind.NotRun ? "NotRun" : "Fail", Actual = actual, Detail = detail });
         }
         string summary = $"XSLT 3.0 exact static streamability: {tests.Length - failures.Count} passed, {failures.Count} failed " +
             $"(including {notRun} not run); {matchingCodes} matching static codes, {allowedResults} allowed results";
+        if (reviewed) summary += "; P7B REVIEWED";
         string directory = Path.Combine(AppContext.BaseDirectory, "w3c-reports");
         Directory.CreateDirectory(directory);
-        File.WriteAllText(Path.Combine(directory, "xslt30-static-streamability.json"),
-            JsonSerializer.Serialize(new { Summary = summary, Cases = records }, new JsonSerializerOptions { WriteIndented = true }));
-        File.WriteAllLines(Path.Combine(directory, "xslt30-static-streamability.md"),
-            new[] { "# " + summary, "", "A matching failure baseline does not satisfy the conformance gate.", "", "## Failures", "" }
+        string report = "xslt30-static-streamability" + (reviewed ? "-reviewed" : "");
+        File.WriteAllText(Path.Combine(directory, report + ".json"),
+            JsonSerializer.Serialize(new { Summary = summary, catalog.ReviewManifestHash, Cases = records }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllLines(Path.Combine(directory, report + ".md"),
+            new[] { "# " + summary, "", reviewed ? "Reviewed expectations; original raw-suite results are retained separately." : "A matching failure baseline does not satisfy the conformance gate.", "", "## Failures", "" }
                 .Concat(failures.Select(f => $"- `{f.Key}`: {f.Value}")));
         _output.WriteLine(summary);
         Assert.Equal(0, notRun);
         Assert.True(failures.Count < tests.Length, "No exact-code or permitted-result cases passed.");
+        if (reviewed)
+        {
+            Assert.Empty(failures);
+            return;
+        }
         string problems = Baseline.Check("xslt30-static-streamability", failures);
         Assert.True(problems.Length == 0, problems);
     }

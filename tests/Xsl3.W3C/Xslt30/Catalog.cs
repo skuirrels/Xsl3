@@ -12,7 +12,7 @@ namespace Xsl3.W3C.Xslt30;
 /// The W3C XSLT 3.0 test suite catalogue (https://github.com/w3c/xslt30-test): test sets, test cases, their
 /// dependencies and expected results. See the suite's admin/catalog-schema.xsd for the format.
 /// </summary>
-public sealed class Catalog
+public sealed partial class Catalog
 {
     public static readonly XNamespace Ns = "http://www.w3.org/2012/10/xslt-test-catalog";
 

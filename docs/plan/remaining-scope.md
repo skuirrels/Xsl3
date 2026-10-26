@@ -1,12 +1,12 @@
 # Remaining scope: everything after P5
 
 > **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
-> Full P7 is deferred, streaming remains unsupported, and the original targets below are unchanged.
+> Full P7 runtime/performance work is deferred and streaming remains unsupported.
 > Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
 > entries below do not expand this release. Release version: 1.1.0.
 >
-> The next proposed step is [P7B analysis close-out](p7b-analysis-closeout.md), a six-ticket static-analysis
-> phase with explicit exclusions and a stopping point.
+> [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
+> revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
 
 This is the brief for whoever carries Xsl3 from here: what is left of the SPEC.md roadmap once Phase 5
 (`xsl:evaluate` and serialization completion, merged in skuirrels/Xsl3#1) is done. It covers:
@@ -459,6 +459,11 @@ identical across packages (override-v-005, override-f-031).
 **Done when.** The schema-aware test sets are ≥ 95% with XSD 1.0, and the feature is claimed in `Profile.cs`.
 
 ### 7. Phase 7: streaming (§17; 6–12 person-months)
+
+**Current bounded status:** P7A shipped in 1.1.0; [P7B is complete](p7b-analysis-closeout.md#p7b-completion)
+with reviewed S1 1,000/0/0 and reviewed S2 155/0/0. Original raw profiles remain retained separately.
+Full P7 remains deferred. The following progress entries are historical; they do not reopen runtime,
+memory or throughput work or claim streaming support.
 
 **State.** Started (2026-10-22): S1 adds internal U-types, expression analysis and separate
 `strm` and `sandp` runner profiles. The analysis profile runs all 919 cases, including sets commented out of the

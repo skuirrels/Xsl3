@@ -1,9 +1,10 @@
 # P7B: static streamability analysis close-out
 
-**Planned on 2026-10-26, after the 1.1.0 P7A release.** This is a finite follow-up to
+**Completed under the owner's approved suite revision on 2026-10-26, after the 1.1.0 P7A release.** This is a finite follow-up to
 [P7A](p7a-closeout.md), covering the outstanding S1 expression-analysis reconciliation and S2 static
 diagnostic evidence. The [implementation checkpoint](#implementation-checkpoint) records the bounded work
-performed after the owner authorized this plan, including the unresolved fixture decision.
+performed before the fixture decision. The [completion record](#p7b-completion) records the adopted
+1,000-case population, retained original results and final acceptance evidence.
 Full P7 remains deferred. Normal transforms build trees and `supports-streaming` remains `no`.
 
 ## Baseline and provenance
@@ -193,11 +194,14 @@ integration, memory and throughput optimization, interpreter/XSD 1.1/parallelism
 package publication and changes to `bench/Xsl3.StreamingBenchmarks/`. The original memory/throughput targets
 and [full P7 exits](p7-streaming.md#stages) remain unchanged and outside P7B.
 
-**Stopping point:** the owner authorized implementation after the planning checkpoint. The finite investigation,
-compiler fix and audit infrastructure below are implemented. The work stops at the documented fixture decision;
-the original conformance gates have not been declared complete.
+**Stopping point:** the owner explicitly authorized the 1,000-case reviewed suite, retention of the original
+919-case results and completion of bounded P7B. The six tickets close under that explicit acceptance revision.
+Full P7 execution, memory, throughput and feature-claim work remains deferred.
 
 ## Implementation checkpoint
+
+This section preserves the pre-revision checkpoint (`d780c83`). Its unresolved fixture decision has since
+been resolved by the owner; its raw measurements remain unchanged and are retained below.
 
 ### P7B-01 / P7B-02: complete expression inspection
 
@@ -266,7 +270,7 @@ inspection rule in [divergences](../divergences.md#experimental-ascent-analysis)
 node/atomic results, first-argument postures and consuming/free-ranging remaining operands. The focused
 function-category suite passes 33 cases. No new higher-order or runtime behavior was introduced.
 
-### P7B-06: acceptance boundary and required decision
+### P7B-06: pre-revision acceptance boundary
 
 The original S1 ≥99% and S2 all-required-diagnostics gates remain **unmet**. This is an implementation
 checkpoint and bounded reconciliation outcome, not a claim that P7B or full P7 has met those exits.
@@ -277,9 +281,10 @@ That yields **1,000 nonempty cases**, while the eight unsatisfiable generator co
 as invalid-source evidence and negative harness coverage. It also requires sourced assertion corrections
 for the 65 uniform conflicts and positive result expectations for the two S2 fixture conflicts.
 This is an explicit **proposed population revision**, not a silently altered 919-case denominator.
-No corrected population, label override, fixture deletion or extra pass has been applied on this branch.
-The next decision is whether to adopt that reviewed suite revision or obtain it upstream. The work stops
-here as specified in the phase plan; memory, throughput and runtime expansion remain outside scope.
+At this checkpoint no corrected population, fixture deletion or extra pass had been applied. The work
+stopped at the decision whether to adopt a reviewed suite revision or obtain it upstream. The owner then
+authorized the reviewed population described in the completion record. Memory, throughput and runtime
+expansion remain outside scope.
 
 The audit hooks, exact-code profile, source rule fix, regression tests and inspection tool are suitable for
 review independently of that decision. CI retains raw baselines and adds the complete expression inspection
@@ -305,6 +310,98 @@ These are local validation results; hosted CI has been configured but has not be
 The raw profile guards require the pinned 919/155 case populations, and S2 requires diagnostic source
 location/reason as well as the exact primary code. Report capture retains S2 failures without changing the
 test process's exit status. No streaming-memory or throughput acceptance claim is made by the ordinary gate.
+
+## P7B completion
+
+The owner explicitly approved proceeding with the **1,000-case corrected suite**, retaining the original
+919-case results, and completing this bounded phase. This revises P7B-06's acceptance population and the
+two conflicting S2 expectations. The S1 threshold remains at least 99%; the reviewed profiles enforce the
+stronger current regression requirement of **zero failures and zero not run**. This is an Xsl3-reviewed
+fixture revision, not a claim that the unchanged upstream suite's expectations now all pass.
+
+| Gate | Original official-suite result, retained | Approved reviewed result |
+|---|---|---|
+| S1 posture/sweep | 790 passed / 129 failed / 0 not run, 919 cases | **1,000 passed / 0 failed / 0 not run** |
+| S2 exact diagnostics/results | 153 passed / 2 failed / 0 not run, 155 cases | **155 passed / 0 failed / 0 not run** |
+| S2 breakdown | 152 matching static codes, one permitted result, two expectation conflicts | **152 matching static codes and three checked positive results** |
+| Source expression coverage | 66,643 XPath expressions | **The same 66,643 expressions, each mapped exactly once** |
+
+The original [S1 failure inventory](p7b-s1-cases.csv), [S2 outcome inventory](p7b-s2-cases.csv), upstream
+checkout and raw failure baselines are unchanged. CI retains complete raw and reviewed reports under
+different names; the [result snapshot](p7b-results.json) records their populations and outcomes.
+
+### Reproducible data correction
+
+`eng/prepare-streamability-suite.py` prepares a fresh, separate fixture directory from the clean revision
+pinned by `eng/fetch-w3c.sh`. It never consumes Xsl3 output or exported assessments. Posture/sweep expectations
+come from the existing independent table-based reference and the canonical base productions. It retains
+855 uniform nonempty cases, splits 56 mixed cases into 145 uniform groups, and records the eight impossible
+generator combinations separately. Original expression text, context, namespace bindings and part IDs are
+preserved. Historical descriptions are labelled as such alongside the corrected expectations.
+
+`review.json` records all 919 original identities, all 1,000 reviewed identities and their original part
+memberships, source/generated hashes, definition hashes and the eight invalid-source reasons. The existing
+W3C catalogue loader has an explicit reviewed view that checks these hashes and verifies the full bijection.
+Missing, duplicated or changed expressions, changed namespace/context bindings, omitted mappings and retiring
+a nonempty source case are rejected. Each of the eight original empty cases is still executed as a negative
+harness check before reviewed S1 acceptance; it must fail with the original empty-input diagnostic.
+
+The two S2 corrections use ordinary XML-result assertions through the existing runner. Their expectations
+are computed independently from the pinned `tests/strm/docs/books.xml` data:
+
+- `si-fork/si-fork-953`: retain the original stylesheet. The direct-fork sort exception permits the construct;
+  expected author groups follow first-appearance category order, with the position sort preserving that order.
+- `sx-UnionExpr/sx-union-202`: the official stylesheet selects direct `BOOKLIST/ITEM` and `BOOKLIST/MAGAZINE`
+  children that are absent from its input. The reviewed variant selects the actual `BOOKLIST/BOOKS/ITEM`
+  rows in disjoint odd/even peer partitions, then their prices. Both arms must contribute. The assertion checks
+  the complete nonempty XML result and document order. Original/reviewed selectors, source-data hashes and
+  the fixture-shape repair are recorded explicitly; the official stylesheet is untouched.
+
+No prices, author names or category keys are embedded as desired answers. Reviewed selection is opt-in via
+`sandp-reviewed` / `s2-reviewed` and `XSL3_XSLT30_REVIEWED`; raw and ordinary profiles continue to use the
+official catalogue. No reviewed expectation is consulted by application code.
+
+### Diagnostic hardening discovered by the reviewed gates
+
+Debug S2 exposed `streamable/streamable-136`: lowering a rejected `xsl:number` unit could assert in QIL
+validation after source analysis had already recorded XTSE3430. The compiler now returns all recorded
+source-analysis errors before lowering that rejected unit, with no QIL result. The load/save callers already
+check compiler errors before consuming QIL; `Explain` now handles the same diagnostic-only result explicitly.
+QIL checks remain enabled. Three regressions cover both debug-information settings, the public and legacy
+compiler paths, preservation of both independent diagnostics, and Explain recompilation. This changes the
+static error path; it does not introduce number execution support or a new runtime capability.
+
+### Ticket closure
+
+| Ticket | Disposition |
+|---|---|
+| P7B-01 | Closed: sourced attribute/namespace expectations corrected, with complete case/part traceability |
+| P7B-02 | Closed: empty-selection outcomes separated from other expressions; prior consuming work preserved |
+| P7B-03 | Closed: eight unsatisfiable generator outputs retained as invalid-source evidence and negative checks |
+| P7B-04 | Closed: 152 exact static diagnostics and three positive results pass; raw discrepancies retained |
+| P7B-05 | Closed: proposed E31 interpretation documented and covered by category regressions |
+| P7B-06 | Closed under the explicitly approved fixture revision and bounded validation matrix |
+
+CI checks the raw 919-case baseline, the reviewed 1,000-case gate, raw/reviewed S2 results, the complete
+expression mapping and fixture-integrity tests. Debug reviewed gates and the targeted declaration regressions
+also run, so the diagnostic-masking defect remains covered. Raw and reviewed failures retain the test process's
+nonzero exit status. Hosted CI is configured; the validation recorded here was performed locally.
+
+| Final validation | Result |
+|---|---|
+| Reviewed S1, Release and Debug | 1,000/0/0 in each configuration; all 66,643 original expressions conserved |
+| Reviewed S2, Release and Debug | 155/0/0 in each configuration; 152 exact static codes and three checked results |
+| Raw S1 / S2 | Original 790/129/0 and 153/2/0 retained, with original baselines and inventories unchanged |
+| Full Release and Debug units | 3,584 on .NET 10 and 3,433 on .NET 8, each configuration |
+| Full W3C, with saved-assembly sampling | 66 tests pass; ordinary XSLT 3.0 remains 8,850/18/41; QT3 remains 21,884/0/99 |
+| Fixture/harness integrity | 32 focused tests pass in Release/Debug; 26 Python tests pass |
+| Upstream / differential | 1,654 / 394 per framework |
+| Globalized NativeAOT saved sample | macOS ARM64 publish/run pass, warnings treated as errors |
+| Ordinary three-pair performance gate | Pass: 39 gated rows; time geometric mean 0.998253, maximum allocation ratio 1.000718 |
+| Preservation | Official W3C checkout and all seven protected streaming benchmark files unchanged |
+
+Full P7 remains deferred and `supports-streaming` remains `no`. No memory/throughput target, runtime expansion,
+benchmark controller, saved-format contract, package version or publication state is changed by this close-out.
 
 ## Reproduce the baseline
 
@@ -335,3 +432,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p test_stre
 
 An inspection tool exit of zero means complete agreement with its independent reference for these generated
 paths. It does not convert the original 129 fixture failures into conformance passes.
+
+For the approved reviewed gates, prepare a fresh output directory and run the normal harness:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 eng/prepare-streamability-suite.py --suite external/xslt30-test --output artifacts/p7b-reviewed
+XSL3_XSLT30_PROFILE=sandp-reviewed XSL3_XSLT30_REVIEWED="$PWD/artifacts/p7b-reviewed" dotnet test tests/Xsl3.W3C -c Release --no-build --filter FullyQualifiedName~Xslt30Conformance
+XSL3_XSLT30_PROFILE=s2-reviewed XSL3_XSLT30_REVIEWED="$PWD/artifacts/p7b-reviewed" dotnet test tests/Xsl3.W3C -c Release --no-build --filter FullyQualifiedName~Xslt30Conformance
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_*streamability*.py'
+```
+
+Repeat the reviewed profile commands with `-c Debug` after building the Debug harness. The reviewed profiles
+reject subset selection and cannot be relaxed by baseline updates. Their reports use
+`xslt30-run-sandp-reviewed.md` and `xslt30-static-streamability-reviewed.{md,json}`. The original report names
+remain reserved for the unmodified suite. Local final evidence, including full mappings and both sets of
+assessments/reports, is retained under `artifacts/p7b-closeout/`.

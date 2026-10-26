@@ -20,8 +20,9 @@ The full design is in [SPEC.md](SPEC.md).
 **1.1.0 closes P7A**, the implemented streaming foundations and related correctness work.
 Streaming remains experimental; the remaining full-P7 analysis, memory and throughput targets are deferred.
 See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.0.md) and [phase close-out](docs/plan/p7a-closeout.md).
-The bounded [P7B analysis checkpoint](docs/plan/p7b-analysis-closeout.md#implementation-checkpoint) records
-the subsequent static-analysis fix and the suite decisions still needed before its conformance gates can close.
+The unreleased [P7B analysis close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion) completes the
+approved 1,000-case reviewed analysis suite and 155-case static-diagnostic gate, while retaining the original
+919-case results. Full streaming remains unsupported.
 
 ## What works
 

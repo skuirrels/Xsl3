@@ -155,6 +155,14 @@ in docs/divergences.md) and the xhtml default method on the direct result path (
 
 ## P7 development: static streamability analysis
 
+**P7B completed under the owner's explicit suite revision:** reviewed S1 passes **1,000/0/0** and reviewed
+S2 passes **155/0/0** (152 exact static codes and three checked positive results). All 66,643 original XPath
+expressions retain their case/part mappings; eight empty generator outputs remain negative-source checks.
+The original 919-case **790/129/0** and raw S2 **153/2/0** reports and baselines remain separate and unchanged.
+These are reviewed project fixtures, not altered claims about the official suite. See the
+[close-out and result snapshot](plan/p7b-analysis-closeout.md#p7b-completion). The new reviewed profiles require
+zero failures/not-run cases and full population coverage, including in Debug. Full P7 streaming remains unsupported.
+
 **2026-10-26 P7B checkpoint:** all 66,643 exported posture/sweep outcomes agree with the independent
 axis/path inspection in `eng/audit-streamability.py`, using the pinned suite's base productions and the
 Recommendation's rules. This does not change the raw **790/129/0** result. Full-case inspection distinguishes
