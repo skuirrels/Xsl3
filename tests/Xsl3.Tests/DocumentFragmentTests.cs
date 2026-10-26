@@ -387,4 +387,3 @@ public class DocumentFragmentTests
         protected override void Dispose(bool disposing) { Closed = true; base.Dispose(disposing); }
     }
 }
-

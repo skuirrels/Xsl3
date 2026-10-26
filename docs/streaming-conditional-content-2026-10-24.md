@@ -229,4 +229,3 @@ Cold-start time is reported but excluded from the timed geometric mean; its allo
 - regex 1kb: base **0.004700/0.004700/0.004800 ms**, head **0.005300/0.004700/0.005500 ms**.
 
 Evidence is `/tmp/xsl3-p7-conditional-final-perf.log`, `-perf-exit.txt` and `-perf-data/summary.json`, with exactly rounds 1–3 copied into that directory. All rows and allocations remain in JSON; stale rounds 4/5 in shared artifacts are excluded. The gate removes its temporary base checkout. This does not establish a streaming throughput, exact push-memory, remote CI or full Phase 7 pass. The goal remains active; no commit, push, publication or deployment was performed.
-
