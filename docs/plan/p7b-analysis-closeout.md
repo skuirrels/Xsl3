@@ -390,6 +390,8 @@ nonzero exit status. Hosted CI is configured; the validation recorded here was p
 The pre-merge review also made the approved S2 balance an explicit gate: 152 exact static codes and three
 positive XML results must remain covered. Debug S1 and S2 run in separate steps after a successful harness
 build, so a declaration or S1 test failure cannot suppress the S2 audit or either generated Debug report.
+The developer tool's `qil` and `qilopt` commands also handle a rejected compilation without dereferencing
+the absent QIL: they retain the source diagnostics, emit no QIL and return a nonzero exit code.
 
 | Final validation | Result |
 |---|---|
