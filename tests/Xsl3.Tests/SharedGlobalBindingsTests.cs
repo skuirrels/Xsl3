@@ -219,7 +219,10 @@ public class SharedGlobalBindingsTests
         SharedGlobalBindings bindings = Bindings(1);
         Assert.False(bindings.IsComputed(0, null, default));
         using var cancellation = new CancellationTokenSource(Deadline);
-        Task<bool> waiter = Task.Run(() => bindings.IsComputed(0, null, cancellation.Token));
+        // These waiters block synchronously; give them dedicated threads so the test
+        // does not depend on thread-pool injection while xUnit is running other cases.
+        Task<bool> waiter = Task.Factory.StartNew(() => bindings.IsComputed(0, null, cancellation.Token),
+            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         Assert.True(SpinWait.SpinUntil(() => bindings.WaitingCount == 1, Deadline));
         cancellation.Cancel();
         bindings.Set(0, "owner");
@@ -235,8 +238,9 @@ public class SharedGlobalBindingsTests
         using var cancellation = new CancellationTokenSource(Deadline);
         var expected = new InvalidOperationException("original global failure");
         Assert.False(bindings.IsComputed(0, null, cancellation.Token));
-        Task<Exception>[] waiters = Enumerable.Range(0, 3).Select(_ => Task.Run(() =>
-            Assert.Throws<InvalidOperationException>(() => bindings.IsComputed(0, null, cancellation.Token)) as Exception)).ToArray();
+        Task<Exception>[] waiters = Enumerable.Range(0, 3).Select(_ => Task.Factory.StartNew(() =>
+            Assert.Throws<InvalidOperationException>(() => bindings.IsComputed(0, null, cancellation.Token)) as Exception,
+            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
         Assert.True(SpinWait.SpinUntil(() => bindings.WaitingCount == 3, Deadline));
         bindings.Fail(0, expected);
         Assert.All(await Task.WhenAll(waiters), error => Assert.Same(expected, error));

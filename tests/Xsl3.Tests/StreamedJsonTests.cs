@@ -44,8 +44,10 @@ public class StreamedJsonTests
     [InlineData("doc/row ! xml-to-json(descendant::j:array[@key='selected']/*)", "<doc xmlns:j='" + JsonNamespace + "'><row><j:array key='selected'><j:map/></j:array></row><row><j:array key='selected'><j:map/></j:array></row></doc>", "{}|{}")]
     public void ConversionConsumesEachSelectedNodeWhileItIsReadable(string select, string xml, string expected)
     {
-        Assert.Equal(expected, Run(select, xml, false));
-        Assert.Equal(expected, Run(select, xml, true));
+        // Run serializes to text, so the platform serializer owns newline replacement.
+        string serialized = expected.ReplaceLineEndings(Environment.NewLine);
+        Assert.Equal(serialized, Run(select, xml, false));
+        Assert.Equal(serialized, Run(select, xml, true));
     }
 
     [Theory]

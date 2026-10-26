@@ -149,6 +149,8 @@ internal static partial class StreamingProbe
         using var primary = new HashSink(); using var first = new HashSink(); using var second = new HashSink();
         byte[] row = GeneratedInput.RecordTemplate(seen: workload != "conditional-content");
         Span<byte> number = stackalloc byte[20];
+        // The public serializer replaces line breaks with the platform default.
+        byte[] newLine = Encoding.UTF8.GetBytes(Environment.NewLine);
         if (workload is "identity" or "source-document" or "copy-select" or "conditional-content")
         {
             primary.Write(GeneratedInput.Header);
@@ -171,21 +173,21 @@ internal static partial class StreamingProbe
             {
                 bool pair = id < records;
                 Byte(primary, (byte)('a' + GeneratedInput.Group(id))); Byte(primary, (byte)'|');
-                Number(primary, GeneratedInput.Amount(id) + (pair ? GeneratedInput.Amount(id + 1) : 0)); Byte(primary, (byte)'\n'); if (pair) id++;
+                Number(primary, GeneratedInput.Amount(id) + (pair ? GeneratedInput.Amount(id + 1) : 0)); primary.Write(newLine); if (pair) id++;
             }
             else if (workload == "merge")
-            { Number(primary, id); Byte(primary, (byte)'|'); Number(primary, GeneratedInput.Amount(id)); Byte(primary, (byte)'\n'); }
+            { Number(primary, id); Byte(primary, (byte)'|'); Number(primary, GeneratedInput.Amount(id)); primary.Write(newLine); }
             else if (workload is "template-parameter" or "function-parameter")
-            { Number(primary, id); Byte(primary, (byte)'|'); Number(primary, GeneratedInput.Value); Byte(primary, (byte)'\n'); }
+            { Number(primary, id); Byte(primary, (byte)'|'); Number(primary, GeneratedInput.Value); primary.Write(newLine); }
             else if (workload == "overlap-values")
             {
                 Number(primary, GeneratedInput.Value); Byte(primary, (byte)'|');
-                primary.Write(OverlapText); Byte(primary, (byte)'|'); Number(primary, id); Byte(primary, (byte)'\n');
+                primary.Write(OverlapText); Byte(primary, (byte)'|'); Number(primary, id); primary.Write(newLine);
             }
             else if (workload == "type-assertion")
             {
                 if (!Utf8Formatter.TryFormat(id, number, out int length, new StandardFormat('D', 20)) || length != 20) throw new InvalidOperationException();
-                primary.Write(number); Byte(primary, (byte)'\n');
+                primary.Write(number); primary.Write(newLine);
             }
             else if (workload is "climbing-union" or "climbing-intersection")
             {
@@ -193,13 +195,13 @@ internal static partial class StreamingProbe
                 if (workload == "climbing-union" ? left || right : left && right)
                 {
                     if (!Utf8Formatter.TryFormat(id, number, out int length, new StandardFormat('D', 20)) || length != 20) throw new InvalidOperationException();
-                    primary.Write(number); Byte(primary, (byte)'\n');
+                    primary.Write(number); primary.Write(newLine);
                 }
             }
             else if (workload == "fork")
             {
                 if (!Utf8Formatter.TryFormat(id, number, out int length, new StandardFormat('D', 20)) || length != 20) throw new InvalidOperationException();
-                first.Write(number); Byte(first, (byte)'\n'); Number(second, GeneratedInput.Amount(id) + GeneratedInput.Value); Byte(second, (byte)'\n');
+                first.Write(number); first.Write(newLine); Number(second, GeneratedInput.Amount(id) + GeneratedInput.Value); second.Write(newLine);
             }
         }
         var expected = new Dictionary<string, Fingerprint>(StringComparer.Ordinal) { ["principal"] = primary.Finish() };
