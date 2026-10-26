@@ -435,6 +435,17 @@ namespace Xsl3.Runtime
 
         public override void WriteEndAttribute() => Content().WriteEndAttribute();
 
+        public override void WriteNode(XPathNavigator navigator, bool defattr)
+        {
+            if (defattr && _inner is Xsl3.Tree.CompactDocument.Writer tree
+                && navigator.NodeType is not (XPathNodeType.Attribute or XPathNodeType.Namespace))
+            {
+                Content();
+                tree.WriteAnnotatedNode(navigator);
+            }
+            else base.WriteNode(navigator, defattr);
+        }
+
         public override void WriteCData(string? text) => Content().WriteCData(text);
 
         public override void WriteComment(string? text) => Content().WriteComment(text);

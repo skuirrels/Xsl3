@@ -38,9 +38,17 @@ namespace Xsl3.Runtime
         private FunctionContext? _x31Context;
         private Dictionary<int, FunctionContext>? _x31Contexts;
 
+        internal void InheritForkContext(XsltLibrary owner)
+        {
+            _x31Context = owner.X31Context.WithRuntime(_runtime);
+            owner._groundedAccumulators ??= new();
+            owner._groundedAccumulators.Share(owner._runtime.Documents.Evaluations, XmlQueryRuntime.Cancellation);
+            _groundedAccumulators = owner._groundedAccumulators;
+        }
+
         /// <summary>The dynamic context: implicit timezone, current dateTime, documents. Without static parts.</summary>
         internal FunctionContext X31Context => _x31Context ??= new FunctionContext(
-            ImplicitTimezoneOverride ?? FunctionContext.LocalTimezoneMinutes,
+            ImplicitTimezoneOverride is int minutes ? new ImplicitTimezone(minutes) : ImplicitTimezone.Local(),
             (a, b) => _runtime.ComparePosition(a, b))
         {
             Runtime = _runtime,
@@ -62,7 +70,7 @@ namespace Xsl3.Runtime
         /// <summary>Set by the caller to fix the implicit timezone (minutes); otherwise the local timezone applies.</summary>
         internal int? ImplicitTimezoneOverride => _runtime.ExternalContext.GetParameter(XPath31Executable.ImplicitTimezoneParam, XPath31Executable.ControlNamespace) as int?;
 
-        private int Tz => X31Context.ImplicitTimezoneMinutes;
+        private ImplicitTimezone Tz => X31Context.Timezone;
 
         private static IList<XPathItem> One(XPathItem item) => new[] { item };
 
@@ -76,6 +84,9 @@ namespace Xsl3.Runtime
         public XPathItem X31Constant(double id) => (XPathItem)Constant((int)id);
 
         public XPathItem X31BooleanItem(bool value) => AtomicValue.OfBoolean(value);
+
+        /// <summary>A native double retained as xs:double, including signed zero and NaN.</summary>
+        public XPathItem X31DoubleItem(double value) => AtomicValue.OfDouble(value);
 
         public XPathItem X31DoubleAsInteger(double value) => AtomicValue.OfInteger(new BigInteger(value));
 
@@ -577,21 +588,26 @@ namespace Xsl3.Runtime
             }
             IList<XPathItem> l = DocumentOrder(left), r = DocumentOrder(right);
             var result = new List<XPathItem>();
-            foreach (XPathItem x in l)
+            bool intersect = op == 1;
+            int i = 0, j = 0;
+            XmlQueryRuntime.CheckCancellation();
+            // Both operands are already ordered and distinct. Advance each cursor only
+            // forwards, rather than searching the entire right operand for each node.
+            while (i < l.Count && (!intersect || j < r.Count))
             {
-                bool inRight = false;
-                foreach (XPathItem y in r)
+                int comparison = j < r.Count ? _runtime.ComparePosition((XPathNavigator)l[i], (XPathNavigator)r[j]) : -1;
+                XmlQueryRuntime.CheckCancellation();
+                if (comparison > 0)
                 {
-                    if (_runtime.ComparePosition((XPathNavigator)x, (XPathNavigator)y) == 0)
-                    {
-                        inRight = true;
-                        break;
-                    }
+                    j++;
+                    continue;
                 }
-                if (inRight == (op == 1))
+                if ((comparison == 0) == intersect)
                 {
-                    result.Add(x);
+                    result.Add(l[i]);
                 }
+                i++;
+                if (comparison == 0) j++;
             }
             return result;
         }

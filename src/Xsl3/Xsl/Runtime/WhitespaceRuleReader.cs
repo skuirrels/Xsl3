@@ -10,11 +10,12 @@ namespace Xsl3.Runtime
     internal sealed class WhitespaceRuleReader : XmlWrappingReader
     {
         private readonly WhitespaceRuleLookup _wsRules;
+        private readonly bool _stripAnnotations;
         private readonly BitStack _stkStrip;
         private bool _shouldStrip, _preserveAdjacent;
         private string? _val;
 
-        public static XmlReader CreateReader(XmlReader baseReader, WhitespaceRuleLookup? wsRules)
+        public static XmlReader CreateReader(XmlReader baseReader, WhitespaceRuleLookup? wsRules, bool stripAnnotations = false)
         {
             if (wsRules == null)
             {
@@ -41,10 +42,10 @@ namespace Xsl3.Runtime
                     return baseReader;        // XmlTextReaderImpl that strips all WS
                 }
             }
-            return new WhitespaceRuleReader(baseReader, wsRules);
+            return new WhitespaceRuleReader(baseReader, wsRules, stripAnnotations);
         }
 
-        private WhitespaceRuleReader(XmlReader baseReader, WhitespaceRuleLookup wsRules) : base(baseReader)
+        private WhitespaceRuleReader(XmlReader baseReader, WhitespaceRuleLookup wsRules, bool stripAnnotations) : base(baseReader)
         {
             Debug.Assert(wsRules != null);
 
@@ -54,6 +55,7 @@ namespace Xsl3.Runtime
             _preserveAdjacent = false;
 
             _wsRules = wsRules;
+            _stripAnnotations = stripAnnotations;
             _wsRules.Atomize(baseReader.NameTable);
         }
 
@@ -89,7 +91,7 @@ namespace Xsl3.Runtime
                             // Strip if rules say we should and we're not within the scope of xml:space="preserve"
                             _shouldStrip = _wsRules.ShouldStripSpace(base.LocalName, base.NamespaceURI) && (base.XmlSpace != XmlSpace.Preserve)
                                 // Xsl3 (P6): not in an element whose type gives it simple content (XSLT 3.0 §4.3).
-                                && !(base.SchemaInfo?.SchemaType is System.Xml.Schema.XmlSchemaSimpleType or System.Xml.Schema.XmlSchemaComplexType { ContentType: System.Xml.Schema.XmlSchemaContentType.TextOnly });
+                                && (_stripAnnotations || !(base.SchemaInfo?.SchemaType is System.Xml.Schema.XmlSchemaSimpleType or System.Xml.Schema.XmlSchemaComplexType { ContentType: System.Xml.Schema.XmlSchemaContentType.TextOnly }));
                         }
                         break;
 

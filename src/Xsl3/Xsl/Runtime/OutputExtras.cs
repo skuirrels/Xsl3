@@ -151,6 +151,7 @@ namespace Xsl3.Runtime
         {
             if (!text)
             {
+                FlushNormalization();
                 FlushCData();
                 _textStarted = false;
             }
@@ -243,6 +244,7 @@ namespace Xsl3.Runtime
                         {
                             WriteUnmapped(text[start..i]);
                         }
+                        FlushNormalization();
                         _inner.WriteRaw(replacement);
                         start = i + width;
                     }
@@ -268,7 +270,36 @@ namespace Xsl3.Runtime
                 throw new Xdm.XdmException("SERE0012", "With normalization-form=\"fully-normalized\", a text node can't start with a combining character");
             }
             _textStarted = !_inAttribute;
-            text = Normalize(text);
+            if (!_inAttribute && _extras.Normalization is NormalizationForm)
+            {
+                // Adjacent writes belong to the same text node. Retain its final normalized
+                // text element so a following combining mark or Hangul jamo can still compose.
+                // Normalize before finding boundaries: compatibility decomposition may create
+                // jamo or combining marks that were not text-element continuations in the input.
+                text = Normalize(_normalizationTail + text);
+                var elements = System.Globalization.StringInfo.GetTextElementEnumerator(text);
+                int last = 0;
+                while (elements.MoveNext()) last = elements.ElementIndex;
+                _normalizationTail = text[last..];
+                text = text[..last];
+                if (text.Length == 0) return;
+            }
+            else text = Normalize(text);
+            WriteNormalized(text);
+        }
+
+        private string _normalizationTail = "";
+
+        private void FlushNormalization()
+        {
+            if (_normalizationTail.Length == 0) return;
+            string text = _normalizationTail;
+            _normalizationTail = "";
+            WriteNormalized(text);
+        }
+
+        private void WriteNormalized(string text)
+        {
             if (_inAttribute && _uriAttribute)
             {
                 text = EscapeUri(text);
@@ -644,6 +675,7 @@ namespace Xsl3.Runtime
 
         public override void Flush()
         {
+            FlushNormalization();
             FlushCData();
             _inner.Flush();
         }
@@ -725,19 +757,16 @@ namespace Xsl3.Runtime
 
         public override void WriteWhitespace(string? ws)
         {
-            if (_ownCData && !_inAttribute && _cdata.Count > 0 && _cdata.Peek())
-            {
-                WriteString(ws);
-                return;
-            }
-            Content();
-            _inner.WriteWhitespace(ws);
+            if (ws != null && !XmlCharType.IsOnlyWhitespace(ws))
+                throw new System.ArgumentException("Whitespace content must contain only XML whitespace", nameof(ws));
+            WriteString(ws);
         }
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
+                FlushNormalization();
                 FlushCData();
                 _inner.Flush();
             }

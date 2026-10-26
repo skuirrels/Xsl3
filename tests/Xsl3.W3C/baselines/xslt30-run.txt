@@ -3,17 +3,14 @@ base-uri/base-uri-046
 base-uri/base-uri-052
 copy/copy-1221
 docbook/docbook-001
-docbook/docbook-004
 document/document-2401
 document/document-2402
-id/id-001
 import/import-1201
 merge/merge-097
 namespace-alias/namespace-alias-1903
 namespace/namespace-2001
 namespace/namespace-2614
 namespace/namespace-2615
-snapshot/snapshot-0102a
 static/static-013c
 streamable/streamable-141
 try/try-034
@@ -21,4 +18,3 @@ unparsed-entity-uri/unparsed-entity-50
 use-package/use-package-108
 use-package/use-package-108b
 validation/validation-0201
-validation/validation-0202

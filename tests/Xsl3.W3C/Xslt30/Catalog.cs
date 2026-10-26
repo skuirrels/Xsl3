@@ -48,7 +48,7 @@ public sealed class Catalog
         return null;
     }
 
-    public static Catalog Load(string root)
+    public static Catalog Load(string root, bool includePostureAndSweep = false)
     {
         XElement catalog = XDocument.Load(Path.Combine(root, "catalog.xml")).Root!;
         var result = new Catalog(root);
@@ -57,6 +57,20 @@ public sealed class Catalog
         result.TestSets = catalog.Elements(Ns + "test-set")
             .Select(e => TestSet.Load(result, (string)e.Attribute("name")!, Path.Combine(root, (string)e.Attribute("file")!)))
             .ToList();
+        if (includePostureAndSweep)
+        {
+            // The suite ships sandp's sets but comments their entries out of catalog.xml. Read their
+            // actual test-set files only for the analysis profile; never interpret XML comments as data.
+            string directory = Path.Combine(root, "tests", "sandp");
+            string[] files = Directory.GetFiles(directory, "_*-test-set.xml", SearchOption.AllDirectories);
+            if (files.Length == 0)
+            {
+                throw new InvalidDataException("No posture-and-sweep test sets found in " + directory);
+            }
+            var listed = result.TestSets.Select(s => Path.GetFullPath(s.File)).ToHashSet(StringComparer.Ordinal);
+            result.TestSets = result.TestSets.Concat(files.Order(StringComparer.Ordinal)
+                .Where(f => !listed.Contains(Path.GetFullPath(f))).Select(f => TestSet.Load(result, null, f))).ToList();
+        }
         return result;
     }
 }
@@ -87,11 +101,11 @@ public sealed class TestSet
     public TestEnvironment? FindEnvironment(string name) =>
         Environments.TryGetValue(name, out TestEnvironment? e) ? e : Catalog.Environments.GetValueOrDefault(name);
 
-    internal static TestSet Load(Catalog catalog, string name, string file)
+    internal static TestSet Load(Catalog catalog, string? name, string file)
     {
         // Whitespace is kept: expected results may be whitespace-sensitive.
         XElement root = XDocument.Load(file, LoadOptions.PreserveWhitespace | LoadOptions.SetBaseUri).Root!;
-        var set = new TestSet(catalog, name, file);
+        var set = new TestSet(catalog, name ?? (string)root.Attribute("name")!, file);
         set.Environments = root.Elements(Catalog.Ns + "environment").Where(e => e.Attribute("name") != null)
             .ToDictionary(e => (string)e.Attribute("name")!, e => TestEnvironment.Read(e, set.Directory));
         set.Dependencies = Dependency.Read(root.Element(Catalog.Ns + "dependencies"));
@@ -157,7 +171,7 @@ public sealed record Dependency(string Type, string Value, bool Satisfied)
 /// <summary>An &lt;environment&gt;: source documents, parameters, collections and other context.</summary>
 public sealed class TestEnvironment
 {
-    public sealed record Source(string? Role, string? File, string? Content, string? Uri, string? Validation, bool DefinesStylesheet, string? Select = null);
+    public sealed record Source(string? Role, string? File, string? Content, string? Uri, string? Validation, bool DefinesStylesheet, string? Select = null, bool Streaming = false);
 
     public sealed record Param(string Name, string? Select, string? As, bool Static, XElement Element);
 
@@ -182,7 +196,8 @@ public sealed class TestEnvironment
             // (In the sa profile, a source of an environment whose schema the sources reference is validated laxly.)
             (string?)s.Attribute("validation") ?? (SchemaAware && element.Elements(Catalog.Ns + "schema").Any(x => (string?)x.Attribute("role") == "source-reference") ? "lax" : null),
             (string?)s.Attribute("defines-stylesheet") is "true" or "yes",
-            (string?)s.Attribute("select"))).ToList();
+            (string?)s.Attribute("select"),
+            (string?)s.Attribute("streaming") is "true" or "yes" or "1")).ToList();
         Params = element.Elements(Catalog.Ns + "param").Select(Param0).ToList();
         Schemas = element.Elements(Catalog.Ns + "schema").Select(s => new Schema(
             (string?)s.Attribute("file") is string f ? Path.Combine(baseDirectory, f) : null,

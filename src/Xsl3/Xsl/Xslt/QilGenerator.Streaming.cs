@@ -131,11 +131,16 @@ namespace Xsl3.Xslt
                         }
                         break;
                     case XslNodeType.ForEach:
-                        if (MayReturnItems(node.Content, node.Select == null || !IsNodeExpression(node.Select, contextMayBeAtomic, scope), scope))
+                    {
+                        // copy/select's loader rewrite includes an error() branch, but that branch
+                        // produces no value. Infer the copied focus from its original selection.
+                        string? selected = node.V2?.CopySelect ?? node.Select;
+                        if (MayReturnItems(node.Content, selected == null || !IsNodeExpression(selected, contextMayBeAtomic, scope), scope))
                         {
                             return true;
                         }
                         break;
+                    }
                     case XslNodeType.ForEachGroup:
                         if (MayReturnItems(node.Content, node.Select == null || !IsNodeExpression(node.Select, contextMayBeAtomic, scope), scope))
                         {

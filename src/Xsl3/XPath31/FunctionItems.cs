@@ -157,7 +157,7 @@ namespace Xsl3.XPath31
             bool savedAbsent = _focusAbsent;
             _scope.Clear();
             _scope.AddRange(scope);
-            _focus = focusParam != null ? new Focus(Call(nameof(XsltLibrary.X31SingleItemOf), T.Item, focusParam), () => _f.Double(1), () => _f.Double(1)) : null;
+            _focus = focusParam != null ? new Focus(Call(nameof(XsltLibrary.X31SingleItemOf), T.Item, focusParam), () => _f.Double(1), () => _f.Double(1), OptionalItems: focusParam) : null;
             _focusAbsent = focusParam == null;
             QilNode result;
             try
@@ -236,14 +236,37 @@ namespace Xsl3.XPath31
             }
             int arity = (int)r.Arity;
             QName name = _types.Expand(r.Name, _sc.DefaultFunctionNamespace);
-            if (arity == 0 && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "position" or "last" && _focus != null &&
-                (name.LocalName == "position" || _focus.Last != null))
+            if (arity == 0 && name.NamespaceUri == QName.Ns.Fn && name.LocalName is "position" or "last")
             {
                 // position#0 and last#0 keep the focus they are made in: (2, 4, 6) ! position#0() is 1 2 3.
                 var kept = new LexicalQName(null, "§c1", "");
-                QilNode value = Items(name.LocalName == "position" ? _focus.Position() : _focus.Last!());
+                bool size = name.LocalName == "last";
+                QilNode value = _focus != null ? Items(size ? FocusLast() : FocusPosition())
+                    : _focusAbsent ? _f.Sequence()
+                    : _env?.CaptureNumericFocus(size)
+                        ?? _f.Conditional(_f.IsEmpty(Call(nameof(XsltLibrary.X31ContextItemOrEmpty), T.ItemS)), _f.Sequence(), Items(size ? FocusLast() : FocusPosition()));
                 return LiftFunction(new[] { (new QName("", kept.LocalName), value) }, System.Array.Empty<(QName, SequenceTypeTest)>(),
-                    new SequenceTypeTest(new AtomicTypeTest(AtomicTypes.Integer), Cardinality.ExactlyOne), name, () => Build(new VarRef(kept)));
+                    new SequenceTypeTest(new AtomicTypeTest(AtomicTypes.Integer), Cardinality.ExactlyOne), name,
+                    () => Call(nameof(XsltLibrary.X31SingleItemOf), T.Item, Items(Build(new VarRef(kept)))));
+            }
+            if (arity == 2 && name == new QName(QName.Ns.Fn, "function-lookup"))
+            {
+                // A reference to function-lookup keeps the numeric focus in which the
+                // reference was created, including when the name is supplied later.
+                var captured = new List<(QName, QilNode)>();
+                foreach (string numeric in new[] { "position", "last" })
+                    captured.Add((new QName("", "captured-" + numeric), NamedFunctionReference(
+                        new NamedFunctionRef(new LexicalQName(null, numeric, QName.Ns.Fn), 0))));
+                var lookupParameters = new[]
+                {
+                    (new QName("", "lookup-name"), new SequenceTypeTest(new AtomicTypeTest(AtomicTypes.QName), Cardinality.ExactlyOne)),
+                    (new QName("", "lookup-arity"), new SequenceTypeTest(new AtomicTypeTest(AtomicTypes.Integer), Cardinality.ExactlyOne)),
+                };
+                string fn = "Q{" + QName.Ns.Fn + "}";
+                Expr lookup = Parser.ParseXPath("if ($lookup-arity eq 0 and $lookup-name eq " + fn + "QName('" + QName.Ns.Fn + "','position')) then $captured-position "
+                    + "else if ($lookup-arity eq 0 and $lookup-name eq " + fn + "QName('" + QName.Ns.Fn + "','last')) then $captured-last "
+                    + "else " + fn + "function-lookup($lookup-name,$lookup-arity)");
+                return LiftFunction(captured, lookupParameters, SequenceTypeTest.AnySequence, name, () => Build(lookup));
             }
             var parameters = new List<(QName, SequenceTypeTest)>();
             Functions.FunctionDefinition? def = name.NamespaceUri is QName.Ns.Fn or QName.Ns.Math or QName.Ns.Map or QName.Ns.Array
@@ -277,9 +300,9 @@ namespace Xsl3.XPath31
         {
             if (_focus != null)
             {
-                return _focus.Item;
+                return _focus.OptionalItems ?? _focus.Item;
             }
-            return _env != null ? _env.ContextItem() ?? _f.Sequence() : Call(nameof(XsltLibrary.X31ContextItemOrEmpty), T.ItemS);
+            return _env != null ? _env.ContextItemOrEmpty() ?? _f.Sequence() : Call(nameof(XsltLibrary.X31ContextItemOrEmpty), T.ItemS);
         }
 
         // f(a, ?, c) and $f(a, ?, c) (XPath 3.1 §3.1.5.4): a function of the placeholders; the other arguments are
@@ -331,6 +354,7 @@ namespace Xsl3.XPath31
         // E(args) (XPath 3.1 §3.1.5.1): the call goes through the dispatcher.
         private QilNode DynamicCall(QilNode function, IReadOnlyList<QilNode> args)
         {
+            if (_sc.ForwardOnly) return ForwardDynamicCall(function, args);
             QilNode call = Call(nameof(XsltLibrary.X31CallNew), T.Item, function, _f.Double(args.Count));
             foreach (QilNode arg in args)
             {
@@ -345,6 +369,8 @@ namespace Xsl3.XPath31
             {
                 return PartialApplication(d, d.Function, null, d.Arguments);
             }
+            if (_sc.ForwardOnly)
+                return DynamicCall(Items(Build(d.Function)), d.Arguments.Select(a => Items(Build(a))).ToList());
             if (d.Arguments.Count == 1)
             {
                 // Xsl3 (P4): $map(key), the usual one-argument call, looks the key up directly; anything else that
@@ -387,12 +413,16 @@ namespace Xsl3.XPath31
         };
 
         private (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? CompiledSignature(QName name, int arity)
+            => CompiledFunctionSignature(name, arity, _types);
+
+        // Xsl3 (P7): analysis and code generation share the same higher-order function signatures.
+        internal static (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? CompiledFunctionSignature(QName name, int arity, StaticTypeResolver resolver)
         {
             if (!s_compiledSignatures.TryGetValue((name.NamespaceUri, name.LocalName, arity), out string[]? types))
             {
                 return null;
             }
-            SequenceTypeTest[] tests = types.Select(t => _types.Resolve(Parser.ParseSequenceType(t))).ToArray();
+            SequenceTypeTest[] tests = types.Select(t => resolver.Resolve(Parser.ParseSequenceType(t))).ToArray();
             return (tests[..^1], tests[^1]);
         }
 

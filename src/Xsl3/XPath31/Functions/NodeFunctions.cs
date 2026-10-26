@@ -76,17 +76,20 @@ namespace Xsl3.XPath31.Functions
                 }
                 try
                 {
+                    Xsl3.Runtime.DocumentFragment.ValidateReference(uri);
                     System.Uri? baseUri = c.StaticBaseUri is { Length: > 0 } b ? resolver.ResolveUri(null, b) : null;
                     System.Uri resolved = resolver.ResolveUri(baseUri, uri);
+                    using var claim = c.Runtime?.Documents.BeginRead(resolved);
                     using var stream = resolver.GetEntity(resolved, null, typeof(System.IO.Stream)) as System.IO.Stream;
                     if (stream == null)
                     {
                         return Bool(false);
                     }
+                    claim?.Commit();
                     using XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore }, resolved.AbsoluteUri);
                     return Bool(reader.MoveToContent() == XmlNodeType.Element);
                 }
-                catch (Exception e) when (e is XmlException or System.IO.IOException or UnauthorizedAccessException or System.Net.WebException or UriFormatException)
+                catch (Exception e) when (e is XmlException or System.IO.IOException or UnauthorizedAccessException or System.Net.WebException or UriFormatException or XdmException { Code: "FODC0005" })
                 {
                     return Bool(false);
                 }
@@ -446,10 +449,6 @@ namespace Xsl3.XPath31.Functions
 
         private static XPathNavigator Doc(string uri, FunctionContext c)
         {
-            if (uri.Contains('#'))
-            {
-                throw new XdmException("FODC0005", $"'{uri}' has a fragment identifier");
-            }
             if (c.Runtime == null || Xsl3.Runtime.XmlQueryRuntime.DocumentFunctions == false)
             {
                 // (Without XsltSettings.EnableDocumentFunction, no document is available.)
@@ -457,7 +456,7 @@ namespace Xsl3.XPath31.Functions
             }
             try
             {
-                XPathNavigator? doc = c.Runtime.ExternalContext.GetDataSource(uri, c.StaticBaseUri);
+                XPathNavigator? doc = c.Runtime.ExternalContext.GetDocument(uri, c.StaticBaseUri);
                 if (doc == null)
                 {
                     throw new XdmException("FODC0002", $"Document '{uri}' can't be retrieved");
@@ -498,12 +497,15 @@ namespace Xsl3.XPath31.Functions
             {
                 System.Uri? baseUri = c.StaticBaseUri != null ? resolver.ResolveUri(null, c.StaticBaseUri) : null;
                 System.Uri resolved = resolver.ResolveUri(baseUri, href);
-                using var stream = (Stream)resolver.GetEntity(resolved, null, typeof(Stream))!;
+                using var claim = c.Runtime?.Documents.BeginRead(resolved);
+                using var stream = resolver.GetEntity(resolved, null, typeof(Stream)) as Stream
+                    ?? throw new IOException("The text resource resolver did not return a stream");
+                claim?.Commit();
                 using var ms = new MemoryStream();
                 stream.CopyTo(ms);
                 bytes = ms.ToArray();
             }
-            catch (Exception e) when (e is not OutOfMemoryException)
+            catch (Exception e) when (e is not OutOfMemoryException && e is not OperationCanceledException && e is not XdmException { Code: "XTDE1500" })
             {
                 throw new XdmException("FOUT1170", $"'{href}' can't be retrieved: {e.Message}");
             }
@@ -553,7 +555,7 @@ namespace Xsl3.XPath31.Functions
                 UnparsedText(href, encoding, c);
                 return true;
             }
-            catch (XdmException)
+            catch (XdmException e) when (e.Code is "FOUT1170" or "FOUT1190")
             {
                 return false;
             }
@@ -584,6 +586,8 @@ namespace Xsl3.XPath31.Functions
                 MaxCharactersFromEntities = 10_000_000,
                 ConformanceLevel = fragment ? ConformanceLevel.Fragment : ConformanceLevel.Document,
             };
+            if (!fragment && c.Runtime != null)
+                settings.XmlResolver = c.Runtime.Documents.TrackResolver(XmlReaderSettingsInternals.GetEffectiveResolver(settings));
             if (fragment && text.StartsWith("<?xml", System.StringComparison.Ordinal))
             {
                 // A text declaration starts an external parsed entity.
@@ -605,6 +609,7 @@ namespace Xsl3.XPath31.Functions
             }
             catch (XmlException e)
             {
+                Xsl3.Runtime.DocumentResources.RethrowReadControlError(e);
                 throw new XdmException("FODC0006", $"{(fragment ? "fn:parse-xml-fragment" : "fn:parse-xml")}: not well-formed: {e.Message}");
             }
         }

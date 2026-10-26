@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Xml;
 using System.Xml.XPath;
@@ -585,24 +586,46 @@ namespace Xsl3.XPath31.Functions
 
         // ---------------------------------------------------------------- xml-to-json
 
+        internal static bool IsXmlToJsonError(XdmException error) => error.Name == null && error.ValidationSource == null
+            && error.Code is "XPTY0004" or "FOJS0005" or "FOJS0006" or "FOJS0007";
+
         private static string XmlToJson(XPathNavigator node, MapItem? options)
         {
             JsonOptions o = Options(options, toXml: false);
+            if (node is not Xsl3.Streaming.StreamedNavigator source || node.NodeType is not (XPathNodeType.Root or XPathNodeType.Element))
+                return ConvertXmlToJson(node, o);
+            using (source.Document.BeginConsumption(source.PositionNode))
+            {
+                try { return ConvertXmlToJson(node, o); }
+                catch (XdmException error) when (IsXmlToJsonError(error))
+                {
+                    source.Document.CompleteConsumption(source.PositionNode);
+                    throw;
+                }
+            }
+        }
+
+        private static string ConvertXmlToJson(XPathNavigator node, JsonOptions o)
+        {
             XPathNavigator n = node.Clone();
+            var sb = new StringBuilder();
             if (n.NodeType == XPathNodeType.Root)
             {
-                XPathNavigator? element = null;
+                bool found = false;
+                ExceptionDispatchInfo? failure = null;
                 if (n.MoveToFirstChild())
                 {
                     do
                     {
                         if (n.NodeType == XPathNodeType.Element)
                         {
-                            if (element != null)
-                            {
-                                throw Invalid("the document has more than one element");
-                            }
-                            element = n.Clone();
+                            if (found) throw Invalid("the document has more than one element");
+                            found = true;
+                            // Convert while this child is readable. Document structure still
+                            // takes precedence over conversion errors, as in the grounded path.
+                            try { WriteJson(sb, n.Clone(), o.Indent, 0); }
+                            catch (XdmException error) when (IsXmlToJsonError(error))
+                            { failure = ExceptionDispatchInfo.Capture(error); }
                         }
                         else if (n.NodeType is XPathNodeType.Text && n.Value.Trim().Length > 0)
                         {
@@ -611,14 +634,14 @@ namespace Xsl3.XPath31.Functions
                     }
                     while (n.MoveToNext());
                 }
-                n = element ?? throw Invalid("the document has no element");
+                if (!found) throw Invalid("the document has no element");
+                failure?.Throw();
             }
-            if (n.NodeType != XPathNodeType.Element)
+            else
             {
-                throw Invalid($"a {n.NodeType} node can't be converted");
+                if (n.NodeType != XPathNodeType.Element) throw Invalid($"a {n.NodeType} node can't be converted");
+                WriteJson(sb, n, o.Indent, 0);
             }
-            var sb = new StringBuilder();
-            WriteJson(sb, n, o.Indent, 0);
             return sb.ToString();
         }
 
@@ -707,37 +730,37 @@ namespace Xsl3.XPath31.Functions
                 }
                 case "string":
                 {
-                    NoElementChildren(e);
+                    string value = ScalarText(e);
                     bool escaped = escapedAttr != null && Boolean(escapedAttr, "escaped");
-                    sb.Append('"').Append(escaped ? Reescape(e.Value) : Escape(e.Value)).Append('"');
+                    sb.Append('"').Append(escaped ? Reescape(value) : Escape(value)).Append('"');
                     break;
                 }
                 case "number":
                 {
-                    NoElementChildren(e);
-                    string v = e.Value.Trim();
+                    string value = ScalarText(e);
+                    string v = value.Trim();
                     if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) || double.IsNaN(d) || double.IsInfinity(d) ||
-                        !Casting.IsCastable(AtomicValue.OfString(e.Value), AtomicTypes.Double))
+                        !Casting.IsCastable(AtomicValue.OfString(value), AtomicTypes.Double))
                     {
-                        throw Invalid($"'{e.Value}' is not a JSON number");
+                        throw Invalid($"'{value}' is not a JSON number");
                     }
                     sb.Append(Lexical.DoubleToString(d));
                     break;
                 }
                 case "boolean":
                 {
-                    NoElementChildren(e);
-                    string v = e.Value.Trim();
+                    string value = ScalarText(e);
+                    string v = value.Trim();
                     sb.Append(v switch
                     {
                         "true" or "1" => "true",
                         "false" or "0" => "false",
-                        _ => throw Invalid($"'{e.Value}' is not a boolean"),
+                        _ => throw Invalid($"'{value}' is not a boolean"),
                     });
                     break;
                 }
                 case "null":
-                    if (e.HasChildren && e.Value.Length > 0 || Children(e).Any())
+                    if (ScalarText(e).Length > 0)
                     {
                         throw Invalid("null must be empty");
                     }
@@ -763,8 +786,10 @@ namespace Xsl3.XPath31.Functions
             _ => throw Invalid($"{name}=\"{value}\" is not a boolean"),
         };
 
-        private static void NoElementChildren(XPathNavigator e)
+        private static string ScalarText(XPathNavigator e)
         {
+            string first = "";
+            StringBuilder? value = null;
             XPathNavigator c = e.Clone();
             if (c.MoveToFirstChild())
             {
@@ -774,9 +799,16 @@ namespace Xsl3.XPath31.Functions
                     {
                         throw Invalid($"{e.LocalName} can't have element children");
                     }
+                    if (c.NodeType is XPathNodeType.Text or XPathNodeType.Whitespace or XPathNodeType.SignificantWhitespace)
+                    {
+                        string text = c.Value;
+                        if (first.Length == 0) first = text;
+                        else (value ??= new StringBuilder(first)).Append(text);
+                    }
                 }
                 while (c.MoveToNext());
             }
+            return value?.ToString() ?? first;
         }
 
         // The element children of a map or array; text other than whitespace is an error.

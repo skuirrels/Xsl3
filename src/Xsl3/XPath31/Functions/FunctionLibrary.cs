@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.XPath;
+using Xsl3.Runtime;
 using Xsl3.Xdm;
 
 namespace Xsl3.XPath31.Functions
@@ -13,26 +14,43 @@ namespace Xsl3.XPath31.Functions
     /// <summary>A built-in function of one arity (F&amp;O 3.1), as declared by its signature.</summary>
     internal sealed class FunctionDefinition
     {
+        internal sealed record Signature(IReadOnlyList<(string Name, SequenceTypeTest Type)> Parameters, SequenceTypeTest ReturnType);
+
+        private readonly Signature? _signature;
+        private readonly System.Lazy<Signature>? _deferredSignature;
+
         public FunctionDefinition(int id, QName name, IReadOnlyList<(string Name, SequenceTypeTest Type)> parameters, SequenceTypeTest returnType, FunctionBody body, bool variadic)
         {
             Id = id;
             Name = name;
-            Parameters = parameters;
-            ReturnType = returnType;
+            Arity = parameters.Count;
+            _signature = new(parameters, returnType);
             Body = body;
             IsVariadic = variadic;
         }
+
+        internal FunctionDefinition(int id, QName name, int arity, System.Func<Signature> signature, FunctionBody body, bool variadic)
+        {
+            Id = id;
+            Name = name;
+            Arity = arity;
+            _deferredSignature = new(signature);
+            Body = body;
+            IsVariadic = variadic;
+        }
+
+        private Signature Types => _signature ?? _deferredSignature!.Value;
 
         /// <summary>Index in <see cref="FunctionLibrary.ById"/>; compiled code refers to functions by it.</summary>
         public int Id { get; }
 
         public QName Name { get; }
 
-        public IReadOnlyList<(string Name, SequenceTypeTest Type)> Parameters { get; }
+        public IReadOnlyList<(string Name, SequenceTypeTest Type)> Parameters => Types.Parameters;
 
-        public int Arity => Parameters.Count;
+        public int Arity { get; }
 
-        public SequenceTypeTest ReturnType { get; }
+        public SequenceTypeTest ReturnType => Types.ReturnType;
 
         public FunctionBody Body { get; }
 
@@ -99,9 +117,21 @@ namespace Xsl3.XPath31.Functions
                     value = converted;
                 }
             }
-            if (!expected.Matches(value) && !(itemTest is FunctionItemTest { Parameters: not null } ft && FunctionCoercible(value, expected, ft)))
+            if (!expected.Matches(value))
             {
-                throw new XdmException(errorCode, $"{(what != null ? what() : $"Argument {argIndex + 1} of {(function is FunctionItem item ? item.Describe() : function)}")} must be {expected}, but is {Describe(value)}");
+                if (itemTest is not FunctionItemTest { Parameters: not null, ReturnType: not null } ft || !FunctionCoercible(value, expected, ft))
+                    throw new XdmException(errorCode, $"{(what != null ? what() : $"Argument {argIndex + 1} of {(function is FunctionItem item ? item.Describe() : function)}")} must be {expected}, but is {Describe(value)}");
+                // Every conversion entry point must install the callable wrapper, including accumulators and callbacks.
+                XPathItem[]? wrapped = null;
+                for (int i = 0; i < value.Count; i++)
+                {
+                    if (value[i] is FunctionItem target && !ft.Matches(target))
+                    {
+                        wrapped ??= value.ToArray();
+                        wrapped[i] = new CoercedFunction(target, ft.Parameters.ToArray(), ft.ReturnType);
+                    }
+                }
+                if (wrapped != null) return wrapped;
             }
             return value;
         }
@@ -114,7 +144,7 @@ namespace Xsl3.XPath31.Functions
             {
                 return false;
             }
-            return value.All(v => v is FunctionItem f and not MapItem and not ArrayItem && f.Arity == test.Parameters!.Count || test.Matches(v));
+            return value.All(v => v is FunctionItem f && f.Arity == test.Parameters!.Count || test.Matches(v));
         }
 
         private static AtomicValue Convert(AtomicValue a, ItemTest test)
@@ -197,6 +227,9 @@ namespace Xsl3.XPath31.Functions
 
         public static FunctionDefinition ById(int id) => s_byId[id];
 
+        // Xsl3 (P7): validate analysis metadata against the canonical function registry.
+        internal static IReadOnlyList<FunctionDefinition> Definitions => s_byId;
+
         private static int? s_fingerprint;
 
         /// <summary>
@@ -253,17 +286,25 @@ namespace Xsl3.XPath31.Functions
                 paramText = paramText.TrimEnd()[..^3].TrimEnd().TrimEnd(',');
             }
 
-            var parameters = new List<(string, SequenceTypeTest)>();
-            foreach (string p in SplitTopLevel(paramText))
-            {
-                int asPos = p.IndexOf(" as ", System.StringComparison.Ordinal);
-                parameters.Add((p[..asPos].Trim().TrimStart('$'), ResolveType(p[(asPos + 4)..].Trim())));
-            }
             if (!returnText.StartsWith("as ", System.StringComparison.Ordinal))
             {
                 throw new System.InvalidOperationException("Bad signature: " + signature);
             }
-            SequenceTypeTest returnType = ResolveType(returnText[3..].Trim());
+            // Saved assemblies need stable ids, names and arities before any function
+            // is called. Parsing every type here also initializes the XPath parser
+            // and atomic type graph for stylesheets that never call a built-in.
+            int arity = SplitTopLevel(paramText).Count();
+            FunctionDefinition.Signature Types()
+            {
+                var parameters = new List<(string, SequenceTypeTest)>(arity);
+                foreach (string p in SplitTopLevel(paramText))
+                {
+                    int asPos = p.IndexOf(" as ", System.StringComparison.Ordinal);
+                    if (asPos < 0) throw new System.InvalidOperationException("Bad signature: " + signature);
+                    parameters.Add((p[..asPos].Trim().TrimStart('$'), ResolveType(p[(asPos + 4)..].Trim())));
+                }
+                return new(parameters, ResolveType(returnText[3..].Trim()));
+            }
 
             int colon = name.IndexOf(':');
             string ns = name[..colon] switch
@@ -275,7 +316,7 @@ namespace Xsl3.XPath31.Functions
                 "xs" => QName.Ns.Xs,
                 var other => throw new System.InvalidOperationException("Unknown prefix " + other),
             };
-            var def = new FunctionDefinition(s_byId.Count, new QName(ns, name[(colon + 1)..], name[..colon]), parameters, returnType, body, variadic);
+            var def = new FunctionDefinition(s_byId.Count, new QName(ns, name[(colon + 1)..], name[..colon]), arity, Types, body, variadic);
             s_byId.Add(def);
             if (!s_byName.TryGetValue((ns, def.Name.LocalName), out List<FunctionDefinition>? list))
             {

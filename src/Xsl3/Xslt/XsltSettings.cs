@@ -22,6 +22,15 @@ namespace Xsl3
         BackwardsCompatible,
     }
 
+    /// <summary>How declarations that fail guaranteed-streamability analysis are handled.</summary>
+    public enum XsltStreamabilityMode
+    {
+        /// <summary>Reject the declaration with XTSE3430. The default.</summary>
+        Strict,
+        /// <summary>Allow the declaration to use the ordinary tree-based execution path.</summary>
+        Fallback,
+    }
+
     public sealed class XsltSettings
     {
         private bool _enableDocumentFunction;
@@ -31,6 +40,34 @@ namespace Xsl3
         private int _warningLevel = -1;     // -1 means not set
         private bool _treatWarningsAsErrors;
         private bool _enableEvaluate;
+        private XsltStreamabilityMode _streamability;
+
+        // P7 development switch. Tests can select it per compiler without mutating process-wide state.
+        internal bool? StreamedExecution { get; set; }
+        internal bool UseStreamedExecution => StreamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+
+        private int _streamingBufferCapacity = 64;
+        /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 64.</summary>
+        public int StreamingBufferCapacity
+        {
+            get => _streamingBufferCapacity;
+            set => _streamingBufferCapacity = value > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+        }
+
+        /// <summary>
+        /// How declared-streamable code that is not guaranteed-streamable is handled.
+        /// Defaults to <see cref="XsltStreamabilityMode.Strict"/>. This controls static analysis;
+        /// it does not by itself enable streamed execution.
+        /// </summary>
+        public XsltStreamabilityMode Streamability
+        {
+            get => _streamability;
+            set
+            {
+                if (!Enum.IsDefined(value)) throw new ArgumentOutOfRangeException(nameof(value));
+                _streamability = value;
+            }
+        }
 
         public XsltSettings() { }
 

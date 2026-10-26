@@ -138,7 +138,11 @@
     foreach (QilFunction ndFunc in {$qil}.FunctionList) {
         // Functions that construct Xml trees should stream output to writer; otherwise, results should
         // be cached and returned.
-        if (IsConstructedExpression(ndFunc.Definition)) {
+        // Pull functions return iterator items even when a node selection's empty
+        // branch resembles XML construction; writer conversion loses yielded values.
+        // Output workers write to the current output; capturing their writes as
+        // a function result would discard them at the runtime dispatch boundary.
+        if (ndFunc.PullArgument < 0 && !ndFunc.IsOutputWorker && !ReferenceEquals(ndFunc, {$qil}.Dispatcher) && IsConstructedExpression(ndFunc.Definition)) {
             // Perform state analysis on function's content
             ndFunc.Definition = this.contentAnalyzer.Analyze(ndFunc, ndFunc.Definition);
         }

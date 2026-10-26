@@ -77,7 +77,9 @@ public static class Micro
         var cold = new XslCompiledTransform();
         cold.Load(Path30(names[0]));
         cold.Transform(CompactInput("1kb"), null, Stream.Null);
-        rows.Add(new Row(names[0], "cold", watch.Elapsed.TotalMilliseconds, watch.Elapsed.TotalMilliseconds, GC.GetAllocatedBytesForCurrentThread() - allocated, 1));
+        watch.Stop();
+        double coldMs = watch.Elapsed.TotalMilliseconds;
+        rows.Add(new Row(names[0], "cold", coldMs, coldMs, GC.GetAllocatedBytesForCurrentThread() - allocated, 1));
         Print(rows[^1], header: true);
 
         // Compile time per stylesheet.
@@ -293,10 +295,15 @@ public static class Micro
     /// <summary>Warm up, then run for about <paramref name="budget"/> ms (at least five runs).</summary>
     private static Row Measure(string name, string size, int budget, Action action)
     {
-        for (int i = 0; i < 3; i++)
+        // A few calls can finish before tiered compilation has optimized the hot code. Use the same
+        // duration for warmup and measurement so short transforms do not mostly measure tier transitions.
+        var warmup = Stopwatch.StartNew();
+        int warmupRuns = 0;
+        do
         {
             action();
-        }
+            warmupRuns++;
+        } while (warmup.ElapsedMilliseconds < budget || warmupRuns < 3);
         var times = new List<double>();
         long bytes = 0;
         var total = Stopwatch.StartNew();
@@ -307,10 +314,6 @@ public static class Micro
             action();
             times.Add(watch.Elapsed.TotalMilliseconds);
             bytes += GC.GetAllocatedBytesForCurrentThread() - before;
-            if (times.Count >= 10_000)
-            {
-                break;
-            }
         }
         return new Row(name, size, Median(times), times.Min(), bytes / times.Count, times.Count);
     }

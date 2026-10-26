@@ -23,6 +23,12 @@ namespace Xsl3.Xdm
         /// <summary>The local part of the error code.</summary>
         public string Code { get; }
 
+        // A streamed validation error can be caught around its source instruction, not inside its body.
+        internal Streaming.StreamedDocument? ValidationSource { get; init; }
+
+        // An actual accumulator dependency cycle, distinct from fn:error using the same error QName.
+        internal bool AccumulatorCycle { get; init; }
+
         /// <summary>The error code, if it isn't in the err namespace (fn:error with a QName).</summary>
         public QName? Name { get; init; }
 

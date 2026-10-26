@@ -27,6 +27,44 @@ public class ConstantPoolTests
         }
         Assert.Equal(before, Xsl3.XPath31.ConstantPool.GlobalCount);
     }
+
+    [Fact]
+    public void NonemptySchemaConstantsRetainImportedDeclarations()
+    {
+        var schemas = new System.Xml.Schema.XmlSchemaSet();
+        schemas.Add(null, XmlReader.Create(new StringReader("<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'><xs:element name='row' type='xs:integer'/></xs:schema>")));
+        schemas.Compile();
+        var constants = new Xsl3.XPath31.ConstantTable();
+        constants.Add(schemas);
+        using var stream = new MemoryStream();
+        using var writer = new Xsl3.Runtime.XmlQueryDataWriter(stream);
+        Xsl3.XPath31.ConstantSerializer.Write(writer, constants);
+        writer.Flush();
+        stream.Position = 0;
+        using var reader = new Xsl3.Runtime.XmlQueryDataReader(stream);
+        var restored = Assert.IsType<System.Xml.Schema.XmlSchemaSet>(Xsl3.XPath31.ConstantSerializer.Read(reader).Get(0));
+        Assert.True(restored.IsCompiled);
+        using XmlReader input = XmlReader.Create(new StringReader("<row>7</row>"), new XmlReaderSettings { ValidationType = ValidationType.Schema, Schemas = restored });
+        while (input.Read()) { }
+        Assert.NotNull(restored.GlobalElements[new XmlQualifiedName("row")]);
+    }
+    [Fact]
+    public void EmptySchemaConstantsKeepTheLegacyFormat()
+    {
+        var constants = new Xsl3.XPath31.ConstantTable();
+        constants.Add(new System.Xml.Schema.XmlSchemaSet());
+        using var stream = new MemoryStream();
+        using var writer = new Xsl3.Runtime.XmlQueryDataWriter(stream);
+        Xsl3.XPath31.ConstantSerializer.Write(writer, constants);
+        writer.Flush();
+        stream.Position = 0;
+        using var reader = new Xsl3.Runtime.XmlQueryDataReader(stream);
+        Assert.Equal(3, reader.ReadInt32());
+        stream.Position = 0;
+        var restored = Assert.IsType<System.Xml.Schema.XmlSchemaSet>(Xsl3.XPath31.ConstantSerializer.Read(reader).Get(0));
+        Assert.Empty(restored.Schemas());
+    }
+
 }
 
 internal static class Xslt30TestsAccess

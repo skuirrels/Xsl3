@@ -263,12 +263,18 @@ public sealed class Runner
         if (kind == "any-of")
         {
             var outcomes = assertion.Elements().Select(a => Check(a, result, env, contextItem)).ToList();
-            return outcomes.FirstOrDefault(o => o.Kind == OutcomeKind.Pass) ?? Outcome.Fail(string.Join(" | ", outcomes.Select(o => o.Detail)));
+            // Prefer an exact or wildcard match over a tolerated wrong-code error.
+            return outcomes.FirstOrDefault(o => o.Kind == OutcomeKind.Pass && o.Detail.Length == 0)
+                ?? outcomes.FirstOrDefault(o => o.Kind == OutcomeKind.Pass)
+                ?? Outcome.Fail(string.Join(" | ", outcomes.Select(o => o.Detail)));
         }
         if (kind == "all-of")
         {
             var outcomes = assertion.Elements().Select(a => Check(a, result, env, contextItem)).ToList();
-            return outcomes.FirstOrDefault(o => o.Kind != OutcomeKind.Pass) ?? Outcome.Pass();
+            // A conjunction must retain a wrong-code note even when error tolerance lets it pass.
+            return outcomes.FirstOrDefault(o => o.Kind != OutcomeKind.Pass)
+                ?? outcomes.FirstOrDefault(o => o.Detail.Length != 0)
+                ?? Outcome.Pass();
         }
         if (kind == "not")
         {

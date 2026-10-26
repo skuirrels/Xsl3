@@ -201,7 +201,7 @@ namespace Xsl3.Runtime
     public struct DoubleAggregator
     {
         private double _result;
-        private int _cnt;
+        private long _cnt;
 
         public void Create()
         {

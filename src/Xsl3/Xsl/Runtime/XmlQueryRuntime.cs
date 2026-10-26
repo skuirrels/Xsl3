@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Xml.Schema;
 using System.Xml.XPath;
 using Xsl3.IlGen;
@@ -25,8 +26,46 @@ namespace Xsl3.Runtime
     ///   3. Manages list of all atomized names that are used within the query
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public sealed class XmlQueryRuntime
+    public sealed partial class XmlQueryRuntime
     {
+        private List<Streaming.StreamedDocument>? _streamedSources;
+
+        internal void RegisterStreamedSource(Streaming.StreamedDocument document) => (_streamedSources ??= new()).Add(document);
+
+        internal void CloseStreamedSource(Streaming.StreamedDocument document)
+        {
+            _streamedSources?.Remove(document);
+            document.Dispose();
+        }
+
+        internal int StreamedSourceMark => _streamedSources?.Count ?? 0;
+
+        internal bool CanCatchStreamedValidation(Exception error, int sourceMark)
+        {
+            for (Exception? current = error; current != null; current = current.InnerException)
+                if (current is Xdm.XdmException { ValidationSource: { } source } && _streamedSources != null)
+                {
+                    int index = _streamedSources.IndexOf(source);
+                    if (index >= 0 && index < sourceMark) return false;
+                }
+            return true;
+        }
+
+        internal void CloseStreamedSources(int mark = 0)
+        {
+            if (_streamedSources == null) return;
+            // Close every source, including when a provider's Close throws. The execution finally block
+            // preserves the primary transformation error; normal source exits report Close errors directly.
+            while (_streamedSources.Count > mark)
+            {
+                int index = _streamedSources.Count - 1;
+                Streaming.StreamedDocument document = _streamedSources[index];
+                _streamedSources.RemoveAt(index);
+                try { document.Dispose(); }
+                catch (Exception e) when (XmlException.IsCatchableException(e)) { }
+            }
+        }
+
         // Xsl3: cancellation of a running transformation (SPEC §21.1). Checked, with the stack, at every template and
         // function entry; set for the current thread by the API that runs the transformation.
         [System.ThreadStatic]
@@ -154,6 +193,7 @@ namespace Xsl3.Runtime
 
         // Xsl3: compiled by the XSLT 2.0+ path.
         internal bool IsXslt2 { get; }
+        internal bool StreamedInitialMode { get; }
 
         /// <summary>Xsl3 (P6): default-validation="preserve": nodes copied into constructed trees keep their type annotations.</summary>
         internal bool PreserveAnnotations
@@ -169,6 +209,13 @@ namespace Xsl3.Runtime
 
         /// <summary>Xsl3 (P6): the constructors being evaluated that preserve (true) or strip (false) type annotations.</summary>
         internal Stack<bool>? AnnotationScopes { get; set; }
+
+        internal Stack<bool>? CopyAnnotationScopes()
+        {
+            if (AnnotationScopes == null) return null;
+            bool[] saved = AnnotationScopes.ToArray(); Array.Reverse(saved);
+            return new Stack<bool>(saved);
+        }
 
         /// <summary>Xsl3 (P6): the stylesheet was compiled by a schema-aware processor (XsltSettings.SchemaAware).</summary>
         internal bool SchemaAware { get; set; }
@@ -189,8 +236,28 @@ namespace Xsl3.Runtime
             set => t_principal = value;
         }
 
-        // The secondary results written so far by this transformation (XTDE1490 for a second write to one URI).
-        internal readonly System.Collections.Generic.HashSet<string> ResultDocumentUris = new System.Collections.Generic.HashSet<string>();
+        internal DocumentResources Documents { get; private set; }
+        internal IReadOnlySet<long>? DocumentDependencies { get; private set; }
+        internal IReadOnlySet<EvaluationWaitGraph.Node>? EvaluationDependencies { get; private set; }
+
+        // Attach before evaluating the new runtime. Source/output stacks and execution policies
+        // remain independent responsibilities of the fork runtime constructor.
+        internal void ShareDocuments(XmlQueryRuntime owner)
+        {
+            if (!ReferenceEquals(_ctxt.DataSources, owner._ctxt.DataSources))
+                throw new InvalidOperationException("Shared documents must use the same resolver");
+            if (!Documents.IsUnused)
+                throw new InvalidOperationException("A runtime must share documents before using resources or document IDs");
+            UseSharedDocuments(owner);
+        }
+
+        private void UseSharedDocuments(XmlQueryRuntime owner)
+        {
+            owner.Documents.Share(Cancellation);
+            DocumentDependencies = owner.Documents.CaptureDependencies(owner.DocumentDependencies);
+            Documents = owner.Documents;
+            EvaluationDependencies = Documents.Evaluations.Capture(owner.EvaluationDependencies);
+        }
 
         internal static void CheckCancellation() => t_cancellation.ThrowIfCancellationRequested();
 
@@ -203,25 +270,31 @@ namespace Xsl3.Runtime
 
         /// <summary>Xsl3: the templates and functions running, innermost last (XsltSettings.EnableTracing).</summary>
         internal readonly System.Collections.Generic.List<XsltFrame> TraceStack = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Exception, object> s_stackGates = new();
 
         /// <summary>Xsl3: records the stylesheet stack on an exception leaving the transformation; never handles it.</summary>
         internal bool AttachStylesheetStack(System.Exception e)
         {
-            if (e.Data.Contains(XsltDynamicException.StackKey))
+            // Shared globals publish the original exception to every prong. Exception.Data
+            // is not a concurrent dictionary; coordinate annotations without retaining errors.
+            lock (s_stackGates.GetValue(e, static _ => new object()))
             {
+                if (e.Data.Contains(XsltDynamicException.StackKey))
+                {
+                    return false;
+                }
+                if (TraceStack.Count > 0)
+                {
+                    var frames = TraceStack.ToArray();
+                    System.Array.Reverse(frames);
+                    e.Data[XsltDynamicException.StackKey] = frames;
+                }
+                else if (_frames != null && StackOfMethods(e) is { Length: > 0 } frames)
+                {
+                    e.Data[XsltDynamicException.StackKey] = frames;
+                }
                 return false;
             }
-            if (TraceStack.Count > 0)
-            {
-                var frames = TraceStack.ToArray();
-                System.Array.Reverse(frames);
-                e.Data[XsltDynamicException.StackKey] = frames;
-            }
-            else if (_frames != null && StackOfMethods(e) is { Length: > 0 } frames)
-            {
-                e.Data[XsltDynamicException.StackKey] = frames;
-            }
-            return false;
         }
 
         private readonly System.Collections.Generic.Dictionary<string, int>? _frames;
@@ -277,11 +350,32 @@ namespace Xsl3.Runtime
         private XsltLibrary? _xsltLib;
         private readonly EarlyBoundInfo[]? _earlyInfo;
         private readonly object[]? _earlyObjects;
+        private object? _earlyObjectGate;
+        private readonly XmlQueryStaticData _staticData;
 
         // Global variables and parameters
         private readonly string[]? _globalNames;
         private readonly object[]? _globalValues;
         private readonly bool[]? _globalInProgress; // Xsl3: globals being computed, to detect circular definitions
+        private ExceptionDispatchInfo?[]? _globalFailures;
+        private SharedGlobalBindings? _sharedGlobals;
+        private HashSet<int>? _globalAncestors;
+
+        // Called on the invoking thread before prongs start. Other runtime state still needs its
+        // own isolation/coordination; sharing globals alone does not make a runtime a fork view.
+        internal void ShareGlobalBindings(XmlQueryRuntime owner)
+        {
+            if (!ReferenceEquals(_globalNames, owner._globalNames))
+                throw new InvalidOperationException("Shared global bindings must belong to the same compiled stylesheet");
+            if (_sharedGlobals != null || _globalFailures != null || _globalValues != null && Array.Exists(_globalValues, static value => value != null)
+                || _globalInProgress != null && Array.Exists(_globalInProgress, static active => active))
+                throw new InvalidOperationException("A runtime must share globals before evaluating its own bindings");
+            owner._sharedGlobals ??= new SharedGlobalBindings(owner._globalNames ?? Array.Empty<string>(),
+                owner._globalValues ?? Array.Empty<object>(), owner._globalInProgress ?? Array.Empty<bool>(), owner._globalFailures, Cancellation, owner.Documents.Evaluations);
+            _sharedGlobals = owner._sharedGlobals;
+            _globalAncestors = _sharedGlobals.CaptureDependencies(owner._globalAncestors);
+            EvaluationDependencies = owner.Documents.Evaluations.Capture(owner.EvaluationDependencies);
+        }
 
         // Names, prefix mappings, and name filters
         private readonly XmlNameTable _nameTableQuery;
@@ -294,9 +388,6 @@ namespace Xsl3.Runtime
 
         // Collations
         private readonly XmlCollation[]? _collations;
-
-        // Document ordering
-        private readonly DocumentOrderComparer _docOrderCmp;
 
         // Indexes
         private ArrayList[]? _indexes;
@@ -321,6 +412,17 @@ namespace Xsl3.Runtime
         }
 
 
+        // Xsl3: a secondary result has its own output, but shares the invocation's resources and
+        // function dispatcher. Restore nested constructions as well when its body throws.
+        internal void WithOutput(XmlSequenceWriter writer, Action body)
+        {
+            var saved = SaveOutput();
+            _stkOutput.Push(_output);
+            _output = new XmlQueryOutput(this, writer);
+            try { body(); }
+            finally { RestoreOutput(saved); }
+        }
+
         //-----------------------------------------------
         // Constructors
         //-----------------------------------------------
@@ -328,11 +430,27 @@ namespace Xsl3.Runtime
         /// <summary>
         /// This constructor is internal so that external users cannot construct it (and therefore we do not have to test it separately).
         /// </summary>
-        internal XmlQueryRuntime(XmlQueryStaticData data, object defaultDataSource, XmlResolver dataSources, XsltArgumentList? argList, XmlSequenceWriter seqWrt)
+        internal XmlQueryRuntime(XmlQueryStaticData data, object defaultDataSource, XmlResolver dataSources, XsltArgumentList? argList, XmlSequenceWriter seqWrt,
+            XmlQueryRuntime? resourceOwner = null)
+            : this(data, defaultDataSource, dataSources, argList, seqWrt, resourceOwner, forkOwner: null)
+        {
+        }
+
+        private XmlQueryRuntime(XmlQueryStaticData data, object defaultDataSource, XmlResolver dataSources, XsltArgumentList? argList, XmlSequenceWriter seqWrt,
+            XmlQueryRuntime? resourceOwner, XmlQueryRuntime? forkOwner)
         {
             Debug.Assert(data != null);
+            _staticData = data;
+            Documents = resourceOwner?.Documents ?? new();
+            if (resourceOwner != null)
+            {
+                if (!ReferenceEquals(dataSources, resourceOwner._ctxt.DataSources))
+                    throw new InvalidOperationException("Shared documents must use the same resolver");
+                UseSharedDocuments(resourceOwner);
+            }
             Dispatcher = data.Dispatcher;
             IsXslt2 = data.Xslt2;
+            StreamedInitialMode = data.StreamedInitialMode;
             UseCompactTree = data.CompactTree;
             Constants = data.Constants;
             _frames = data.Frames;
@@ -343,10 +461,13 @@ namespace Xsl3.Runtime
 
             // Early-Bound Library Objects
             wsRules = (data.WhitespaceRules != null && data.WhitespaceRules.Count != 0) ? new WhitespaceRuleLookup(data.WhitespaceRules) : null;
-            _ctxt = new XmlQueryContext(this, defaultDataSource, dataSources, argList, wsRules);
+            _ctxt = forkOwner == null ? new XmlQueryContext(this, defaultDataSource, dataSources, argList, wsRules)
+                : new XmlQueryContext(this, forkOwner._ctxt);
             _xsltLib = null;
             _earlyInfo = data.EarlyBound;
-            _earlyObjects = (_earlyInfo != null) ? new object[_earlyInfo.Length] : null;
+            _earlyObjects = forkOwner?._earlyObjects ?? ((_earlyInfo != null) ? new object[_earlyInfo.Length] : null);
+            if (forkOwner != null && _earlyObjects != null)
+                _earlyObjectGate = forkOwner._earlyObjectGate ??= new object();
 
             // Global variables and parameters
             _globalNames = data.GlobalNames;
@@ -403,9 +524,6 @@ namespace Xsl3.Runtime
             // Xml collations
             _collations = data.Collations;
 
-            // Document ordering
-            _docOrderCmp = new DocumentOrderComparer();
-
             // Indexes
             _indexes = null;
 
@@ -439,8 +557,8 @@ namespace Xsl3.Runtime
                 if (_globalNames[idx] == name)
                 {
                     Debug.Assert(IsGlobalComputed(idx), "Cannot get the value of a global value until it has been computed.");
-                    Debug.Assert(_globalValues![idx] is IList<XPathItem>, "Only debugger should call this method, and all global values should have type item* in debugging scenarios.");
-                    return (IList)_globalValues[idx];
+                    Debug.Assert(GetGlobalValue(idx) is IList<XPathItem>, "Only debugger should call this method, and all global values should have type item* in debugging scenarios.");
+                    return (IList)GetGlobalValue(idx);
                 }
             }
             return null;
@@ -456,18 +574,20 @@ namespace Xsl3.Runtime
                 if (_globalNames[idx] == name)
                 {
                     Debug.Assert(IsGlobalComputed(idx), "Cannot get the value of a global value until it has been computed.");
-                    Debug.Assert(_globalValues![idx] is IList<XPathItem>, "Only debugger should call this method, and all global values should have type item* in debugging scenarios.");
+                    Debug.Assert(GetGlobalValue(idx) is IList<XPathItem>, "Only debugger should call this method, and all global values should have type item* in debugging scenarios.");
 
                     // Always convert "value" to a list of XPathItem using the item* converter
                     // Xsl3: upstream uses System.Private.Xml's internal XmlAnyListConverter.ItemList. This method only
                     // serves debuggers, so only item values and sequences of items are accepted.
-                    _globalValues[idx] = value switch
+                    object converted = value switch
                     {
                         IList<XPathItem> items => items,
                         XPathItem item => new XmlQueryItemSequence(item),
                         IEnumerable<XPathItem> items => new List<XPathItem>(items),
                         _ => throw new NotSupportedException(),
                     };
+                    if (_sharedGlobals != null) _sharedGlobals.SetDebugValue(idx, converted);
+                    else _globalValues![idx] = converted;
                     break;
                 }
             }
@@ -521,6 +641,11 @@ namespace Xsl3.Runtime
         /// </summary>
         public object GetEarlyBoundObject(int index)
         {
+            if (_earlyObjectGate != null)
+            {
+                lock (_earlyObjectGate)
+                    return _earlyObjects![index] ??= _earlyInfo![index].CreateObject();
+            }
             object obj;
             Debug.Assert(_earlyObjects != null && index < _earlyObjects.Length, "Early bound object does not exist");
 
@@ -563,10 +688,19 @@ namespace Xsl3.Runtime
         /// </summary>
         public bool IsGlobalComputed(int index)
         {
+            if (_sharedGlobals != null)
+            {
+                if (_sharedGlobals.IsComputed(index, _globalAncestors, Cancellation, EvaluationDependencies)) return true;
+                // A following prong's cancellation must not poison a transformation-wide value
+                // that an earlier prong still needs. Generated success/failure paths restore its token.
+                Cancellation = _sharedGlobals.EvaluationCancellation;
+                return false;
+            }
             if (_globalValues![index] != null)
             {
                 return true;
             }
+            _globalFailures?[index]?.Throw();
             // Xsl3: the generated code computes the value after a false answer; asking again before it is
             // set means the value depends on itself (XTDE0640), which would otherwise recurse without end.
             if (_globalInProgress![index])
@@ -584,7 +718,7 @@ namespace Xsl3.Runtime
         public object GetGlobalValue(int index)
         {
             Debug.Assert(IsGlobalComputed(index), "Cannot get the value of a global value until it has been computed.");
-            return _globalValues![index];
+            return _sharedGlobals != null ? _sharedGlobals.Get(index) : _globalValues![index];
         }
 
         /// <summary>
@@ -593,9 +727,35 @@ namespace Xsl3.Runtime
         /// </summary>
         public void SetGlobalValue(int index, object value)
         {
+            if (_sharedGlobals != null)
+            {
+                if (_sharedGlobals.Set(index, value) is { } previous) Cancellation = previous;
+                return;
+            }
             Debug.Assert(_globalValues![index] == null, "Global value should only be set once.");
             _globalValues![index] = value;
             _globalInProgress![index] = false;
+        }
+
+        /// <summary>Generated global bindings publish failures before unwinding to their caller.</summary>
+        public void GlobalValueFailed(int index, Exception error)
+        {
+            // Annotation is best-effort, as in the execution catch filter. A user exception's
+            // Data getter can throw; that must not replace the failure or leave a global claimed.
+            RecordFailureStack(error);
+            if (_sharedGlobals != null)
+            {
+                if (_sharedGlobals.Fail(index, error) is { } previous) Cancellation = previous;
+                return;
+            }
+            (_globalFailures ??= new ExceptionDispatchInfo?[_globalNames!.Length])[index] ??= ExceptionDispatchInfo.Capture(error);
+            _globalInProgress![index] = false;
+        }
+
+        internal void RecordFailureStack(Exception error)
+        {
+            try { AttachStylesheetStack(error); }
+            catch (Exception annotationError) when (XmlException.IsCatchableException(annotationError)) { }
         }
 
 
@@ -910,7 +1070,7 @@ namespace Xsl3.Runtime
                         }
 
                         // Always sort node-set by document order
-                        value = ((XmlQueryNodeSequence)value).DocOrderDistinct(_docOrderCmp);
+                        value = ((XmlQueryNodeSequence)value).DocOrderDistinct(Documents.Order);
                     }
                     break;
 
@@ -1151,7 +1311,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public int ComparePosition(XPathNavigator navigatorThis, XPathNavigator navigatorThat)
         {
-            return _docOrderCmp.Compare(navigatorThis, navigatorThat);
+            return Documents.Order.Compare(navigatorThis, navigatorThat);
         }
 
         /// <summary>
@@ -1164,7 +1324,7 @@ namespace Xsl3.Runtime
 
             XmlQueryNodeSequence nodeSeq = (XmlQueryNodeSequence)seq;
 
-            return nodeSeq.DocOrderDistinct(_docOrderCmp);
+            return nodeSeq.DocOrderDistinct(Documents.Order);
         }
 
         /// <summary>
@@ -1173,7 +1333,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public string GenerateId(XPathNavigator navigator)
         {
-            return string.Create(CultureInfo.InvariantCulture, $"ID{_docOrderCmp.GetDocumentIndex(navigator)}{navigator.UniqueId}");
+            return string.Create(CultureInfo.InvariantCulture, $"ID{Documents.Order.GetDocumentIndex(navigator)}{navigator.UniqueId}");
         }
 
 
@@ -1186,6 +1346,32 @@ namespace Xsl3.Runtime
         /// in "index" and return true.  Otherwise, create a new, empty index and return false.
         /// </summary>
         private XPathNavigator? _indexRoot;
+        private SharedKeyIndexes? _sharedIndexes;
+        private List<(int Id, XPathNavigator Root, ExceptionDispatchInfo Fault)>? _indexFaults;
+
+        private void ShareIndexes(XmlQueryRuntime owner)
+        {
+            if (owner._sharedIndexes == null)
+            {
+                var shared = new SharedKeyIndexes(owner.Documents.Evaluations, Cancellation);
+                if (owner._indexes != null)
+                    for (int id = 0; id < owner._indexes.Length; id++)
+                        if (owner._indexes[id] is { } entries)
+                            for (int i = 0; i < entries.Count; i += 2)
+                                shared.Seed(id, (XPathNavigator)entries[i]!, owner.GenerateId((XPathNavigator)entries[i]!), (XmlILIndex)entries[i + 1]!, null, false);
+                if (owner._indexesInProgress != null)
+                    foreach (var entry in owner._indexesInProgress)
+                        shared.Seed(entry.Id, entry.Root, owner.GenerateId(entry.Root), null, null, true);
+                if (owner._indexFaults != null)
+                    foreach (var entry in owner._indexFaults)
+                        shared.Seed(entry.Id, entry.Root, owner.GenerateId(entry.Root), null, entry.Fault, false);
+                owner._sharedIndexes = shared;
+                owner._indexes = null;
+                owner._indexesInProgress = null;
+                owner._indexFaults = null;
+            }
+            _sharedIndexes = owner._sharedIndexes;
+        }
 
         public bool FindIndex(XPathNavigator context, int indexId, out XmlILIndex index)
         {
@@ -1200,6 +1386,11 @@ namespace Xsl3.Runtime
             }
             navRoot = _indexRoot;
             navRoot.MoveToRoot();
+            if (_sharedIndexes != null)
+                return _sharedIndexes.Find(indexId, navRoot, GenerateId(navRoot), Cancellation, EvaluationDependencies, out index);
+            if (_indexFaults != null)
+                foreach (var fault in _indexFaults)
+                    if (fault.Id == indexId && fault.Root.IsSamePosition(navRoot)) fault.Fault.Throw();
 
             // Search pre-existing indexes in order to determine whether the specified index has already been created
             if (_indexes != null && indexId < _indexes.Length)
@@ -1242,6 +1433,20 @@ namespace Xsl3.Runtime
         // Xsl3: the indexes being built (2.0+), by key and document.
         private List<(int Id, XPathNavigator Root)>? _indexesInProgress;
 
+        /// <summary>Generated key builds publish failures before unwinding to their caller.</summary>
+        public void IndexValueFailed(XPathNavigator context, int indexId, Exception error)
+        {
+            RecordFailureStack(error);
+            XPathNavigator root = context.Clone();
+            root.MoveToRoot();
+            if (_sharedIndexes != null)
+            {
+                if (_sharedIndexes.Publish(indexId, root, GenerateId(root), null, error) is { } previous) Cancellation = previous;
+            }
+            else if (_indexesInProgress?.RemoveAll(e => e.Id == indexId && e.Root.IsSamePosition(root)) > 0)
+                (_indexFaults ??= new()).Add((indexId, root, ExceptionDispatchInfo.Capture(error)));
+        }
+
         /// <summary>
         /// Add a newly built index over the specified "context" document to the existing collection of indexes.
         /// </summary>
@@ -1254,6 +1459,11 @@ namespace Xsl3.Runtime
             // Get root of document
             navRoot = context.Clone();
             navRoot.MoveToRoot();
+            if (_sharedIndexes != null)
+            {
+                if (_sharedIndexes.Publish(indexId, navRoot, GenerateId(navRoot), index, null) is { } previous) Cancellation = previous;
+                return;
+            }
             _indexesInProgress?.RemoveAll(e => e.Id == indexId && e.Root.IsSamePosition(navRoot));
 
             // Ensure that a slot exists for the new index

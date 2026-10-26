@@ -398,13 +398,18 @@ namespace Xsl3.Xslt
         public void CollectPatterns(StylesheetLevel sheet, QilName mode) => CollectPatterns(sheet, mode, below: null);
 
         // Xsl3: the arguments of an invocation through an alternative that tells the template which one matched.
-        private static IList<XslNode> WithAlternative(IList<XslNode> actualArgs, TemplateMatch match)
+        private IList<XslNode> WithAlternative(IList<XslNode> actualArgs, TemplateMatch match)
         {
             if (match.AlternativeArg == null)
             {
                 return actualArgs;
             }
-            var args = new List<XslNode>(actualArgs) { match.AlternativeArg };
+            var original = (VarPar)match.AlternativeArg;
+            VarPar alternative = AstFactory.VarPar(XslNodeType.WithParam, original.Name!, null, XslVersion.Current);
+            // The same union alternative participates in several dispatch functions. Each invocation
+            // owns its literal QIL node; sharing the argument's value makes the graph invalid in Debug.
+            alternative.Value = original.Value!.DeepClone(_f.BaseFactory);
+            var args = new List<XslNode>(actualArgs) { alternative };
             return args;
         }
 

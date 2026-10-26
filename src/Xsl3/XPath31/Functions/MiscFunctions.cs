@@ -16,7 +16,7 @@ namespace Xsl3.XPath31.Functions
         private static IList<XPathItem> Math1(IList<XPathItem> arg, System.Func<double, double> f) => arg.Count == 0 ? Empty : Dbl(f(D(arg)));
 
         // A relative collation URI is resolved against the static base URI (F&O 3.1 §5.3.5).
-        private static Collation Coll(IList<XPathItem> arg, FunctionContext c)
+        internal static Collation Coll(IList<XPathItem> arg, FunctionContext c)
         {
             string uri = S(arg);
             if (c.StaticBaseUri != null && !UriReference.IsAbsolute(uri) && UriReference.IsAbsolute(c.StaticBaseUri))

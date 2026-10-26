@@ -12,8 +12,9 @@ namespace Xsl3.Runtime
     public sealed partial class XsltLibrary
     {
         // A map or array under construction; the constructor calls are chained, so a builder is used once.
-        private sealed class Builder : FunctionItem
+        private sealed class Builder(string duplicateKeyCode = "XQDY0137") : FunctionItem
         {
+            public readonly string DuplicateKeyCode = duplicateKeyCode;
             public readonly Dictionary<MapKey, KeyValuePair<AtomicValue, IList<XPathItem>>> Entries = new();
             public readonly List<IList<XPathItem>> Members = new();
 
@@ -24,6 +25,9 @@ namespace Xsl3.Runtime
         }
 
         public XPathItem X31MapNew() => new Builder();
+
+        /// <summary>An XSLT MapExpr uses XTDE3365 rather than XPath's XQDY0137 (XSLT 3.0 §21.4).</summary>
+        public XPathItem X31MapNewXslt() => new Builder("XTDE3365");
 
         /// <summary>xsl:map-entry (XSLT 3.0 §21.2): a map with one entry; the key is one atomic value (XTTE3375).</summary>
         public XPathItem X31MapSingleton(IList<XPathItem> key, IList<XPathItem> value)
@@ -58,14 +62,14 @@ namespace Xsl3.Runtime
             return result;
         }
 
-        /// <summary>An entry of a map constructor: the key is a single atomic value (XPTY0004), not already present (XQDY0137).</summary>
+        /// <summary>An entry of a map constructor: one atomic key, absent from the builder under its host's error contract.</summary>
         public XPathItem X31MapEntry(XPathItem builder, IList<XPathItem> key, IList<XPathItem> value)
         {
             var b = (Builder)builder;
             AtomicValue k = Sequences.AtomizeOptional(key, "a map key") ?? throw Err.XPTY0004("A map key can't be an empty sequence");
             if (!b.Entries.TryAdd(new MapKey(k), new(k, Copy(value))))
             {
-                throw new XdmException("XQDY0137", $"The map constructor has the key '{k.Value}' twice");
+                throw new XdmException(b.DuplicateKeyCode, $"The map constructor has the key '{k.Value}' twice");
             }
             return b;
         }

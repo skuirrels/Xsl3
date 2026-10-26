@@ -35,6 +35,8 @@ namespace Xsl3.Xslt
     {
         public XsltSettings Settings;
         public bool IsDebug;
+        public bool HasStreamableDeclarations;
+        public Dictionary<XslNode, Streaming.StreamabilityVerdict>? StreamabilityResults;
         public string? ScriptAssemblyPath;
         public int Version;                // 0 - Auto; 1 - XSLT 1.0; 2 - XSLT 2.0
         public string? inputTypeAnnotations;   // null - "unspecified"; "preserve"; "strip"
@@ -47,6 +49,8 @@ namespace Xsl3.Xslt
         public XmlQualifiedName? InitialTemplate;
         public XmlQualifiedName? InitialFunction; // Xsl3: the initial function (XSLT 3.0 §2.3.4), with its arity
         public int InitialFunctionArity;
+        public bool InitialSourceSelection; // reader, stream or URI selection separate from the global context
+        public bool StreamedInitialMode; // selected entry mode can receive a forward input
         public bool InitialMatchSelection; // Xsl3: apply templates to the items of the parameter InitialFunctionArguments.Selection
         // Xsl3: extension functions registered through the 3.0 API (XsltCompiler.RegisterExtensionFunction), by name and arity.
         public IReadOnlyDictionary<(string Ns, string Local, int Arity), Runtime.RegisteredFunction>? RegisteredFunctions;
@@ -139,6 +143,11 @@ namespace Xsl3.Xslt
 
             new XsltLoader().Load(this, stylesheet, xmlResolver, origResolver);
             PackageComponents.Build(this); // Xsl3: the packages' component tables (Packages.cs)
+            if (Version == 2 && HasStreamableDeclarations && !System.Linq.Enumerable.Any(
+                System.Linq.Enumerable.Cast<CompilerError>(CompilerErrorColl), error => !error.IsWarning))
+            {
+                Streaming.ConstructAnalysis.CheckDeclarations(this);
+            }
             if (Version == 2)
             {
                 // Xsl3: the merged declarations of each decimal format must give distinct characters (XTSE1300).
@@ -156,6 +165,22 @@ namespace Xsl3.Xslt
                     {
                         ReportError(format.Line ?? SourceLineInfo.NoSource, SR.Xml_UserException, $"XTSE1300: the characters of the decimal format {format.Name} are not distinct");
                     }
+                }
+            }
+            if (Version == 2 && InitialTemplate == null && InitialFunction == null && !InitialMatchSelection)
+            {
+                QilName initial = InitialMode is { } mode ? AstFactory.QName(mode.Name, mode.Namespace, "")
+                    : DefaultInitialMode ?? XsltLoader.nullMode;
+                QilName? actual = PackageComponents.Resolve(this, 0, 'M', initial, -1);
+                StreamedInitialMode = Settings.UseStreamedExecution && actual != null && ModeDecls.TryGetValue(actual, out ModeDecl? declaration)
+                    && declaration.Attributes.GetValueOrDefault("streamable") is "yes" or "true" or "1"
+                    && (StreamabilityResults == null || !System.Linq.Enumerable.Any(StreamabilityResults.Values, verdict => !verdict.Guaranteed));
+                if (InitialSourceSelection || StreamedInitialMode)
+                {
+                    XslNode start = StartApplyTemplates!;
+                    StartApplyTemplates = new XslNodeEx(XslNodeType.ApplyTemplates, start.Name,
+                        $"Q{{{Runtime.InitialFunctionArguments.Namespace}}}source()", XslVersion.Current);
+                    foreach (XslNode child in start.Content) StartApplyTemplates.AddContent(child);
                 }
             }
             qil = QilGenerator.CompileStylesheet(this);
@@ -571,6 +596,7 @@ namespace Xsl3.Xslt
         public string OnMultipleMatch = "use-last";
         public string Typed = "unspecified"; // Xsl3: typed="yes"/"strict" makes untyped nodes XTTE3100
         public Dictionary<string, string> Attributes = new(); // the attributes given, for XTSE0545
+        public Dictionary<string, int> AttributePrecedences = new(); // each attribute can be inherited independently
         public int ImportPrecedence;
         public ModeDeclNode? Declaration; // Xsl3: for packages: the declaration's line, package and visibility
     }

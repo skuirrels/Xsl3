@@ -18,8 +18,15 @@ git -C "$ROOT" worktree add --detach "$WORK/base" "$BASE_REF" >/dev/null
 rm -rf "$WORK/base/bench"
 cp -R "$ROOT/bench" "$WORK/base/bench"
 rm -rf "$WORK/base/bench/Xsl3.Benchmarks/bin" "$WORK/base/bench/Xsl3.Benchmarks/obj"
-
-build() { dotnet build "$1/bench/Xsl3.Benchmarks" -c Release -f net10.0 -o "$2" -v quiet -nologo >/dev/null; }
+# The ordinary suite must build on commits predating the streamed reader API.
+# Exclude the separate process host on both sides; the same micro harness still runs.
+build() {
+  if dotnet build "$1/bench/Xsl3.Benchmarks" -c Release -f net10.0 -m:1 -p:EnableStreamingProcessBenchmarks=false -o "$2" -v quiet -nologo >"$2.build.log" 2>&1; then
+    return 0
+  fi
+  cat "$2.build.log" >&2
+  return 1
+}
 build "$WORK/base" "$WORK/base-bin"
 build "$ROOT" "$WORK/head-bin"
 

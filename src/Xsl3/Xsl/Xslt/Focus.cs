@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using Xsl3.IlGen;
 using Xsl3.Qil;
 using Xsl3.XPath;
 using T = Xsl3.XmlQueryTypeFactory;
@@ -229,8 +230,11 @@ namespace Xsl3.Xslt
             if (_last != null)
             {
                 // last() encountered either in the sort keys or in the body of the current loop
+                bool contextSizeOnly = _cached == null;
                 EnsureCache();
                 _last.Binding = _f.XsltConvert(_f.Length(_cached!), T.DoubleX);
+                OptimizerPatterns.Write(_last).AddPattern(OptimizerPatternName.ContextSize);
+                if (contextSizeOnly) OptimizerPatterns.Write(_cached!).AddPattern(OptimizerPatternName.ContextSizeCache);
             }
 
             result = _f.BaseFactory.Loop(_current!, body);

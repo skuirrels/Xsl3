@@ -160,6 +160,8 @@ namespace Xsl3.Runtime
             get { return _seqwrt; }
         }
 
+        internal bool AtSequence => _xstate == XmlState.WithinSequence;
+
         /// <summary>
         /// Raw writer to which output is directed by this class.
         /// </summary>
@@ -670,6 +672,9 @@ namespace Xsl3.Runtime
                 return true; // not on an element
             }
             (_noInheritAt ??= new HashSet<int>()).Add(_depth);
+            // This element's required binding originates here, even when an outer
+            // constructor uses the same prefix and URI. Its no-inherit rule applies to it.
+            if (_elementNs.Length != 0) WriteNamespaceDeclarationUnchecked(_elementPrefix, _elementNs);
             if (target is Xsl3.Tree.CompactDocument.Writer or XmlEventCache)
             {
                 Writer!.WriteNamespaceDeclaration(prefix, string.Empty);
@@ -682,6 +687,8 @@ namespace Xsl3.Runtime
         private HashSet<int>? _noInheritAt;
 
         private bool ParentDoesntInherit => _noInheritAt != null && _noInheritAt.Contains(_depth - 1);
+        private bool RequiresLocalNamespaces => _noInheritAt != null
+            && (_noInheritAt.Contains(_depth - 1) || _noInheritAt.Contains(_depth));
 
         public void WriteNamespaceDeclarationUnchecked(string prefix, string ns)
         {
@@ -713,7 +720,7 @@ namespace Xsl3.Runtime
                 _nsmgr.PushScope();
             }
 
-            if (_nsmgr.LookupNamespace(prefix) != ns || ParentDoesntInherit && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
+            if (_nsmgr.LookupNamespace(prefix) != ns || RequiresLocalNamespaces && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
             {
                 // Xsl3: in 2.0+, two namespace nodes of one element can't bind a prefix to different URIs (XTDE0430).
                 if (_runtime.IsXslt2 && DeclaredHere(prefix) is string declared && declared != ns)
@@ -919,7 +926,7 @@ namespace Xsl3.Runtime
             else
             {
                 nsExisting = _nsmgr.LookupNamespace(prefix);
-                if (ns != nsExisting || ParentDoesntInherit && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
+                if (ns != nsExisting || RequiresLocalNamespaces && !_nsmgr.GetNamespacesInScope(XmlNamespaceScope.Local).ContainsKey(prefix))
                 {
                     // prefix = "", ns = "", nsExisting --> Look for xmlns="", found xmlns="foo"
                     // prefix = "", ns, nsExisting = null --> Look for xmlns="uri", no uri found
@@ -1252,6 +1259,36 @@ namespace Xsl3.Runtime
         //-----------------------------------------------
         // Helper methods
         //-----------------------------------------------
+
+        // Keep all chunks of one text constructor in one tree when the caller is
+        // collecting a sequence. Serialized output can pass each chunk through.
+        internal bool BeginSimpleContent()
+        {
+            bool tree = _xstate == XmlState.WithinSequence;
+            if (tree) StartTree(XPathNodeType.Text);
+            else if (_xstate == XmlState.EnumAttrs) StartElementContentUnchecked();
+            return tree;
+        }
+
+        internal void WriteSimpleContentChunk(string text, bool raw)
+        {
+            switch (_xstate)
+            {
+                case XmlState.WithinContent:
+                    if (raw) WriteRawUnchecked(text); else WriteStringUnchecked(text);
+                    break;
+                case XmlState.WithinAttr: WriteStringUnchecked(text); break;
+                case XmlState.WithinNmsp: WriteNamespaceString(text); break;
+                case XmlState.WithinComment: WriteCommentString(text); break;
+                case XmlState.WithinPI: WriteProcessingInstructionString(text); break;
+                default: ThrowInvalidStateError(XPathNodeType.Text); break;
+            }
+        }
+
+        internal void EndSimpleContent(bool tree)
+        {
+            if (tree) EndTree();
+        }
 
         /// <summary>
         /// Add an in-scope namespace.

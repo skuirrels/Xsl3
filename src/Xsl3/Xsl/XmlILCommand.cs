@@ -66,7 +66,13 @@ namespace Xsl3
                     }
                     finally
                     {
-                        XmlQueryRuntime.Principal = saved;
+                        try
+                        {
+                            // Xsl3: a borrowed writer can have a private serialization wrapper. Flush that
+                            // wrapper too, including its final Unicode-normalization segment.
+                            if (!ReferenceEquals(principal, writer)) principal.Flush();
+                        }
+                        finally { XmlQueryRuntime.Principal = saved; }
                     }
                 }
                 else if (writer is XmlRawWriter rawWriter)
@@ -92,14 +98,14 @@ namespace Xsl3
         /// Xsl3: runs the query and returns its result as a sequence instead of serializing it ("raw" result
         /// delivery, used by the XPath 3.1 API). Nodes keep their identity; atomic values come back as items.
         /// </summary>
-        public IList<XPathItem> Evaluate(object defaultDocument, XmlResolver? dataSources, XsltArgumentList? argumentList)
+        public IList<XPathItem> Evaluate(object defaultDocument, XmlResolver? dataSources, XsltArgumentList? argumentList, XmlQueryRuntime? resourceOwner = null)
         {
             var results = new XmlCachedSequenceWriter();
-            Execute(defaultDocument, dataSources, argumentList, results);
+            Execute(defaultDocument, dataSources, argumentList, results, resourceOwner);
             return results.ResultSequence;
         }
 
-        private void Execute(object defaultDocument, XmlResolver? dataSources, XsltArgumentList? argumentList, XmlSequenceWriter results)
+        private void Execute(object defaultDocument, XmlResolver? dataSources, XsltArgumentList? argumentList, XmlSequenceWriter results, XmlQueryRuntime? resourceOwner = null)
         {
             Debug.Assert(results != null);
 
@@ -110,8 +116,9 @@ namespace Xsl3
             bool stripping = Xsl3.Tree.CompactDocument.StripInputAnnotations;
             try
             {
-                runtime = new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results);
+                runtime = new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results, resourceOwner);
                 _delExec(runtime);
+                runtime.ExternalContext.CloseInitialSource();
             }
             catch (System.Exception e) when (runtime != null && runtime.AttachStylesheetStack(e))
             {
@@ -138,6 +145,7 @@ namespace Xsl3
             }
             finally
             {
+                runtime?.CloseStreamedSources();
                 // Xsl3 (P6): input-type-annotations="strip" lasts as long as the transformation (an enclosing one's stays).
                 Xsl3.Tree.CompactDocument.StripInputAnnotations = stripping;
             }

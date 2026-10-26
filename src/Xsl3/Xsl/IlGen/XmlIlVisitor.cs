@@ -28,7 +28,7 @@ namespace Xsl3.IlGen
     /// a caller to pull the data and/or instruct the iterator to enumerate the next value.
     /// </summary>
     [RequiresDynamicCode("Creates DynamicMethods")]
-    internal sealed class XmlILVisitor : QilVisitor
+    internal sealed partial class XmlILVisitor : QilVisitor
     {
         private QilExpression _qil = null!;
         private GenerateHelper _helper = null!;
@@ -140,6 +140,7 @@ namespace Xsl3.IlGen
                 _helper.LoadInteger(idxValue);
                 _helper.Call(XmlILMethods.GlobalComputed);
                 _helper.Emit(OpCodes.Brtrue, lblGetGlobal);
+                _helper.BeginExceptionBlock();
 
                 // Compute value of global value
                 StartNestedIterator();
@@ -169,7 +170,7 @@ namespace Xsl3.IlGen
                     _helper.CallSetGlobalValue(typeof(object));
 
                     // goto LabelGetGlobal;
-                    _helper.EmitUnconditionalBranch(OpCodes.Br, lblGetGlobal);
+                    _helper.Emit(OpCodes.Leave, lblGetGlobal);
                 }
 
                 // LabelComputeGlobal:
@@ -197,6 +198,16 @@ namespace Xsl3.IlGen
                 }
 
                 EndNestedIterator(iter);
+
+                _helper.BeginCatchBlock(typeof(Exception));
+                LocalBuilder failure = _helper.DeclareLocal("$$$globalFailure", typeof(Exception));
+                _helper.Emit(OpCodes.Stloc, failure);
+                _helper.LoadQueryRuntime();
+                _helper.LoadInteger(idxValue);
+                _helper.Emit(OpCodes.Ldloc, failure);
+                _helper.Call(XmlILMethods.GlobalFailed);
+                _helper.Emit(OpCodes.Rethrow);
+                _helper.EndExceptionBlock();
 
                 // LabelGetGlobal:
                 // return (T) runtime.GetGlobalValue(idxValue);
@@ -240,6 +251,7 @@ namespace Xsl3.IlGen
 
             // Generate query code from QilExpression tree
             _helper.MethodBegin(methFunc, ndFunc.SourceLine, useWriter);
+            if (ndFunc.PullArgument >= 0) _helper.PullLocals = new();
 
             // Xsl3: templates and functions recurse; turn imminent stack exhaustion into a catchable error
             // instead of a process crash (SPEC §21.2). With MaxRecursionDepth, the depth is counted too.
@@ -283,6 +295,13 @@ namespace Xsl3.IlGen
                     _helper.SetParameter(paramId);
                     _helper.MarkLabel(lblLocalComputed);
                 }
+            }
+
+            if (ndFunc.PullArgument >= 0)
+            {
+                GeneratePullFunction(ndFunc);
+                _helper.MethodEnd();
+                return;
             }
 
             StartNestedIterator();
@@ -1905,6 +1924,8 @@ namespace Xsl3.IlGen
         /// </summary>
         protected override QilNode VisitFilter(QilLoop ndFilter)
         {
+            if (OptimizerPatterns.Read(ndFilter).MatchesPattern(OptimizerPatternName.LoopGate))
+                return VisitLoopGate(ndFilter);
             // Handle any special-case patterns that are rooted at Filter
             if (HandleFilterPatterns(ndFilter))
                 return ndFilter;
@@ -1923,6 +1944,37 @@ namespace Xsl3.IlGen
             EndBinding(ndFilter.Variable);
 
             return ndFilter;
+        }
+
+        private QilNode VisitLoopGate(QilLoop gate)
+        {
+            // The compiler creates the filter iterator after compiling this condition, so its
+            // predicate cannot refer to that iterator. Check it before the first input evaluation
+            // and before every subsequent MoveNext, including when the consumer breaks the loop.
+            Label onEnd = _iterCurr.GetLabelNext();
+            void CheckGate()
+            {
+                StartNestedIterator();
+                _iterCurr.SetBranching(BranchingContext.OnFalse, onEnd);
+                Visit(gate.Body);
+                EndNestedIterator(gate.Body);
+            }
+            CheckGate();
+            StartBinding(gate.Variable);
+            IteratorDescriptor input = _iterNested!;
+            _iterCurr.SetIterator(input);
+            if (input.HasLabelNext)
+            {
+                Label next = _helper.DefineLabel(), current = _helper.DefineLabel();
+                _helper.EmitUnconditionalBranch(OpCodes.Br, current);
+                _helper.MarkLabel(next);
+                CheckGate();
+                _helper.EmitUnconditionalBranch(OpCodes.Br, input.GetLabelNext());
+                _helper.MarkLabel(current);
+                _iterCurr.SetIterator(next, input.Storage);
+            }
+            EndBinding(gate.Variable);
+            return gate;
         }
 
         /// <summary>
@@ -2010,8 +2062,7 @@ namespace Xsl3.IlGen
 
                     case QilNodeType.Descendant:
                     case QilNodeType.DescendantOrSelf:
-                        CreateFilteredIterator(input, "$$$iterDesc", typeof(DescendantIterator), XmlILMethods.DescCreate, XmlILMethods.DescNext, XmlILMethods.DescCurrent,
-                                               kinds, name, (step.NodeType == QilNodeType.Descendant) ? TriState.False : TriState.True, null);
+                        CreateDescendantIterator(step, input, kinds, name, step.NodeType == QilNodeType.DescendantOrSelf);
                         return true;
 
                     case QilNodeType.Preceding:
@@ -2063,22 +2114,18 @@ namespace Xsl3.IlGen
                 Label lblLookup = _helper.DefineLabel();
                 QilIterator nodes = (QilIterator)patt.GetArgument(OptimizerPatternArgument.IndexedNodes);
                 QilNode keys = (QilNode)patt.GetArgument(OptimizerPatternArgument.KeyExpression);
+                int indexId = _indexId++;
 
                 // XmlILIndex index;
                 // if (runtime.FindIndex(navCtxt, indexId, out index)) goto LabelLookup;
                 LocalBuilder locIndex = _helper.DeclareLocal("$$$index", typeof(XmlILIndex));
                 _helper.LoadQueryRuntime();
                 _helper.Emit(OpCodes.Ldarg_1);
-                _helper.LoadInteger(_indexId);
+                _helper.LoadInteger(indexId);
                 _helper.Emit(OpCodes.Ldloca, locIndex);
                 _helper.Call(XmlILMethods.FindIndex);
                 _helper.Emit(OpCodes.Brtrue, lblLookup);
-
-                // runtime.AddNewIndex(navCtxt, indexId, [build index]);
-                _helper.LoadQueryRuntime();
-                _helper.Emit(OpCodes.Ldarg_1);
-                _helper.LoadInteger(_indexId);
-                _helper.Emit(OpCodes.Ldloc, locIndex);
+                _helper.BeginExceptionBlock();
 
                 // Generate code to iterate over the nodes which are being indexed ($iterNodes in the pattern)
                 StartNestedIterator(lblOnEnd);
@@ -2089,11 +2136,17 @@ namespace Xsl3.IlGen
 
                 // index.Add(key, value);
                 _iterCurr.EnsureStackNoCache();
+                LocalBuilder indexKey = _helper.DeclareLocal("$$$indexKey", typeof(string));
+                _helper.Emit(OpCodes.Stloc, indexKey);
                 VisitFor(nodes);
                 _iterCurr.EnsureStackNoCache();
                 _iterCurr.EnsureItemStorageType(nodes.XmlType!, typeof(XPathNavigator));
-                _helper.Call(XmlILMethods.IndexAdd);
+                LocalBuilder indexNode = _helper.DeclareLocal("$$$indexNode", typeof(XPathNavigator));
+                _helper.Emit(OpCodes.Stloc, indexNode);
                 _helper.Emit(OpCodes.Ldloc, locIndex);
+                _helper.Emit(OpCodes.Ldloc, indexKey);
+                _helper.Emit(OpCodes.Ldloc, indexNode);
+                _helper.Call(XmlILMethods.IndexAdd);
 
                 // LabelOnEnd:
                 _iterCurr.LoopToEnd(lblOnEnd);
@@ -2101,7 +2154,22 @@ namespace Xsl3.IlGen
                 EndNestedIterator(nodes);
 
                 // runtime.AddNewIndex(navCtxt, indexId, [build index]);
+                _helper.LoadQueryRuntime();
+                _helper.Emit(OpCodes.Ldarg_1);
+                _helper.LoadInteger(indexId);
+                _helper.Emit(OpCodes.Ldloc, locIndex);
                 _helper.Call(XmlILMethods.AddNewIndex);
+                _helper.Emit(OpCodes.Leave, lblLookup);
+                _helper.BeginCatchBlock(typeof(Exception));
+                LocalBuilder indexError = _helper.DeclareLocal("$$$indexError", typeof(Exception));
+                _helper.Emit(OpCodes.Stloc, indexError);
+                _helper.LoadQueryRuntime();
+                _helper.Emit(OpCodes.Ldarg_1);
+                _helper.LoadInteger(indexId);
+                _helper.Emit(OpCodes.Ldloc, indexError);
+                _helper.Call(XmlILMethods.IndexFailed);
+                _helper.Emit(OpCodes.Rethrow);
+                _helper.EndExceptionBlock();
 
                 // LabelLookup:
                 // results = index.Lookup(keyValue);
@@ -2110,8 +2178,6 @@ namespace Xsl3.IlGen
                 _helper.Emit(OpCodes.Ldarg_2);
                 _helper.Call(XmlILMethods.IndexLookup);
                 _iterCurr.Storage = StorageDescriptor.Stack(typeof(XPathNavigator), true);
-
-                _indexId++;
 
                 return true;
             }
@@ -2693,8 +2759,7 @@ namespace Xsl3.IlGen
         /// </summary>
         protected override QilNode VisitDescendant(QilUnary ndDesc)
         {
-            CreateFilteredIterator(ndDesc.Child, "$$$iterDesc", typeof(DescendantIterator), XmlILMethods.DescCreate, XmlILMethods.DescNext, XmlILMethods.DescCurrent,
-                                   XmlNodeKindFlags.Any, null, TriState.False, null);
+            CreateDescendantIterator(ndDesc, ndDesc.Child, XmlNodeKindFlags.Any, null, false);
             return ndDesc;
         }
 
@@ -2703,8 +2768,7 @@ namespace Xsl3.IlGen
         /// </summary>
         protected override QilNode VisitDescendantOrSelf(QilUnary ndDesc)
         {
-            CreateFilteredIterator(ndDesc.Child, "$$$iterDesc", typeof(DescendantIterator), XmlILMethods.DescCreate, XmlILMethods.DescNext, XmlILMethods.DescCurrent,
-                                   XmlNodeKindFlags.Any, null, TriState.True, null);
+            CreateDescendantIterator(ndDesc, ndDesc.Child, XmlNodeKindFlags.Any, null, true);
             return ndDesc;
         }
 
@@ -2937,6 +3001,11 @@ namespace Xsl3.IlGen
         /// </summary>
         private QilUnary VisitTextCtor(QilUnary ndText, bool disableOutputEscaping)
         {
+            if (ndText.Child is QilInvokeEarlyBound content && content.ClrMethod.DeclaringType == typeof(XsltLibrary)
+                && content.ClrMethod.Name == nameof(XsltLibrary.X31SimpleContent)
+                && OptimizerPatterns.Read(content).MatchesPattern(OptimizerPatternName.StreamedSimpleContent))
+                return VisitStreamedTextCtor(ndText, content, disableOutputEscaping);
+
             XmlILConstructInfo info = XmlILConstructInfo.Read(ndText);
             bool callChk;
             Debug.Assert(info.PushToWriterFirst, "Text construction should always be pushed to writer.");
@@ -3624,6 +3693,34 @@ namespace Xsl3.IlGen
             "the attribute to this subclass' constructor. This allows us to not have to annotate the whole QilNode hirerarchy.")]
         protected override QilNode VisitXsltInvokeEarlyBound(QilInvokeEarlyBound ndInvoke)
         {
+            if (ndInvoke.ClrMethod.DeclaringType == typeof(XsltLibrary))
+            {
+                if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31ForkPush))
+                {
+                    _helper.InitializeCurrentOutput();
+                    NestedVisit(ndInvoke.Arguments[0]);
+                    _helper.Emit(OpCodes.Ldsfld, XmlILMethods.StorageMethods[typeof(XPathItem)].SeqEmpty);
+                    _iterCurr.Storage = StorageDescriptor.Stack(typeof(XPathItem), true);
+                    return ndInvoke;
+                }
+                if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31Fork))
+                {
+                    _helper.LoadXsltLibrary();
+                    NestedVisitEnsureStack(ndInvoke.Arguments[0], typeof(XPathItem), true);
+                    NestedVisitEnsureStack(ndInvoke.Arguments[1], typeof(XPathItem), false);
+                    NestedVisitEnsureStack(ndInvoke.Arguments[2], typeof(double), false);
+                    _helper.Call(ndInvoke.ClrMethod);
+                    _iterCurr.Storage = StorageDescriptor.None();
+                    return ndInvoke;
+                }
+            }
+            if (OptimizerPatterns.Read(ndInvoke).MatchesPattern(OptimizerPatternName.PullSequence))
+                return VisitPullSequence(ndInvoke);
+            return VisitBoundCall(ndInvoke);
+        }
+
+        private QilNode VisitBoundCall(QilInvokeEarlyBound ndInvoke)
+        {
             QilName ndName = ndInvoke.Name;
             XmlExtensionFunction extFunc;
             Type? clrTypeRetSrc;
@@ -3968,8 +4065,19 @@ namespace Xsl3.IlGen
         ///     if (!iter.MoveNext())
         ///         goto LabelNextCtxt;
         /// </remarks>
+        private void CreateDescendantIterator(QilNode step, QilNode input, XmlNodeKindFlags kinds, QilName? name, bool orSelf)
+        {
+            OptimizerPatterns patterns = OptimizerPatterns.Read(step);
+            int? maximum = patterns.MatchesPattern(OptimizerPatternName.DepthLimit)
+                ? (int)patterns.GetArgument(OptimizerPatternArgument.MaximumDepth) : null;
+            MethodInfo create = maximum != null ? XmlILMethods.DescCreateBounded
+                : patterns.MatchesPattern(OptimizerPatternName.Topmost) ? XmlILMethods.DescCreateTopmost : XmlILMethods.DescCreate;
+            CreateFilteredIterator(input, "$$$iterDesc", typeof(DescendantIterator), create, XmlILMethods.DescNext, XmlILMethods.DescCurrent,
+                kinds, name, orSelf ? TriState.True : TriState.False, null, maximum);
+        }
+
         private void CreateFilteredIterator(QilNode ndCtxt, string iterName, Type iterType, MethodInfo methCreate, MethodInfo methNext, MethodInfo methCurrent,
-                                                XmlNodeKindFlags kinds, QilName? ndName, TriState orSelf, QilNode? ndEnd)
+                                                XmlNodeKindFlags kinds, QilName? ndName, TriState orSelf, QilNode? ndEnd, int? maximumDepth = null)
         {
             // Iterator iter;
             LocalBuilder locIter = _helper.DeclareLocal(iterName, iterType);
@@ -3982,6 +4090,7 @@ namespace Xsl3.IlGen
                 _helper.LoadBoolean(orSelf == TriState.True);
             if (ndEnd != null)
                 NestedVisitEnsureStack(ndEnd);
+            if (maximumDepth is { } maximum) _helper.LoadInteger(maximum);
             _helper.Call(methCreate);
 
             GenerateSimpleIterator(typeof(XPathNavigator), locIter, methNext, methCurrent);
@@ -4950,6 +5059,7 @@ namespace Xsl3.IlGen
         /// </summary>
         private static bool CachesResult(QilNode nd)
         {
+            if (nd.NodeType == QilNodeType.XsltInvokeEarlyBound && OptimizerPatterns.Read(nd).MatchesPattern(OptimizerPatternName.PullSequence)) return false;
             OptimizerPatterns patt;
 
             switch (nd.NodeType)

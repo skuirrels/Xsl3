@@ -1,5 +1,8 @@
 # Performance
 
+The 2026-10-26 [P7A close-out](plan/p7a-closeout.md) freezes the foundations release. The ordinary performance
+gate passes; full streaming memory/throughput acceptance remains deferred and keeps its original targets.
+
 Phase 4's 1.0 exit criterion (SPEC §19.6): Xsl3 at least 1.2× stock `XslCompiledTransform` on the XSLT 1.0
 benchmark corpus and never slower, with 1.5× as the target.
 
@@ -91,8 +94,15 @@ Its navigator reads exactly as `XPathDocument`'s does:
 - namespace nodes in the same order (including `xmlns=""` and the copies made when a prefix is overridden);
 - the same base URIs and DTD IDs.
 
-A test walks both trees in step over every node to check this. The one visible difference is the string
-`generate-id()` returns.
+A test walks both trees in step over every node to check this. Within a tree, the one visible difference is the string
+`generate-id()` returns. Between trees, the order differs:
+
+- compact trees are ordered by when they were built, so a transform's input comes before the documents `document()`
+  loads;
+- `XPathDocument`s are ordered by when a comparison first meets them, as in stock.
+
+A union of nodes from two documents, such as `document('b.xml')//item | //item`, therefore comes out in a different
+order. XSLT 1.0 leaves this order to the implementation. `UseCompactTreeTests` checks both differences.
 
 Values are kept as pooled strings rather than slices of a shared `char[]` (a departure from the SPEC table). That way,
 reading a value never allocates.
@@ -493,6 +503,14 @@ job runs it on every pull request against the target branch. `perf-nightly.yml` 
 and the rewritten pairs every night, as an artifact. `micro --alloc-types` adds the runtime's allocation samples by
 type to each row, which is how the compile allocation above was found.
 
+**Measurement update, 2026-10-22.** Warmup now runs for the requested `--ms` duration (at least three calls),
+followed by a measurement phase of that duration (at least five calls). The former 10,000-sample cap could end
+small transforms well before the requested measurement duration. An identical-binary, three-pair control with
+the old harness reported a 6.3% slowdown and failed the gate; the duration-based control reported 0.7% and passed,
+with unchanged allocation. The gate's inputs, aggregation and thresholds are unchanged, and its base and head
+always use the same harness. Earlier tables retain their original measurements; absolute timings should not be
+compared across these harness versions.
+
 ## Real stylesheets: the TEI Stylesheets (remaining-scope 1.3)
 
 `eng/fetch-bench.sh` fetches the TEI Stylesheets (BSD-2-Clause or CC BY-SA 3.0) at a pinned commit; they aren't
@@ -685,3 +703,648 @@ two engines interleaved, checks their output is identical, and prints the median
 `dotnet run -c Release --project bench/Xsl3.Benchmarks -f net10.0 -p:Saxon=true -- saxon [--sizes 1kb,1mb] [--ms budget]
 [--cold-runs n] [--json file] [name...]` runs the comparison with SaxonCS-HE; without `-p:Saxon=true` the project doesn't
 reference Saxon.
+
+## P7 analysis development
+
+The streaming-expression analyser serves the W3C `sandp` profile and the compiler's declaration checks.
+The default `strm` development profile still builds trees. Strict forward probes and runtime unit tests
+exercise the development switch, but retained-memory and quantitative first-output latency measurements
+remain outstanding. See [the P7 plan](plan/p7-streaming.md#s5-streamed-merge).
+
+After streamed accumulator observers (2026-10-23), the final three-pair ordinary-path gate against `0f2ddcb`
+passes with geometric mean head/base time **1.002** over 39 timed rows and maximum reported allocation ratio
+**1.029**. Keys compilation remains **1.225** and 1 MB strings execution **1.084**; these individual outliers
+remain investigation items despite the aggregate pass. This gate uses the same current harness and thresholds
+on both sides and does not establish forward retained-memory or latency budgets.
+
+After forward grouping, a fresh three-pair gate against the same base passes with geometric mean **1.009**
+and maximum reported allocation ratio **1.031** (cold start). Sorting compilation is **1.181**, dispatch
+**1.027**, grouping **1.014** and keys **0.961**. The sorting outlier and earlier compilation variation remain
+investigation items. This ordinary-path gate does not measure the new forward runtime's throughput or its S7
+memory and first-output latency targets.
+
+
+After streamed merge and the key-option/comparison fixes, the final three-pair gate against `0f2ddcb` passes
+with geometric mean **1.004** and maximum reported allocation ratio **1.033** (cold start). Keys compilation
+is **1.149**, dispatch **1.074**, grouping **1.020** and sorting **0.932**. The keys/dispatch outliers and earlier
+compilation variation remain investigation items. Both sides use the same current harness and thresholds.
+Forward throughput, retained memory and quantitative first-output latency remain unmeasured. See
+[merge runtime evidence and limits](plan/p7-streaming.md#s5-streamed-merge).
+
+S2 compiler analysis runs only when the loader has seen a declared-streamable component. Ordinary stylesheets
+skip declaration analysis and XPath syntax caching. QIL annotations carry declaration verdicts into `Explain`.
+These analysis checks do not measure streamed execution. See
+[S2 progress](plan/p7-streaming.md#s2-compiler-enforcement) for the measured performance gate.
+
+The initial forward navigator is tested over 100 and 10,000 records with at most four cursor frames retained
+for that shape. Compiled count/sum and per-record grounding tests consume its reader. These are functional
+and structural checks; they do not establish the process-memory budgets or the strict streamed-suite exit.
+See [S3 foundation](plan/p7-streaming.md#s2-package-compatibility-and-s3-forward-navigator-foundation).
+
+
+After the S6 logical fork-input adapter, the final three-pair ordinary-path gate against `0f2ddcb` passes:
+geometric mean **0.997**, maximum reported allocation ratio **1.033** (cold start). Sorting compilation is
+**1.205**, grouping **1.068**, dispatch **1.026** and keys **0.914**. Sorting's outlier and the preceding
+compilation variation remain investigation items. The current harness and thresholds are shared by both sides;
+this gate does not establish fork throughput, memory or first-output latency. See
+[adapter evidence and limits](plan/p7-streaming.md#s6-streamed-fork-input-views).
+
+After fork accumulator/copy-provenance routing, the final three-pair ordinary-path gate against `0f2ddcb`
+passes: geometric mean **0.986**, maximum reported allocation ratio **1.033** (cold start). Compilation ratios
+include dispatch **1.065**, grouping **0.975**, sorting **0.865** and keys **0.652**. The variation across
+increments remains unresolved; both sides use the same current harness and thresholds. This does not establish
+fork throughput, retained-byte budgets or first-output latency. See
+[accumulator routing evidence and limits](plan/p7-streaming.md#s6-fork-accumulator-values-and-copy-provenance).
+
+After shared global bindings and generated failure publication, the final three-pair ordinary-path gate against
+`0f2ddcb` passes: geometric mean **1.010**, maximum reported allocation ratio **1.033** (cold start). Compilation
+ratios include dispatch **1.114**, sorting **1.137**, grouping **1.043** and keys **0.961**. Dispatch/sorting
+outliers and variation across preceding runs remain investigation items. Both sides use the same current
+harness and thresholds; this does not establish fork memory, throughput or output latency. See
+[shared-global evidence and limits](plan/p7-streaming.md#s6-shared-global-bindings).
+
+After shared document resources, the final three-pair ordinary-path gate against `0f2ddcb` passes: geometric
+mean **1.015**, maximum reported allocation ratio **1.033** (cold start). Time outliers include cold grouping
+**1.151**, 1 KB sorting **1.292** and 1 MB JSON **1.108**; compilation ratios include keys **1.062**, dispatch
+**1.023**, grouping **1.000** and sorting **0.998**. Outliers and prior variation remain investigation items.
+Both sides use the same current harness and thresholds. This does not establish fork throughput, memory or
+first-output latency. See [shared-document evidence and limits](plan/p7-streaming.md#s6-shared-document-resources).
+
+After external DTD/entity resource tracking and reader cleanup fixes, the final three-pair ordinary-path gate
+against `0f2ddcb` passes: geometric mean **1.022** over 39 timed rows, maximum reported allocation ratio **1.033**
+(cold start). Time outliers include 1 KB sorting **1.292**, 1 MB regex **1.068** and cold grouping **1.066**;
+compilation ratios include dispatch **1.046**, keys **1.033**, grouping **1.021** and sorting **0.919**. The
+recurring small-input sorting outlier and prior variation remain investigation items. Both sides use the same
+current harness and thresholds. This does not establish fork throughput, retained memory or first-output
+latency. See [entity tracking evidence and limits](plan/p7-streaming.md#s6-external-entity-resource-tracking).
+
+After isolated fork runtimes, captured-function dispatch and shared-exception publication fixes, the final
+three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **0.994** over 39 timed rows, maximum
+reported allocation ratio **1.033** (cold start). Time outliers include keys compilation **1.256**, join
+compilation **1.109** and 1 MB grouping **1.073**; other compilation ratios include dispatch **1.017**, grouping
+**1.002** and sorting **1.011**. The preceding small-input sorting outlier is **0.920** in this run. These
+outliers and variation remain unresolved; the run does not attribute their cause. Both sides use the same
+current harness and thresholds. This does not establish fork throughput, retained-memory bounds or first-output
+latency. See [fork-runtime evidence and limits](plan/p7-streaming.md#s6-isolated-fork-runtimes-and-execution-scopes).
+
+After shared key indexes, generated failure publication and cross-cache dependency tracking, the final three-pair
+ordinary-path gate against `0f2ddcb` passes: geometric mean **1.004** over 39 timed rows, maximum reported
+allocation ratio **1.033** (cold start). Time outliers include 1 MB iterate **1.166**, 1 KB regex **1.125**,
+1 MB regex **1.099** and join compilation **1.061**. Other compilation ratios include keys **0.895**, dispatch
+**1.027**, grouping **1.019** and sorting **0.999**; 1 MB keys is **1.006**. These outliers and preceding
+variation remain unresolved. Both sides use the same current harness and thresholds. This does not establish
+fork throughput, retained-memory budgets or first-output latency. See
+[shared-key evidence and limits](plan/p7-streaming.md#s6-shared-key-indexes-and-cross-cache-dependencies).
+
+After shared grounded accumulator values, iterative traversal and evaluation-scope cleanup, the final three-pair
+ordinary-path gate against `0f2ddcb` passes: geometric mean **0.999** over 39 timed rows, maximum reported
+allocation ratio **1.033** (cold start). Time outliers include 1 KB regex **1.146**, 1 MB iterate **1.130**,
+dispatch compilation **1.082**, iterate compilation **1.067** and strings compilation **1.055**. Other compilation
+ratios include keys **0.628**, sorting **0.876** and grouping **1.043**. These outliers and preceding variation
+remain unresolved. Both sides use the same current harness and thresholds. This does not measure grounded
+accumulator throughput or establish fork retained-memory/first-output latency budgets. See
+[grounded accumulator evidence and limits](plan/p7-streaming.md#s6-shared-grounded-accumulator-values).
+
+After captured source-binding projection, the final three-pair ordinary-path gate against `0f2ddcb` passes:
+geometric mean **0.973** over 39 timed rows, maximum reported allocation ratio **1.033** (cold start). Time
+outliers include 1 MB iterate **1.116**, cold start **1.112** and dispatch compilation **1.076**. Keys compilation
+is **0.691**, sorting compilation **0.844** and grouping compilation **1.022**. These outliers and preceding
+variation remain unresolved. Both sides use the same current harness and thresholds. This does not measure
+binding-projection overhead or establish fork throughput, retained-memory or first-output latency budgets. See
+[binding projection evidence and limits](plan/p7-streaming.md#s6-captured-source-binding-projection).
+
+After caller-side prepared binding snapshots and retained header views, the final three-pair ordinary-path gate
+against `0f2ddcb` passes: geometric mean **0.996** over 39 timed rows, maximum reported allocation ratio **1.034**
+(cold start). Time outliers include 1 KB regex **1.167** and dispatch compilation **1.072**. Keys compilation is
+**0.802**, sorting compilation **1.001** and grouping compilation **0.991**. These outliers and preceding variation
+remain unresolved. Both sides use the same current harness and thresholds. This does not measure preparation or
+projection throughput, header retention in bytes, fork throughput or first-output latency. See
+[prepared binding evidence and limits](plan/p7-streaming.md#s6-prepared-binding-snapshots-and-retained-headers).
+
+After compiled fork lowering, caller-thread output relay and result-document callback coordination, the final
+three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **0.999** over 39 timed rows, maximum
+reported allocation ratio **1.034** (cold start). The largest timed ratio is grouping compilation **1.032**;
+cold-start time is **1.034**. Dispatch compilation is **1.022**, keys compilation **0.963** and sorting compilation
+**0.993**. No timed row exceeds 1.05 in this run; earlier variation remains unresolved. Both sides use the same
+current harness and thresholds. This does not establish fork throughput, retained-memory or latency budgets.
+See [compiled fork evidence and limits](plan/p7-streaming.md#s6-compiled-fork-prongs-and-ordered-output).
+
+After fork grouping buffers, captured forward groups and shared native-document creation order, the final
+isolated three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **1.018** over 39 timed rows,
+maximum reported allocation ratio **1.034** (cold start). Individual time regressions remain unresolved:
+keys compilation **1.215**, sorting compilation **1.075**, and 1 KB regex execution **1.170**. Cold-start time is
+**1.011**; dispatch and grouping compilation are **1.007** and **1.020**. Tests and native compilation had
+finished before the measurement. Both sides use the same current harness and thresholds; this final gate was
+not rerun. Fork throughput, replay-buffer bytes, retained memory and first-output latency remain unmeasured.
+See [grouping evidence and limits](plan/p7-streaming.md#s6-fork-grouping-buffers-and-captured-forward-groups).
+
+After principal fork coordination, raw result buffering and constants format 3, the final isolated three-pair
+ordinary-path gate against `0f2ddcb` passes: geometric mean **0.992** over 39 rows and maximum allocation ratio
+**1.035** (cold start). Individual time regressions remain unresolved: 1 MB iterate **1.166** and dispatch
+compilation **1.065**. Keys compilation is **0.527**, with base/head times **0.615/0.324 ms** and substantial
+variation in base compilation compared with previous runs; this does not establish an improvement. Sorting and
+grouping compilation are **0.983/0.968**, and cold-start time **1.004**. Tests and NativeAOT jobs had finished;
+both sides used the same current harness and thresholds. This final gate was not rerun. Principal/fork
+throughput, replay bytes, retained memory and first-output latency remain unmeasured. See
+[principal evidence and limits](plan/p7-streaming.md#s6-principal-result-document-coordination).
+
+After iterator-backed sequence parameters, recursive grouped forks and conservative child-path ordering proofs,
+the final isolated three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **1.010** over 39 rows,
+maximum allocation ratio **1.036** (cold start). Individual time regressions remain unresolved: 1 KB regex
+**1.128** and dispatch compilation **1.059**. Keys, sorting and grouping compilation are **0.944/0.927/1.004**;
+cold-start time is **1.010**. All test and NativeAOT jobs finished before measurement, both sides used the same
+current harness and thresholds, and this final gate was not rerun. This does not establish streamed parameter
+or fork throughput, replay bytes, retained-memory budgets or first-output latency. See
+[parameter evidence and limits](plan/p7-streaming.md#s4-iterator-backed-sequence-parameters-and-recursive-forks).
+
+After the result-tree audit, namespace-origin correction and XSLT map error contract, the final isolated
+three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **1.027** over 39 rows and maximum
+allocation ratio **1.036** (cold start). Individual time regressions remain unresolved: keys compilation
+**1.880** (base/head **0.343/0.645 ms**), sorting compilation **1.204**, 1 KB regex **1.125**, and 1 KB dispatch
+**1.053**. Dispatch/grouping compilation are **1.046/1.048** and cold-start time is **1.019**. Tests and native
+jobs had finished before measurement; both sides used the same current harness and thresholds. This final
+gate was not rerun. These measurements do not establish streaming throughput, retained-memory, replay-byte or
+latency budgets. See [audit evidence and limits](plan/p7-streaming.md#s1s6-result-tree-assertions-namespace-origins-and-host-map-errors).
+Keys compilation varies across the retained rounds: base **0.3428/0.6364/0.3212 ms**, head
+**0.66135/0.64455/0.3490 ms**. Sorting is base **0.5158/0.6464/0.5264 ms**, head
+**0.6337/0.6436/0.5053 ms**. Their cause and attribution remain unresolved.
+
+
+After shared forward union/descendant paths, incremental EBV, iterator removal and the self-only union
+correction, the final isolated three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **1.016**
+over 39 rows and maximum allocation ratio **1.037** (cold start). Individual time regressions remain
+unresolved: 1 MB iterate **1.176**, 1 KB regex **1.149**, grouping compilation **1.138** and sorting compilation
+**1.058**. Dispatch/keys compilation are **0.994/0.952**; cold-start time is **1.004**. Functional and native
+jobs had finished, both sides used the same current harness and thresholds, and the final gate was not rerun.
+The changed medians do not resolve earlier outliers or establish streaming throughput, memory, replay-byte or
+latency budgets. Retained rounds and limits are recorded in
+[path and inspection evidence](plan/p7-streaming.md#s4-shared-forward-paths-and-incremental-sequence-inspection).
+
+
+After native cardinality assertions and sequence insertion, the final isolated three-pair ordinary-path gate
+against `0f2ddcb` passes: geometric mean **1.005** over 39 rows and maximum allocation ratio **1.038** (cold
+start). Individual time regressions remain unresolved: 1 MB iterate **1.166**, 1 KB regex **1.149**, dispatch
+compilation **1.093** and sorting compilation **1.084**. Grouping/keys compilation are **0.998/0.945**;
+cold-start time is **1.028**. Functional and native jobs had finished, both sides used the same current
+harness and thresholds, and this final gate was not rerun. This does not resolve earlier outliers or establish
+streaming throughput, retained-memory, replay-byte or latency budgets. Raw rounds and limits are recorded in
+[sequence contract evidence](plan/p7-streaming.md#s4-cardinality-assertions-and-native-sequence-insertion).
+
+
+After ordered mixed-node paths, exact integer windows and caller-proof precedence, the final isolated
+three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **0.990** over 39 rows and maximum
+allocation ratio **1.039** (cold start). The 1 KB regex time remains an unresolved outlier at **1.128**.
+Dispatch/grouping/keys/sorting compilation are **1.002/1.041/0.699/0.988**; cold-start time is **0.992**.
+Functional and native jobs had finished, both sides used the same current harness and thresholds, and the
+final gate was not rerun. Changed medians do not resolve earlier outliers or establish streaming throughput,
+retained-memory, replay-byte or latency budgets. Regex round medians are base **0.0047/0.0047/0.0047 ms**,
+head **0.0053/0.0047/0.0054 ms**. Raw rounds and limits are recorded in
+[ordered path evidence](plan/p7-streaming.md#s4-ordered-mixed-node-paths-and-exact-position-windows).
+
+
+After streamed trace, invoking-thread diagnostics and nested-call population sharing, the final isolated
+three-pair ordinary-path gate against `0f2ddcb` passes: geometric mean **1.008** over 39 rows and maximum
+allocation ratio **1.039** (cold start). Sorting compilation remains an unresolved outlier at **1.201**;
+keys compilation is **1.054**. Dispatch/grouping compilation are **1.014/1.031**, and cold-start time is
+**1.020**. Functional and native jobs had finished, both sides used the same harness and thresholds, and the
+final gate was not rerun. These measurements do not establish streaming throughput, retained-memory,
+replay-byte or latency budgets or resolve earlier outliers. Explicit trace diagnostics are unbounded;
+trace#2 without a handler transmits nodes without buffering. Raw rounds and limits are recorded in
+[trace evidence](plan/p7-streaming.md#s4-streamed-trace-and-invoking-thread-diagnostics).
+
+
+After parallel map entries and pure node-parameter factory projection, the final isolated three-pair
+ordinary-path gate against `0f2ddcb` passes: geometric mean **1.015** over 39 rows and maximum allocation
+ratio **1.040** (cold start). Compilation time outliers remain unresolved: sorting **1.259**, grouping
+**1.120**, keys **1.081** and dispatch **1.058**; cold-start time is **0.977**. Functional and native jobs had
+finished, both sides used the same harness and thresholds, and the final gate was not rerun. These results
+do not resolve earlier outliers or establish streaming throughput, retained-memory, replay-byte or latency
+budgets. Maps requiring independent source views add thread/setup overhead, and constructed values can grow.
+Raw rounds and limits are recorded in
+[map and parameter evidence](plan/p7-streaming.md#s4-parallel-maps-and-forked-node-parameter-factories).
+
+
+After native node sets and shared header paths, the final isolated three-pair ordinary-path gate against
+`0f2ddcb` passes: geometric mean **0.989** over 39 rows and maximum allocation ratio **1.041** (cold start).
+Cold-start time is **1.026**. The 1 KB regex row measures **1.128**; its cause and attribution remain
+unresolved. Compilation ratios are sorting **0.832**, keys **0.825**, dispatch **0.992** and grouping
+**1.016**. Earlier compilation outliers remain unresolved. Functional and native jobs finished before the
+gate, both sides used the same harness and thresholds, and the final gate was not rerun. These results do not
+establish streaming throughput, retained-memory, replay-byte or latency budgets. Explicit grounded operands
+and results can grow. Raw rounds and limits are recorded in
+[node-set evidence](plan/p7-streaming.md#s4-native-node-sets-and-shared-header-paths).
+
+
+After positional header predicates and bounded scans, the final isolated three-pair ordinary-path gate against
+`0f2ddcb` passes: geometric mean **1.018** over 39 rows and maximum allocation ratio **1.041** (cold start).
+Cold-start time is **1.037**. Individual time outliers remain unresolved: sorting compilation **1.250**,
+1 MB iterate **1.196**, 1 KB dispatch **1.056**, and iterate/join compilation **1.051/1.051**. Earlier outliers
+remain unresolved. Functional and native jobs finished before the gate, both sides used the same harness and
+thresholds, and the final gate was not rerun. These results do not establish streaming throughput,
+retained-memory, replay-byte or latency budgets. Explicit grounded operands and results can grow. Raw rounds
+and limits are recorded in
+[positional evidence](plan/p7-streaming.md#s4-positional-header-predicates-and-bounded-scans).
+
+
+After forward XML-to-JSON conversion and the large-try AST correction, the final isolated three-pair
+ordinary-path gate against `0f2ddcb` passes: geometric mean **0.987** over 39 rows and maximum allocation ratio
+**1.042** (cold start). Cold-start time is **1.005**. Individual time outliers remain unresolved: dispatch
+compilation **1.070**, 1 KB regex **1.125**, and 1 MB iterate **1.142**. Earlier outliers remain unresolved.
+Functional and native jobs finished before the gate, both sides used the same harness and thresholds, and the
+final gate was not rerun. These results do not establish streaming throughput, retained-memory, replay-byte or
+latency budgets. Output JSON strings and duplicate-key sets may grow. Raw rounds and limits are recorded in
+[XML-to-JSON evidence](plan/p7-streaming.md#s4-forward-xml-to-json-conversion).
+
+
+After forward deep equality and grounded descendant projection, the final isolated three-pair ordinary-path
+gate against `0f2ddcb` passes: geometric mean **1.032** over 39 rows and maximum allocation ratio **1.042**
+(cold start). Cold-start time is **1.037**. Individual time outliers remain unresolved: keys compilation
+**2.044**, sorting compilation **1.139**, join compilation **1.057**, 1 KB regex **1.170**, and 1 MB JSON
+**1.056**. Keys compilation is a material regression in this run despite the aggregate pass; its cause and
+attribution remain unproven. Earlier outliers remain unresolved. Functional and native jobs finished before
+the gate, both sides used the same harness and thresholds, and the final gate was not rerun. These results
+do not establish streaming throughput, retained-memory, replay-byte or latency budgets. Explicit grounded
+references and constructed results may grow. Raw rounds and limits are recorded in
+[deep-equality evidence](plan/p7-streaming.md#s4-forward-deep-equality-and-grounded-descendant-projection).
+
+The P7 bounded ancestor-set increment's final ordinary gate passes against `0f2ddcb` over three alternating
+rounds after all other task-owned CPU jobs ended: timed geometric mean **1.018154**, maximum allocation
+ratio **1.043320**. Individual observed regressions remain: sorting compilation **1.323634**, regex 1 KiB
+**1.145833**, keys compilation **1.080438**, grouping compilation **1.062374** and recursion 1 MiB
+**1.052415**. These remain attribution work; the aggregate pass does not establish a fix for earlier
+outliers. Exact round pairs, method and limits are recorded in
+[the ancestor-set evidence](plan/p7-streaming.md#s4-bounded-ancestor-union-and-intersection).
+
+The incremental type-check/node-return-contract increment's final ordinary gate passes over three
+alternating rounds against `0f2ddcb`, after all other task-owned CPU jobs ended: geometric mean **0.989463**,
+maximum allocation ratio **1.043896**. Individual observed regressions remain: dispatch compilation
+**1.106768**, regex 1 KiB **1.106383**, dispatch 1 KiB **1.082192** and identity 1 KiB **1.071429**.
+This does not establish fixes for preceding outliers or attribute ordinary-path improvements to the change.
+Exact round observations and limits are in
+[the type-check evidence](plan/p7-streaming.md#s4-incremental-sequence-type-checks-and-node-return-contracts).
+
+
+The S7 process benchmark now measures source parsing plus transformation at decimal 1 MB, 100 MB and
+1 GB. Its complete local managed matrix retains **126 trials**: all 63 streamed and 48 tree trials validate
+output, with fifteen tree OOM failures under the equal 4 GiB managed heap guard. At 100 MB, streaming
+identity, fork and source-document are slower than tree; adjacent grouping, accumulators and iterate are
+faster, and merge has no valid tree comparison. The exact throughput target remains incomplete. See
+[full paired comparisons and first output](streaming-benchmark-2026-10-24.md) and
+[method](streaming-benchmark.md). These results do not replace the exact NativeAOT memory gates.
+
+After the finalized harness's old-base compatibility fix, the ordinary gate passes over exactly three pairs
+against `0f2ddcb`: geometric mean **1.036264**, maximum allocation ratio **1.043896**. Individual regressions
+remain, including key compilation **1.579705**, regex 1 KiB **1.170213**, sorting compilation **1.164424**
+and maps 1 MiB **1.112436**. They remain attribution work; the aggregate pass does not establish a fix.
+The initial attempt stopped before timing because the base lacks the streaming reader API; the fixed gate
+excludes the separate process host equally on both sides and its default build retains identical streamed
+method IL. The complete fixed gate was run once after other task-owned CPU jobs ended. All outliers,
+round observations, provenance and limits are in
+[the latest S7 evidence](plan/p7-streaming.md#s7-paired-process-benchmark-and-exact-push-rss-investigation).
+
+
+The node-only copy-content increment fixes complete containing-row buffering and reuses frame-owned
+namespace scopes. A new large-row emission regression and saved NativeAOT variants pass. The full current
+1 MB/100 MB/1 GB process matrix retains 126 trials: 63 valid streams, 48 valid tree trials and
+15 failures. The exact streaming target remains incomplete. Current/previous medians and first output
+are in [the full report](streaming-copy-content-2026-10-24.md#final-full-paired-process-matrix).
+
+Its final ordinary gate exits 0 over three pairs against `0f2ddcb`: geometric mean **1.009512**,
+maximum allocation ratio **1.043896**. It ran once after all task-owned functional/native
+and streaming benchmark CPU jobs ended. Individual outliers remain unassigned and open; the report
+retains every observation and does not infer their resolution or streaming exits from an aggregate pass.
+
+
+The selected-copy increment's [complete paired matrix](streaming-copy-select-2026-10-24.md#final-full-paired-process-matrix)
+retains 144 trials: 72 validated streams, 57 validated tree trials and 15 tree OOM failures. Selected-copy
+emits after 8,192 input bytes at all three sizes, while its 100 MB streaming median is 1.140905 times tree.
+The exact streaming throughput target remains incomplete.
+
+Its final ordinary gate exits 0 over exactly three pairs against `0f2ddcb`, after all other task-owned CPU
+jobs finish: geometric mean **1.027029**, maximum allocation ratio **1.043896**. Individual regressions
+remain: keys compilation **1.766204**, regex 1 KiB **1.170213**, sorting compilation **1.093939**, join
+compilation **1.089056** and dispatch compilation **1.065657**. These remain attribution work; the
+aggregate pass does not establish a fix for preceding outliers. Every round, row and allocation is retained
+in [the full ordinary-gate evidence](streaming-copy-select-2026-10-24.md#final-ordinary-performance-gate).
+This is not a streaming throughput, latency or exact push-memory pass.
+
+
+The conditional/complex-content increment's [complete process matrix](streaming-conditional-content-2026-10-24.md#final-full-paired-process-matrix)
+retains **162 trials**: **81 validated streams**, **63 valid tree trials** and **18 tree OOM failures**.
+Conditional-content emits after 8,192 input bytes at all three sizes; its 100 MB stream/tree median ratio
+is **1.108109**, and its 1 GB tree comparisons fail. The exact canonical throughput target stays incomplete.
+
+The final ordinary gate passes once over exactly three pairs against `0f2ddcb`, after the full streaming
+matrix and all task-owned functional/native CPU jobs finish: timing geometric mean **0.990893**,
+maximum allocation ratio **1.044597**. Regex 1 KiB remains an individual observed regression
+(**1.127660**). Earlier outlier attribution remains open; no aggregate pass establishes a fix or a streaming
+exit. Every row/round, cold-start result and allocation is retained in
+[the final gate evidence](streaming-conditional-content-2026-10-24.md#final-ordinary-performance-gate).
+
+## Node predicates and prepared pull calls, 2026-10-24
+
+The current branch's isolated 100 MB follow-up completes **54 trials** with 27 valid streams,
+24 valid trees and three tree merge OOM failures under equal 4 GiB heaps. The canonical throughput
+target remains incomplete. Conditional-content has stream/tree ratio **1.047953** (no meaningful winner
+within the controller's 5% band). Identity, source-document and fork remain slower; merge has no valid
+comparison. This follow-up covers 100 MB only; the prior full three-size matrix belongs to its frozen source.
+
+The ordinary gate runs once after all functional/native/process jobs terminate, over exactly three pairs
+against `0f2ddcb`: exit **0**, timing geometric mean **0.982051247778**, maximum allocation ratio
+**1.044672059302** (grouping cold, 1,597,240/1,668,592 bytes). Dispatch compilation remains an individual
+observed regression at **1.098697598698**; older outliers are not declared fixed by absence here. All
+row medians, exact round times, allocations, first-output metrics and source/runtime hashes are retained
+in [current evidence](streaming-node-predicates-2026-10-24.md). A controlled runtime probe reduces
+10,000 identity-call allocations from 2,560,000 bytes for ordinary calls to 880,000 for resumptions;
+this is not a claim about whole-transform allocation. The exact native nightly matrix passes 39 children;
+the exact 20 MiB RSS push matrix still has thirteen failures. Full P7 remains active.
+
+## Atomic template parameters and debug focus, 2026-10-24
+
+The final repaired source completes an isolated **60-trial 100 MB** comparison: 30 valid streams,
+27 valid trees and three tree merge OOM failures at equal 4 GiB managed limits. Canonical throughput
+coverage remains incomplete. Template-parameter medians are **1,960.900209 ms tree / 1,761.378541 ms
+stream**, ratio **0.898250** (observed stream median winner). Other workload medians, first-output
+measurements, failed comparisons and all hashes are in
+[final evidence](streaming-template-parameters-2026-10-24.md). These are current-snapshot comparisons;
+the preceding full three-size matrix belongs to its own frozen source.
+
+The ordinary gate runs once after all final functional/native/process CPU jobs terminate: exactly three
+pairs against `0f2ddcb`, exit **0**, geometric mean **0.998328693944**, maximum allocation ratio
+**1.045944253838** (grouping cold, 1,597,240/1,670,624 bytes). Sorting compilation (**1.063126**) and
+1 KiB regex (**1.191489**) remain individual observed regressions requiring attribution. Cold grouping
+time is **1.058318** and excluded from the timed mean; its allocation is included. Exact round data is
+retained. No previous outlier is declared fixed by absence here. The exact fourteen-workload native
+nightly matrix passes 42 children; the complete exact 20 MiB RSS push matrix retains fourteen failures.
+The deferred declaration-error repair was completed before these final measurements; earlier snapshots
+and their source differences are preserved separately. Full P7 remains active.
+
+The arithmetic/focus increment's one ordinary three-pair gate exits **0** after all task-owned
+functional/native CPU jobs terminate: timing geometric mean **0.994790425361**, maximum allocation
+ratio **1.046024392076** (cold grouping, 1,597,240/1,670,752 bytes). The 1 KiB regex row remains an
+observed regression (**1.170212765957**, 0.0047/0.0055 ms), with all three rounds retained. Cold grouping
+time is **1.033200447423** (134.7271/139.2001 ms), excluded from the timed mean; cold allocation is
+included. The temporary base worktree is removed. Earlier outliers are not declared fixed by absence.
+The corrected fourteen-workload native nightly matrix passes 42 children, while the complete exact
+20 MiB RSS push matrix retains fourteen failures; all 547 source/controller/fixture hashes match.
+No fresh paired streaming process matrix was run for this source. The older 60-trial and three-size
+matrices retain their own frozen-source scope. Full P7 remains active. See
+[all rows, rounds and evidence](streaming-arithmetic-focus-2026-10-24.md).
+
+## Generic function parameters and debug output workers, 2026-10-24
+
+The item-parameter increment's one isolated three-pair ordinary gate exits **0**: timing geometric
+mean **0.994644134262**, maximum allocation ratio **1.046490195587**.
+It ran after task-owned functional/native CPU jobs finished, against `0f2ddcb`, using the same harness
+on both versions. This compares the complete working tree; it does not isolate this increment's cost.
+The **grouping compile** timing ratio **1.097596317763** remains an observed regression requiring attribution.
+The **dispatch compile** timing ratio **1.473261186001** remains an observed regression requiring attribution.
+The **regex 1kb** timing ratio **1.170212765957** remains an observed regression requiring attribution.
+Earlier outliers remain open; no fresh paired streaming matrix was run. See [all medians, allocations,
+rounds and evidence](streaming-item-parameters-2026-10-24.md#ordinary-performance-gate).
+
+## Overlapping descendant values, 2026-10-25
+
+The corrected value-replay source's isolated ordinary three-pair gate exits **0** against `0f2ddcb`: timing
+geometric mean **1.029701487659**, maximum allocation ratio **1.046810748541**.
+All functional/native CPU jobs were terminal before this comparison. The same ordinary harness runs
+on both versions; this compares the full working tree rather than attributing cost to one increment.
+Observed **sorting compile** timing ratio **1.125561413786** remains recorded for attribution.
+Observed **keys compile** timing ratio **1.359108226330** remains recorded for attribution.
+Observed **join compile** timing ratio **1.106312292359** remains recorded for attribution.
+Observed **dispatch compile** timing ratio **1.479902200489** remains recorded for attribution.
+Observed **regex 1kb** timing ratio **1.170212765957** remains recorded for attribution.
+Earlier outliers stay open. See [all rows and rounds](streaming-value-replay-2026-10-25.md#ordinary-performance-gate).
+
+
+## Node-set and mode follow-up, 2026-10-25
+
+The ordinary three-pair gate exits **0** against `0f2ddcb`: timing geometric mean **0.990166466732**,
+maximum allocation ratio **1.046810748541**. Dispatch compile (**1.188996763754**) and regex 1 KB
+(**1.170212765957**) remain timing outliers. The fresh 100 MB process matrix completes **96 trials**:
+48 valid streams, 45 valid trees and three tree-merge OOMs under equal 4 GiB heap guards.
+Tree intersection now completes at median **1,809.021667 ms** after the linear merge repair.
+Identity, fork and source-document streaming are slower; merge has no valid tree comparison.
+The canonical throughput target remains incomplete. See [all rows, failures and provenance](streaming-set-merge-mode-2026-10-25.md).
+
+
+## Bounded value cache and merge output, 2026-10-25
+
+The isolated ordinary three-pair gate exits **0** at timing geometric mean **0.996520976223** and
+maximum allocation ratio **1.047265587827**. Dispatch compile (**1.235022428975**), regex 1 KB
+(**1.191489361702**) and dispatch 1 KB (**1.081081081081**) remain timing outliers. Earlier outliers
+remain open. The fresh **96-trial** 100 MB process matrix has **zero failures**: tree merge succeeds
+under the unchanged equal 4 GiB heap guard after action output stops accumulating. Canonical
+throughput is evaluated and fails for identity, fork and source-document. Current overlap-values
+stream/tree ratio is **2.375079889881**. See [all medians, allocations and provenance](streaming-bounded-values-merge-2026-10-25.md).
+
+
+The matching current native nightly matrix passes **48 children / zero failures** at exact 2 GiB input
+and 200 MiB absolute RSS. The requested 200 MiB / 20 MiB push matrix retains **16 failures**: twelve full
+input/output validations and four startup/warmup exits. The ordinary three-pair gate passes at timing
+geometric mean **1.004693365582**, maximum allocation ratio **1.037238560580**. All **96** paired 100 MB
+process trials validate under equal 4 GiB guards; canonical throughput still fails on identity, fork
+and source-document. These requirements and the full Phase 7 goal remain open. See the
+[current complete evidence](streaming-relative-values-signatures-2026-10-25.md).
+
+
+The final comma/content native nightly matrix passes **48 children / zero failures** at exact 2 GiB
+input / 200 MiB absolute RSS. The requested 200 MiB / 20 MiB push matrix retains **16 failures** (twelve
+full-input validations and four startup/warmup exits). The ordinary three-pair gate passes at timing
+geometric mean **1.024354047451**, maximum allocation ratio **1.037242922079**. All **96** paired 100 MB
+trials validate; the canonical throughput target still fails on identity, fork and source-document.
+The same-host 1 MB / 1 GB sweep has completed: **84 trials, 72 valid, 12 failed**. All streamed trials
+pass; three tree trials each for adjacent, accumulator, merge and fork at 1 GB exhaust the unchanged
+4 GiB heap guard. All three planned sizes have been attempted, with those four large-input comparisons
+unavailable. Full P7 remains active. See
+[current evidence](streaming-comma-content-2026-10-25.md).
+
+
+The recursive-function follow-up passes normal/debug focused NativeAOT runs at exact 200 MiB and
+2 GiB input, with independently checked output digests, first output after 356,352 bytes and lifetime
+RSS near 30 MB under a focused 200 MiB guard. This does not satisfy the 20 MiB push requirement. The
+full goal and the existing throughput/RSS gates remain open. See
+[recursive-function evidence](streaming-recursive-functions-2026-10-25.md).
+
+
+### Document fragment checkpoint, 2026-10-25
+
+The final isolated ordinary three-pair gate passes: time geometric mean **0.990513413537**, maximum
+allocation ratio **1.037238717165**. Focused normal/debug native fragment probes validate exact 200 MiB
+and 2 GiB inputs, independent output digests, early output and owned-source closure, with lifetime
+RSS **24,576,000–27,377,664 bytes** under the 200 MiB guard. These do not satisfy the separate 20 MiB
+push RSS requirement or canonical throughput target. Current source hashes and artifacts match;
+full P7 remains active. See [fragment evidence](streaming-document-fragments-2026-10-25.md).
+
+
+### Navigator ID provenance checkpoint, 2026-10-25
+
+The current isolated ordinary gate passes: time geometric mean **0.977000839111**, maximum allocation ratio
+**1.037247283614**. Four focused normal/debug native fragment runs validate exact 200 MiB and 2 GiB inputs,
+independent output digests, early output and ownership, at lifetime RSS **24,805,376–27,475,968 bytes** under the
+200 MiB guard. This does not satisfy the separate 20 MiB push requirement or canonical throughput target.
+The frozen source/config manifest has **407** verified hashes. Full P7 remains active. See
+[the current evidence](streaming-id-provenance-2026-10-25.md).
+
+
+### Deferred header storage checkpoint, 2026-10-25
+
+The final corrected-source ordinary gate passes: time geometric mean **1.005276705514**, maximum allocation
+ratio **1.037242922079**. Retained normal/debug native fragment probes pass at exact 200 MiB
+and 2 GiB input, with lifetime RSS **24,313,856–27,443,200 bytes** under the 200 MiB guard. The separate 20 MiB
+push RSS and canonical throughput requirements remain open. These historical probes do not execute deferred
+climbing except. Compiler integration and its memory proof were still required at that checkpoint;
+the subsequent deferred climbing checkpoint below supplies those focused results. The native primitive
+probe checks 100,000 closed headers, metadata, cache bounds and cleanup. All **411** source/configuration
+hashes match. See [current evidence](streaming-deferred-headers-2026-10-25.md).
+
+### Deferred climbing execution checkpoint, 2026-10-25
+
+Actual deferred climbing `except` now passes normal/debug NativeAOT runs at exact **209,715,200**
+and **2,147,483,648** input bytes. Every run consumes its full source, validates an independently
+computed output digest, emits after **69,632** input bytes and closes its owned source. Lifetime
+RSS, measured as the maximum of outer and child peaks without subtraction, ranges from **30048256**
+to **30572544** bytes under the unchanged **209,715,200-byte** guard. ICU remains enabled.
+This does not satisfy the separate push RSS or canonical throughput requirements.
+
+The ordinary three-pair gate passes with time GM **1.027012847257** over **39** timed rows and maximum
+allocation ratio **1.037238717165**. Individual timing outliers remain recorded. Both native publications
+have no warnings; the new saved normal/debug cases and retained compatibility consumers pass. All
+**412** live/frozen source hashes and **95** retained saved-DLL hashes match. Full P7 remains active.
+See [the implementation and complete evidence](streaming-deferred-climbing-2026-10-25.md).
+
+### Deferred accumulator phase checkpoint, 2026-10-25
+
+Source-owned scratch storage now carries accumulator phase snapshots for deferred climbing headers,
+including late publication before source close and fork readers. Scalars and map/array structure spill;
+node/opaque function identities are retained, so general bounded storage for those histories remains open.
+
+Actual deferred-set/scalar-counter normal/debug native children pass at exact **209,715,200** and
+**2,147,483,648** input bytes. Each consumes the full source, independently verifies IDs plus counter
+values, emits before EOF and closes its owned source. Lifetime peak RSS ranges from
+**31309824** to **31621120** bytes, taking the maximum of outer and child peaks without
+subtraction under the unchanged **209,715,200-byte** guard. ICU remains enabled. These measurements do
+not satisfy the separate push RSS, canonical throughput or arbitrary identity-history requirements.
+
+The isolated ordinary three-pair gate passes: **39** timed rows, time GM **0.989223741081**, maximum
+allocation ratio **1.037234042553**, with individual outliers retained. Both native publications are
+warning-free. All **413** frozen/live source hashes and **103** retained saved DLLs match after execution.
+Full P7 remains active. See [complete evidence](streaming-accumulator-phases-2026-10-25.md).
+
+### Compiled closure capture checkpoint, 2026-10-25
+
+Actual deferred-set/compiled-closure normal/debug native runs pass exact **209,715,200** and
+**2,147,483,648** input bytes. Each closure captures a map containing an array of the numeric source
+ID; output verification independently checks each selected ID and invoked closure value. Lifetime
+peak RSS ranges from **31,260,672** to **31,653,888** bytes, without subtraction, under the unchanged
+**209,715,200-byte** heap/RSS guard with ordinary ICU support. First output follows **57,344** input
+bytes in each case. These fixed-owner cases do not prove general opaque/node history spill, exact
+push RSS or canonical throughput. Candidate compilation overlaps part of the matrix, so elapsed
+times remain diagnostic.
+
+The isolated original ordinary three-pair gate passes over **39** timed rows: time GM
+**0.986027868023**, maximum allocation ratio **1.037238403996**. Individual timing outliers remain
+recorded. Both native publications have no warnings; all **413** frozen/live source hashes,
+**111** retained saved DLLs, protected v2 fork and native artifact hashes match after execution.
+Full P7 remains active.
+See [the complete checkpoint](streaming-closure-captures-2026-10-25.md).
+
+### Coerced function capture checkpoint, 2026-10-25
+
+Actual declared-function accumulator normal/debug native children pass exact **209,715,200** and
+**2,147,483,648** input bytes. The engine creates a coercion wrapper around each map-capturing
+compiled function. Each child consumes the full source, independently verifies output, emits at
+**57,344** input bytes and closes its owned source. Lifetime peak RSS is **30,212,096–31,834,112** bytes,
+without subtraction, under the unchanged **209,715,200-byte** guard with ordinary ICU support.
+These fixed-model cases do not close opaque/node history, exact push RSS or canonical throughput.
+
+The first timing gate fails during a change also visible in unchanged-base measurements; its raw
+rounds remain preserved. Reversed-order frozen-core attribution does not reproduce the large penalty.
+An unchanged original three-pair retry passes over **39** timed rows: GM **1.035572890616**, maximum
+allocation ratio **1.037242608875**, with individual timing outliers retained. All native publications
+are warning-free; all **413** live/frozen source hashes, **117** retained saved DLLs, protected v2 fork
+and artifact hashes match after the matrix. Child times remain diagnostic because isolated follow-on
+work overlaps part of the memory matrix. Full P7 remains active.
+See [the complete checkpoint](streaming-coerced-captures-2026-10-25.md).
+
+### Library function capture checkpoint, 2026-10-25
+
+Actual computed `function-lookup()` accumulator normal/debug native children pass exact
+**209,715,200** and **2,147,483,648** input bytes. The caller supplies the required lookup-name
+parameter through the public API; each rule creates a library-function value. All children consume
+the full source, independently verify output, emit at **57,344** input bytes and close their owned
+source. Lifetime peak RSS is **31,752,192–31,866,880** bytes, without subtraction, under the
+unchanged **209,715,200-byte** guard with ordinary ICU. Follow-on prototype work overlaps part of
+the matrix, so elapsed times remain diagnostic. General opaque/native/node histories, exact push
+RSS and canonical throughput remain open.
+
+The unchanged original three-pair ordinary gate passes on its first attempt over **39** timed rows:
+GM **0.994364503290**, maximum allocation ratio **1.037238717165**. Individual timing outliers and
+all raw measurements remain in the report. Native publications have no warnings; all **413** source
+hashes, **133** retained saved DLLs, the protected v2 fork and artifact/consumer-source manifests
+match after the matrix. Full Phase 7 remains active.
+See [the complete checkpoint](streaming-library-captures-2026-10-25.md).
+
+### Random-generator capture checkpoint, 2026-10-25
+
+Actual per-row seeded random-generator map accumulators pass normal/debug native runs at exact
+**209,715,200** and **2,147,483,648** input bytes. Both callables carry a distinct actual numeric state
+for each source ID. Recorded permutation determines the output token order, and an independent
+algorithm computes the expected output from source IDs. That verifier also passes against the
+preserved preceding core. All children consume the full source, independently verify output, emit
+at **57,344** input bytes and close their owned source. Lifetime peak RSS is
+**31,260,672–31,801,344** bytes, without subtraction, under the unchanged **209,715,200-byte**
+guard with ordinary ICU. These results do not close exact push RSS or canonical throughput.
+
+The original ordinary three-pair gate passes over **39** timed rows: GM
+**0.994987004211**, maximum allocation ratio **1.037239186928**.
+Raw rounds and individual outliers remain in the report. Native publications have no warnings;
+all **413** source hashes, **141** retained and six preceding-core random saved DLLs, protected v2 fork,
+generator-source and artifact/consumer-source manifests match after the matrix. Full P7 remains active.
+See [the complete checkpoint](streaming-random-captures-2026-10-25.md).
+
+
+### Optional-focus compile allocation, 2026-10-26
+
+The initial keys/compile allocation regression failed the original gate and is preserved. Existing focus/cardinality proofs remove 5,488 redundant compile bytes in identical-harness ABBA attribution. The corrected original three-pair gate passes at time GM **1.030587374330**, maximum allocation ratio **1.037309886931**; individual timing outliers remain recorded. Actual absent-context function values pass normal/debug exact **200 MiB and 2 GiB** native cases under the unchanged **200 MiB** guard, including independent output verification. This does not close exact 20 MiB push RSS or canonical throughput. See [the complete checkpoint](streaming-optional-focus-2026-10-26.md).
+
+
+### XML-to-JSON header-path continuation, 2026-10-26
+
+Eligible filtered descendant/child arguments now preserve continuation while conversion absorbs a selected subtree. Motionless prefix predicates run once, real additional matches produce XPTY0004, and predicate faults retain precedence. Consumed input still requires actual replay. Full Release/Debug pass **3,404 / 3,290**; all nine profile failure-ID sets are unchanged, with strict unmatched codes improving **5 to 4**. Retained/current native saved consumers, the original ordinary gate and four final normal/debug exact-size native JSON cases pass. Unsupported paths, mixed-result try, exact push RSS and full P7 requirements remain open. See [the complete checkpoint](streaming-json-header-continuation-2026-10-26.md).
+
+### Mixed template result streaming, 2026-10-26
+
+Eligible mixed template results can now reach the writer before the population ends. The original 10 MiB try stress case emits after **57,344** input bytes with an independent complete-output check, in normal and Debug native runs. The final exact-size memory matrix and unchanged ordinary three-pair gate are recorded in [the checkpoint](streaming-mixed-template-results-2026-10-26.md). They do not replace the exact 20 MiB push RSS or canonical throughput requirements.
+
+### Reference and diagnostic contracts, 2026-10-26
+
+The URI/declaration/accounting checkpoint passes the original three-pair ordinary gate: time GM **1.022631015925**, maximum allocation ratio **1.037310200701**. Outliers remain recorded. It adds no new exact-size memory claim; exact push RSS and canonical throughput remain open. See [implementation and evidence](streaming-reference-diagnostics-2026-10-26.md).
+
+### Source validation negotiation, 2026-10-26
+
+Explicit streamed validation now negotiates bytes from capable resolvers, preserving reader-only and provider-error contracts. Release/Debug pass **3,449 / 3,331**; strict unmatched codes improve **1 to 0**, with unchanged failure-ID sets. Native runtime validation, **225** retained saved styles and the original ordinary performance gate pass. Imported-schema saved compilation and full P7 gates remain open. See [implementation and evidence](streaming-source-validation-negotiation-2026-10-26.md).
+
+### Annotation and whitespace ordering, 2026-10-26
+
+Streamed whitespace filtering now uses the effective annotation-stripping policy, while preserving explicit validation and xml:space behavior. Release/Debug pass **3,457 / 3,339**; all nine profile headings and failure-ID sets remain unchanged. Native checks pass **12** new normal/debug saved styles plus **225** retained styles. The original ordinary performance gate passes; imported-schema persistence and full P7 gates remain open. See [implementation and evidence](streaming-annotation-whitespace-2026-10-26.md).
+
+### Saved imported-schema validation, 2026-10-26
+
+Resolved schema graphs now travel with supported saved source-validation paths. Release/Debug pass **3,486 / 3,358**, with unchanged profile headings and failure-ID sets. Native checks pass **12** new imported-schema saved styles plus **237** retained styles; the ordinary gate passes. General schema-dependent constant metadata, typed static nodes, .NET 10-to-8 saved-DLL portability and full P7 gates remain open. See [implementation and evidence](streaming-saved-schema-2026-10-26.md).
+
+### Portable saved framework references, 2026-10-26
+
+Saved framework references now use the core project's minimum supported runtime contract. Release/Debug pass **3,490 / 3,358**, with unchanged profile headings and failure-ID sets. Fourteen fresh portable emissions pass on .NET 8 and NativeAOT alongside **249** retained native styles. The **311**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes; general schema metadata, typed static nodes and full P7 gates remain open. See [implementation and evidence](streaming-portable-emitter-2026-10-26.md).
+
+### Saved schema-dependent metadata, 2026-10-26
+
+Saved constants now retain registered schema contexts, named atomic/cast metadata and recursive sequence/function/node tests using table-scoped format 5. Release/Debug pass **3,505 / 3,360**, with unchanged conformance profile headings and failure-ID sets. Fourteen fresh saved styles pass with **263** retained styles under NativeAOT; the **325**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Typed static nodes, anonymous atomic metadata and full P7 remain open. See [implementation and evidence](streaming-schema-metadata-2026-10-26.md).
+
+### Typed static-node persistence, 2026-10-26
+
+Annotated static nodes now retain schema types, shared-tree identity, nilled state and node metadata through format 6. Nilled simple-type atomization and optional cardinality checks are corrected. Release/Debug pass **3,519 / 3,372**, with unchanged profile headings and failure-ID sets. Two fresh saved styles pass with **277** retained styles under NativeAOT; the **327**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Anonymous atomic constants, unowned schema contexts and full P7 remain open. See [implementation and evidence](streaming-typed-static-nodes-2026-10-26.md).
+
+### Deferred temporal context and integer parsing, 2026-10-26
+
+Dynamic contexts now share deferred temporal state, and XML integer parsing uses a native-magnitude fast path while retaining arbitrary precision. Release/Debug pass **3,563 / 3,416**, with unchanged profile headings and failures; retained native and managed saved consumers pass. The exact 200 MiB / 20 MiB matrix passes **13/16**, and the 2 GiB / 200 MiB matrix passes **16/16**. All 42 canonical timing trials validate output, with target pass **False**. The ordinary performance gate passes. Full P7 remains incomplete. See [implementation and evidence](streaming-temporal-integer-2026-10-26.md).

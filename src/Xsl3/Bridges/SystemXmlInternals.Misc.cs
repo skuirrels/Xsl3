@@ -185,6 +185,9 @@ namespace System.Xml
 
     internal static class XmlReaderSettingsInternals
     {
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetXmlResolver_CheckConfig")]
+        internal static extern XmlResolver? GetEffectiveResolver(XmlReaderSettings settings);
+
         [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "GetDefaultPermissiveResolver")]
         private static extern XmlResolver StockGetDefaultPermissiveResolver(XmlReaderSettings? _);
 

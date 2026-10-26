@@ -1322,43 +1322,22 @@ namespace Xsl3.Xslt
         private const int CallTemplateCost = 1;     // best kept at a minimum, 1
         private const int RewriteThreshold = 100;
 
-        // These are all the node types for which the .Select member has an XPath expression
-        private const int NodesWithSelect =
-            (1 << (int)XslNodeType.Param) |
-            (1 << (int)XslNodeType.Variable) |
-            (1 << (int)XslNodeType.WithParam) |
-            (1 << (int)XslNodeType.ApplyTemplates) |
-            (1 << (int)XslNodeType.CopyOf) |
-            (1 << (int)XslNodeType.ForEach) |
-            (1 << (int)XslNodeType.If) |
-            //(1 << (int)XslNodeType.Number) |          // has XPath, but not in .Select member
-            (1 << (int)XslNodeType.Sort) |
-            (1 << (int)XslNodeType.ValueOf) |
-            (1 << (int)XslNodeType.ValueOfDoe);
+        // Keep these classifications independent of enum ordinals. A 32-bit mask
+        // aliases XSLT 2.0/3.0 instructions to the original instruction set and can
+        // split structural children (such as xsl:catch) into unrelated templates.
+        private static bool HasXPathSelect(XslNodeType type) => type is
+            XslNodeType.Param or XslNodeType.Variable or XslNodeType.WithParam or
+            XslNodeType.ApplyTemplates or XslNodeType.CopyOf or XslNodeType.ForEach or
+            XslNodeType.If or XslNodeType.Sort or XslNodeType.ValueOf or XslNodeType.ValueOfDoe;
 
-        // These are all the node types which can have call-template as a child and are therefor suitable for refactoring
-        private const int ParentsOfCallTemplate =
-            (1 << (int)XslNodeType.Attribute) |
-            (1 << (int)XslNodeType.Comment) |
-            (1 << (int)XslNodeType.Copy) |
-            (1 << (int)XslNodeType.Element) |
-            (1 << (int)XslNodeType.ForEach) |
-            (1 << (int)XslNodeType.If) |                // also used for xsl:when
-            (1 << (int)XslNodeType.Message) |
-            (1 << (int)XslNodeType.Otherwise) |
-            (1 << (int)XslNodeType.Param) |
-            (1 << (int)XslNodeType.PI) |
-            (1 << (int)XslNodeType.Template) |
-            (1 << (int)XslNodeType.Variable) |
-            (1 << (int)XslNodeType.WithParam) |
-            (1 << (int)XslNodeType.LiteralAttribute) |
-            (1 << (int)XslNodeType.LiteralElement);
-
-        // Tests whether the specified XslNodeType bit is set in the provided flags
-        private static bool NodeTypeTest(XslNodeType nodetype, int flags)
-        {
-            return ((flags >> (int)nodetype) & 1) != 0;
-        }
+        // Only the established sequence-constructor scopes support this refactoring.
+        // New instructions require their own proof before being added here.
+        private static bool CanRefactor(XslNodeType type) => type is
+            XslNodeType.Attribute or XslNodeType.Comment or XslNodeType.Copy or
+            XslNodeType.Element or XslNodeType.ForEach or XslNodeType.If or
+            XslNodeType.Message or XslNodeType.Otherwise or XslNodeType.Param or
+            XslNodeType.PI or XslNodeType.Template or XslNodeType.Variable or
+            XslNodeType.WithParam or XslNodeType.LiteralAttribute or XslNodeType.LiteralElement;
 
         private int CheckNodeCost(XslNode node)
         {
@@ -1371,7 +1350,7 @@ namespace Xsl3.Xslt
             int nodeCost = FixedNodeCost;
 
             // Detect the number of iterators used by the node's 'select' attribute
-            if (NodeTypeTest(node.NodeType, NodesWithSelect))
+            if (HasXPathSelect(node.NodeType))
             {
                 nodeCost += NodeCostForXPath(node.Select);
             }
@@ -1420,7 +1399,7 @@ namespace Xsl3.Xslt
                 {
                     // We're passed the parameters and our first real node; start checking the cost
                     // Note: some nodes like xsl:choose cannot contain xsl:call-template
-                    canRewrite = NodeTypeTest(node.NodeType, ParentsOfCallTemplate);
+                    canRewrite = CanRefactor(node.NodeType);
                 }
             }
 

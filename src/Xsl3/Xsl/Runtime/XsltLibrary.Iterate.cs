@@ -10,13 +10,16 @@ namespace Xsl3.Runtime
 {
     /// <summary>
     /// The control item that ends the value of the body of xsl:iterate after xsl:next-iteration (with the
-    /// parameters' new values) or xsl:break; also the parameters' initial values. It never escapes X31Iterate.
+    /// parameters' new values) or xsl:break; also the parameters' initial values and the forward loop's state.
+    /// It never escapes the generated iterate implementation.
     /// </summary>
     internal sealed class IterationControl : XPathItem
     {
         public IterationControl(bool isBreak) => IsBreak = isBreak;
 
-        public bool IsBreak { get; }
+        public bool IsBreak { get; private set; }
+
+        internal void Stop() => IsBreak = true;
 
         public List<IList<XPathItem>> Values { get; } = new();
 
@@ -41,6 +44,24 @@ namespace Xsl3.Runtime
         {
             ((IterationControl)control).Values.Add(Copy(value));
             return control;
+        }
+
+        public bool X31IterationActive(XPathItem state) => !((IterationControl)state).IsBreak;
+
+        public IList<XPathItem> X31IterationValue(XPathItem state, double index) => ((IterationControl)state).Values[(int)index];
+
+        public IList<XPathItem> X31IterationNext(XPathItem state, XPathItem next)
+        {
+            var target = (IterationControl)state;
+            target.Values.Clear();
+            target.Values.AddRange(((IterationControl)next).Values);
+            return Array.Empty<XPathItem>();
+        }
+
+        public IList<XPathItem> X31IterationBreak(XPathItem state)
+        {
+            ((IterationControl)state).Stop();
+            return Array.Empty<XPathItem>();
         }
 
         /// <summary>

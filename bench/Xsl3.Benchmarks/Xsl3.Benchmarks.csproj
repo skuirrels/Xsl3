@@ -6,6 +6,9 @@
     <IsPackable>false</IsPackable>
     <Optimize>true</Optimize>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <!-- Ordinary performance comparisons also build against commits predating the reader API. -->
+    <EnableStreamingProcessBenchmarks Condition="'$(EnableStreamingProcessBenchmarks)' == ''">true</EnableStreamingProcessBenchmarks>
+    <DefineConstants Condition="'$(EnableStreamingProcessBenchmarks)' == 'true'">$(DefineConstants);STREAMING_PROCESS_BENCHMARKS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +17,20 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Xsl3\Xsl3.csproj" />
+  </ItemGroup>
+
+  <!-- Shared synthetic process fixtures; no xUnit/test SDK dependency. -->
+  <ItemGroup Condition="'$(EnableStreamingProcessBenchmarks)' == 'true'">
+    <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.cs" Link="StreamingProbe.cs" />
+    <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Memory.cs" Link="StreamingProbe.Memory.cs" />
+    <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Stylesheets.cs" Link="StreamingProbe.Stylesheets.cs" />
+    <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Json.cs" Link="StreamingProbe.Json.cs" />
+    <Compile Include="../../tests/Xsl3.Tests/ProbeSha256.cs" Link="ProbeSha256.cs" />
+    <Content Include="../corpus/xslt30/micro/streaming/*.xsl" Link="corpus/xslt30/micro/streaming/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableStreamingProcessBenchmarks)' != 'true'">
+    <Compile Remove="Streaming.cs;Streaming.Engine.cs" />
   </ItemGroup>
 
   <!-- The SaxonCS-HE comparison (remaining-scope 3): built only with -p:Saxon=true, and only for .NET 10, which is

@@ -142,9 +142,9 @@ namespace Xsl3.XPath31.Functions
             });
             Define("fn:distinct-values($arg as xs:anyAtomicType*) as xs:anyAtomicType*", (c, a) => SequenceFunctions.DistinctValues(a[0], c));
             Define("fn:deep-equal($parameter1 as item()*, $parameter2 as item()*) as xs:boolean", (c, a) => Bool(DeepEqual.Sequences(a[0], a[1], c)));
-            Define("fn:zero-or-one($arg as item()*) as item()?", (c, a) => a[0].Count <= 1 ? a[0] : throw new XdmException("FORG0003", "fn:zero-or-one called with a sequence of more than one item"));
-            Define("fn:one-or-more($arg as item()*) as item()+", (c, a) => a[0].Count >= 1 ? a[0] : throw new XdmException("FORG0004", "fn:one-or-more called with an empty sequence"));
-            Define("fn:exactly-one($arg as item()*) as item()", (c, a) => a[0].Count == 1 ? a[0] : throw new XdmException("FORG0005", "fn:exactly-one called with a sequence of zero or more than one items"));
+            Define("fn:zero-or-one($arg as item()*) as item()?", (c, a) => SequenceFunctions.AssertCardinality(a[0], "zero-or-one"));
+            Define("fn:one-or-more($arg as item()*) as item()+", (c, a) => SequenceFunctions.AssertCardinality(a[0], "one-or-more"));
+            Define("fn:exactly-one($arg as item()*) as item()", (c, a) => SequenceFunctions.AssertCardinality(a[0], "exactly-one"));
 
             // ---------------------------------------------------------- aggregates (F&O §14.4)
             Define("fn:sum($arg as xs:anyAtomicType*) as xs:anyAtomicType", (c, a) => One(Aggregates.Sum(a[0], AtomicValue.OfInteger(0), c)));

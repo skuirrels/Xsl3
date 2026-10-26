@@ -10,24 +10,29 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **Status: 1.0.1.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **1.1.0: streaming foundations.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. 1.0.1 is on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
+> behind `XsltSettings.SchemaAware`. Packages are available on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
 > [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
 
+**1.1.0 closes P7A**, the implemented streaming foundations and related correctness work.
+Streaming remains experimental; the remaining full-P7 analysis, memory and throughput targets are deferred.
+See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.0.md) and [phase close-out](docs/plan/p7a-closeout.md).
+
 ## What works
 
-Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md](docs/conformance.md).
+Conformance rechecked on 2026-10-26 (Release, .NET 10); performance rows retain their dated measurements in
+[docs/performance.md](docs/performance.md). See [phase evidence](docs/plan/p7a-closeout.md) for error-code accounting.
 
 | Gate | Result |
 |---|---|
 | Upstream `XslCompiledTransform` tests (the XSLT 1.0 regression gate) | 1654 / 1654 on .NET 8 and .NET 10 (of 1661: 7 platform-specific or known upstream issues are filtered) |
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
-| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,588 passed, 9 failed (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,844 passed, 23 failed, 42 not run (99.7%) |
+| W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,590 passed, 8 failed, 10 not run (99.8%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,849 passed, 19 failed, 41 not run (99.8%) |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -107,9 +112,13 @@ Measured on 2026-10-21 (Release build, .NET 10); details in [docs/conformance.md
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
-  (P7) hasn't started; a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
+  (P7) is paused after the P7A foundations phase, with expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
+  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Normal execution still builds
+  trees; a development switch enables forward source-document inputs, including schema validation, streamable
+  initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
+  claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.0.1. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.1.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
@@ -152,8 +161,11 @@ xslt.Transform("input.xml", "output.html");
 - **Memory:** the tree takes about 60% of `XPathDocument`'s memory.
 - **What it covers:** the input and the documents `document()` loads. An `XPathDocument` you pass in yourself is used
   as it is.
-- **Output:** the same as stock, except that `generate-id()` returns different (still unique) strings. That's why
-  it's off by default for 1.0.
+- **Output:** the same as stock, with two exceptions, which is why it's off by default for 1.0:
+  - `generate-id()` returns different strings, still unique;
+  - nodes from different documents come in a different order, for example in `document('b.xml')//item | //item`.
+    Compact trees are ordered by when they were built, so the input comes first. Stock orders documents by when a
+    comparison first meets them. XSLT 1.0 leaves this order to the implementation.
 - **XSLT 2.0 and 3.0 stylesheets** always use the compact tree.
 
 See [docs/performance.md](docs/performance.md) for the measurements.
@@ -182,6 +194,10 @@ XdmValue total = transformer.CallFunction(new QName("urn:report", "total"), rows
 
 - A dynamic error is an `XsltDynamicException` with the error's `Code`, `Description` and `ErrorObject`; a stylesheet
   that doesn't compile raises an `XsltStaticException` listing every error with its module, line and column.
+- `ApplyTemplates` also accepts an `XmlReader`, a `Stream` with an optional base URI, or a `Uri`, with raw-result
+  and `Stream`/`TextWriter`/`XmlWriter` destination overloads. Caller readers and streams stay open; URI inputs
+  use `DocumentResolver` and are closed after execution. These overloads keep `GlobalContextItem` separate from
+  the initial selection: set it explicitly when the stylesheet needs one. `XdmValue` inputs remain grounded.
 - Each transformer has its own `BaseOutputUri`, `MessageHandler`, `TraceHandler`, `ResultDocumentHandler`,
   `DocumentResolver`, `CancellationToken` and `GlobalContextItem`.
 - `XsltCompiler` takes the `XsltSettings`, static parameters and the package library (`Packages.Add(uri)`), and
@@ -315,7 +331,8 @@ From [SPEC.md §22](SPEC.md):
 | P4 | Performance: beat stock `XslCompiledTransform` (≥ 1.2× on 1.0, never slower) with modern .NET: `Span<T>`, `SearchValues`, pooled buffers, unboxed codegen, a compact tree, dispatch tables, build-time AOT | In progress: 1.0 throughput 1.38× stock (exit ≥ 1.2× met); compact trees for parsed documents (59% of `XPathDocument`'s memory, 1.49× stock end to end) and 2.0+ temporary trees, with a name pool; 3.0 rewrites of the 1.0 benchmarks now at 0.71–0.96× of stock's time (target ≤ 1× met); automatic indexing; a micro suite and a performance gate in CI; Sink B (saved assemblies, `Xsl3.Build`) and NativeAOT done; SaxonCS-HE comparison measured, 2× target not met |
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
 | P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
-| P7 | Streaming | Not started |
+| P7A | Streaming foundations | Complete for 1.1.0 ([close-out](docs/plan/p7a-closeout.md)); streaming remains experimental |
+| P7 remainder | Supported streaming | Deferred: exact analysis conformance, general runtime bounds, 20 MiB memory and throughput acceptance ([original plan](docs/plan/p7-streaming.md)) |
 
 ## Licence
 

@@ -179,7 +179,7 @@ namespace Xsl3.Runtime
                     else if (item is FunctionItem function)
                     {
                         // A map or function in the content of a node (XSLT 3.0 §5.7.1).
-                        throw new XdmException("XTDE0450", $"{function.Describe()} can't be in the content of a node");
+                        throw InvalidComplexContent(function);
                     }
                     else
                     {
@@ -215,6 +215,21 @@ namespace Xsl3.Runtime
                 }
             }
             return flat;
+        }
+
+        /// <summary>Consume one simple-content item while its streamed source is current.</summary>
+        public XPathItem X31SimpleContentItem(XPathItem item)
+        {
+            // Text nodes retain their original adjacency. Every other source item remains a boundary,
+            // even when its typed value is empty. Single atoms already represent that boundary, so
+            // they need neither an immutable array wrapper nor a second atomization at the join.
+            if (item is AtomicValue || item is XPathNavigator
+                { NodeType: XPathNodeType.Text or XPathNodeType.Whitespace or XPathNodeType.SignificantWhitespace })
+                return item;
+            if (item is XPathNavigator node && Xsl3.Schema.SchemaTypes.TypeOf(node) == null)
+                return AtomicValue.OfString(node.Value);
+            IList<XPathItem> atoms = Sequences.Atomize(Sequences.One(item));
+            return atoms.Count == 1 ? atoms[0] : X31Wrap(atoms);
         }
 
         /// <summary>
@@ -282,42 +297,13 @@ namespace Xsl3.Runtime
                 // for a variable, XTTE0505 for a function result, ...), not the cast's FORG0001.
                 throw new XdmException(errorCode, e.Message);
             }
-            if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null } test)
+            if (type.Item is FunctionItemTest { Parameters: not null, ReturnType: not null })
             {
-                return CoerceFunctions(coerced, test);
+                return coerced;
             }
             // A longer sequence remembers the type it was converted to, so that passing it on costs nothing.
             return coerced.Count >= CoercedSequence.MinimumCount ? new CoercedSequence(coerced, type) : coerced;
         }
-
-        /// <summary>
-        /// Function coercion (XPath 3.1 §3.1.5.3): a function item that doesn't match a typed function test is wrapped,
-        /// so that its arguments and result are converted to the test's types when it is called (XPTY0004 if they can't be).
-        /// </summary>
-        private IList<XPathItem> CoerceFunctions(IList<XPathItem> items, FunctionItemTest test)
-        {
-            XPathItem[]? wrapped = null;
-            for (int i = 0; i < items.Count; i++)
-            {
-                if (items[i] is FunctionItem function and not MapItem and not ArrayItem && !test.Matches(function))
-                {
-                    wrapped ??= items.ToArray();
-                    SequenceTypeTest[] parameters = test.Parameters!.ToArray();
-                    SequenceTypeTest result = test.ReturnType!;
-                    wrapped[i] = new NativeFunction(parameters, result, args =>
-                    {
-                        var converted = new IList<XPathItem>[args.Length];
-                        for (int a = 0; a < args.Length; a++)
-                        {
-                            converted[a] = Coercion.CoerceTo(args[a], parameters[a], "XPTY0004", () => $"Argument {a + 1} of the coerced function");
-                        }
-                        return Coercion.CoerceTo(CallFunction(function, converted), result, "XPTY0004", () => "The result of the coerced function");
-                    }, function.Describe());
-                }
-            }
-            return wrapped ?? items;
-        }
-
         /// <summary>The value, if it is an instance of the type (no conversion is applied); else the error.</summary>
         public IList<XPathItem> X31InstanceCheck(IList<XPathItem> value, double typeId, string errorCode)
         {
@@ -363,6 +349,7 @@ namespace Xsl3.Runtime
                 }
             }
             var result = new List<XPathItem>();
+            bool replace = vacuous && items.Any(item => item is DeferredItem { OnEmpty: true });
             foreach (XPathItem item in items)
             {
                 if (item is DeferredItem deferred)
@@ -372,7 +359,7 @@ namespace Xsl3.Runtime
                         result.AddRange(CallFunction(deferred.Body));
                     }
                 }
-                else if (!vacuous)
+                else if (!replace)
                 {
                     result.Add(item);
                 }
@@ -444,104 +431,16 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31ResultDocument(string href, IList<XPathItem> document, string baseUri, double formatId, string formatName,
             double formatsId, string parameters, double namesId, IList<XPathItem> callerFrame)
         {
-            if (callerFrame.Count != 0 && ((TunnelFrame)callerFrame[0]).Find(OutputEntry, "") is { } callerOutput && callerOutput.ParamValue[0].Value == TemporaryOutput)
-            {
-                // In a template called from a function body or the content of a variable or parameter (XSLT 3.0 §25.2).
-                throw new XdmException("XTDE1480", "xsl:result-document can't be evaluated while a temporary tree or a function result is being constructed");
-            }
+            CheckResultOutputState(callerFrame);
             bool raw = parameters.Contains("#raw" + SerializationParameters.NameEnd, System.StringComparison.Ordinal);
             var doc = raw ? null! : (XPathNavigator)document[0];
-            XsltNameContext names = (XsltNameContext)Constant((int)namesId);
-            var format = (ResultFormat)Constant((int)formatId);
-            if (formatName.Length > 0)
-            {
-                var (ns, local) = names.Resolve(formatName, "", "XTDE1460");
-                var formats = (Dictionary<(string, string), ResultFormat>)Constant((int)formatsId);
-                if (!formats.TryGetValue((ns, local), out format!))
-                {
-                    throw new XdmException("XTDE1460", $"There is no output definition named '{formatName}'");
-                }
-            }
-            var (settings, extras, text) = SerializationParameters.Apply(format, parameters, names, uri =>
-            {
-                // A parameter-document is read like a document fn:doc reads, relative to the static base URI.
-                System.Xml.XmlResolver resolver = _runtime.ExternalContext.DataSources;
-                System.Uri absolute = resolver.ResolveUri(baseUri.Length == 0 ? null : resolver.ResolveUri(null, baseUri), uri);
-                return resolver.GetEntity(absolute, null, typeof(System.IO.Stream)) is System.IO.Stream stream
-                    ? System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings { CloseInput = true }, absolute.AbsoluteUri)
-                    : throw new XdmException("SEPM0017", $"The serialization parameter document '{uri}' can't be read");
-            });
-            if (raw && href.Length == 0)
-            {
-                // The principal result: the items, separated by the item-separator (or, without one, a space
-                // between adjacent atomic values); json and adaptive apply to secondary results only.
-                PrincipalResult? target = XmlQueryRuntime.Principal;
-                if (target == null)
-                {
-                    return document;
-                }
-                if (extras?.RawMethod != null && target.WriteItems(document, settings, extras))
-                {
-                    return Sequences.Empty;
-                }
-                target.BeginExplicit(settings, extras);
-                bool previousAtomic = false;
-                for (int i = 0; i < document.Count; i++)
-                {
-                    bool atomic = document[i] is not XPathNavigator;
-                    if (i > 0 && (extras?.ItemSeparator != null || atomic && previousAtomic))
-                    {
-                        target.WriteString(extras?.ItemSeparator ?? " ");
-                    }
-                    if (document[i] is XPathNavigator { NodeType: XPathNodeType.Root } root)
-                    {
-                        WriteChildren(target, root);
-                    }
-                    else if (document[i] is XPathNavigator node)
-                    {
-                        target.WriteNode(node, defattr: true);
-                    }
-                    else
-                    {
-                        target.WriteString(document[i].Value);
-                    }
-                    previousAtomic = atomic;
-                }
-                target.EndExplicit();
-                return Sequences.Empty;
-            }
+            var (settings, extras, text) = ResultSerialization(baseUri, formatId, formatName, formatsId, parameters, namesId);
             if (href.Length == 0)
             {
-                // The principal result.
-                PrincipalResult? principal = XmlQueryRuntime.Principal;
-                if (principal == null)
-                {
-                    return X31ContentItems(document);
-                }
-                principal.BeginExplicit(settings, extras);
-                WriteChildren(principal, doc);
-                principal.EndExplicit();
-                return Sequences.Empty;
+                return _runtime.ForkPrincipal is { } fork ? fork(document, settings, extras, raw)
+                    : WritePrincipalResult(XmlQueryRuntime.Principal, document, settings, extras, raw);
             }
-            string uri = X31OutputUri(href, baseUri);
-            if (_runtime.ExternalContext.HasRead(uri))
-            {
-                // XSLT 3.0 §25.2: a resource can't be both read and written by the transformation.
-                throw new XdmException("XTDE1500", $"'{uri}' was read by the transformation and can't be written by xsl:result-document");
-            }
-            if (!_runtime.ResultDocumentUris.Add(uri))
-            {
-                throw new XdmException("XTDE1490", $"Two final result trees can't have the same URI: {uri}");
-            }
-            System.Func<string, string, System.IO.TextWriter>? handler = XmlQueryRuntime.ResultDocumentHandler;
-            System.Func<string, System.IO.Stream>? opener = XmlQueryRuntime.ResultDocumentOpener;
-            if (handler == null && opener == null)
-            {
-                throw new XdmException("XTDE1480", $"Secondary results are not enabled (XsltSettings.EnableResultDocument); can't write {uri}");
-            }
-            System.IO.TextWriter output = handler != null
-                ? handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant())
-                : new System.IO.StreamWriter(Open(opener!, uri), settings.Encoding);
+            var (uri, output) = OpenSecondaryResult(href, baseUri, settings, extras, text);
             // The file is closed whatever happens, so an error caught by xsl:try doesn't leave it open.
             try
             {
@@ -560,17 +459,17 @@ namespace Xsl3.Runtime
                     output.Dispose();
                     return Sequences.Empty;
                 }
-                if (text)
+                if (!text && XmlQueryRuntime.ResultTreeHandler is { } treeHandler)
                 {
-                    output.Write(doc.Value);
-                    output.Dispose();
-                    return Sequences.Empty;
+                    XPathNavigator resultTree = Xsl3.Schema.NodeValidator.Preserve(doc, copyNamespaces: true);
+                    ((Xsl3.Tree.CompactNavigator)resultTree).Document.SetResultUri(uri);
+                    treeHandler(uri, resultTree);
                 }
-                XmlQueryRuntime.ResultTreeHandler?.Invoke(uri, doc.Clone());
                 settings.CloseOutput = true;
                 using (System.Xml.XmlWriter w = PrincipalResult.Create(s => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, s, extras), s), settings, extras))
                 {
-                    WriteChildren(w, doc);
+                    if (text) w.WriteString(doc.Value);
+                    else WriteChildren(w, doc);
                     w.Flush();
                 }
             }
@@ -579,6 +478,65 @@ namespace Xsl3.Runtime
                 output.Dispose();
             }
             return Sequences.Empty;
+        }
+
+        private static void CheckResultOutputState(IList<XPathItem> callerFrame)
+        {
+            if (callerFrame.Count != 0 && ((TunnelFrame)callerFrame[0]).Find(OutputEntry, "") is { } callerOutput && callerOutput.ParamValue[0].Value == TemporaryOutput)
+            {
+                // In a template called from a function body or the content of a variable or parameter (XSLT 3.0 §25.2).
+                throw new XdmException("XTDE1480", "xsl:result-document can't be evaluated while a temporary tree or a function result is being constructed");
+            }
+        }
+
+        private (System.Xml.XmlWriterSettings Settings, OutputExtras? Extras, bool Text) ResultSerialization(
+            string baseUri, double formatId, string formatName, double formatsId, string parameters, double namesId)
+        {
+            XsltNameContext names = (XsltNameContext)Constant((int)namesId);
+            var format = (ResultFormat)Constant((int)formatId);
+            if (formatName.Length > 0)
+            {
+                var (ns, local) = names.Resolve(formatName, "", "XTDE1460");
+                var formats = (Dictionary<(string, string), ResultFormat>)Constant((int)formatsId);
+                if (!formats.TryGetValue((ns, local), out format!))
+                {
+                    throw new XdmException("XTDE1460", $"There is no output definition named '{formatName}'");
+                }
+            }
+            var result = SerializationParameters.Apply(format, parameters, names, uri =>
+            {
+                // A parameter-document is read like a document fn:doc reads, relative to the static base URI.
+                System.Xml.XmlResolver resolver = _runtime.Documents.TrackResolver(_runtime.ExternalContext.DataSources)!;
+                System.Uri absolute = resolver.ResolveUri(baseUri.Length == 0 ? null : resolver.ResolveUri(null, baseUri), uri);
+                if (resolver.GetEntity(absolute, null, typeof(System.IO.Stream)) is not System.IO.Stream stream)
+                    throw new XdmException("SEPM0017", $"The serialization parameter document '{uri}' can't be read");
+                try { return System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings { CloseInput = true }, absolute.AbsoluteUri); }
+                catch
+                {
+                    try { stream.Dispose(); } catch (Exception) { }
+                    throw;
+                }
+            });
+            // XML-only root constraints do not apply after the text method flattens the tree.
+            if (result.Text && result.Extras != null) result.Extras.SingleRoot = false;
+            return result;
+        }
+
+        private (string Uri, System.IO.TextWriter Writer) OpenSecondaryResult(string href, string baseUri,
+            System.Xml.XmlWriterSettings settings, OutputExtras? extras, bool text)
+        {
+            string uri = X31OutputUri(href, baseUri);
+            _runtime.Documents.ClaimWrite(uri);
+            System.Func<string, string, System.IO.TextWriter>? handler = XmlQueryRuntime.ResultDocumentHandler;
+            System.Func<string, System.IO.Stream>? opener = XmlQueryRuntime.ResultDocumentOpener;
+            if (handler == null && opener == null)
+            {
+                throw new XdmException("XTDE1480", $"Secondary results are not enabled (XsltSettings.EnableResultDocument); can't write {uri}");
+            }
+            System.IO.TextWriter output = handler != null
+                ? handler(uri, extras?.RawMethod is "json" or "adaptive" ? extras.RawMethod : text ? "text" : settings.OutputMethod.ToString().ToLowerInvariant())
+                : new System.IO.StreamWriter(Open(opener!, uri), settings.Encoding);
+            return (uri, output);
         }
 
         // A secondary result's file: a file system failure is the error of a result that can't be written.
@@ -835,6 +793,7 @@ namespace Xsl3.Runtime
 
         // The current template rule travels with the tunnel parameters too, for xsl:next-match in a named template.
         private const string RuleEntry = "\u0001xsl3-rule";
+        internal const double AbsentTemplateRule = -1;
 
         /// <summary>The tunnel frame with template rule <paramref name="rule"/> as the current template rule.</summary>
         public IList<XPathItem> X31TunnelSetRule(IList<XPathItem> frame, double rule) =>
@@ -842,7 +801,7 @@ namespace Xsl3.Runtime
 
         /// <summary>The current template rule a tunnel frame carries, or -1 (absent).</summary>
         public double X31TunnelRule(IList<XPathItem> frame) =>
-            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(RuleEntry, "") is { } entry ? Numeric.ToDouble((AtomicValue)entry.ParamValue[0]) : -1;
+            frame.Count != 0 && ((TunnelFrame)frame[0]).Find(RuleEntry, "") is { } entry ? Numeric.ToDouble((AtomicValue)entry.ParamValue[0]) : AbsentTemplateRule;
 
         // The current captured substrings travel with the tunnel parameters into called templates (XSLT 3.0 §5.4.4):
         // the xsl:analyze-string segment, or none.
@@ -871,6 +830,11 @@ namespace Xsl3.Runtime
         /// <summary>The tunnel frame with <paramref name="group"/> as the current group (with no grouping key, for group-starting-with and group-ending-with).</summary>
         public IList<XPathItem> X31TunnelSetGroup(IList<XPathItem> frame, XPathItem group, bool noKey) =>
             new XPathItem[] { new TunnelFrame(frame.Count == 0 ? null : (TunnelFrame)frame[0], GroupEntry, "", new XPathItem[] { group, AtomicValue.OfBoolean(noKey) }) };
+
+        /// <summary>Invocations within a declared-streamable construct clear the current group (§14.2.1).</summary>
+        public IList<XPathItem> X31TunnelClearGroup(IList<XPathItem> frame) =>
+            frame.Count == 0 || ((TunnelFrame)frame[0]).Find(GroupEntry, "") == null
+                ? frame : new XPathItem[] { new TunnelFrame((TunnelFrame)frame[0], GroupEntry, "", Sequences.Empty) };
 
         /// <summary>current-group() in a template called from xsl:for-each-group: from the tunnel frame (XTDE1061 when there is none).</summary>
         public IList<XPathItem> X31TunnelCurrentGroup(IList<XPathItem> frame) =>

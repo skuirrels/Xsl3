@@ -64,6 +64,8 @@ namespace Xsl3.XPath31
 
         public int Count => _count;
 
+        internal System.Xml.Schema.XmlSchemaSet? SchemaContext { get; set; }
+
         public int Add(object value)
         {
             lock (_lock)

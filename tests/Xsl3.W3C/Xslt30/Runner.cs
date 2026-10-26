@@ -18,9 +18,8 @@ namespace Xsl3.W3C.Xslt30;
 
 /// <summary>
 /// Runs xslt30-test cases through Xsl3's XslCompiledTransform and checks their assertions (see the suite's
-/// runner/assert.xsl for their meaning). The principal result is serialized as the stylesheet's xsl:output
-/// says; tree assertions parse that serialization back. XPath assertions are evaluated with Xsl3's XPath 3.1
-/// engine, with the result document as the context item.
+/// runner/assert.xsl for their meaning). Serialization assertions inspect the declared output; tree assertions
+/// inspect a cached annotated result tree. XPath assertions use Xsl3's XPath 3.1 engine with that tree as context.
 /// </summary>
 public sealed partial class Runner
 {
@@ -28,6 +27,9 @@ public sealed partial class Runner
 
     private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
     {
+        /// <summary>P7: analysis-only tests have no stylesheet or principal result.</summary>
+        public IReadOnlyList<AssessedExpression>? StreamabilityResults { get; init; }
+
         public Dictionary<string, StringWriter> SecondaryResults { get; init; } = new();
 
         /// <summary>The raw result sequence, when the test takes it (an initial function's result): what $result is bound to.</summary>
@@ -37,24 +39,14 @@ public sealed partial class Runner
         public string? BaseUri { get; init; }
 
         /// <summary>
-        /// P6: the principal result tree as the engine builds it (the transformation run again into a compact tree), with
-        /// the type annotations it keeps; for the assertions of schema-aware tests.
+        /// The principal result tree, replayed once into an annotated tree independently of serialization.
         /// </summary>
         public Func<XPathNavigator>? Tree { get; init; }
 
         /// <summary>P6: the schemas of the test's environments, for its assertions.</summary>
         public System.Xml.Schema.XmlSchemaSet? Schemas { get; init; }
 
-        /// <summary>
-        /// The principal result written as XML (the transformation run again into an XmlWriter), for tree assertions
-        /// when the serialization (html, text, json) doesn't parse as XML.
-        /// </summary>
-        public Func<string>? AsXml { get; init; }
     }
-
-    // An html serialization: starts with an html element in any case (no XML declaration), or a DOCTYPE html.
-    private static bool IsHtml(string serialized) =>
-        System.Text.RegularExpressions.Regex.IsMatch(serialized.TrimStart('\uFEFF', ' ', '\r', '\n', '\t'), "^(<!DOCTYPE html|<html)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     // A stylesheet module and the modules it includes or imports, by their hrefs (for the initial template's search).
     // Tests run through the public 3.0 API (XsltCompiler, Xslt30Transformer); XSL3_W3C_API=0 runs them through
@@ -79,7 +71,7 @@ public sealed partial class Runner
     /// The test through the public API: compiled by XsltCompiler, run by an Xslt30Transformer from the entry point the
     /// test names (the settings <paramref name="entry"/> was given say which).
     /// </summary>
-    private RunResult ExecuteApi(TestCase test, string stylesheet, XmlResolver resolver, XPathNavigator? input, XslCompiledTransform entry, ApiRun api,
+    private RunResult ExecuteApi(TestCase test, string stylesheet, XmlResolver resolver, XPathNavigator? input, TestEnvironment.Source? inputSource, XslCompiledTransform entry, ApiRun api,
         List<(string Name, string Version, Uri Location)> packages, List<string> messages, Dictionary<string, StringWriter> secondary)
     {
         var compiler = new XsltCompiler
@@ -125,12 +117,16 @@ public sealed partial class Runner
         // Templates are applied to the source document; with none, the API has no initial match selection to give.
         Xsl3.Xdm.XdmValue Selection() => node ?? throw new XsltDynamicException(new Xsl3.Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTDE0044", "err"),
             "The transformation applies templates, but there is no initial match selection");
+        bool forward = ForwardInitialSource(inputSource) && entry.InitialTemplate == null && entry.InitialFunction == null;
+        XmlReader SourceReader() => OpenInitialSource(inputSource!, test);
         try
         {
             if (entry.RawResult)
             {
+                using XmlReader? reader = forward ? SourceReader() : null;
                 Xsl3.Xdm.XdmValue result = entry.InitialFunction is { } function ? transformer.CallFunction(Name(function)!, api.FunctionArguments.ToArray())
                     : entry.InitialTemplate is { } template ? transformer.CallTemplate(Name(template), templateParameters, tunnelParameters)
+                    : reader != null ? transformer.ApplyTemplates(reader, mode, templateParameters, tunnelParameters)
                     : transformer.ApplyTemplates(Selection(), mode, templateParameters, tunnelParameters);
                 IList<XPathItem> items = result.Items;
                 string text = string.Join(" ", items.Select(i => i is XPathNavigator n ? n.OuterXml : i.Value));
@@ -138,8 +134,15 @@ public sealed partial class Runner
             }
             void Run(object destination)
             {
+                using XmlReader? reader = forward ? SourceReader() : null;
                 switch (destination)
                 {
+                    case Stream s when reader != null:
+                        transformer.ApplyTemplates(reader, s, mode, templateParameters, tunnelParameters);
+                        break;
+                    case XmlWriter w when reader != null:
+                        transformer.ApplyTemplates(reader, w, mode, templateParameters, tunnelParameters);
+                        break;
                     case Stream s when entry.InitialTemplate is { } t:
                         transformer.CallTemplate(Name(t), s, templateParameters, tunnelParameters);
                         break;
@@ -159,22 +162,7 @@ public sealed partial class Runner
             return new RunResult(Decode(bytes.ToArray()), null, messages)
             {
                 SecondaryResults = secondary,
-                AsXml = () =>
-                {
-                    var xml = new StringWriter();
-                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
-                    {
-                        Run(writer);
-                    }
-                    return xml.ToString();
-                },
-                Tree = TestEnvironment.SchemaAware ? () =>
-                {
-                    var (writer, root) = Xsl3.Tree.CompactDocument.TemporaryTree(new NameTable(), "", fragment: false, noDocumentUri: true, compact: true);
-                    Run(writer);
-                    writer.Close();
-                    return root();
-                } : null,
+                Tree = SerializedResult(test) ? null : ReplayResultTree(Run, messages, secondary),
                 Schemas = SchemaSet(test.Environments.OfType<TestEnvironment>()),
             };
         }
@@ -247,23 +235,8 @@ public sealed partial class Runner
         }
     }
 
-    // The result tree for an assertion: the serialization parsed back, else the result written as XML.
-    private static XPathNavigator ResultTree(RunResult run, string serialized)
-    {
-        try
-        {
-            return ResultDocument(serialized, run.BaseUri);
-        }
-        catch (XmlException) when (run.AsXml != null)
-        {
-            return ResultDocument(run.AsXml(), run.BaseUri);
-        }
-    }
-
-    // Tests whose expected tree the serialization of the result can't match: bug-1901's result starts with XHTML's html
-    // element, so its default output method is xhtml (XSLT 3.0 §26.1, for a 2.0 or 3.0 stylesheet), which adds a meta
-    // element the tree doesn't have.
-    private static readonly HashSet<string> s_treeComparisons = new(StringComparer.Ordinal) { "bug/bug-1901" };
+    private static XPathNavigator ResultTree(RunResult run, string serialized) =>
+        run.Tree != null ? run.Tree() : ResultDocument(serialized, run.BaseUri);
 
     public Outcome Run(TestCase test)
     {
@@ -295,6 +268,10 @@ public sealed partial class Runner
 
     private Outcome RunCore(TestCase test)
     {
+        if (test.TestElement.Element(Catalog.Ns + "posture-and-sweep") is { } analysis)
+        {
+            return RunPostureAndSweep(test, analysis);
+        }
         IReadOnlyList<TestEnvironment?> environments = test.Environments;
         if (environments.Any(e => e == null))
         {
@@ -307,11 +284,6 @@ public sealed partial class Runner
             return Outcome.NotRun("environment: " + unsupported);
         }
         XElement t = test.TestElement;
-        if (s_treeComparisons.Contains(test.Id))
-        {
-            // The runner compares serializations; these tests compare the result tree, which serialization changes.
-            return Outcome.NotRun("compares the result tree, not its serialization");
-        }
         // A principal package stands for the stylesheet; other packages are the library xsl:use-package finds.
         XElement? sheet = t.Elements(Catalog.Ns + "stylesheet").FirstOrDefault(s => (string?)s.Attribute("role") is null or "principal")
             ?? t.Elements(Catalog.Ns + "package").FirstOrDefault(p => (string?)p.Attribute("role") == "principal");
@@ -342,7 +314,8 @@ public sealed partial class Runner
             "#unnamed" => XmlQualifiedName.Empty,
             _ => ResolveQName(initialMode, "name"),
         };
-        RunResult run = Execute(test, envs, stylesheetPath,
+        using var resolver = new TestResolver(envs);
+        RunResult run = Execute(test, envs, resolver, stylesheetPath,
             ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), mode, parameters, t.Element(Catalog.Ns + "initial-function"));
         return Check(test, test.Result, run);
     }
@@ -369,7 +342,7 @@ public sealed partial class Runner
     [ThreadStatic]
     private static Dictionary<string, XPathNavigator>? t_resultTrees;
 
-    private RunResult Execute(TestCase test, List<TestEnvironment> envs, string stylesheet, XmlQualifiedName? initialTemplate, XmlQualifiedName? initialMode,
+    private RunResult Execute(TestCase test, List<TestEnvironment> envs, TestResolver resolver, string stylesheet, XmlQualifiedName? initialTemplate, XmlQualifiedName? initialMode,
         List<TestEnvironment.Param> parameters, XElement? initialFunction)
     {
         var messages = new List<string>();
@@ -383,7 +356,6 @@ public sealed partial class Runner
             ? new Uri(Path.Combine(test.Set.Directory, output.Value)).AbsoluteUri : null;
         try
         {
-            var resolver = new TestResolver(envs);
             XPathNavigator? input = null;
             TestEnvironment.Source? inputSource = null;
             var args = new XsltArgumentList();
@@ -397,6 +369,11 @@ public sealed partial class Runner
                     if (source.Role == null)
                     {
                         continue; // available by URI only
+                    }
+                    if (source.Role == "." && ForwardInitialSource(source))
+                    {
+                        inputSource = source;
+                        continue; // A streamed initial selection is never parsed into the global context tree.
                     }
                     // An inline document's base URI is the test set's; a source with only select is that expression's value.
                     XPathNavigator doc = source.Content == null && source.File == null ? EmptyDocument() : LoadSource(source, test.Set.File, SchemaSet(envs));
@@ -455,7 +432,7 @@ public sealed partial class Runner
                 args.AddParam(name.Name, name.Namespace, argument);
                 api.FunctionArguments.Add(Xsl3.Xdm.XdmValue.MakeValue(argument));
             }
-            if (initialFunction == null && initialTemplate == null && initialMode == null && input == null &&
+            if (initialFunction == null && initialTemplate == null && initialMode == null && input == null && inputSource == null &&
                 Modules(stylesheet).Concat(packages.Select(p => p.Item3.LocalPath)).Any(file =>
                     System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(file), @"name\s*=\s*[""'][\w.-]+:initial-template[""']")))
             {
@@ -472,7 +449,7 @@ public sealed partial class Runner
             };
             if (s_api && !(Saved(test.Id)))
             {
-                return ExecuteApi(test, stylesheet, resolver, input, transform, api, packages, messages, secondary);
+                return ExecuteApi(test, stylesheet, resolver, input, inputSource, transform, api, packages, messages, secondary);
             }
             // Some stylesheets declare entities in an internal DTD subset.
             // (An embedded stylesheet, named with a fragment identifier, is compiled through a module that includes it.)
@@ -513,9 +490,12 @@ public sealed partial class Runner
             var sw = new StringWriter();
             // No source document: the context is an empty document (standing in for an absent context item).
             XPathNavigator context = input ?? XslCompiledTransform.AbsentInput;
+            bool forward = ForwardInitialSource(inputSource) && transform.InitialTemplate == null && transform.InitialFunction == null;
+            XmlReader SourceReader() => OpenInitialSource(inputSource!, test);
             if (transform.RawResult)
             {
-                IList<XPathItem> items = transform.TransformToItems(context, args, resolver);
+                using XmlReader? reader = forward ? SourceReader() : null;
+                IList<XPathItem> items = transform.TransformToItems((object?)reader ?? context, args, resolver, transform.BaseOutputUri);
                 string text = string.Join(" ", items.Select(i => i is XPathNavigator n ? n.OuterXml : i.Value));
                 return new RunResult(text, null, messages) { SecondaryResults = secondary, Raw = items };
             }
@@ -524,7 +504,9 @@ public sealed partial class Runner
                 // The engine creates the principal writer, so xsl:result-document without href can configure it; the
                 // bytes are decoded as their XML declaration says.
                 var bytes = new MemoryStream();
-                transform.Transform(context, args, bytes, resolver);
+                using XmlReader? reader = forward ? SourceReader() : null;
+                if (reader != null) transform.Transform(reader, args, bytes, resolver);
+                else transform.Transform(context, args, bytes, resolver);
                 sw.Write(Decode(bytes.ToArray()));
             }
             catch (Exception e) when (inputSource != null && e.Message.StartsWith("Whitespace cannot be stripped", StringComparison.Ordinal))
@@ -547,15 +529,13 @@ public sealed partial class Runner
             return new RunResult(sw.ToString(), null, messages)
             {
                 SecondaryResults = secondary,
-                AsXml = () =>
+                Tree = SerializedResult(test) ? null : ReplayResultTree(writer =>
                 {
-                    var xml = new StringWriter();
-                    using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, OmitXmlDeclaration = true }))
-                    {
-                        transform.Transform(context, args, writer, resolver);
-                    }
-                    return xml.ToString();
-                },
+                    using XmlReader? reader = forward ? SourceReader() : null;
+                    if (reader != null) transform.Transform(reader, args, writer, resolver);
+                    else transform.Transform(context, args, writer, resolver);
+                }, messages, secondary),
+                Schemas = SchemaSet(envs),
             };
         }
         catch (Exception e) when (e is not OutOfMemoryException and not ThreadAbortException)
@@ -629,9 +609,6 @@ public sealed partial class Runner
         return string.Join(" ", value.Select(i => i.Value));
     }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"instance\s+of|schema-element|schema-attribute|element\s*\(\s*\*\s*,|attribute\s*\(\s*\*\s*,|treat\s+as|nilled|data\s*\(")]
-    private static partial System.Text.RegularExpressions.Regex TypeAssertion();
-
     private static IList<XPathItem> Evaluate(string expression, XElement scope, XPathItem? context, IList<XPathItem>? result = null, System.Xml.Schema.XmlSchemaSet? schemas = null)
     {
         var sc = new XPathStaticContext { Schemas = schemas };
@@ -657,6 +634,21 @@ public sealed partial class Runner
     // share a few documents of tens of megabytes). They are Xsl3's own tree, as the processor builds for the documents
     // it loads (it keeps the DTD's IDREF types, for fn:idref).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Xsl3.Tree.CompactDocument> s_documents = new(StringComparer.Ordinal);
+
+    private static bool ForwardInitialSource(TestEnvironment.Source? source) =>
+        source?.Streaming == true && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+
+    private static XmlReader OpenInitialSource(TestEnvironment.Source source, TestCase test)
+    {
+        if (source.Select != null) throw new NotSupportedException("A streamed initial source with a select expression is not implemented by the harness");
+        var schemas = SchemaSet(test.Environments.OfType<TestEnvironment>());
+        XmlReaderSettings settings = schemas != null && source.Validation is "strict" or "lax"
+            ? ValidatingSettings(schemas, source.Validation == "strict")
+            : new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = new XmlUrlResolver() };
+        return source.Content != null
+            ? XmlReader.Create(new StringReader(source.Content), settings, source.File ?? new Uri(test.Set.File).AbsoluteUri)
+            : XmlReader.Create(source.File!, settings);
+    }
 
     private static XPathNavigator LoadSource(TestEnvironment.Source source, string testSetFile, System.Xml.Schema.XmlSchemaSet? schemas)
     {
@@ -763,6 +755,7 @@ public sealed partial class Runner
             {
                 var details = new List<string>();
                 Outcome? otherCode = null;
+                Outcome? unsupported = null;
                 foreach (XElement a in assertion.Elements())
                 {
                     Outcome o = Check(test, a, run);
@@ -773,12 +766,18 @@ public sealed partial class Runner
                         continue;
                     }
                     if (o.Kind == OutcomeKind.Pass) return o;
+                    if (o.Kind == OutcomeKind.NotRun) unsupported ??= o;
                     details.Add(o.Detail);
                 }
-                return otherCode ?? Outcome.Fail(string.Join(" | ", details));
+                return otherCode ?? unsupported ?? Outcome.Fail(string.Join(" | ", details));
             }
             case "not":
-                return Check(test, assertion.Elements().Single(), run).Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
+            {
+                Outcome outcome = Check(test, assertion.Elements().Single(), run);
+                // An unsupported analysis is still a gap when the assertion is negated.
+                return outcome.Kind == OutcomeKind.NotRun ? outcome
+                    : outcome.Kind == OutcomeKind.Pass ? Outcome.Fail("not: the assertion holds") : Outcome.Pass();
+            }
             case "error":
             case "assert-serialization-error":
             {
@@ -817,15 +816,13 @@ public sealed partial class Runner
                 {
                     string? file = (string?)assertion.Attribute("file");
                     string expected = file != null ? File.ReadAllText(Path.Combine(test.Set.Directory, file)) : assertion.Value;
-                    // assert-xml compares trees: an html serialization is compared as the result written as XML.
-                    return XmlEquals(serialized, expected) || run.AsXml != null && IsHtml(serialized) && XmlEquals(run.AsXml(), expected)
+                    return XmlEquals(ResultTree(run, serialized), expected)
                         ? Outcome.Pass() : Outcome.Fail($"assert-xml mismatch: got {Trim(serialized)}");
                 }
                 case "assert":
                 {
                     XPathNavigator doc = run.Raw is { Count: 1 } && run.Raw[0] is XPathNavigator single ? single : run.Raw != null ? EmptyDocument()
-                        // P6: an assertion about types is made on the result tree the engine built, with its annotations.
-                        : run.Tree != null && TypeAssertion().IsMatch(assertion.Value) ? run.Tree() : ResultTree(run, serialized);
+                        : ResultTree(run, serialized);
                     bool ok = Sequences.EffectiveBooleanValue(Evaluate(assertion.Value, assertion, doc, run.Raw ?? new XPathItem[] { doc }, run.Schemas));
                     return ok ? Outcome.Pass() : Outcome.Fail($"assert {Trim(assertion.Value)} failed on {Trim(serialized)}");
                 }
@@ -913,7 +910,7 @@ public sealed partial class Runner
                     // Warnings aren't reported through the API; the test's other assertions decide.
                     return Outcome.Pass();
                 case "assert-posture-and-sweep":
-                    return Outcome.NotRun("streamability (P7)");
+                    return CheckPostureAndSweep(assertion, run.StreamabilityResults);
                 default:
                     return Outcome.Fail($"assertion {kind} not supported by the runner");
             }
@@ -1006,8 +1003,21 @@ public sealed partial class Runner
     }
 
     /// <summary>Maps the URIs an environment gives documents to their files.</summary>
-    private sealed class TestResolver(IReadOnlyList<TestEnvironment> envs) : XmlUrlResolver
+    private sealed class TestResolver(IReadOnlyList<TestEnvironment> envs) : XmlUrlResolver, IDisposable
     {
+        private readonly List<XmlReader> _readers = new();
+        public void Dispose()
+        {
+            List<Exception>? failures = null;
+            foreach (XmlReader reader in _readers)
+            {
+                try { reader.Dispose(); }
+                catch (Exception error) { (failures ??= new()).Add(error); }
+            }
+            _readers.Clear();
+            if (failures != null) throw new AggregateException("Failed to close validating fixture readers", failures);
+        }
+
         public override object? GetEntity(Uri absoluteUri, string? role, Type? ofObjectToReturn)
         {
             foreach (TestEnvironment env in envs)
@@ -1016,13 +1026,22 @@ public sealed partial class Runner
                 {
                     if (s.Uri != null && (absoluteUri.OriginalString == s.Uri || absoluteUri.AbsoluteUri == s.Uri || absoluteUri.AbsoluteUri.EndsWith("/" + s.Uri, StringComparison.Ordinal)))
                     {
-                        if (s.Validation is "strict" or "lax" && SchemaSet(envs) is { } schemas)
+                        // A stream request delegates schema validation to the caller. Null requests
+                        // still receive the environment's typed document or validating reader.
+                        if (ofObjectToReturn != typeof(Stream) && (s.Validation is "strict" or "lax") && SchemaSet(envs) is { } schemas)
                         {
                             // P6: a document the environment validates is read validated (a typed tree).
-                            using XmlReader reader = s.Content != null
+                            XmlReader reader = s.Content != null
                                 ? XmlReader.Create(new StringReader(s.Content), ValidatingSettings(schemas, s.Validation == "strict"), absoluteUri.AbsoluteUri)
                                 : XmlReader.Create(s.File!, ValidatingSettings(schemas, s.Validation == "strict"));
-                            return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
+                            if (Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1")
+                            {
+                                // A typed source stays a validating reader in strict mode. Keep it alive through
+                                // execution and assertion reruns, then close it with the test's resolver scope.
+                                _readers.Add(reader);
+                                return reader;
+                            }
+                            using (reader) return Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve);
                         }
                         return s.Content != null ? new MemoryStream(Encoding.UTF8.GetBytes(s.Content)) : File.OpenRead(s.File!);
                     }

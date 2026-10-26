@@ -21,7 +21,7 @@ namespace Xsl3.Runtime
 
         // Format version marker to support versioning: (major << 8) | minor
         // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B); 2 the stylesheet frames.
-        private const int CurrentFormatVersion = (0 << 8) | 3; // Xsl3: 3 adds the function library's fingerprint
+        private const int CurrentFormatVersion = (0 << 8) | 5; // 3: function library fingerprint; 4: streamed initial mode; 5: accumulator streamability
 
         private readonly XmlWriterSettings _defaultWriterSettings;
         private readonly IList<WhitespaceRule>? _whitespaceRules;
@@ -211,6 +211,8 @@ namespace Xsl3.Runtime
                 }
             }
 
+            if ((formatVersion & 0xff) >= 4) StreamedInitialMode = dataReader.ReadBoolean();
+
             Debug.Assert(formatVersion != CurrentFormatVersion || dataReader.Read() == -1, "Extra data at the end of the stream");
             dataReader.Dispose();
         }
@@ -372,6 +374,7 @@ namespace Xsl3.Runtime
                     dataWriter.Write(frame.Value);
                 }
             }
+            dataWriter.Write(StreamedInitialMode);
             dataWriter.Dispose();
             data = dataStream.ToArray();
         }
@@ -399,6 +402,9 @@ namespace Xsl3.Runtime
 
         /// <summary>Xsl3: compiled by the XSLT 2.0+ path (its principal result is a <see cref="PrincipalResult"/>).</summary>
         public bool Xslt2 { get; set; }
+
+        /// <summary>The selected initial mode accepts a forward reader input.</summary>
+        internal bool StreamedInitialMode { get; set; }
 
         /// <summary>Xsl3 (P4): build the documents the transform parses as compact trees (always for 2.0+).</summary>
         public bool CompactTree { get; set; }

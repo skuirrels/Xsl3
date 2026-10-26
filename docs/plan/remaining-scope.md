@@ -1,5 +1,10 @@
 # Remaining scope: everything after P5
 
+> **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
+> Full P7 is deferred, streaming remains unsupported, and the original targets below are unchanged.
+> Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
+> entries below do not expand this release. Release version: 1.1.0.
+
 This is the brief for whoever carries Xsl3 from here: what is left of the SPEC.md roadmap once Phase 5
 (`xsl:evaluate` and serialization completion, merged in skuirrels/Xsl3#1) is done. It covers:
 
@@ -22,7 +27,7 @@ several sessions can work in parallel without editing the same files. Measured n
 | Upstream `XslCompiledTransform` tests (1.0 regression gate) | 1661 / 1661, .NET 8 and 10 | 100%, always |
 | Differential, byte-for-byte against stock on the 1.0 corpus | 394 / 394 | 100%, always |
 | W3C QT3 (XPath 3.1, F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) | ≥ 99% on claimed features (Hardening, met) |
-| W3C xslt30-test, 3.0 profile | 8,844 passed, 23 failed, 42 not run (99.7%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
+| W3C xslt30-test, 3.0 profile | 8,845 passed, 22 failed, 42 not run (99.8%), `schema_aware` claimed | ≥ 99% on claimed features (Hardening, met) |
 | W3C xslt30-test, 2.0 profile | 4,588 passed, 9 failed (99.8%) | ≥ 99% (met) |
 | P5 sets (`evaluate`, `output`, `character-map`, `result-document`, `disable-output-escaping`) | 454 / 457 (99.3%) | ≥ 98% (met) |
 | XSLT 1.0 throughput against stock | 1.38× geometric mean, never slower | ≥ 1.2× (met), target 1.5× |
@@ -452,22 +457,359 @@ identical across packages (override-v-005, override-f-031).
 
 ### 7. Phase 7: streaming (§17; 6–12 person-months)
 
-**State.** Not started. 2,983 xslt30-test cases need `streaming`, and the runner marks posture-and-sweep
-assertions "not run (P7)". `xsl:source-document`, `xsl:merge`, accumulators and `xsl:fork` work unstreamed; `streamable="yes"` is
-validated and otherwise ignored.
+**State.** Started (2026-10-22): S1 adds internal U-types, expression analysis and separate
+`strm` and `sandp` runner profiles. The analysis profile runs all 919 cases, including sets commented out of the
+suite catalogue: 790 pass, 129 fail (documented in [the plan](p7-streaming.md#s1-first-increment)). This is not
+the S1 exit or a streaming claim. The remaining expression rules are implemented (see the plan's
+[S1 progress](p7-streaming.md#s1-expression-rules)). S2 has started with retained source declarations, an internal
+construct/category analyser and XTSE3155. Compiler enforcement, strict/fallback settings and QIL verdict annotations
+are now connected (see [S2 progress](p7-streaming.md#s2-compiler-enforcement)). The unstreamed development profile
+is 2,689 passed, 22 failed and one not run; S2's exact error-code gate remains open.
+`xsl:source-document`, `xsl:merge`, accumulators and `xsl:fork` work unstreamed;
+`streamable="yes"` is checked during compilation. Normal execution still builds trees; S3 now includes a
+shared-reader navigator, compact subtree grounding and forward source-document entry behind a development switch.
+S4 adds reader/stream/URI initial-mode entry points and separate grounded global context. S5 has started with
+inline `xsl:iterate`, streamed accumulator observers, forward adjacent/starting/ending groups and k-way merge; direct `head`, `tail` and `subsequence` calls also keep forward inputs as iterators.
+Explicit subtree grounding retains replay data for overlapping scans and copied accumulator provenance
+(see [runtime progress and limits](p7-streaming.md#s5-streamed-merge)). S6 now has a bounded event tee and
+threaded prong lifecycle coordinator, with independent streamed XML views that preserve source identity and
+schema metadata, source accumulator values and explicit copied-node provenance. Rules run once on the source;
+post-descent lookups advance the requesting view through the tee. Shared global bindings now coordinate once-only
+evaluation, failure publication, dependency cycles and cancellation between runtime instances. A shared document
+pool now preserves document IDs, coordinates loads and URI claims, and shares copied accumulator provenance;
+hosted `xsl:evaluate` uses that pool. Processor-created XML readers now track actual external DTD/entity reads
+without changing the configured resolver policy. Prong runtimes now isolate execution state and propagate the
+calling scope. Key builds now share publication, failure and cross-cache dependency tracking; stylesheet lowering,
+output coordination and remaining function ownership work remain open. Grounded accumulator values now share
+phases, failures, applicability and dependency tracking. Captured same-family bindings can now be projected onto
+local source views; caller-side preparation also preserves retained attribute/namespace headers without source
+frames. The compiler now emits isolated fork prongs with caller-thread first-output relay and ordered buffered
+output. Fork group-by/sorted populations and captured forward groups now have explicit identity-preserving
+buffers. Principal result documents now relay to the invoking thread, including serialization settings and raw
+output buffering. Direct absorbing functions now support iterator-backed many-valued node parameters and
+recursive calls. The result-tree audit corrects namespace origins and XSLT map error codes; strict fork coverage
+is now 54/55, with the remaining fixture conflicting with the published sorted-fork exception. Shared forward
+union/descendant paths, incremental EBV, iterator removal, cardinality assertions, ordered mixed paths and
+exact position windows, streamed trace, parallel map entries, native node sets, positional header predicates,
+forward XML-to-JSON conversion and deep equality now improve the strict selection to 2,046/45/1. The latest
+increment fixes all five remaining deep-equal failures with no new failure IDs; that set is 35/35. Header
+comparisons preserve the owning element, and proven crawling element selections use grounded descendant projection.
+MapExpr coverage is 15/15. Insertion and trace coverage are 52/52 and 22/22. Trace diagnostics retain node
+identity and run callbacks on the invoking thread. The known peer-union expected-error mismatch remains
+visible. Remaining function paths and ownership work remain open. See
+[runtime progress](p7-streaming.md#s4-forward-deep-equality-and-grounded-descendant-projection). The linked plan details execution and packaging
+alternatives; the owner approved all six recommended decisions on 2026-10-22 (recorded in SPEC §17 and §6.3).
 
-7.1 **Plan** (M): `docs/plan/p7-streaming.md`.
+The complete strict development audit is now 2,661/50/1 (98.2%), with seven unmatched expected-error codes;
+no accepted strict baseline was added. Incremental type checks and node/item function return conversions repair
+six further cases, with no new failure IDs. Treat-as and try sets are 36/36 and 47/47; intersection and union
+remain 64/64 and 73/74. Remaining analysis/runtime/error paths are incomplete. See
+[type-check evidence](p7-streaming.md#s4-incremental-sequence-type-checks-and-node-return-contracts).
+A repository-owned NativeAOT probe uses both public API paths and
+now passes a complete local **33-child 2 GiB/200 MiB** matrix, including ancestor-set and incremental type-check
+workloads, with source-frame and grounded-document ownership verified. The exact push/nightly budget jobs are configured, but no remote run is claimed. The
+200 MiB/20 MiB push gate still fails. Analysis, remaining runtime/conformance paths, throughput/latency and the
+streaming feature claim remain incomplete; the local memory result does not complete P7. See
+[current evidence](p7-streaming.md#s7-copy-owned-streamed-provenance-and-complete-native-memory-matrix).
+
+The S7 process benchmark set is now implemented in the existing benchmark project, with eleven shared
+fixtures and checked-in corpus files. Its paired controller measures all seven canonical workloads at
+decimal 1 MB, 100 MB and 1 GB, retaining first output, throughput, full-lifetime RSS and failed trials.
+The exact 100 MB throughput target is enforced separately from descriptive Winner labels. CI covers both
+controllers; a nightly benchmark job retains its report on failure. The implementation of this tooling does
+not establish its throughput/latency exit or a remote CI pass. See [method](../streaming-benchmark.md) and
+[latest S7 evidence](p7-streaming.md#s7-paired-process-benchmark-and-exact-push-rss-investigation).
+
+Node-only streamed copy content now keeps its QIL node result, fixing complete containing-row buffering;
+namespace scopes now reuse immutable frame-owned data. New emission, identity, retention and fork checks
+pass, with Debug/Release units at 2,820/2,746. Main strict failure IDs remain 2,661/50/1; a broader exact
+schema-aware comparison also retains nine pre-existing strict failures. A fresh native 33-child nightly
+matrix passes and the exact push matrix still has eleven failures. See
+[copy-content evidence](../streaming-copy-content-2026-10-24.md) and
+[implementation](p7-streaming.md#s4-streamed-node-only-content-and-frame-owned-namespace-scopes).
+
+Incremental selected-copy cardinality and original-focus result inference now repair ten more cases:
+main strict is **2,664/47/1**, and full schema-aware strict is **842/2/2**, with no new failure IDs.
+Debug/Release units pass **2,842/2,768**. The expanded twelve-workload NativeAOT nightly matrix passes
+all **36 children**; the exact push matrix retains twelve measured failures. Selected-copy output starts
+after 8,192 bytes even for the complete 2 GiB input. Remaining S1/runtime/error-code, throughput/latency,
+push RSS and feature-claim requirements remain open. See
+[selected-copy evidence](../streaming-copy-select-2026-10-24.md) and
+[implementation](p7-streaming.md#s4-incremental-selected-copy-cardinality-and-original-focus-result-inference). The final 144-trial
+process matrix has 72 valid streams, 57 valid tree trials and 15 tree OOM failures; the throughput target
+remains incomplete. The final three-pair ordinary gate passes at geometric mean 1.027029 and maximum
+allocation ratio 1.043896, with individual regressions retained for attribution. All source/artifact hashes
+match. These results leave the full P7 goal active.
+
+Forward conditional/complex-content construction now improves main strict to **2,668/43/1**, with no new
+failure IDs and seven unmatched expected codes. Full Debug/Release units pass **2,886/2,808**. Fresh
+saved NativeAOT conditional, ordering and compatibility cases pass. The probe has thirteen workloads.
+The full P7 goal remains active; see [conditional-content evidence](../streaming-conditional-content-2026-10-24.md)
+and [implementation](p7-streaming.md#s4-forward-conditional-sequences-and-complex-content). The corrected
+thirteen-workload NativeAOT nightly matrix passes 39 children at exact 2 GiB / 200 MiB, while the complete
+200 MiB / 20 MiB push matrix retains thirteen measured failures. The complete isolated 162-trial process matrix
+retains 81 valid streams, 63 valid tree trials and 18 tree OOM failures; the throughput target remains
+incomplete. The final three-pair ordinary gate passes at timing geometric mean **0.990893** and maximum
+allocation ratio **1.044597**. Regex 1 KiB remains an individual observed regression (**1.127660**), and
+all preceding attribution work remains open. All frozen source/artifact hashes match; full P7 remains
+active.
+
+Node-valued forward predicates now preserve a single descendant scan instead of creating an artificial
+position demand. This repairs both remaining conditional temporary-document cases: main strict is
+**2,670/41/1**, with seven unmatched expected codes and no new failure IDs. Debug/Release units pass
+**2,913/2,832**. Prepared compiled pull calls reduce measured allocation for 10,000 calls of the same
+identity body from **2,560,000 to 880,000 bytes**; native callbacks retain fresh mutable arguments.
+Fresh saved NativeAOT predicate/document and retained compatibility probes pass. See
+[node-predicate evidence](../streaming-node-predicates-2026-10-24.md) and
+[implementation](p7-streaming.md#s4-node-valued-predicate-analysis-and-prepared-compiled-pull-calls).
+The full P7 goal and its remaining strict, S1/runtime/error-code, exact push memory, throughput/latency,
+remote CI and feature-claim requirements remain active. The current-source exact nightly matrix passes
+39 children; the exact push matrix retains thirteen RSS failures. The isolated 100 MB process matrix
+completes 54 trials with 27 valid streams, 24 valid tree trials and three tree merge OOM failures.
+The throughput target remains incomplete; the preceding full three-size matrix belongs to its earlier source.
+The final ordinary three-pair gate passes at timing geometric mean **0.982051** and maximum allocation
+ratio **1.044672**. Dispatch compilation remains an individual observed regression (**1.098698**) requiring
+attribution. No aggregate pass closes earlier outliers or any remaining P7 requirement.
+
+Declaration-scoped atomic template argument handling now repairs si-call-template-002: main strict is
+**2,671/40/1**, with seven unmatched expected codes and no new failure IDs. Full Debug/Release units
+pass **2,956/2,868**. Debug focus, node-hook and dispatcher ABI faults are repaired, and deferred parameter
+type errors retain their declaration namespace. Six fresh saved NativeAOT fixtures and all retained
+compatibility probes pass. The fourteen-workload final native nightly matrix passes 42 children; the
+complete exact push matrix retains fourteen RSS failures. See
+[template-parameter evidence](../streaming-template-parameters-2026-10-24.md) and
+[implementation](p7-streaming.md#s4-declaration-scoped-atomic-template-arguments-and-debug-focus).
+The scoped arithmetic diagnostic is repaired by [atomic operand preparation and shared XPath focus analysis](../streaming-arithmetic-focus-2026-10-24.md).
+Isolation retained the existing conservative template-focus policy. The full P7 runtime/S1/error-code,
+exact push RSS, throughput/latency, remote CI and feature-claim work stays active.
+The final 60-trial 100 MB matrix has 30 valid streams, 27 valid trees and three tree merge OOM failures;
+the canonical target remains incomplete. The final ordinary three-pair gate passes at geometric mean
+**0.998329** and maximum allocation ratio **1.045944**. Sorting compilation (**1.063126**) and 1 KiB regex
+(**1.191489**) remain observed regressions requiring attribution; earlier outliers remain open.
+
+
+The arithmetic/focus increment adds 55 net10 / 53 net8 regression cases: complete Debug/Release units
+pass **3,011/2,921**. Eight conformance profiles have no new failure IDs; main strict remains
+**2,671/40/1** and posture/sweep **790/129/0**. Twelve new normal/debug saved NativeAOT fixtures and all
+retained compatibility probes pass without trim/AOT warnings. Atomic operand lifetimes, local XPath
+focus, numeric-reference capture, scanning predicates and compatibility-mode first-item/empty rules
+are covered. The conservative template-focus policy is retained after isolating the arithmetic cause.
+The exact corrected native nightly matrix passes 42 children; the complete exact 20 MiB push matrix
+retains fourteen RSS failures. All 547 current/frozen native-source hashes match. One ordinary
+three-pair gate exits 0 at geometric mean **0.994790425361** and maximum allocation ratio
+**1.046024392076**. The 1 KiB regex outlier remains **1.170212765957**; earlier outliers remain open.
+See [current evidence](../streaming-arithmetic-focus-2026-10-24.md). Full P7 remains active.
+
+Generic absorbing-function parameters now retain mixed XDM items and live node continuations across
+`item()*` and omitted-type calls. Forwarded grounded/fork arguments, singleton child ordering and pull
+annotations are preserved. Debug end-tag markers stay outside fork prongs; output-worker closures keep
+their explicit return ABI so debug conversion cannot capture and discard their writes. Full Debug and
+Release units pass **3,040/2,948**, with ten new normal/debug saved NativeAOT fixtures and retained
+compatibility probes passing. Eight full profiles have no new failure IDs; main strict improves to
+**2,672/39/1** with seven unmatched expected codes, fixing `su-absorbing-301`. See [item-parameter evidence](../streaming-item-parameters-2026-10-24.md).
+The full Phase 7 analysis, runtime, memory, throughput/latency and feature-claim work remains active.
+
+
+The item-parameter final source completes both fifteen-workload native matrices: **45 nightly children
+pass** at exact 2 GiB input / 200 MiB RSS; the complete **45-child** exact 200 MiB / 20 MiB push matrix
+retains **fifteen RSS failures**. All 548 current/frozen source/controller/fixture hashes match.
+Normal ICU and full-lifetime counters remain. See [native evidence](../streaming-item-parameters-2026-10-24.md#final-source-exact-native-memory-matrices).
+
+
+The item-parameter ordinary three-pair gate exits 0 at timing geometric mean **0.994644134262**
+and maximum allocation ratio **1.046490195587**. Individual timing outliers
+remain recorded in [the evidence](../streaming-item-parameters-2026-10-24.md#ordinary-performance-gate);
+this does not close the remaining streaming throughput/latency or exact push RSS requirements.
+
+Overlapping descendant value replay fixes eight strict cases, improving main strict to **2,680/31/1**
+with seven unmatched expected codes. Eight full profiles have no new failure IDs. Full Debug/Release
+units pass **3,060/2,966**; four new normal/debug saved NativeAOT styles and retained probes pass.
+Value-only capture spills matching headers and character ranges, retains final schema information,
+and reuses owner-private delete-on-close files across windows. All 400 core/configuration hashes match.
+The shared probe now has sixteen workloads and thirty-two saved entry points. See
+[value-replay evidence and limitations](../streaming-value-replay-2026-10-25.md). The full P7 goal,
+including scalar/string memory, deferred consumers and the remaining gates, remains active.
+
+
+The value-replay source completes both sixteen-workload native matrices: **48 nightly children pass**
+at exact 2 GiB input / 200 MiB RSS; the complete **48-child** exact 200 MiB / 20 MiB push matrix
+retains **sixteen RSS failures**. All 553 current/frozen source/controller/fixture hashes match.
+Normal ICU and full-lifetime counters remain. See [native evidence](../streaming-value-replay-2026-10-25.md#final-source-exact-native-memory-matrices).
+
+
+The corrected value-replay ordinary gate exits 0 after one isolated three-pair run: timing geometric
+mean **1.029701487659**, maximum allocation ratio **1.046810748541**.
+Individual outliers and raw rounds remain in [the evidence](../streaming-value-replay-2026-10-25.md#ordinary-performance-gate).
+The following process matrix was intentionally stopped after 48 completed trials to fix a verified
+quadratic tree intersection. Its partial results remain separate. See the
+[node-set/mode follow-up](../streaming-set-merge-mode-2026-10-25.md) for the replacement comparison.
+Full P7 remains active.
+
+
+The node-set/mode follow-up replaces the grounded intersection/difference nested scan with a linear
+merge after ordering, and fixes per-attribute mode precedence and effective typed-mode inheritance.
+Main strict improves to **2,681/30/1**, with seven unmatched expected codes. Full Debug/Release units
+pass **3,087/2,993**; retained saved NativeAOT probes pass. An independent restricted final-Recommendation
+check verifies all **2,723 S1 discrepancies** in the prior exhaustive inventory. The raw S1 profile
+remains **790/129/0**, including eight empty catalogue inputs. See
+[the audit and validation](../streaming-set-merge-mode-2026-10-25.md). The full P7 goal and its remaining
+memory, throughput/latency, execution and feature-claim requirements stay active.
+
+The node-set/mode ordinary three-pair gate exits **0** at timing geometric mean **0.990166466732**
+and maximum allocation ratio **1.046810748541**. Its complete **96-trial** 100 MB matrix has 48 valid
+streams, 45 valid trees and three tree-merge OOMs under equal 4 GiB heap guards. The repaired tree
+intersection completes all rounds at median **1,809.021667 ms**. Identity, fork and source-document
+streaming remain slower; merge has no valid tree comparison, and overlap-values remains substantially
+slower. See [all ratios and limits](../streaming-set-merge-mode-2026-10-25.md). Exact push RSS and full
+throughput/latency requirements remain open.
+
+The bounded-value/merge follow-up removes retained action results from newly compiled tree merges
+while preserving group size/focus and old saved entry points. The fresh **96-trial** 100 MB matrix has
+**zero failures**, including all tree-merge rounds that previously exhausted the 4 GiB heap guard.
+Small value windows share a bounded 64 KiB serialized cache; larger captures retain private disk spill.
+Package mode visibility inheritance and the on-multiple-match enumeration are fixed. Full Debug/Release
+units pass **3,108/3,012**; four new saved NativeAOT styles, old materialized-merge and retained version-2
+consumers pass. Eight full conformance profiles are unchanged: main strict **2,681/30/1**, seven unmatched
+expected codes. All 402 core and 566 Linux source/controller/probe/test hashes match.
+
+The exact **48-child nightly matrix passes** at 2 GiB input / 200 MiB absolute RSS. The complete exact
+200 MiB / 20 MiB push matrix retains **sixteen RSS failures**. The isolated ordinary three-pair gate
+passes at timing geometric mean **0.996520976223**, maximum allocation ratio **1.047265587827**.
+Canonical throughput is fully evaluated and **fails**: identity, fork and source-document streaming
+remain slower than tree. The current overlap-values stream/tree ratio is **2.375079889881**. Full P7
+remains active; see [current evidence and limitations](../streaming-bounded-values-merge-2026-10-25.md).
+
+
+### Relative value paths and deferred built-in signatures
+
+The next follow-up adds value-only lowering for relative and compound descendant populations and fixes
+non-atomized replay header names. Strict streaming improves to **2,683/28/1**, with seven unmatched
+expected codes; `streamable-037` and `streamable-039` now pass. Other full profiles are unchanged.
+Debug/Release units pass **3,125/3,029**; normal/debug saved NativeAOT memory/spill cases and retained
+old consumers pass. Function metadata keeps computed IDs/arities/fingerprint while unused type
+signatures initialize lazily. The measured registry startup allocation improvement does not establish
+a pass for the absolute RSS gate. Full P7 remains active; see
+[the implementation and evidence](../streaming-relative-values-signatures-2026-10-25.md).
+
+
+The matching current native nightly matrix passes **48 children / zero failures** at exact 2 GiB input
+and 200 MiB absolute RSS. The requested 200 MiB / 20 MiB push matrix retains **16 failures**: twelve full
+input/output validations and four startup/warmup exits. The ordinary three-pair gate passes at timing
+geometric mean **1.004693365582**, maximum allocation ratio **1.037238560580**. All **96** paired 100 MB
+process trials validate under equal 4 GiB guards; canonical throughput still fails on identity, fork
+and source-document. These requirements and the full Phase 7 goal remain open. See the
+[current complete evidence](../streaming-relative-values-signatures-2026-10-25.md).
+
+
+### Mixed node paths and incremental simple content
+
+The comma/content follow-up shares ordered child-path merging between comma sequences and insertions,
+and emits streamed simple content directly into one text constructor. It preserves captured/empty
+text nodes, identity, rollback, canonical boundaries and raw escaping, and fixes debug choose source
+locations. Strict streaming improves to **2,687/24/1**, with seven unmatched expected codes. Other full
+profiles are unchanged. Debug/Release units pass **3,172/3,073**; new and retained saved NativeAOT
+consumers pass. Normal/debug focused generated-input probes pass at exact 200 MiB and 2 GiB input,
+with first output after 356,352 bytes and full-lifetime RSS around 25–28 MB. Full P7 remains active;
+see [the implementation and evidence](../streaming-comma-content-2026-10-25.md).
+
+
+The final comma/content native nightly matrix passes **48 children / zero failures** at exact 2 GiB
+input / 200 MiB absolute RSS. The requested 200 MiB / 20 MiB push matrix retains **16 failures** (twelve
+full-input validations and four startup/warmup exits). The ordinary three-pair gate passes at timing
+geometric mean **1.024354047451**, maximum allocation ratio **1.037242922079**. All **96** paired 100 MB
+trials validate; the canonical throughput target still fails on identity, fork and source-document.
+The same-host 1 MB / 1 GB sweep has completed: **84 trials, 72 valid, 12 failed**. All streamed trials
+pass; three tree trials each for adjacent, accumulator, merge and fork at 1 GB exhaust the unchanged
+4 GiB heap guard. All three planned sizes have been attempted, with those four large-input comparisons
+unavailable. Full P7 remains active. See
+[current evidence](../streaming-comma-content-2026-10-25.md).
+
+
+### Recursive transmitting functions
+
+Resumable function implementations now deliver recursive shallow-descent node results before the
+reader advances. Self/mutual recursion, live inspection/transmission, cardinality/name errors, both
+APIs, debug and saved compilation are covered. Body cloning also retains incremental text-writing
+annotations. Strict streaming improves to **2,689/22/1**, fixing `su-shallow-descent-002` and `-004`,
+with seven unmatched expected codes and no new failure IDs across eight profiles. Debug/Release
+units pass **3,192/3,091**, all compatibility checks pass, and the frozen saved NativeAOT consumer
+passes with no publish warnings. Focused normal/debug 200 MiB and 2 GiB NativeAOT runs validate exact
+input and output digests, early output and lifetime RSS near 30 MB under a 200 MiB guard; the 20 MiB
+push requirement remains unmet. Tracing/depth-limited/memoized and narrow-return call paths, general
+continuations and the remaining P7 gates remain open. See [the implementation and evidence](../streaming-recursive-functions-2026-10-25.md).
+
+
+### Document fragments and stable resource identity
+
+Shorthand-ID fragments now work in `fn:doc`, source-document and initial URI views. Streaming scans
+the prefix and exposes the selected subtree, preserving namespaces, XML Base and provider-known
+ID/IDREF facts, including already-positioned borrowed readers. `document()` selects original nodes from
+the stable complete resource, so different fragments retain a common root. Cache/loading keys
+distinguish selected views; I/O conflict tracking
+uses the physical resource URI. Only three verified passing baseline entries are removed. Debug/Release
+units pass **3,237/3,134**, all compatibility checks pass, and fourteen new saved normal/debug NativeAOT
+cases plus the retained consumers pass without publish warnings. Strict streaming improves to
+**2,690/21/1** with no new failure IDs across eight profiles. Full P7 remains active. See
+[implementation and evidence](../streaming-document-fragments-2026-10-25.md).
+
+The final isolated ordinary three-pair gate passes: time geometric mean **0.990513413537**, maximum
+allocation ratio **1.037238717165**. Focused normal/debug native fragment probes validate exact 200 MiB
+and 2 GiB inputs, independent output digests, early output and owned-source closure, with lifetime
+RSS **24,576,000–27,377,664 bytes** under the 200 MiB guard. These do not satisfy the separate 20 MiB
+push RSS requirement or canonical throughput target. Current source hashes and artifacts match;
+full P7 remains active. See [fragment evidence](../streaming-document-fragments-2026-10-25.md).
+
+### Navigator ID provenance
+
+The fragment loader now preserves element-local ID/IDREF facts and provider-confirmed ID lookups
+separately. Equal attribute values no longer turn ordinary attributes into ID declarations, and copied
+views retain their real lookups. Twelve additional public API cases cover DTD/XML IDs, repeated copies,
+and locally different schema types, including annotation stripping. Debug/Release units pass
+**3,249/3,146**; eight new normal/debug saved styles pass twelve native checks, with retained consumers
+and no publish warnings. All eight execution profiles were freshly run, with no new failure IDs;
+strict remains **2,690/21/1**. Explicit 2.0 auditing supersedes a previously copied stale report at
+**4,590/8/10**; posture/sweep remains **790/129/0**. This does not attribute the 2.0 changes to this fix.
+The ordinary three-pair gate passes at time geometric mean **0.977000839111**, maximum allocation ratio
+**1.037247283614**. Focused 200 MiB / 2 GiB native runs pass with lifetime RSS **24,805,376–27,475,968 bytes** under the
+200 MiB guard. The separate 20 MiB push RSS, throughput, semantic and complete P7 gates remain open.
+See [implementation and evidence](../streaming-id-provenance-2026-10-25.md).
+
+### Deferred header storage foundation
+
+Source-owned header/membership scratch storage now shares the existing replay cache and private-file
+machinery. Offset links retain source identity and intrinsic metadata without retaining closed nodes;
+incomplete child metadata is guarded rather than reported empty. Schema-info objects are snapshotted.
+Seven new tests cover the primitive, and a native **100,000**-closed-header probe plus an incomplete
+owner verifies metadata, membership, cache bounds and cleanup. Full Debug/Release units pass
+**3,256/3,153**, retained saved consumers and all compatibility checks pass, and eight freshly run
+execution profiles have no new failure IDs. Strict remains **2,690/21/1**. The final ordinary gate
+passes at time geometric mean **1.005276705514**, maximum allocation ratio **1.037242922079**; retained focused
+200 MiB / 2 GiB native runs pass under the 200 MiB guard.
+
+At this historical storage checkpoint the compiler was not connected to the store.
+The subsequent deferred climbing checkpoint below connects it and repairs those five failures.
+Deferred observer/accumulator snapshots still need serialization and are explicitly rejected by the
+primitive until supported. These are remaining requirements, together with the other semantic,
+analysis, exact push RSS, throughput and full P7 gates. See [the implementation and evidence](../streaming-deferred-headers-2026-10-25.md).
+
+The [optional-focus checkpoint](../streaming-optional-focus-2026-10-26.md) preserves absent focus during reference creation and applies the prescribed intrinsic errors when invoked. Its corrected ordinary allocation gate and four exact native size/debug cases pass; the preserved mixed-result try failure and full P7 acceptance requirements remain open.
+
+The [XML-to-JSON continuation checkpoint](../streaming-json-header-continuation-2026-10-26.md) also repairs eligible filtered descendant/child conversion paths, preserves predicate/cardinality errors, and passes final native/performance verification without closing the remaining full P7 gates.
+
+7.1 **Plan** (M): `docs/plan/p7-streaming.md`. Written 2026-10-22, with an unstreamed baseline (2,544 of 2,711
+   streaming tests pass); all six design decisions were approved by the owner on 2026-10-22.
 7.2 **Streamability analysis**, exactly as XSLT 3.0 §19 defines it: posture, sweep, the general rules and
    the rules for every construct. Run it on the XSL and XPath ASTs, attach the results to QIL, and raise
    XTSE3430 for non-streamable constructs in streamable contexts.
 7.3 **Execution**:
-   - a push-based event pipeline over `XmlReader`, with streamed-node proxies;
+   - a pull navigator over `XmlReader`, with bounded push fan-out for fork prongs;
    - grounded subtrees (`copy-of()`, `snapshot()`) built into small compact trees;
    - streamable modes, `xsl:source-document streamable="yes"`, streamable `xsl:merge`, streamed
      accumulators, `xsl:fork` with consuming branches (fan-out), and streamable functions and
      `xsl:iterate` over streamed input.
 7.4 **Constant-memory test** in CI: a 2 GB generated document under a 200 MB limit.
-7.5 **Packaging**: `Xsl3.Streaming` (§6.3).
+7.5 **Packaging**: streaming stays in the core `Xsl3` assembly (owner's approved decision 2, 2026-10-22;
+   SPEC §6.3 and the P7 plan).
 
 **Done when.** The streaming test sets are ≥ 90%, the constant-memory test passes, and the feature is claimed.
 
@@ -520,6 +862,8 @@ in 1.x minor releases.
    to nuget.org by trusted publishing after the owner approves the `nuget` environment deployment. Releases
    so far are 0.1.0-alpha to 0.7.0-alpha. Only the owner approves deployments.
 
+
+
 ## Suggested order and parallel tracks
 
 These tracks touch mostly separate files, so they can run in parallel sessions:
@@ -532,7 +876,7 @@ These tracks touch mostly separate files, so they can run in parallel sessions:
 | D: API and settings | 4.1–4.5, 4.7 | `src/Xsl3/Xslt`, new public types, XmlILCommand, runner | B (XslCompiledTransform.Load) |
 | E: infrastructure | 8 | tests, eng, .github | none |
 | F: schema (P6) | 6 | new `Xsl3.Schema`, Tree, Xdm, loader | C |
-| G: streaming (P7) | 7 | new `Xsl3.Streaming`, a new AST analysis, runtime | C, F |
+| G: streaming (P7) | 7 | streaming in the core assembly, a new AST analysis and runtime | C, F |
 
 A sensible sequence:
 1. A and B in parallel, with E alongside.
@@ -621,3 +965,83 @@ Owner's decisions of 2026-10-22 leave these for 1.x releases:
 | 6 `xsl:import-schema` | Raises XTSE1650 without `XsltSettings.SchemaAware`; with it, P6 is in progress (99.8% of the schema-aware tests; section 6) |
 | 8.4 Memory test | Fixed: it runs in a child process |
 | 8.6 DNS flake | Fixed: network failures are compared by type |
+
+### Deferred climbing set execution
+
+The compiler now connects the source-owned header spool to climbing `except`, mixed nested set
+operators, differing projections and nearest-ancestor predicates. Potential headers are registered
+before matched predicates execute; leaf membership, source completion and invocation sealing are
+tracked separately. Each resumable drain returns one result, including at EOF. Explicit replay keeps
+its actual nodes and final canonical order; completion releases foreign-document roots. Existing
+monotonic helper entry points retain their saved-consumer ABI.
+
+Strict streaming improves to **2,695 passed / 16 failed / 1 not run**. All **66** `sx-ExceptExpr` cases
+pass, fixing `sx-except-331` through `-335`, and none of the nine fresh reports adds a failure ID.
+Release and Debug units each pass **3,285 net10.0 / 3,180 net8.0**. Both native publications have no
+warnings, and the new saved normal/debug cases plus retained compatibility consumers pass. The
+three-pair ordinary performance gate passes with time GM **1.027012847257** and maximum allocation
+ratio **1.037238717165**; individual timing outliers are retained in the report.
+
+Actual deferred-set normal/debug native runs also pass at exact **200 MiB** and **2 GiB**, with
+verified output, early emission and owned-input cleanup under the unchanged **200 MiB** heap/RSS guard.
+The separate push RSS and canonical throughput criteria remain open.
+
+Accumulator snapshot serialization, remaining analysis/semantic failures and full P7 acceptance
+remain open. `supports-streaming` remains `no`; no stage is declared complete. See
+[the implementation and evidence](../streaming-deferred-climbing-2026-10-25.md).
+
+### Deferred accumulator phase snapshots
+
+Deferred headers now preserve applicable before/after phases using a registered observer codec.
+Scalars and map/array structure spill through the existing source-owned scratch stream. Atomic types,
+QName prefixes, container aliases and deep nesting retain their semantics. Live source frames publish
+late phases to weak snapshot readers, including before source disposal; prong readers use the original
+observer without repeating rules. Unknown observer metadata remains an explicit error.
+
+Node and opaque function values currently retain actual identity handles. General bounded spill of
+those histories remains required; scalar memory results do not close that obligation. Strict analysis
+and all failure baselines are unchanged. Full Release and Debug pass **3,306 net10.0 / 3,199 net8.0**;
+new saved normal/debug consumers, the native late-publication regression and retained compatibility
+cases pass. All nine fresh conformance reports retain their previous failure IDs. The final ordinary
+three-pair gate passes with time GM **0.989223741081** and maximum allocation ratio **1.037234042553**.
+The actual deferred-set/scalar-counter matrix passes normal/debug native runs at exact **200 MiB**
+and **2 GiB**, with verified output, early emission and owned-source cleanup under the unchanged
+**200 MiB** heap/RSS guard. Identity-bearing histories, exact push RSS and canonical throughput remain
+open. Full P7 remains active.
+See [implementation, limits and current evidence](../streaming-accumulator-phases-2026-10-25.md).
+
+### Mixed template result streaming, 2026-10-26
+
+Mixed-result template calls now have eligible incremental paths, including Debug dispatch and context-free raw results. The ordinary template ABI and each per-record try transaction remain intact. Full Release/Debug pass **3,422 / 3,306**; original and current saved native consumers pass. All nine conformance headings and failure-ID sets are unchanged. The final memory/performance gates and remaining eligibility limits are tracked in [the checkpoint](../streaming-mixed-template-results-2026-10-26.md); full P7 remains active.
+
+### Reference and diagnostic contracts, 2026-10-26
+
+URI and declaration diagnostics now report their actual contracts without a new helper ABI. QT3 code accounting distinguishes allowed alternatives from genuine unmatched errors. Full Release/Debug pass **3,442 / 3,324**; strict unmatched codes improve **4 to 1**, with unchanged failure-ID sets. Native saved compatibility and the original gate pass. Source-provider prevalidation and full P7 requirements remain open. See [implementation and evidence](../streaming-reference-diagnostics-2026-10-26.md).
+
+### Source validation negotiation, 2026-10-26
+
+Explicit streamed validation now negotiates bytes from capable resolvers, preserving reader-only and provider-error contracts. Release/Debug pass **3,449 / 3,331**; strict unmatched codes improve **1 to 0**, with unchanged failure-ID sets. Native runtime validation, **225** retained saved styles and the original ordinary performance gate pass. Imported-schema saved compilation and full P7 gates remain open. See [implementation and evidence](../streaming-source-validation-negotiation-2026-10-26.md).
+
+### Annotation and whitespace ordering, 2026-10-26
+
+Streamed whitespace filtering now uses the effective annotation-stripping policy, while preserving explicit validation and xml:space behavior. Release/Debug pass **3,457 / 3,339**; all nine profile headings and failure-ID sets remain unchanged. Native checks pass **12** new normal/debug saved styles plus **225** retained styles. The original ordinary performance gate passes; imported-schema persistence and full P7 gates remain open. See [implementation and evidence](../streaming-annotation-whitespace-2026-10-26.md).
+
+### Saved imported-schema validation, 2026-10-26
+
+Resolved schema graphs now travel with supported saved source-validation paths. Release/Debug pass **3,486 / 3,358**, with unchanged profile headings and failure-ID sets. Native checks pass **12** new imported-schema saved styles plus **237** retained styles; the ordinary gate passes. General schema-dependent constant metadata, typed static nodes, .NET 10-to-8 saved-DLL portability and full P7 gates remain open. See [implementation and evidence](../streaming-saved-schema-2026-10-26.md).
+
+### Portable saved framework references, 2026-10-26
+
+Saved framework references now use the core project's minimum supported runtime contract. Release/Debug pass **3,490 / 3,358**, with unchanged profile headings and failure-ID sets. Fourteen fresh portable emissions pass on .NET 8 and NativeAOT alongside **249** retained native styles. The **311**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes; general schema metadata, typed static nodes and full P7 gates remain open. See [implementation and evidence](../streaming-portable-emitter-2026-10-26.md).
+
+### Saved schema-dependent metadata, 2026-10-26
+
+Saved constants now retain registered schema contexts, named atomic/cast metadata and recursive sequence/function/node tests using table-scoped format 5. Release/Debug pass **3,505 / 3,360**, with unchanged conformance profile headings and failure-ID sets. Fourteen fresh saved styles pass with **263** retained styles under NativeAOT; the **325**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Typed static nodes, anonymous atomic metadata and full P7 remain open. See [implementation and evidence](../streaming-schema-metadata-2026-10-26.md).
+
+### Typed static-node persistence, 2026-10-26
+
+Annotated static nodes now retain schema types, shared-tree identity, nilled state and node metadata through format 6. Nilled simple-type atomization and optional cardinality checks are corrected. Release/Debug pass **3,519 / 3,372**, with unchanged profile headings and failure-ID sets. Two fresh saved styles pass with **277** retained styles under NativeAOT; the **327**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Anonymous atomic constants, unowned schema contexts and full P7 remain open. See [implementation and evidence](../streaming-typed-static-nodes-2026-10-26.md).
+
+### Deferred temporal context and integer parsing, 2026-10-26
+
+Dynamic contexts now share deferred temporal state, and XML integer parsing uses a native-magnitude fast path while retaining arbitrary precision. Release/Debug pass **3,563 / 3,416**, with unchanged profile headings and failures; retained native and managed saved consumers pass. The exact 200 MiB / 20 MiB matrix passes **13/16**, and the 2 GiB / 200 MiB matrix passes **16/16**. All 42 canonical timing trials validate output, with target pass **False**. The ordinary performance gate passes. Full P7 remains incomplete. See [implementation and evidence](../streaming-temporal-integer-2026-10-26.md).

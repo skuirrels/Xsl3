@@ -26,6 +26,13 @@ namespace Xsl3.IlGen
         MaybeSideEffects,                   // True if annotated expression might have side effects
         TailCall,                           // (Invoke * *) True if invocation can be compiled as using .tailcall
         DodMerge,                           // (Dod (Loop * (Invoke * *))), where invoked function returns nodes in document order
+        Topmost,                            // Descendant scan prunes each accepted subtree (fn:outermost)
+        DepthLimit,                         // Descendant scan visits at most a fixed number of child edges
+        ContextSize,                        // Compiler-created binding of a loop's context size
+        ContextSizeCache,                   // Input cached solely to compute that context size
+        LoopGate,                           // Filter's external predicate is checked before fetching each input item
+        PullSequence,                       // Repeat a one-item runtime pull operation until it returns the empty sequence
+        StreamedSimpleContent,              // A simple-content call can emit its input directly when constructing text
         IsReferenced,                       // True if the annotated global iterator is referenced at least once
     }
 
@@ -42,6 +49,8 @@ namespace Xsl3.IlGen
         KeyExpression = 1,                  // EqualityIndex, QilNode: Expression that returns the keys for the index
 
         DodStep = 2,                        // JoinAndDod | DodReverse, QilNode: Last step in a JoinAndDod expression, or only step in DodReverse expression
+
+        MaximumDepth = 2,                   // DepthLimit, int: number of child edges beneath the scan root
 
         MaxPosition = 2,                    // MaxPosition, int: Maximum position of the annotated iterator or length expression
 

@@ -44,7 +44,7 @@ public class Xslt30ApiTests
         Assert.Null(map.Get("b"));
         var array = new XdmArray(new XdmValue[] { new XdmAtomicValue(1L), XdmValue.Empty });
         Assert.Equal(2, array.Size);
-        Assert.Equal(0, array.Get(1).Count);
+        Assert.Empty(array.Get(1));
         Assert.Throws<InvalidOperationException>(() => array.StringValue);
     }
 

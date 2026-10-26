@@ -9,6 +9,7 @@ namespace Xsl3.Tests;
 public static class Program
 {
     public const string MemoryProbe = "memory-probe";
+    public const string StreamProbe = "stream-probe";
 
     public static int Main(string[] args)
     {
@@ -17,6 +18,7 @@ public static class Program
             CompactTreeMemoryTests.Probe();
             return 0;
         }
+        if (args.Length > 0 && args[0] == StreamProbe) return StreamingProbe.RunCommand(args[1..]);
         return 1;
     }
 }

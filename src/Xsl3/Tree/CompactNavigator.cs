@@ -74,6 +74,9 @@ namespace Xsl3.Tree
         /// <summary>Xsl3 (P6): whether the node is an element whose content (typed xs:ID) is its ID.</summary>
         internal bool IsIdContent => OnContent && _doc._idContent != null && _doc._idContent.Contains(_node);
 
+        internal IReadOnlyCollection<string>? LookupIds => OnContent && _doc._lookupIds != null
+            && _doc._lookupIds.TryGetValue(_node, out var ids) ? ids : null;
+
         /// <summary>Xsl3 (P6): whether the tree has type annotations (a schema validated it).</summary>
         internal bool Typed => _doc.HasAnnotations;
 

@@ -95,6 +95,20 @@ namespace Xsl3.Xslt
     /// </summary>
     internal sealed class XslNodeV2
     {
+        // P7: preserve source constructs through the loader's unstreamed lowering. Analysis must
+        // distinguish source-document from for-each and fork from an ordinary sequence constructor.
+        public TriState Streamable = TriState.Unknown;
+        public string? StreamabilityCategory;
+        public XmlQualifiedName? StreamabilityName; // expanded extension category, for package compatibility
+        public bool IsSourceDocument, IsFork;
+        public string? SourceHref, SourceForEachSource, CopySelect;
+        public string? SourceAccumulators, SourceValidation;
+        public XmlQualifiedName? SourceType;
+        public Runtime.MergeKeyAttributes MergeKeyPresence;
+        public Dictionary<string, XPath31.Expr>? ParsedExpressions;
+        public Dictionary<(string Source, int Start), (XPath31.Expr? Expression, int End)>? ParsedValueTemplates;
+        public EvaluateSyntax? Evaluate;
+        public AssertSyntax? Assert;
         public string? As;
         public string? Separator;
         public string? Collation;
@@ -127,6 +141,12 @@ namespace Xsl3.Xslt
         public string? Validation; // Xsl3 (P6): validation="strict|lax|preserve|strip" (xsl:validation on a literal result element)
         public System.Xml.XmlQualifiedName? ValidationType; // Xsl3 (P6): type="T" (xsl:type)
     }
+
+    // Source syntax retained alongside the existing lowered instructions. Generated calls and
+    // temporary bindings have different operand roles from their source constructs (§19.8.4).
+    internal sealed record EvaluateSyntax(string XPath, string? ContextItem, string? WithParams,
+        string? BaseUri, string? NamespaceContext, string? SchemaAware, IReadOnlyList<XslNode> Parameters);
+    internal sealed record AssertSyntax(string Test, string? Select, string? ErrorCode, IList<XslNode> Content);
 
     internal sealed class NsDecl
     {

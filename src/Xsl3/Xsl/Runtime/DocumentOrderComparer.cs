@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Xml;
 using System.Xml.XPath;
 
@@ -18,8 +19,11 @@ namespace Xsl3.Runtime
     internal sealed class DocumentOrderComparer : IComparer<XPathNavigator>
     {
         private List<(XPathNavigator Root, int Index)>? _roots;     // foreign trees, by root
-        private Dictionary<object, int>? _documents;              // Xsl3's trees, by document
+        private ConditionalWeakTable<object, DocumentIndex>? _documents; // live Xsl3 trees, by document
         private int _count;
+        private readonly object _gate = new();
+        internal bool IsUnused { get { lock (_gate) return _count == 0; } }
+        private sealed record DocumentIndex(int Value);
 
         /// <summary>
         /// Return:
@@ -36,17 +40,24 @@ namespace Xsl3.Runtime
                 case XmlNodeOrder.After: return 1;
             }
 
-            // Xsl3: Xsl3's trees are in the order they were created, before all other trees.
-            if (navThis is Xsl3.Tree.CompactNavigator compactThis && navThat is Xsl3.Tree.CompactNavigator compactThat)
+            // Representation must not change relative document order. A streamed source
+            // and every replay/prong view use the same creation number.
+            static long? Created(XPathNavigator? node) => node switch {
+                Xsl3.Tree.CompactNavigator compact => compact.Document.Created,
+                Xsl3.Streaming.StreamedNavigator streamed => streamed.Document.Created,
+                _ => null,
+            };
+            if (Created(navThis) is { } createdThis && Created(navThat) is { } createdThat)
             {
-                return compactThis.Document.Created < compactThat.Document.Created ? -1 : 1;
+                return createdThis < createdThat ? -1 : 1;
             }
             if (navThis is Xsl3.Tree.CompactNavigator != navThat is Xsl3.Tree.CompactNavigator)
             {
                 return navThis is Xsl3.Tree.CompactNavigator ? -1 : 1;
             }
-            Debug.Assert(GetDocumentIndex(navThis) != GetDocumentIndex(navThat!));
-            return GetDocumentIndex(navThis) < GetDocumentIndex(navThat!) ? -1 : 1;
+            int left = GetDocumentIndex(navThis), right = GetDocumentIndex(navThat!);
+            Debug.Assert(left != right);
+            return left < right ? -1 : 1;
         }
 
         /// <summary>
@@ -58,22 +69,30 @@ namespace Xsl3.Runtime
         /// </summary>
         public int GetDocumentIndex(XPathNavigator nav)
         {
+            lock (_gate) return GetDocumentIndexCore(nav);
+        }
+
+        internal static object? NativeDocumentIdentity(XPathNavigator nav) => nav switch
+        {
+            Xsl3.Tree.CompactNavigator compact => compact.Document,
+            MS.Internal.Xml.Cache.XPathDocumentNavigator vendored => vendored.OwnerDocument,
+            Xsl3.Streaming.StreamedNavigator streamed => streamed.Document.Identity,
+            _ => null,
+        };
+
+        private int GetDocumentIndexCore(XPathNavigator nav)
+        {
             // Xsl3 (P4): Xsl3's own trees are known by their document object, so that finding the index is a hash
             // lookup, not a scan of every root seen (which made sorting nodes from many temporary trees quadratic).
-            object? document = nav switch
-            {
-                Xsl3.Tree.CompactNavigator compact => compact.Document,
-                MS.Internal.Xml.Cache.XPathDocumentNavigator vendored => vendored.OwnerDocument,
-                _ => null,
-            };
+            object? document = NativeDocumentIdentity(nav);
             if (document != null)
             {
-                _documents ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
-                if (!_documents.TryGetValue(document, out int index))
+                _documents ??= new ConditionalWeakTable<object, DocumentIndex>();
+                if (!_documents.TryGetValue(document, out DocumentIndex? index))
                 {
-                    _documents[document] = index = _count++;
+                    _documents.Add(document, index = new DocumentIndex(_count++));
                 }
-                return index;
+                return index.Value;
             }
 
             XPathNavigator navRoot;

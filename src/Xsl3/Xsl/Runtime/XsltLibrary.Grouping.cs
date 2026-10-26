@@ -74,7 +74,7 @@ namespace Xsl3.Runtime
             switch (v)
             {
                 case DateTimeValue dt:
-                    return "4" + DecimalKey(dt.DateTime.ToTimeline(dt.Type.Primitive, X31Context.ImplicitTimezoneMinutes));
+                    return "4" + DecimalKey(dt.DateTime.ToTimeline(dt.Type.Primitive, X31Context.Timezone));
                 case DurationValue du:
                     return "6" + DecimalKey(du.Duration.Months * 2_678_400m + du.Duration.Seconds);
                 case BooleanValue b:
@@ -271,16 +271,7 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Groups(IList<XPathItem> tuples, double kind, string collation, bool composite)
         {
             var groups = new List<XPathItem>();
-            FunctionContext c;
-            try
-            {
-                c = collation.Length == 0 ? X31Context : X31Context.WithDefaultCollation(Collation.Resolve(collation));
-            }
-            catch (XdmException e) when (e.Code == "FOCH0002")
-            {
-                // xsl:for-each-group's collation isn't one the processor knows (XTDE1110).
-                throw new XdmException("XTDE1110", e.Message);
-            }
+            FunctionContext c = GroupingContext(collation);
             switch ((int)kind)
             {
                 case 0:
@@ -455,9 +446,9 @@ namespace Xsl3.Runtime
             return g.Nodes;
         }
 
-        public IList<XPathItem> X31GroupKey(XPathItem group) => ((Group)group).Key ?? Sequences.Empty;
+        public IList<XPathItem> X31GroupKey(XPathItem group) => group is ForwardGroup forward ? forward.First.Key : ((Group)group).Key ?? Sequences.Empty;
 
-        public XPathItem X31GroupFirst(XPathItem group) => ((Group)group).Members[0];
+        public XPathItem X31GroupFirst(XPathItem group) => group is ForwardGroup forward ? forward.First.Item : ((Group)group).Members[0];
 
         // ------------------------------------------------------------ xsl:analyze-string
 

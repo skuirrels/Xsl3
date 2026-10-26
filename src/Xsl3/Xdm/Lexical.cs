@@ -73,14 +73,28 @@ namespace Xsl3.Xdm
             {
                 return false;
             }
+            // XML integer digits are ASCII. Accumulate values that fit the native
+            // unsigned magnitude without invoking the general-purpose number parser;
+            // retain arbitrary precision once that magnitude overflows.
+            ulong magnitude = 0;
+            bool wide = false;
             for (int j = i; j < s.Length; j++)
             {
-                if (!char.IsAsciiDigit(s[j]))
+                uint digit = (uint)(s[j] - '0');
+                if (digit > 9) return false;
+                if (!wide)
                 {
-                    return false;
+                    if (magnitude > (ulong.MaxValue - digit) / 10) wide = true;
+                    else magnitude = magnitude * 10 + digit;
                 }
             }
-            value = BigInteger.Parse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            if (wide)
+                value = BigInteger.Parse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            else
+            {
+                value = new BigInteger(magnitude);
+                if (s[0] == '-') value = -value;
+            }
             return true;
         }
 

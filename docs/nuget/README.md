@@ -4,9 +4,13 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.0.1.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.0: streaming foundations.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
+
+Streaming remains in development, with static analysis, forward execution and process probes. It is not
+claimed as a supported package feature. The P7A foundations are documented in the
+[1.1.0 release notes](https://github.com/skuirrels/Xsl3/blob/main/docs/releases/1.1.0.md).
 
 ## Getting started
 
@@ -27,7 +31,9 @@ var xslt = new XslCompiledTransform { UseCompactTree = true };
 ```
 
 The input is then parsed into Xsl3's compact tree, which takes about 60% of `XPathDocument`'s memory. Transforms run
-about 1.5× faster than stock. Output is the same, except for the strings `generate-id()` returns.
+about 1.5× faster than stock. Output is the same, except for the strings `generate-id()` returns and the order between
+nodes from different documents: compact trees come in the order they were built, so the input comes before the
+documents `document()` loads.
 
 `XsltArgumentList`, `XsltSettings`, extension objects and parameters work as they do in `System.Xml.Xsl`.
 The `TextWriter` and `Stream` overloads of `Transform` serialize the way the stylesheet's `xsl:output` says,
@@ -49,20 +55,22 @@ XdmValue rows = executable.CreateTransformer().CallTemplate(new QName("rows"));
 Guides: [getting started](https://github.com/skuirrels/Xsl3/blob/main/docs/getting-started.md) and
 [moving from System.Xml.Xsl](https://github.com/skuirrels/Xsl3/blob/main/docs/migration.md).
 
+Conformance checked on 2026-10-26. Performance figures below retain their original benchmark dates.
+
 ## What's supported
 
 | | |
 |---|---|
-| XSLT 1.0 | Passes dotnet/runtime's `XslCompiledTransform` tests (1661/1661) and matches stock output byte for byte |
-| XPath 3.1 | 99.6% of the W3C QT3 tests that apply |
-| XSLT 2.0 / 3.0 | 7,738 of the 7,907 applicable W3C xslt30-test cases pass (97.9%); 98.7% of the XSLT 2.0 profile |
+| XSLT 1.0 | Passes all 1,654 applicable dotnet/runtime `XslCompiledTransform` tests on each target framework and matches stock output byte for byte |
+| XPath 3.1 | 21,884 W3C QT3 cases pass, none fail, 99 are not run |
+| XSLT 3.0 | 8,849 W3C xslt30-test cases pass, 19 known failures, 41 not run (99.8% of those run) |
 | Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value
 templates, `xsl:mode`, static parameters and shadow attributes, packages (`xsl:use-package`, visibility,
 `xsl:override`), the JSON functions, and json and adaptive output.
 
-Not yet: schema awareness and streaming.
+Schema awareness is opt-in through `XsltSettings.SchemaAware`. Streaming is not yet a supported feature.
 
 ## Secure by default
 
