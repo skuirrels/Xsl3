@@ -90,6 +90,8 @@ public partial class Xslt30RunTests
         if (reviewed)
         {
             Assert.Empty(failures);
+            Assert.True(matchingCodes == 152 && allowedResults == 3,
+                $"P7B diagnostic/result coverage changed: got {matchingCodes} exact codes and {allowedResults} results; reconcile the manifest and plan.");
             return;
         }
         string problems = Baseline.Check("xslt30-static-streamability", failures);

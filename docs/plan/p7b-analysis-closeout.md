@@ -387,6 +387,10 @@ expression mapping and fixture-integrity tests. Debug reviewed gates and the tar
 also run, so the diagnostic-masking defect remains covered. Raw and reviewed failures retain the test process's
 nonzero exit status. Hosted CI is configured; the validation recorded here was performed locally.
 
+The pre-merge review also made the approved S2 balance an explicit gate: 152 exact static codes and three
+positive XML results must remain covered. Debug S1 and S2 run in separate steps after a successful harness
+build, so a declaration or S1 test failure cannot suppress the S2 audit or either generated Debug report.
+
 | Final validation | Result |
 |---|---|
 | Reviewed S1, Release and Debug | 1,000/0/0 in each configuration; all 66,643 original expressions conserved |
