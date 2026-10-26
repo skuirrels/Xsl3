@@ -19,6 +19,9 @@ public sealed class Profile
 
     public IReadOnlySet<string> Features { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>Experimental analysis hook, independent of the processor's streaming feature claim.</summary>
+    public bool AssessPostureAndSweep { get; init; }
+
     public static Profile Xslt20 { get; } = new()
     {
         Specs = new HashSet<string>(StringComparer.Ordinal) { "XSLT10+", "XSLT20+" },
@@ -47,6 +50,17 @@ public sealed class Profile
     /// <summary>P6 (docs/plan/p6-schema.md): the 3.0 profile; XSL3_XSLT30_PROFILE=sa runs only the tests that need schema-awareness.</summary>
     public static Profile SchemaAware => Xslt30;
 
+    /// <summary>
+    /// P7 development profile only. Its transformation tests still run unstreamed; this must not be
+    /// used as the normal conformance profile or as evidence that streamed execution is implemented.
+    /// </summary>
+    public static Profile Streaming { get; } = new()
+    {
+        Specs = Xslt30.Specs,
+        Features = new HashSet<string>(Xslt30.Features, StringComparer.Ordinal) { "streaming" },
+        AssessPostureAndSweep = true,
+    };
+
     public bool Applies(TestCase test) => test.EffectiveDependencies.All(Meets);
 
     private bool Meets(Dependency d)
@@ -69,7 +83,8 @@ public sealed class Profile
             "xml-version" => d.Value.Split(' ').Any(v => v is "1.0" or "1.0:5+"),
             // Assertions can be on or off: the runner sets XsltSettings.EnableAssertions as the test asks.
             "enable_assertions" => d.Satisfied,
-            "sweep_and_posture" or "combinations_for_numbering" or "extension-function" or "ordinal_scheme_name" => false,
+            "sweep_and_posture" => AssessPostureAndSweep && d.Value == "supports-sweep-and-posture-assessments",
+            "combinations_for_numbering" or "extension-function" or "ordinal_scheme_name" => false,
             // NFD, NFKC and NFKD are supported, besides NFC.
             "additional_normalization_form" => true,
             // .NET decimal: 28 significant digits.

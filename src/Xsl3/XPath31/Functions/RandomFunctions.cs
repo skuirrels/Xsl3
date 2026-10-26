@@ -13,6 +13,19 @@ namespace Xsl3.XPath31.Functions
     internal sealed class NativeFunction(SequenceTypeTest[] parameters, SequenceTypeTest returnType, System.Func<IList<XPathItem>[], IList<XPathItem>> body, string description)
         : FunctionItem
     {
+        internal readonly record struct RandomFunctionState(ulong Value, bool Permute);
+
+        // Only the generator factory can associate serializable state with an implementation.
+        internal RandomFunctionState? RandomState { get; private init; }
+
+        internal static NativeFunction Random(ulong state, bool permute) => permute
+            ? new NativeFunction(new[] { SequenceTypeTest.AnySequence }, SequenceTypeTest.AnySequence,
+                a => FunctionLibrary.Permute(state, a[0]), "the permute function of a random number generator")
+                { RandomState = new(state, true) }
+            : new NativeFunction(System.Array.Empty<SequenceTypeTest>(), FunctionLibrary.GeneratorType,
+                _ => Sequences.One(FunctionLibrary.RandomGenerator(state)), "the next function of a random number generator")
+                { RandomState = new(state, false) };
+
         public override int Arity => parameters.Length;
 
         public override SequenceTypeTest ParameterType(int index) => parameters[index];
@@ -63,31 +76,32 @@ namespace Xsl3.XPath31.Functions
 
         // Resolved on first use: the signature types it needs are initialized in another part of this class.
         private static SequenceTypeTest? s_generatorType;
-        private static SequenceTypeTest GeneratorType => s_generatorType ??= ResolveType("map(xs:string, item())");
+        internal static SequenceTypeTest GeneratorType => s_generatorType ??= ResolveType("map(xs:string, item())");
 
         /// <summary>The map of a generator in state <paramref name="state"/>: number, next() and permute($arg).</summary>
-        private static MapItem RandomGenerator(ulong state)
+        internal static MapItem RandomGenerator(ulong state)
         {
             ulong numberState = state;
             double number = (Next(ref numberState) >> 11) * (1.0 / (1UL << 53));
-            var next = new NativeFunction(System.Array.Empty<SequenceTypeTest>(), GeneratorType,
-                _ => One(RandomGenerator(numberState)), "the next function of a random number generator");
-            var permute = new NativeFunction(new[] { SequenceTypeTest.AnySequence }, SequenceTypeTest.AnySequence, a =>
-            {
-                // Fisher–Yates, from this generator's state.
-                var items = new List<XPathItem>(a[0]);
-                ulong s = state ^ 0xD1B54A32D192ED03UL;
-                for (int i = items.Count - 1; i > 0; i--)
-                {
-                    int j = (int)(Next(ref s) % (ulong)(i + 1));
-                    (items[i], items[j]) = (items[j], items[i]);
-                }
-                return items;
-            }, "the permute function of a random number generator");
+            var next = NativeFunction.Random(numberState, false);
+            var permute = NativeFunction.Random(state, true);
             return MapItem.Empty
                 .Put(AtomicValue.OfString("number"), One(AtomicValue.OfDouble(number)))
                 .Put(AtomicValue.OfString("next"), One(next))
                 .Put(AtomicValue.OfString("permute"), One(permute));
+        }
+
+        internal static IList<XPathItem> Permute(ulong state, IList<XPathItem> input)
+        {
+            // Fisher–Yates, from this generator's state.
+            var items = new List<XPathItem>(input);
+            ulong s = state ^ 0xD1B54A32D192ED03UL;
+            for (int i = items.Count - 1; i > 0; i--)
+            {
+                int j = (int)(Next(ref s) % (ulong)(i + 1));
+                (items[i], items[j]) = (items[j], items[i]);
+            }
+            return items;
         }
     }
 }

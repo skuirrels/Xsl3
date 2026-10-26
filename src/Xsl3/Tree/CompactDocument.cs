@@ -19,6 +19,9 @@ namespace Xsl3.Tree
     /// </summary>
     public sealed partial class CompactDocument : IXPathNavigable
     {
+        // Opaque provenance owned by a streamed copy, never a document-wide history of discarded copies.
+        internal object? StreamedCopyOrigins;
+
         internal const int None = -1;
 
         // Nodes; 0 is the document node. _kind holds the XPathNodeType, and EmptyTag for an element written <e/>.
@@ -62,6 +65,8 @@ namespace Xsl3.Tree
         internal string _baseUri = "";
         internal Dictionary<int, string>? _baseUris;   // elements and PIs whose base URI differs from their parent's
         internal Dictionary<string, int>? _ids;        // DTD ID value -> element
+        // Imported lookups whose provider exposes the element but no ID attribute property.
+        internal Dictionary<int, List<string>>? _lookupIds;
         internal List<int>? _idrefAttributes;           // Xsl3: the attributes the DTD declares IDREF or IDREFS, in order
         internal string _xmlPrefix = null!, _xmlUri = null!;
 
@@ -104,13 +109,21 @@ namespace Xsl3.Tree
         /// <summary>A constructed tree, which has no document URI (fn:document-uri of its root is empty).</summary>
         internal bool NoDocumentUri { get; set; }
 
-        private static long s_created;
+        // Sequence normalization makes a new final result document. Its descendants take
+        // the output URI as their base, with xml:base attributes applied by the URI accessor.
+        internal void SetResultUri(string uri)
+        {
+            _baseUri = uri;
+            _baseUris = null;
+            _writerBuilt = false;
+            NoDocumentUri = false;
+        }
 
         /// <summary>
-        /// When the tree was created, relative to the process's other compact trees: nodes of different trees are in
+        /// When the tree was created, relative to the process's other native trees: nodes of different trees are in
         /// the order their trees were created, as constructed nodes are expected to be (XDM 3.1 §2.4).
         /// </summary>
-        internal readonly long Created = System.Threading.Interlocked.Increment(ref s_created);
+        internal readonly long Created = DocumentCreationOrder.Next();
 
         private CompactDocument()
         {
@@ -257,8 +270,7 @@ namespace Xsl3.Tree
                 }
                 if (_noInherit != null && _parent[n] != None && _noInherit.Contains(_parent[n]))
                 {
-                    // Xsl3: a child of an element made with inherit-namespaces="no" has only the namespaces it needs.
-                    var needed = NeededNamespaces(n);
+                    var needed = InheritedNamespaces(n);
                     (_scopes ??= new Dictionary<int, (string, string, int, int)[]>())[n] = needed;
                     return needed;
                 }
@@ -268,6 +280,21 @@ namespace Xsl3.Tree
 
         // Xsl3: the elements made with inherit-namespaces="no" (XSLT 3.0 §11.1.2).
         internal HashSet<int>? _noInherit;
+
+        private (string Prefix, string Uri, int Owner, int Decl)[] InheritedNamespaces(int element)
+        {
+            int parent = _parent[element];
+            var inherited = InScopeNamespaces(parent);
+            if (_noInherit?.Contains(parent) != true) return inherited;
+            // §5.7.1 propagates an ancestor's namespaces through every descendant. A
+            // no-inherit parent suppresses its own bindings, not an outer constructor's.
+            var result = new List<(string Prefix, string Uri, int Owner, int Decl)>();
+            foreach (var ns in inherited)
+                if (ns.Owner != parent) result.Add(ns);
+            foreach (var ns in NeededNamespaces(element))
+                if (!result.Exists(found => found.Prefix == ns.Item1)) result.Insert(0, ns);
+            return result.ToArray();
+        }
 
         // The namespaces an element's own name and its attributes' names need, with the xml namespace.
         private (string, string, int, int)[] NeededNamespaces(int element)
@@ -326,7 +353,7 @@ namespace Xsl3.Tree
                     continue;
                 }
                 var chain = new List<(string Prefix, string Uri, int Owner, int Decl)>(
-                    _noInherit != null && _noInherit.Contains(_parent[element]) ? NeededNamespaces(element) : InScopeNamespaces(_parent[element]));
+                    InheritedNamespaces(element));
                 for (; i < _nsCount && _nsOwner[i] == element; i++)
                 {
                     var added = (_nsPrefix[i], _nsUri[i], element, location++);

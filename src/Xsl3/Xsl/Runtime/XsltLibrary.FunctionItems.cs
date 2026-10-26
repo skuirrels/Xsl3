@@ -74,6 +74,34 @@ namespace Xsl3.Runtime
         public override string Describe() => $"function {Definition.Name.EQName}#{Arity}";
     }
 
+    // Keep coercion as function data rather than a delegate closing over the creating
+    // runtime. A captured wrapper must invoke its target in the calling fork's runtime.
+    internal sealed class CoercedFunction(FunctionItem target, SequenceTypeTest[] parameters, SequenceTypeTest result) : FunctionItem
+    {
+        internal FunctionItem Target => target;
+        internal CoercedFunction WithTarget(FunctionItem value) => new(value, parameters, result);
+        public override int Arity => parameters.Length;
+        public override SequenceTypeTest ParameterType(int index) => parameters[index];
+        public override SequenceTypeTest ReturnType => result;
+        // Scratch graphs can contain long wrapper chains; metadata access must not recurse through them.
+        private FunctionItem OriginalTarget()
+        {
+            FunctionItem function = target;
+            while (function is CoercedFunction coerced) function = coerced.Target;
+            return function;
+        }
+        public override QName? Name => OriginalTarget().Name;
+        public override string Describe() => OriginalTarget().Describe();
+
+        internal IList<XPathItem> Invoke(XsltLibrary library, IList<XPathItem>[] arguments)
+        {
+            var converted = new IList<XPathItem>[arguments.Length];
+            for (int i = 0; i < arguments.Length; i++)
+                converted[i] = Coercion.CoerceTo(arguments[i], parameters[i], "XPTY0004", () => $"Argument {i + 1} of the coerced function");
+            return Coercion.CoerceTo(library.CallFunction(target, converted), result, "XPTY0004", () => "The result of the coerced function");
+        }
+    }
+
     /// <summary>A dynamic function call being made: the function item and the arguments.</summary>
     internal sealed class PendingCall : FunctionItem
     {
@@ -86,6 +114,8 @@ namespace Xsl3.Runtime
         public FunctionItem Function { get; }
 
         public List<IList<XPathItem>> Arguments { get; }
+
+        internal List<XPathItem>? Argument;
 
         public override int Arity => 0;
 
@@ -134,6 +164,30 @@ namespace Xsl3.Runtime
             return c;
         }
 
+        /// <summary>Collect one dynamic argument item, atomizing it while current when its parameter requires it.</summary>
+        public int X31CallArgumentItem(XPathItem call, XPathItem value)
+        {
+            var c = (PendingCall)call;
+            var argument = c.Argument ??= new List<XPathItem>();
+            if (value is not AtomicValue && c.Function.ParameterType(c.Arguments.Count).Item is AtomicTypeTest or NumericTest or UnionTypeTest)
+                argument.AddRange(Sequences.Atomize(Sequences.One(value)));
+            else
+                argument.Add(Unshare(value));
+            // The QIL length reduction forces every item through this operation without collecting its results.
+            return 1;
+        }
+
+        /// <summary>Finish the argument after its item loop, retaining canonical conversion and cardinality checks.</summary>
+        public XPathItem X31CallArgumentComplete(XPathItem call, double count)
+        {
+            var c = (PendingCall)call;
+            IList<XPathItem> argument = count == 0 ? Sequences.Empty : c.Argument!;
+            int index = c.Arguments.Count;
+            c.Arguments.Add(Coercion.CoerceArgument(argument, c.Function.ParameterType(index), c.Function, index));
+            c.Argument = null;
+            return c;
+        }
+
         /// <summary>fn:apply: a call with the members of the array as the arguments.</summary>
         public XPathItem X31ApplyCall(IList<XPathItem> function, IList<XPathItem> arguments)
         {
@@ -151,7 +205,7 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>The id of the lifted function a call goes to, or -1 if the run-time library makes it.</summary>
-        public double X31CallTarget(XPathItem call) => ((PendingCall)call).Function is CompiledFunction f && f.Owner == _runtime ? f.Id : -1;
+        public double X31CallTarget(XPathItem call) => ((PendingCall)call).Function is CompiledFunction f && _runtime.SharesForkContext(f.Owner) ? f.Id : -1;
 
         public IList<XPathItem> X31CallCaptured(XPathItem call, double index) => ((CompiledFunction)((PendingCall)call).Function).Captured[(int)index];
 
@@ -169,12 +223,18 @@ namespace Xsl3.Runtime
                     AtomicValue? index = Sequences.AtomizeOptional(c.Arguments[0], "an array index");
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
-                    return lf.Definition.Invoke(lf.Context, c.Arguments.ToArray());
+                    FunctionContext context = lf.Context;
+                    if (context.Runtime is { } owner && !ReferenceEquals(owner, _runtime) && _runtime.SharesForkContext(owner))
+                        context = context.WithRuntime(_runtime);
+                    return lf.Definition.Invoke(context, c.Arguments.ToArray());
                 case NativeFunction nf:
                     return nf.Invoke(c.Arguments.ToArray());
-                case CompiledFunction cf when cf.Owner != _runtime && cf.Owner.Dispatcher is { } foreign:
-                    // A function item of another compiled unit: its own dispatcher, in its own runtime.
-                    return foreign(cf.Owner, call);
+                case CoercedFunction coerced:
+                    return coerced.Invoke(this, c.Arguments.ToArray());
+                case CompiledFunction cf:
+                    XmlQueryRuntime runtime = _runtime.SharesForkContext(cf.Owner) ? _runtime : cf.Owner;
+                    if (runtime.Dispatcher is { } dispatch) return dispatch(runtime, call);
+                    goto default;
                 default:
                     throw new XdmException("XPTY0004", $"{c.Function.Describe()} can't be called here (it belongs to another compiled query)");
             }
@@ -203,10 +263,16 @@ namespace Xsl3.Runtime
                     X31CallArgument(call, argument);
                 }
             }
-            if (function is CompiledFunction cf)
+            return InvokeCall(call);
+        }
+
+        private IList<XPathItem> InvokeCall(PendingCall call)
+        {
+            if (call.Function is CompiledFunction cf)
             {
-                var dispatch = cf.Owner.Dispatcher ?? throw new System.InvalidOperationException("No dispatcher was compiled");
-                return dispatch(cf.Owner, call);
+                XmlQueryRuntime runtime = _runtime.SharesForkContext(cf.Owner) ? _runtime : cf.Owner;
+                var dispatch = runtime.Dispatcher ?? throw new System.InvalidOperationException("No dispatcher was compiled");
+                return dispatch(runtime, call);
             }
             return X31CallRuntime(call);
         }
@@ -242,14 +308,16 @@ namespace Xsl3.Runtime
         public IList<XPathItem> X31Try(IList<XPathItem> tryFunction, IList<XPathItem> catchFunctions, double errorsId, string module)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             List<int> lines = _runtime.TryLines;
             int mark = lines.Count;
             try
             {
                 return Copy(CallFunction((FunctionItem)tryFunction[0]));
             }
-            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, IList<XPathItem> value))
+            catch (System.Exception e) when (_runtime.CanCatchStreamedValidation(e, sourceMark) && DynamicError(e) is (QName code, string description, IList<XPathItem> value))
             {
+                _runtime.CloseStreamedSources(sourceMark);
                 _runtime.RestoreOutput(output);
                 int line = lines.Count > mark ? lines[^1] : 0;
                 lines.RemoveRange(mark, lines.Count - mark);
@@ -319,16 +387,23 @@ namespace Xsl3.Runtime
         public bool X31PatternTry(IList<XPathItem> test)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             try
             {
                 return Sequences.EffectiveBooleanValue(CallFunction((FunctionItem)test[0]));
             }
-            catch (System.Exception e) when (DynamicError(e) != null)
+            catch (System.Exception e) when (CanIgnorePatternError(e, sourceMark))
             {
                 _runtime.RestoreOutput(output);
                 return false;
             }
         }
+
+        private bool CanIgnorePatternError(System.Exception error, int sourceMark) =>
+            _runtime.CanCatchStreamedValidation(error, sourceMark) && DynamicError(error) is (QName code, _, _)
+            // A source-position/implementation guard reports a missing streaming path, not an XPath
+            // predicate error. Treating that guard as a non-match would silently lose matching nodes.
+            && !(code.NamespaceUri == Streaming.StreamedDocument.ErrorNamespace && code.LocalName is "stream-position" or "streaming-unimplemented");
 
         /// <summary>
         /// The text of a non-terminating xsl:message (XSLT 3.0 §23.1): its content as the serializer would show it, with
@@ -338,13 +413,14 @@ namespace Xsl3.Runtime
         public string X31MessageText(IList<XPathItem> body)
         {
             var output = _runtime.SaveOutput();
+            int sourceMark = _runtime.StreamedSourceMark;
             IList<XPathItem> items;
             try
             {
                 items = CallFunction((FunctionItem)body[0]);
             }
             // Errors the stylesheet raises itself (fn:error, a terminating xsl:message, xsl:assert) still end it.
-            catch (System.Exception e) when (DynamicError(e) is (QName code, string description, _)
+            catch (System.Exception e) when (_runtime.CanCatchStreamedValidation(e, sourceMark) && DynamicError(e) is (QName code, string description, _)
                 && !(e is XdmException { Name: not null } or XdmException { Code: "FOER0000" } || code.LocalName.StartsWith("XTMM", System.StringComparison.Ordinal)))
             {
                 _runtime.RestoreOutput(output);

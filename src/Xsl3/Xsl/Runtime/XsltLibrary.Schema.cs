@@ -20,7 +20,11 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3 (P6): xsl:copy-of validation="strip" (where default-validation="preserve" would keep them): untyped copies.</summary>
         public IList<XPathItem> X31CopyStripping(IList<XPathItem> items, bool copyNamespaces) => Copies(items, copyNamespaces, keepTypes: false);
 
-        private IList<XPathItem> Copies(IList<XPathItem> items, bool copyNamespaces, bool keepTypes)
+        /// <summary>Instruction copies apply namespace, annotation and accumulator options independently.</summary>
+        public IList<XPathItem> X31CopyWithOptions(IList<XPathItem> items, bool copyNamespaces, bool keepTypes, bool copyAccumulators) =>
+            Copies(items, copyNamespaces, keepTypes, copyAccumulators);
+
+        private IList<XPathItem> Copies(IList<XPathItem> items, bool copyNamespaces, bool keepTypes, bool copyAccumulators = true)
         {
             var result = new XPathItem[items.Count];
             for (int i = 0; i < result.Length; i++)
@@ -30,13 +34,20 @@ namespace Xsl3.Runtime
                     result[i] = items[i];
                     continue;
                 }
-                XPathNavigator copy = NodeValidator.Preserve(node, copyNamespaces, keepTypes);
-                if (node.NodeType is XPathNodeType.Element or XPathNodeType.Root)
+                XPathNavigator copy;
+                if (copyNamespaces && keepTypes && node is Streaming.StreamedNavigator grounded && node.NodeType is XPathNodeType.Element or XPathNodeType.Root)
+                    copy = grounded.Ground(copyAccumulators);
+                else
+                {
+                    using var consumption = node is Streaming.StreamedNavigator streamed && node.NodeType is XPathNodeType.Element or XPathNodeType.Root
+                        ? streamed.BeginConsumption(replay: true, accumulators: copyAccumulators) : default;
+                    copy = NodeValidator.Preserve(node, copyNamespaces, keepTypes);
+                }
+                if (copy is Tree.CompactNavigator compact) compact.Document.NoDocumentUri = true;
+                if (copyAccumulators && node.NodeType is XPathNodeType.Element or XPathNodeType.Root)
                 {
                     // The copy keeps its original's accumulator values (as fn:copy-of's does, XSLT 3.0 §20.3.1).
-                    XPathNavigator root = copy.Clone();
-                    root.MoveToRoot();
-                    (_accumulatorCopies ??= new())[_runtime.GenerateId(root)] = (copy.Clone(), node.Clone());
+                    _runtime.Documents.RecordCopy(copy, node);
                 }
                 result[i] = copy;
             }
@@ -122,9 +133,7 @@ namespace Xsl3.Runtime
                     }
                     return annotated;
                 }
-                schemaType = name.Namespace == XmlSchema.Namespace
-                    ? (name.Name == "anyType" ? SchemaTypes.AnyType : XmlSchemaType.GetBuiltInSimpleType(name))
-                    : schemas.GlobalTypes[name] as XmlSchemaType;
+                schemaType = FindValidationType(schemas, name);
             }
             var result = new XPathItem[items.Count];
             for (int i = 0; i < result.Length; i++)
@@ -140,21 +149,20 @@ namespace Xsl3.Runtime
                     // element or document stays XTTE1540, si-copy-of-110).
                     throw new XdmException("XTTE1510", e.Message);
                 }
-                if (_accumulatorCopies != null && items[i] is XPathNavigator && !ReferenceEquals(result[i], items[i]))
+                if (items[i] is XPathNavigator originalNode && !ReferenceEquals(result[i], items[i]))
                 {
                     // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.
-                    XPathNavigator root = ((XPathNavigator)items[i]).Clone();
-                    root.MoveToRoot();
-                    if (_accumulatorCopies.TryGetValue(_runtime.GenerateId(root), out var copied) && Original((XPathNavigator)items[i], copied.Top, copied.Original) is XPathNavigator original)
+                    if (_runtime.Documents.TryGetCopy(originalNode, out var copied) && Original(originalNode, copied.Top, copied.Original) is XPathNavigator original)
                     {
-                        XPathNavigator validatedRoot = ((XPathNavigator)result[i]).Clone();
-                        validatedRoot.MoveToRoot();
-                        _accumulatorCopies[_runtime.GenerateId(validatedRoot)] = (((XPathNavigator)result[i]).Clone(), original.Clone());
-                        (_validatedAccumulatorCopies ??= new HashSet<string>(System.StringComparer.Ordinal)).Add(_runtime.GenerateId(validatedRoot));
+                        _runtime.Documents.RecordCopy((XPathNavigator)result[i], original, validated: true);
                     }
                 }
             }
             return result;
         }
+
+        private static XmlSchemaType? FindValidationType(XmlSchemaSet schemas, XmlQualifiedName name) => name.Namespace == XmlSchema.Namespace
+            ? name.Name == "anyType" ? SchemaTypes.AnyType : name.Name == "untypedAtomic" ? SchemaTypes.UntypedAtomic : XmlSchemaType.GetBuiltInSimpleType(name)
+            : schemas.GlobalTypes[name] as XmlSchemaType;
     }
 }

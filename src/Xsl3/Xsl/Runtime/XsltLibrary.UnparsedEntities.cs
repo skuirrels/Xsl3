@@ -47,7 +47,7 @@ namespace Xsl3.Runtime
             var entities = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
             try
             {
-                XmlResolver resolver = _runtime.ExternalContext.DataSources;
+                XmlResolver resolver = _runtime.Documents.TrackResolver(_runtime.ExternalContext.DataSources)!;
                 var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver };
                 using XmlReader reader = XmlReader.Create(uri, settings);
                 var document = new XmlDocument { XmlResolver = resolver };
@@ -68,6 +68,7 @@ namespace Xsl3.Runtime
             catch (Exception e) when (e is XmlException or System.IO.IOException or UnauthorizedAccessException or UriFormatException
                 or InvalidOperationException or NotSupportedException or System.Net.WebException or System.Security.SecurityException)
             {
+                DocumentResources.RethrowReadControlError(e);
                 // Not readable again: no unparsed entities.
             }
             return entities;

@@ -1,0 +1,28 @@
+# Known failures for xslt30-run-strm. Regenerate with XSL3_UPDATE_BASELINES=1; see tests/Xsl3.W3C/Baseline.cs.
+# P7 merge review: merge-073, -081, -082 and si-merge-004ns specify for-each-item
+# with streamable=no, forbidden by published XSLT 3.0 XTSE3195 (§15.3).
+# merge-084 uses last() in an action with a streamable source; §15.7 requires
+# absent context size, even on trees. These fixture conflicts stay visible failures.
+# See docs/plan/p7-streaming.md#s5-streamed-merge for verification and limits.
+# si-fork-953 expects XTSE3430 for sorted groups directly inside xsl:fork.
+# Published XSLT 3.0 §19.8.4.19 explicitly exempts this shape from its sort prohibition;
+# §19.8.9.4 also permits the one current-group() call used by the fixture. Keep the
+# fixture conflict visible; do not reject supported sorted forks to match its error.
+accumulator/accumulator-061
+merge/merge-073
+merge/merge-081
+merge/merge-082
+merge/merge-084
+sf-reverse/sf-reverse-001
+si-fork/si-fork-953
+si-merge/si-merge-004ns
+si-result-document/si-result-document-024
+source-document/non-stream-013
+source-document/stream-013
+streamable/streamable-021
+streamable/streamable-042
+streamable/streamable-043
+streamable/streamable-116
+streamable/streamable-147
+sx-UnionExpr/sx-union-202
+system-property/system-property-012

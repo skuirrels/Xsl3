@@ -123,8 +123,8 @@ $result)
  |----------------------------------------------------------------------------------------------|#
 [NormalizeConditionalText]
 ((Conditional $cond:*
-    $left:(TextCtor $leftText:*)
-    $right:(TextCtor $rightText:*)
+    $left:(TextCtor $leftText:* ^ ~(Pattern? $leftText {StreamedSimpleContent}))
+    $right:(TextCtor $rightText:* ^ ~(Pattern? $rightText {StreamedSimpleContent}))
 ) =>
 (TextCtor (Conditional $cond $leftText $rightText)))
 
@@ -139,7 +139,7 @@ $result)
 [NormalizeLoopText]
 ((Loop
     $iter:(For $bind:* ^ (Single? (TypeOf $bind)))
-    $ctor:(TextCtor $text:*)
+    $ctor:(TextCtor $text:* ^ ~(Pattern? $text {StreamedSimpleContent}))
 ) =>
 (TextCtor (Loop $iter $text)))
 

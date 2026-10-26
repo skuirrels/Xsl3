@@ -255,8 +255,8 @@ namespace Xsl3.XPath31.Functions
                         if (aNaN && bNaN) continue;
                         return aNaN ? -1 : 1; // NaN sorts first
                     }
-                    if (Comparison.Compare(a, b, ValueComparisonOp.Lt, c.ImplicitTimezoneMinutes, c.DefaultCollation)) return -1;
-                    if (Comparison.Compare(b, a, ValueComparisonOp.Lt, c.ImplicitTimezoneMinutes, c.DefaultCollation)) return 1;
+                    if (Comparison.Compare(a, b, ValueComparisonOp.Lt, c.Timezone, c.DefaultCollation)) return -1;
+                    if (Comparison.Compare(b, a, ValueComparisonOp.Lt, c.Timezone, c.DefaultCollation)) return 1;
                 }
                 return x.Count.CompareTo(y.Count);
             }

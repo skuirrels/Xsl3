@@ -1,0 +1,327 @@
+// Licensed under the MIT license. See LICENSE.TXT in the repository root.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.ExceptionServices;
+using System.Xml;
+using System.Xml.XPath;
+using Xsl3.Streaming;
+using Xsl3.Xdm;
+
+namespace Xsl3.Runtime;
+
+public sealed partial class XsltLibrary
+{
+    private sealed class StreamedAccumulators : IStreamedNodeObserver
+    {
+        private sealed class State(string name, AccumulatorInfo info)
+        {
+            internal readonly string Name = name;
+            internal readonly AccumulatorInfo Info = info;
+            internal IList<XPathItem>? Current;
+            internal bool Initialized, Initializing;
+            internal volatile ExceptionDispatchInfo? Fault;
+        }
+
+        private sealed class Phase
+        {
+            internal volatile IList<XPathItem>? Before, After;
+            internal bool Starting, Ending;
+            internal List<WeakReference<Phase>>? Readers;
+            private int _pruneAt = 1;
+
+            internal void Register(Phase reader)
+            {
+                reader.Before ??= Before;
+                reader.After ??= After;
+                if (Before != null && After != null) return;
+                Readers ??= new();
+                if (Readers.Count >= _pruneAt)
+                {
+                    Readers.RemoveAll(weak => !weak.TryGetTarget(out _));
+                    // A long-lived ancestor can be inspected for every input record. Grow
+                    // the prune interval with live readers instead of rescanning them per record.
+                    _pruneAt = Readers.Count > int.MaxValue / 2 ? int.MaxValue : Math.Max(1, Readers.Count * 2);
+                }
+                Readers.Add(new(reader));
+            }
+
+            internal void Publish(IList<XPathItem> value, bool after)
+            {
+                if (after) After = value;
+                else Before = value;
+                if (Readers == null) return;
+                foreach (var weak in Readers)
+                    if (weak.TryGetTarget(out var reader))
+                    {
+                        if (after) reader.After = value;
+                        else reader.Before = value;
+                    }
+                if (Before != null && After != null) Readers = null;
+            }
+        }
+
+        private sealed class NodeValues(object owner, SnapshotCodec codec, bool frozen = false) : Dictionary<string, Phase>, IStreamedHeaderMetadata
+        {
+            internal readonly object Owner = owner;
+            internal readonly bool Frozen = frozen;
+            public IStreamedHeaderMetadataCodec Codec => codec;
+            public void Write(BinaryWriter writer, StreamedXdmValueStore values)
+            {
+                lock (Owner)
+                {
+                    writer.Write(Count);
+                    foreach (var (name, phase) in this)
+                    {
+                        writer.Write(name);
+                        values.Write(writer, phase.Before);
+                        values.Write(writer, phase.After);
+                    }
+                }
+            }
+        }
+
+        private sealed class SnapshotCodec(object owner) : IStreamedHeaderMetadataCodec
+        {
+            public object Read(BinaryReader reader, StreamedXdmValueStore values, StreamedDocument document, long number)
+            {
+                var snapshot = new NodeValues(owner, this, frozen: true);
+                for (int count = StreamedXdmValueStore.Count(reader); count > 0; count--)
+                    snapshot.Add(reader.ReadString(), new Phase { Before = values.Read(reader), After = values.Read(reader) });
+                // Only open source/prong frames participate. Weak readers live on their
+                // original phase and disappear at publication, without a closed-frame index.
+                lock (owner)
+                {
+                    var active = document.ActiveHeader(number);
+                    if ((active?.Original ?? active)?.ObserverValues is NodeValues live && ReferenceEquals(live.Owner, owner))
+                        foreach (var (name, phase) in snapshot)
+                            if (live.TryGetValue(name, out var original)) original.Register(phase);
+                }
+                return snapshot;
+            }
+        }
+
+        private XsltLibrary? _owner;
+        private IList<XPathItem>? _items;
+        private readonly StreamedDocument _document;
+        private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
+        // Frame-owned values are ordinary short-lived objects, not dependent handles in a
+        // document-wide weak table. Replay/copy provenance still determines their lifetime.
+        // The token also prevents a foreign source frame from supplying another observer's values.
+        private readonly object _valuesGate = new();
+        private readonly SnapshotCodec _snapshotCodec;
+
+        internal StreamedAccumulators(XsltLibrary owner, StreamedDocument document, IList<XPathItem> items,
+            Dictionary<string, AccumulatorInfo> table, HashSet<string> selected)
+        {
+            _owner = owner;
+            _snapshotCodec = new(_valuesGate);
+            _document = document;
+            _items = items;
+            foreach (string name in selected)
+            {
+                if (!table.TryGetValue(name, out AccumulatorInfo? info))
+                    throw new XdmException("XTDE3340", $"There is no accumulator named {name}");
+                if (!info.Streamable)
+                    throw new XdmException("streaming-unimplemented", $"Accumulator {name} is not declared streamable")
+                        { Name = new QName(StreamedDocument.ErrorNamespace, "streaming-unimplemented") };
+                _states.Add(name, new(name, info));
+            }
+        }
+
+        private Phase Values(StreamedDocument.Node node, string name)
+        {
+            lock (_valuesGate)
+            {
+                NodeValues values;
+                if (node.ObserverValues == null) node.ObserverValues = values = new NodeValues(_valuesGate, _snapshotCodec);
+                else if (node.ObserverValues is NodeValues recorded && ReferenceEquals(recorded.Owner, _valuesGate)) values = recorded;
+                else throw StreamedDocument.PositionError();
+                if (!values.TryGetValue(name, out Phase? phase)) values.Add(name, phase = new());
+                return phase;
+            }
+        }
+
+        private IList<XPathItem>? Recorded(State state, StreamedDocument.Node node, bool after)
+        {
+            // Rules run only on the original source's calling thread. Fork workers read published
+            // phases without creating values, invoking functions or holding a lock across input I/O.
+            if (state.Fault is { } cycle && IsAccumulatorCycle(cycle.SourceException)) cycle.Throw();
+            lock (_valuesGate)
+            {
+                if (node.ObserverValues is NodeValues values && ReferenceEquals(values.Owner, _valuesGate)
+                    && values.TryGetValue(state.Name, out Phase? phase))
+                    if ((after ? phase.After : phase.Before) is { } cached) return cached;
+            }
+            state.Fault?.Throw();
+            return null;
+        }
+
+        private static XdmException Circular(State state) => new("XTDE3400", $"The accumulator {state.Name} depends on its own value") { AccumulatorCycle = true };
+
+        private void Initialize(State state)
+        {
+            if (state.Initialized) return;
+            if (state.Initializing) throw Circular(state);
+            state.Initializing = true;
+            try
+            {
+                state.Current = AccumulatorCoerce(state.Info,
+                    _owner!.CallFunction((FunctionItem)_items![state.Info.Offset], Sequences.One(new StreamedNavigator(_document, _document.Root))), state.Name);
+                state.Initialized = true;
+            }
+            finally { state.Initializing = false; }
+        }
+
+        private IList<XPathItem> Before(State state, StreamedDocument.Node node)
+        {
+            Phase phase = Values(node, state.Name);
+            if (state.Fault is { } cycle && IsAccumulatorCycle(cycle.SourceException)) cycle.Throw();
+            if (phase.Before != null) return phase.Before;
+            state.Fault?.Throw();
+            if (_owner == null) throw StreamedDocument.PositionError();
+            if (phase.Starting) throw Circular(state);
+            phase.Starting = true;
+            try
+            {
+                Initialize(state);
+                var value = _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                    end: false, _items!, state.Info, state.Name);
+                lock (_valuesGate) { phase.Publish(value, after: false); return state.Current = value; }
+            }
+            catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
+            {
+                state.Fault ??= ExceptionDispatchInfo.Capture(error);
+                state.Current = null;
+                throw;
+            }
+            finally { phase.Starting = false; }
+        }
+
+        private IList<XPathItem> After(State state, StreamedDocument.Node node)
+        {
+            Phase phase = Values(node, state.Name);
+            if (state.Fault is { } cycle && IsAccumulatorCycle(cycle.SourceException)) cycle.Throw();
+            if (phase.After != null) return phase.After;
+            state.Fault?.Throw();
+            if (_owner == null) throw StreamedDocument.PositionError();
+            if (phase.Ending) throw Circular(state);
+            phase.Ending = true;
+            try
+            {
+                Before(state, node);
+                var value = _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                    end: true, _items!, state.Info, state.Name);
+                lock (_valuesGate) { phase.Publish(value, after: true); return state.Current = value; }
+            }
+            catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
+            {
+                state.Fault ??= ExceptionDispatchInfo.Capture(error);
+                state.Current = null;
+                throw;
+            }
+            finally { phase.Ending = false; }
+        }
+
+        private void Visit(StreamedNavigator node, bool end)
+        {
+            foreach (State state in _states.Values)
+            {
+                if (state.Fault != null) continue;
+                try
+                {
+                    if (end) After(state, node.PositionNode);
+                    else Before(state, node.PositionNode);
+                }
+                catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
+                {
+                    // Evaluation may be lazy: a failing accumulator need not prevent use of other
+                    // accumulators or the source. Demanding its undefined value rethrows the real error.
+                    state.Fault ??= ExceptionDispatchInfo.Capture(error);
+                    state.Current = null;
+                }
+            }
+        }
+
+        public void Start(StreamedNavigator node) => Visit(node, end: false);
+        public void End(StreamedNavigator node) => Visit(node, end: true);
+
+        internal IList<XPathItem> Value(string name, StreamedNavigator node, bool after)
+        {
+            if (!_states.TryGetValue(name, out State? state))
+                throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
+            if (node.PositionNode.ObserverValues is NodeValues { Frozen: true } snapshot
+                && ReferenceEquals(snapshot.Owner, _valuesGate))
+            {
+                if (Recorded(state, node.PositionNode, after) is { } recorded) return recorded;
+                // A bounded scan can finish while an ancestor is still open. Its missing end
+                // phase must be computed through the live source/prong, never on the scratch header.
+                var active = node.Document.ActiveHeader(node.PositionNode.Number) ?? throw StreamedDocument.PositionError();
+                node = new StreamedNavigator(node.Document, active);
+            }
+            if (!ReferenceEquals(node.Document, _document))
+            {
+                StreamedDocument.Node original = node.PositionNode.Original ?? throw StreamedDocument.PositionError();
+                if (Recorded(state, original, after) is { } known) return known;
+                // Completing the original directly would bypass the tee and lose other prongs' events.
+                // A copied, closed view needs only its already-published phases, handled above.
+                if (after) node.Document.CompleteSubtree(node.PositionNode);
+                return Recorded(state, original, after) ?? throw StreamedDocument.PositionError();
+            }
+            Phase phase = Values(node.PositionNode, name);
+            if (state.Fault is { } cycle && IsAccumulatorCycle(cycle.SourceException)) cycle.Throw();
+            if ((after ? phase.After : phase.Before) is { } cached) return cached;
+            state.Fault?.Throw();
+            if (_owner == null) throw StreamedDocument.PositionError();
+            if (after) _document.CompleteSubtree(node.PositionNode);
+            return after ? After(state, node.PositionNode) : Before(state, node.PositionNode);
+        }
+
+        public void Dispose()
+        {
+            // Copied nodes may still need the values already stored on their original source frames.
+            // They do not need the invocation's functions, global variables or runtime to remain alive.
+            _owner = null;
+            _items = null;
+            foreach (State state in _states.Values) state.Current = null;
+        }
+    }
+
+    private XPathNavigator ObservePrincipalAccumulators(XPathNavigator source, IList<XPathItem> items, double tableId)
+    {
+        if (source is not StreamedNavigator streamed) return source;
+        var table = (Dictionary<string, AccumulatorInfo>)Constant((int)tableId);
+        var selected = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pair in table) if (pair.Value.OnPrincipal && pair.Value.Streamable) selected.Add(pair.Key);
+        if (selected.Count != 0) streamed.Document.Observe(new StreamedAccumulators(this, streamed.Document, items, table, selected));
+        return source;
+    }
+
+    private XPathNavigator ObserveAccumulators(XPathNavigator source, IList<XPathItem> items, double tableId, string names, int package)
+    {
+        if (source is not StreamedNavigator streamed) return source;
+        var table = (Dictionary<string, AccumulatorInfo>)Constant((int)tableId);
+        var selected = new HashSet<string>(StringComparer.Ordinal);
+        if (names == "#all")
+        {
+            foreach (string key in table.Keys)
+            {
+                var (ns, local) = XsltNameContext.ResolveExpandedName(key, "XTDE3340");
+                var name = new QName(ns, local);
+                if (table[key].Streamable && Xsl3.Xslt.PackageComponents.Demangle(name.NamespaceUri).Package == package) selected.Add(key);
+            }
+        }
+        else
+        {
+            foreach (string token in names.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var (ns, local) = XsltNameContext.ResolveExpandedName(token, "XTDE3340");
+                var name = new QName(ns, local);
+                selected.Add(new QName(Xsl3.Xslt.PackageComponents.MangleNamespace(package, name.NamespaceUri), name.LocalName).EQName);
+            }
+        }
+        if (selected.Count != 0) streamed.Document.Observe(new StreamedAccumulators(this, streamed.Document, items, table, selected));
+        return source;
+    }
+}

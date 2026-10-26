@@ -55,7 +55,7 @@ namespace System.Xml
         [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeListInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
-        public static List<(string, string, string, string)> GetIdAttributes(XmlReader reader)
+        public static List<(string, string, string, string)> GetIdAttributes(XmlReader reader, bool includeUndeclared = false)
         {
             while (reader is XmlWrappingReader wrapping)
             {
@@ -64,12 +64,14 @@ namespace System.Xml
             object? dtdInfo = s_dtdInfo?.GetValue(reader);
             return dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null
                 ? new List<(string, string, string, string)>()
-                : GetIdAttributes(dtdInfo);
+                : GetIdAttributes(dtdInfo, includeUndeclared);
         }
 
         // Xsl3: the attribute declarations of an element's attribute list, and an attribute's tokenized type (IDREF, IDREFS).
         private static readonly PropertyInfo? s_attDefs = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("AttDefs", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly PropertyInfo? s_tokenizedType = Type.GetType("System.Xml.Schema.SchemaAttDef, System.Private.Xml")?.GetProperty("TokenizedType", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo? s_undeclaredElementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?
+            .GetProperty("UndeclaredElementDecls", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         /// <summary>
         /// Xsl3: the IDREF and IDREFS attributes the reader's DTD declares, as (element local name, element prefix,
@@ -80,7 +82,7 @@ namespace System.Xml
         [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
         [DynamicDependency("get_AttDefs", "System.Xml.Schema.SchemaElementDecl", Asm)]
         [DynamicDependency("get_TokenizedType", "System.Xml.Schema.SchemaAttDef", Asm)]
-        public static List<(string, string, string, string)> GetIdrefAttributes(XmlReader reader)
+        public static List<(string, string, string, string)> GetIdrefAttributes(XmlReader reader, bool includeUndeclared = false)
         {
             var result = new List<(string, string, string, string)>();
             while (reader is XmlWrappingReader wrapping)
@@ -92,7 +94,7 @@ namespace System.Xml
             {
                 return result;
             }
-            var attrLists = (System.Collections.IEnumerable)s_iDtdInfo.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!;
+            var attrLists = AttributeLists(dtdInfo, includeUndeclared);
             PropertyInfo listLocalName = s_iAttrList.GetProperty("LocalName")!, listPrefix = s_iAttrList.GetProperty("Prefix")!;
             PropertyInfo attrLocalName = s_iAttr.GetProperty("LocalName")!, attrPrefix = s_iAttr.GetProperty("Prefix")!;
             foreach (object attrList in attrLists)
@@ -155,10 +157,23 @@ namespace System.Xml
         /// <summary>Xsl3: whether the bridge to the DTD's attribute types binds on this runtime (BridgeTests).</summary>
         internal static bool IdrefBridgeBinds => s_attDefs != null && s_tokenizedType != null;
 
-        private static List<(string, string, string, string)> GetIdAttributes(object dtdInfo)
+        [DynamicDependency("get_UndeclaredElementDecls", "System.Xml.Schema.SchemaInfo", Asm)]
+        private static List<object> AttributeLists(object dtdInfo, bool includeUndeclared)
+        {
+            var attrLists = new List<object>();
+            foreach (object declaration in (System.Collections.IEnumerable)s_iDtdInfo!.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!)
+                attrLists.Add(declaration);
+            // An ATTLIST can declare an ID without a separate ELEMENT declaration. The parser
+            // retains those attribute lists separately; they are still authoritative ID metadata.
+            if (includeUndeclared && s_undeclaredElementDecls?.GetValue(dtdInfo) is System.Collections.IDictionary undeclared)
+                foreach (object declaration in undeclared.Values) attrLists.Add(declaration);
+            return attrLists;
+        }
+
+        private static List<(string, string, string, string)> GetIdAttributes(object dtdInfo, bool includeUndeclared = false)
         {
             var result = new List<(string, string, string, string)>();
-            var attrLists = (System.Collections.IEnumerable)s_iDtdInfo!.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!;
+            var attrLists = AttributeLists(dtdInfo, includeUndeclared);
             MethodInfo lookupId = s_iAttrList!.GetMethod("LookupIdAttribute")!;
             PropertyInfo listLocalName = s_iAttrList.GetProperty("LocalName")!, listPrefix = s_iAttrList.GetProperty("Prefix")!;
             PropertyInfo attrLocalName = s_iAttr!.GetProperty("LocalName")!, attrPrefix = s_iAttr.GetProperty("Prefix")!;

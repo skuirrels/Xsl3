@@ -84,7 +84,9 @@ namespace System.Xml
             /// XPathDocumentNavigator provides its own; every other navigator gets System.Private.Xml's
             /// implementation, so ids for foreign trees match stock XslCompiledTransform exactly.
             /// </summary>
-            internal string UniqueId => navigator is XPathDocumentNavigator vendored ? vendored.UniqueId : navigator is Xsl3.Tree.CompactNavigator compact ? compact.UniqueId : StockUniqueId(navigator);
+            internal string UniqueId => navigator is XPathDocumentNavigator vendored ? vendored.UniqueId
+                : navigator is Xsl3.Tree.CompactNavigator compact ? compact.UniqueId
+                : navigator is Xsl3.Streaming.StreamedNavigator streamed ? streamed.UniqueId : StockUniqueId(navigator);
 
             internal bool MoveToPrevious(string localName, string namespaceURI)
             {

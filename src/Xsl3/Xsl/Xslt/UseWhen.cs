@@ -50,7 +50,7 @@ namespace Xsl3.Xslt
         public static IList<XPathItem> EvaluateValue(string expression, IReadOnlyDictionary<string, string> namespaces, string defaultElementNamespace, string? baseUri,
             IReadOnlyDictionary<QName, int>? staticValues, bool evaluateEnabled = false)
         {
-            var sc = new XPathStaticContext { BaseUri = baseUri, DefaultElementNamespace = defaultElementNamespace };
+            var sc = new XPathStaticContext { BaseUri = baseUri, DefaultElementNamespace = defaultElementNamespace, Xslt = true };
             sc.Namespaces.Clear();
             foreach (var (prefix, uri) in namespaces)
             {
@@ -110,7 +110,7 @@ namespace Xsl3.Xslt
             public QilNode? ResolveVariable(QName name) =>
                 staticValues != null && staticValues.TryGetValue(name, out int id) ? XPath31Compiler.Invoke(f, nameof(XsltLibrary.X31StaticValue), T.ItemS, f.Double(id)) : null;
 
-            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile)
+            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, CompileXPathArgument compile)
             {
                 if (name.NamespaceUri != QName.Ns.Fn)
                 {

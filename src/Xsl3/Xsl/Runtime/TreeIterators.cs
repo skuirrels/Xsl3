@@ -15,19 +15,40 @@ namespace Xsl3.Runtime
     {
         private XmlNavigatorFilter _filter;
         private XPathNavigator? _navCurrent, _navEnd;
-        private bool _hasFirst;
+        private bool _hasFirst, _topmost, _skipDescendants;
+        private int? _maximumDepth;
+        private int _relativeDepth;
+        private Streaming.StreamedDescendantCursor? _streamed;
 
         /// <summary>
         /// Initialize the DescendantIterator (no possibility of duplicates).
         /// </summary>
-        public void Create(XPathNavigator input, XmlNavigatorFilter filter, bool orSelf)
+        public void Create(XPathNavigator input, XmlNavigatorFilter filter, bool orSelf) => Create(input, filter, orSelf, topmost: false);
+
+        /// <summary>Initialize an outermost descendant scan, pruning each matching subtree.</summary>
+        public void CreateTopmost(XPathNavigator input, XmlNavigatorFilter filter, bool orSelf) => Create(input, filter, orSelf, topmost: true);
+
+        /// <summary>Scan at most the specified number of child edges beneath the input.</summary>
+        public void CreateBounded(XPathNavigator input, XmlNavigatorFilter filter, bool orSelf, int maximumDepth)
+        {
+            if (maximumDepth < 0) throw new System.ArgumentOutOfRangeException(nameof(maximumDepth));
+            Create(input, filter, orSelf, topmost: false, maximumDepth);
+        }
+
+        private void Create(XPathNavigator input, XmlNavigatorFilter filter, bool orSelf, bool topmost, int? maximumDepth = null)
         {
             // Save input node as current node
             _navCurrent = XmlQueryRuntime.SyncToNavigator(_navCurrent, input);
             _filter = filter;
+            _hasFirst = orSelf && !_filter.IsFiltered(_navCurrent);
+            _topmost = topmost;
+            _maximumDepth = maximumDepth;
+            _relativeDepth = 0;
+            _skipDescendants = topmost && _hasFirst;
+            _streamed = _navCurrent is Streaming.StreamedNavigator streamed ? new(streamed, filter, topmost, _hasFirst, maximumDepth) : null;
 
             // Position navEnd to the node at which the descendant scan should terminate
-            if (input.NodeType == XPathNodeType.Root)
+            if (_streamed != null || maximumDepth != null || input.NodeType == XPathNodeType.Root)
             {
                 _navEnd = null;
             }
@@ -37,8 +58,6 @@ namespace Xsl3.Runtime
                 _navEnd.MoveToNonDescendant();
             }
 
-            // If self node matches, then return it first
-            _hasFirst = (orSelf && !_filter.IsFiltered(_navCurrent));
         }
 
         /// <summary>
@@ -52,7 +71,41 @@ namespace Xsl3.Runtime
                 _hasFirst = false;
                 return true;
             }
-            return (_filter.MoveToFollowing(_navCurrent!, _navEnd));
+            if (_streamed != null) return _streamed.MoveNext();
+            if (_maximumDepth is { } maximum)
+            {
+                while (MoveNextBounded(maximum))
+                    if (!_filter.IsFiltered(_navCurrent!)) return true;
+                return false;
+            }
+            if (_skipDescendants)
+            {
+                XPathNavigator current = _navCurrent!;
+                if (!current.MoveToNonDescendant() || _navEnd != null && current.IsSamePosition(_navEnd)) return false;
+                if (!_filter.IsFiltered(current)) return true;
+                _skipDescendants = false;
+            }
+            bool found = _filter.MoveToFollowing(_navCurrent!, _navEnd);
+            _skipDescendants = _topmost && found;
+            return found;
+        }
+
+        private bool MoveNextBounded(int maximum)
+        {
+            if (_relativeDepth < 0) return false;
+            if (_relativeDepth < maximum && _navCurrent!.MoveToFirstChild())
+            {
+                _relativeDepth++;
+                return true;
+            }
+            while (_relativeDepth > 0)
+            {
+                if (_navCurrent!.MoveToNext()) return true;
+                _navCurrent.MoveToParent();
+                _relativeDepth--;
+            }
+            _relativeDepth = -1;
+            return false;
         }
 
         /// <summary>
@@ -76,6 +129,7 @@ namespace Xsl3.Runtime
         private XPathNavigator _navCurrent, _navRoot, _navEnd;
         private IteratorState _state;
         private bool _orSelf;
+        private Streaming.StreamedDescendantCursor? _streamed;
 
         private enum IteratorState
         {
@@ -92,6 +146,7 @@ namespace Xsl3.Runtime
             _filter = filter;
             _state = IteratorState.NoPrevious;
             _orSelf = orSelf;
+            _streamed = null;
         }
 
         /// <summary>
@@ -114,8 +169,12 @@ namespace Xsl3.Runtime
                 // Save input node as current node and end of input's tree in navEnd
                 _navCurrent = XmlQueryRuntime.SyncToNavigator(_navCurrent, input);
                 _navRoot = XmlQueryRuntime.SyncToNavigator(_navRoot, input);
-                _navEnd = XmlQueryRuntime.SyncToNavigator(_navEnd, input);
-                _navEnd.MoveToNonDescendant();
+                _streamed = _navCurrent is Streaming.StreamedNavigator streamed ? new(streamed, _filter) : null;
+                if (_streamed == null)
+                {
+                    _navEnd = XmlQueryRuntime.SyncToNavigator(_navEnd, input);
+                    _navEnd.MoveToNonDescendant();
+                }
 
                 _state = IteratorState.NeedDescendant;
 
@@ -124,7 +183,7 @@ namespace Xsl3.Runtime
                     return IteratorResult.HaveCurrentNode;
             }
 
-            if (_filter.MoveToFollowing(_navCurrent, _navEnd))
+            if (_streamed != null ? _streamed.MoveNext() : _filter.MoveToFollowing(_navCurrent, _navEnd))
                 return IteratorResult.HaveCurrentNode;
 
             // No more descendants, so transition to NeedCurrent state and get the next input node

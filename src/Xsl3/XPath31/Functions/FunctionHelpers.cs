@@ -272,13 +272,35 @@ namespace Xsl3.XPath31.Functions
 
     internal static class SequenceFunctions
     {
+        internal static IList<XPathItem> AssertCardinality(IList<XPathItem> items, string function)
+        {
+            CheckCardinality(function, items.Count);
+            return items;
+        }
+
+        // A count saturated at two suffices for the incremental and materialized paths.
+        internal static void CheckCardinality(string function, int count)
+        {
+            switch (function)
+            {
+                case "zero-or-one":
+                    if (count > 1) throw new XdmException("FORG0003", "fn:zero-or-one called with a sequence of more than one item");
+                    break;
+                case "one-or-more":
+                    if (count == 0) throw new XdmException("FORG0004", "fn:one-or-more called with an empty sequence");
+                    break;
+                case "exactly-one":
+                    if (count != 1) throw new XdmException("FORG0005", "fn:exactly-one called with a sequence of zero or more than one items");
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(function));
+            }
+        }
+
         /// <summary>fn:subsequence: items at positions p with round($start) &lt;= p &lt; round($start) + round($length).</summary>
         /// <remarks>The two-argument form (no <paramref name="length"/>) takes every item from round($start) on.</remarks>
         public static IList<XPathItem> Subsequence(IList<XPathItem> seq, double start, double? length)
         {
-            double first = double.IsNaN(start) || double.IsInfinity(start) ? start : System.Math.Floor(start + 0.5);
-            double len = length is not double l ? double.PositiveInfinity : double.IsNaN(l) || double.IsInfinity(l) ? l : System.Math.Floor(l + 0.5);
-            double end = length == null ? double.PositiveInfinity : first + len;
+            var (first, end) = SubsequenceBounds(start, length);
             if (double.IsNaN(first) || double.IsNaN(end))
             {
                 return Sequences.Empty;
@@ -294,6 +316,14 @@ namespace Xsl3.XPath31.Functions
             return result;
         }
 
+        internal static (double First, double End) SubsequenceBounds(double start, double? length)
+        {
+            double first = double.IsNaN(start) || double.IsInfinity(start) ? start : System.Math.Floor(start + 0.5);
+            double len = length is not double l ? double.PositiveInfinity : double.IsNaN(l) || double.IsInfinity(l) ? l : System.Math.Floor(l + 0.5);
+            double end = length == null ? double.PositiveInfinity : first + len;
+            return (first, end);
+        }
+
         /// <summary>Equality as used by index-of, distinct-values and deep-equal: eq, except that NaN equals NaN and incomparable values are unequal.</summary>
         public static bool EqualLenient(AtomicValue a, AtomicValue b, FunctionContext c)
         {
@@ -303,7 +333,7 @@ namespace Xsl3.XPath31.Functions
             }
             try
             {
-                return Comparison.Compare(a, b, ValueComparisonOp.Eq, c.ImplicitTimezoneMinutes, c.DefaultCollation);
+                return Comparison.Compare(a, b, ValueComparisonOp.Eq, c.Timezone, c.DefaultCollation);
             }
             catch (XdmException e) when (e.Code == "XPTY0004")
             {
@@ -344,7 +374,7 @@ namespace Xsl3.XPath31.Functions
             _ when v.Type.IsNumeric => Numeric.ToDouble(v) is double d && double.IsNaN(d) ? "NaN" : (object)(float)Numeric.ToDouble(v),
             // Strings equal under the collation must share a key: the collation's own key.
             StringValue s => "s:" + c.DefaultCollation.Key(s.String),
-            DateTimeValue dt => ("t", dt.Type.Primitive is Primitive.DateTime or Primitive.Date or Primitive.Time ? dt.DateTime.ToTimeline(dt.Type.Primitive, c.ImplicitTimezoneMinutes) : 0m),
+            DateTimeValue dt => ("t", dt.Type.Primitive is Primitive.DateTime or Primitive.Date or Primitive.Time ? dt.DateTime.ToTimeline(dt.Type.Primitive, c.Timezone) : 0m),
             DurationValue du => ("d", du.Duration.Months, du.Duration.Seconds),
             QNameValue q => ("q", q.QName.NamespaceUri, q.QName.LocalName),
             _ => v.Type.Primitive.ToString() + ":" + v.Value,
@@ -383,7 +413,7 @@ namespace Xsl3.XPath31.Functions
             AtomicValue total = values[0];
             for (int i = 1; i < values.Count; i++)
             {
-                total = Arithmetic.Apply(ArithmeticOp.Add, total, values[i], c.ImplicitTimezoneMinutes);
+                total = Arithmetic.Apply(ArithmeticOp.Add, total, values[i], c.Timezone);
             }
             return total;
         }
@@ -395,7 +425,7 @@ namespace Xsl3.XPath31.Functions
                 return Sequences.Empty;
             }
             AtomicValue total = Sum(seq, null, c);
-            return Sequences.One(Arithmetic.Apply(ArithmeticOp.Divide, total, AtomicValue.OfInteger(seq.Count), c.ImplicitTimezoneMinutes));
+            return Sequences.One(Arithmetic.Apply(ArithmeticOp.Divide, total, AtomicValue.OfInteger(seq.Count), c.Timezone));
         }
 
         // Xsl3 (P4): fn:min and fn:max in one pass, without LINQ, when every value is numeric of one primitive type (no
@@ -426,7 +456,7 @@ namespace Xsl3.XPath31.Functions
             for (int i = 1; i < seq.Count; i++)
             {
                 var v = (AtomicValue)seq[i];
-                if (Comparison.Compare(v, best, op, c.ImplicitTimezoneMinutes, c.DefaultCollation))
+                if (Comparison.Compare(v, best, op, c.Timezone, c.DefaultCollation))
                 {
                     best = v;
                 }
@@ -474,7 +504,7 @@ namespace Xsl3.XPath31.Functions
             {
                 try
                 {
-                    if (Comparison.Compare(values[i], best, op, c.ImplicitTimezoneMinutes, c.DefaultCollation))
+                    if (Comparison.Compare(values[i], best, op, c.Timezone, c.DefaultCollation))
                     {
                         best = values[i];
                     }
@@ -489,7 +519,7 @@ namespace Xsl3.XPath31.Functions
             {
                 try
                 {
-                    Comparison.Compare(best, best, ValueComparisonOp.Lt, c.ImplicitTimezoneMinutes, c.DefaultCollation);
+                    Comparison.Compare(best, best, ValueComparisonOp.Lt, c.Timezone, c.DefaultCollation);
                 }
                 catch (XdmException e) when (e.Code == "XPTY0004")
                 {
@@ -500,11 +530,13 @@ namespace Xsl3.XPath31.Functions
         }
     }
 
-    /// <summary>fn:deep-equal (F&amp;O 3.1 §14.2.1) with the default collation.</summary>
+    /// <summary>fn:deep-equal (F&amp;O 3.1 §14.2.3) with the default collation.</summary>
     internal static class DeepEqual
     {
         public static bool Sequences(IList<XPathItem> a, IList<XPathItem> b, FunctionContext c)
         {
+            foreach (XPathItem item in a) RequireComparable(item);
+            foreach (XPathItem item in b) RequireComparable(item);
             if (a.Count != b.Count)
             {
                 return false;
@@ -519,14 +551,25 @@ namespace Xsl3.XPath31.Functions
             return true;
         }
 
+        internal static void RequireComparable(XPathItem item)
+        {
+            if (item is FunctionItem and not (MapItem or ArrayItem))
+                throw new XdmException("FOTY0015", "deep-equal can't compare function items");
+        }
+
         public static bool Items(XPathItem a, XPathItem b, FunctionContext c)
         {
+            RequireComparable(a); RequireComparable(b);
             if (a is AtomicValue x && b is AtomicValue y)
             {
                 return SequenceFunctions.EqualLenient(x, y, c);
             }
             if (a is XPathNavigator m && b is XPathNavigator n)
             {
+                using var left = m.NodeType is XPathNodeType.Root or XPathNodeType.Element
+                    ? (m as Xsl3.Streaming.StreamedNavigator)?.BeginConsumption() : null;
+                using var right = n.NodeType is XPathNodeType.Root or XPathNodeType.Element
+                    ? (n as Xsl3.Streaming.StreamedNavigator)?.BeginConsumption() : null;
                 return Nodes(m, n, c.DefaultCollation);
             }
             switch (a, b)
@@ -547,13 +590,11 @@ namespace Xsl3.XPath31.Functions
                         }
                     }
                     return true;
-                case (FunctionItem, FunctionItem):
-                    throw new XdmException("FOTY0015", "deep-equal can't compare function items");
             }
             return false;
         }
 
-        // Text, attribute and other string values compare under the collation (F&O 3.1 §14.2.1); names don't.
+        // Text, attribute and other string values compare under the collation (F&O 3.1 §14.2.3); names don't.
         private static bool Nodes(XPathNavigator a, XPathNavigator b, Collation collation)
         {
             if (Kind(a.NodeType) != Kind(b.NodeType))
@@ -604,37 +645,24 @@ namespace Xsl3.XPath31.Functions
         // Comments and processing instructions are ignored among children; elements and text are compared in order.
         private static bool Children(XPathNavigator a, XPathNavigator b, Collation collation)
         {
-            List<XPathNavigator> left = SignificantChildren(a), right = SignificantChildren(b);
-            if (left.Count != right.Count)
+            XPathNavigator left = a.Clone(), right = b.Clone();
+            bool hasLeft = NextSignificant(left, first: true), hasRight = NextSignificant(right, first: true);
+            while (hasLeft && hasRight)
             {
-                return false;
+                Xsl3.Runtime.XmlQueryRuntime.CheckCancellation();
+                if (!Nodes(left, right, collation)) return false;
+                hasLeft = NextSignificant(left, first: false);
+                hasRight = NextSignificant(right, first: false);
             }
-            for (int i = 0; i < left.Count; i++)
-            {
-                if (!Nodes(left[i], right[i], collation))
-                {
-                    return false;
-                }
-            }
-            return true;
+            return hasLeft == hasRight;
         }
 
-        private static List<XPathNavigator> SignificantChildren(XPathNavigator n)
+        private static bool NextSignificant(XPathNavigator node, bool first)
         {
-            var list = new List<XPathNavigator>();
-            XPathNavigator nav = n.Clone();
-            if (nav.MoveToFirstChild())
-            {
-                do
-                {
-                    if (nav.NodeType is not (XPathNodeType.Comment or XPathNodeType.ProcessingInstruction))
-                    {
-                        list.Add(nav.Clone());
-                    }
-                }
-                while (nav.MoveToNext());
-            }
-            return list;
+            bool found = first ? node.MoveToFirstChild() : node.MoveToNext();
+            while (found && node.NodeType is XPathNodeType.Comment or XPathNodeType.ProcessingInstruction)
+                found = node.MoveToNext();
+            return found;
         }
     }
 

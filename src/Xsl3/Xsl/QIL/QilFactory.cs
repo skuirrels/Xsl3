@@ -427,6 +427,30 @@ namespace Xsl3.Qil
             return n;
         }
 
+        public QilUnary Average(QilNode child)
+        {
+            QilUnary n = new QilUnary(QilNodeType.Average, child);
+            n.XmlType = QilTypeChecker.CheckAverage(n);
+            TraceNode(n);
+            return n;
+        }
+
+        public QilUnary Minimum(QilNode child)
+        {
+            QilUnary n = new QilUnary(QilNodeType.Minimum, child);
+            n.XmlType = QilTypeChecker.CheckMinimum(n);
+            TraceNode(n);
+            return n;
+        }
+
+        public QilUnary Maximum(QilNode child)
+        {
+            QilUnary n = new QilUnary(QilNodeType.Maximum, child);
+            n.XmlType = QilTypeChecker.CheckMaximum(n);
+            TraceNode(n);
+            return n;
+        }
+
         public QilUnary Sum(QilNode child)
         {
             QilUnary n = new QilUnary(QilNodeType.Sum, child);

@@ -1,0 +1,418 @@
+// Licensed under the MIT license. See LICENSE.TXT in the repository root.
+
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using Xsl3.Streaming;
+using Xunit;
+
+namespace Xsl3.Tests;
+
+public class StreamTeeTests
+{
+    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
+    private sealed record Event(int Number);
+
+    private static Thread Start(Action body, ConcurrentQueue<Exception> errors)
+    {
+        var thread = new Thread(() =>
+        {
+            try { body(); }
+            catch (Exception error) { errors.Enqueue(error); }
+        }) { IsBackground = true };
+        thread.Start();
+        return thread;
+    }
+
+    private static void Join(Thread thread) => Assert.True(thread.Join(Deadline), "A tee reader did not finish");
+    private static void Blocked(StreamTee<Event> tee) =>
+        Assert.True(SpinWait.SpinUntil(() => tee.WaitingReaders != 0, Deadline), "No tee reader reached backpressure");
+
+    [Fact]
+    public void ReadersReceiveTheSameOrderedEventsAndReadTheSourceOnlyOnce()
+    {
+        int calls = 0;
+        using var tee = new StreamTee<Event>(() => ++calls <= 100 ? new(calls) : null, readers: 3, capacity: 2);
+        for (int n = 1; n <= 100; n++)
+        {
+            Event first = Assert.IsType<Event>(tee.GetReader(0).Read());
+            Assert.Equal(n, first.Number);
+            Assert.Same(first, tee.GetReader(1).Read());
+            Assert.Same(first, tee.GetReader(2).Read());
+            Assert.Equal(0, tee.BufferedCount);
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Null(tee.GetReader(i).Read());
+            Assert.Null(tee.GetReader(i).Read());
+        }
+        Assert.Equal(101, calls);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    public void FastReaderWaitsForTheSlowReaderAndTheRingStaysBounded(int capacity)
+    {
+        int calls = 0;
+        using var watchdog = new CancellationTokenSource(Deadline);
+        using var tee = new StreamTee<Event>(() => ++calls <= 1000 ? new(calls) : null, 2, capacity, watchdog.Token);
+        var errors = new ConcurrentQueue<Exception>();
+        var fast = new List<int>();
+        Thread worker = Start(() =>
+        {
+            using var reader = tee.GetReader(0);
+            while (reader.Read() is { } item) fast.Add(item.Number);
+        }, errors);
+        try
+        {
+            Blocked(tee);
+            Assert.Equal(capacity, Volatile.Read(ref calls));
+            Assert.Equal(capacity, tee.BufferedCount);
+            using var slow = tee.GetReader(1);
+            for (int n = 1; n <= 1000; n++) Assert.Equal(n, slow.Read()!.Number);
+            Assert.Null(slow.Read());
+            Join(worker);
+            Assert.Empty(errors);
+            Assert.Equal(1000, fast.Count);
+            for (int i = 0; i < fast.Count; i++) Assert.Equal(i + 1, fast[i]);
+            Assert.Equal(capacity, tee.HighWaterMark);
+            Assert.Equal(0, tee.BufferedCount);
+        }
+        finally { tee.Dispose(); Join(worker); }
+    }
+
+    [Fact]
+    public void AProngThatStopsEarlyDoesNotHoldBackOtherReaders()
+    {
+        int calls = 0;
+        using var watchdog = new CancellationTokenSource(Deadline);
+        using var tee = new StreamTee<Event>(() => ++calls <= 100 ? new(calls) : null, 2, 1, watchdog.Token);
+        var errors = new ConcurrentQueue<Exception>();
+        int count = 0;
+        Thread worker = Start(() =>
+        {
+            using var reader = tee.GetReader(0);
+            while (reader.Read() != null) count++;
+        }, errors);
+        try
+        {
+            Blocked(tee);
+            tee.GetReader(1).Dispose();
+            tee.GetReader(1).Dispose();
+            Join(worker);
+            Assert.Empty(errors);
+            Assert.Equal(100, count);
+            Assert.Equal(0, tee.BufferedCount);
+            Assert.Throws<ObjectDisposedException>(() => tee.GetReader(1).Read());
+        }
+        finally { tee.Dispose(); Join(worker); }
+    }
+
+    [Fact]
+    public void SourceFailureFollowsBufferedEventsForEveryReader()
+    {
+        int calls = 0;
+        var failure = new IOException("input failure");
+        using var tee = new StreamTee<Event>(() => ++calls <= 2 ? new(calls) : throw failure, 2, 3);
+        Event? first = tee.GetReader(0).Read(), second = tee.GetReader(0).Read();
+        Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(0).Read()));
+        Assert.Same(first, tee.GetReader(1).Read());
+        Assert.Same(second, tee.GetReader(1).Read());
+        Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(1).Read()));
+        Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(1).Read()));
+        Assert.Equal(3, calls);
+        Assert.Equal(0, tee.BufferedCount);
+    }
+
+    [Fact]
+    public void CancellationWakesAReaderWaitingForBufferSpace()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var tee = new StreamTee<Event>(() => new(1), 2, 1, cancellation.Token);
+        Assert.NotNull(tee.GetReader(0).Read());
+        var errors = new ConcurrentQueue<Exception>();
+        Thread worker = Start(() => tee.GetReader(0).Read(), errors);
+        try
+        {
+            Blocked(tee);
+            cancellation.Cancel();
+            Join(worker);
+            var error = Assert.IsType<OperationCanceledException>(Assert.Single(errors));
+            Assert.Equal(cancellation.Token, error.CancellationToken);
+            Assert.Throws<OperationCanceledException>(() => tee.GetReader(1).Read());
+        }
+        finally { tee.Dispose(); Join(worker); }
+    }
+
+    [Fact]
+    public void DisposalWakesBlockedReadersAndReleasesTheRing()
+    {
+        using var tee = new StreamTee<Event>(() => new(1), 2, 1);
+        Assert.NotNull(tee.GetReader(0).Read());
+        var errors = new ConcurrentQueue<Exception>();
+        Thread worker = Start(() => tee.GetReader(0).Read(), errors);
+        try
+        {
+            Blocked(tee);
+            tee.Dispose();
+            Join(worker);
+            Assert.IsType<ObjectDisposedException>(Assert.Single(errors));
+            Assert.Equal(0, tee.BufferedCount);
+        }
+        finally { tee.Dispose(); Join(worker); }
+    }
+
+    [Fact]
+    public void ReadingTheSourceDoesNotBlockConsumptionOfAlreadyBufferedEvents()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var consumed = new ManualResetEventSlim();
+        int calls = 0;
+        using var tee = new StreamTee<Event>(() =>
+        {
+            if (++calls == 1) return new(1);
+            entered.Set();
+            if (!release.Wait(Deadline)) throw new TimeoutException("Source read was not released");
+            return null;
+        }, 2, 2);
+        Event? first = tee.GetReader(0).Read();
+        var errors = new ConcurrentQueue<Exception>();
+        Thread producer = Start(() => Assert.Null(tee.GetReader(0).Read()), errors);
+        Thread? slow = null;
+        try
+        {
+            Assert.True(entered.Wait(Deadline));
+            slow = Start(() => { Assert.Same(first, tee.GetReader(1).Read()); consumed.Set(); }, errors);
+            Assert.True(consumed.Wait(Deadline), "Source I/O held the ring lock");
+            release.Set();
+            Join(producer);
+            Join(slow);
+            Assert.Empty(errors);
+        }
+        finally { release.Set(); tee.Dispose(); Join(producer); if (slow != null) Join(slow); }
+    }
+
+    [Fact]
+    public void EventsPublishedAfterTheLastReaderDetachesAreNotRetained()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var tee = new StreamTee<Event>(() =>
+        {
+            entered.Set();
+            if (!release.Wait(Deadline)) throw new TimeoutException("Source read was not released");
+            return new(1);
+        }, 1, 1);
+        var errors = new ConcurrentQueue<Exception>();
+        Thread producer = Start(() => tee.GetReader(0).Read(), errors);
+        try
+        {
+            Assert.True(entered.Wait(Deadline));
+            tee.GetReader(0).Dispose();
+            release.Set();
+            Join(producer);
+            Assert.IsType<ObjectDisposedException>(Assert.Single(errors));
+            Assert.Equal(0, tee.BufferedCount);
+            Assert.Equal(0, tee.HighWaterMark);
+        }
+        finally { release.Set(); tee.Dispose(); Join(producer); }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<Event> Consume(StreamTee<Event> tee)
+    {
+        Event item = tee.GetReader(0).Read()!;
+        Assert.Same(item, tee.GetReader(1).Read());
+        return new(item);
+    }
+
+    [Fact]
+    public void ConsumedEventsAreCollectibleWhileTheTeeIsStillAlive()
+    {
+        using var tee = new StreamTee<Event>(() => new(1), 2, 1);
+        WeakReference<Event> previous = Consume(tee);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.False(previous.TryGetTarget(out _));
+        Assert.Equal(0, tee.BufferedCount);
+        Assert.NotNull(tee.GetReader(0).Read());
+        GC.KeepAlive(tee);
+    }
+
+    [Fact]
+    public void RecursiveSourceRequestsFailInsteadOfDeadlocking()
+    {
+        StreamTee<Event>? tee = null;
+        using var watchdog = new CancellationTokenSource(Deadline);
+        using (tee = new StreamTee<Event>(() => tee!.GetReader(0).Read(), 1, 1, watchdog.Token))
+            Assert.Throws<InvalidOperationException>(() => tee.GetReader(0).Read());
+    }
+
+    [Fact]
+    public void DetachingAPartiallyAdvancedReaderReleasesOnlyItsUnreadEvents()
+    {
+        int calls = 0;
+        using var watchdog = new CancellationTokenSource(Deadline);
+        using var tee = new StreamTee<Event>(() => ++calls <= 6 ? new(calls) : null, 3, 4, watchdog.Token);
+        for (int n = 1; n <= 4; n++) Assert.Equal(n, tee.GetReader(0).Read()!.Number);
+        for (int n = 1; n <= 2; n++) Assert.Equal(n, tee.GetReader(1).Read()!.Number);
+        Assert.Equal(1, tee.GetReader(2).Read()!.Number);
+        tee.GetReader(1).Dispose();
+        Assert.Equal(5, tee.GetReader(0).Read()!.Number);
+        for (int n = 2; n <= 5; n++) Assert.Equal(n, tee.GetReader(2).Read()!.Number);
+        Assert.Equal(0, tee.BufferedCount);
+        Assert.Equal(6, tee.GetReader(0).Read()!.Number);
+        Assert.Equal(6, tee.GetReader(2).Read()!.Number);
+        Assert.Null(tee.GetReader(0).Read());
+        Assert.Null(tee.GetReader(2).Read());
+        Assert.Equal(7, calls);
+    }
+
+    [Fact]
+    public void NestedTeesShareOneSourceWithoutDeadlocking()
+    {
+        int calls = 0;
+        using var watchdog = new CancellationTokenSource(Deadline);
+        using var outer = new StreamTee<Event>(() => ++calls <= 1000 ? new(calls) : null, 2, 2, watchdog.Token);
+        using var source = outer.GetReader(0);
+        using var inner = new StreamTee<Event>(source.Read, 2, 1, watchdog.Token);
+        var errors = new ConcurrentQueue<Exception>();
+        int count = 0;
+        Thread first = Start(() =>
+        {
+            using var reader = inner.GetReader(0);
+            Assert.Equal(1, reader.Read()!.Number);
+            Assert.Equal(2, reader.Read()!.Number);
+        }, errors);
+        Thread second = Start(() =>
+        {
+            using var reader = inner.GetReader(1);
+            try { while (reader.Read() is { } item) Assert.Equal(++count, item.Number); }
+            finally { source.Dispose(); }
+        }, errors);
+        try
+        {
+            using var reader = outer.GetReader(1);
+            for (int n = 1; n <= 1000; n++) Assert.Equal(n, reader.Read()!.Number);
+            Assert.Null(reader.Read());
+            Join(first); Join(second);
+            Assert.Empty(errors);
+            Assert.Equal(1000, count);
+            Assert.Equal(1001, calls);
+            Assert.Equal(0, outer.BufferedCount);
+            Assert.Equal(0, inner.BufferedCount);
+        }
+        finally { inner.Dispose(); outer.Dispose(); Join(first); Join(second); }
+    }
+
+    [Fact]
+    public void BatchesUseOnlyFreeRingSpaceAndPreserveEventIdentity()
+    {
+        var reservations = new List<int>(); int next = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            reservations.Add(destination.Length);
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++next);
+            return new(destination.Length, false);
+        }, 2, 4);
+        var items = new Event[5];
+        for (int i = 0; i < 4; i++) items[i] = tee.GetReader(0).Read()!;
+        Assert.Equal(4, next); Assert.Equal(4, tee.BufferedCount);
+        Assert.Same(items[0], tee.GetReader(1).Read());
+        items[4] = tee.GetReader(0).Read()!;
+        Assert.Equal(new[] { 4, 1 }, reservations);
+        Assert.Equal(5, next); Assert.Equal(4, tee.HighWaterMark);
+        for (int i = 1; i < items.Length; i++) Assert.Same(items[i], tee.GetReader(1).Read());
+        for (int i = 0; i < items.Length; i++) Assert.Equal(i + 1, items[i].Number);
+        Assert.Equal(0, tee.BufferedCount);
+    }
+
+    [Fact]
+    public void EveryReaderSeesTheBatchPrefixBeforeItsSourceFailure()
+    {
+        var failure = new IOException("batch input failure"); int calls = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            calls++; destination.Span[0] = new(1); destination.Span[1] = new(2);
+            return new(2, true, ExceptionDispatchInfo.Capture(failure));
+        }, 2, 4);
+        Event first = tee.GetReader(0).Read()!, second = tee.GetReader(0).Read()!;
+        Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(0).Read()));
+        Assert.Same(first, tee.GetReader(1).Read()); Assert.Same(second, tee.GetReader(1).Read());
+        Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(1).Read()));
+        Assert.Equal(1, calls); Assert.Equal(0, tee.BufferedCount);
+    }
+
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(5, false)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    public void InvalidBatchesFailEveryReaderWithoutPublishingPayloads(int count, bool nullEvent)
+    {
+        using var tee = new StreamTee<Event>(destination => {
+            if (!nullEvent) destination.Span[0] = new(1);
+            return new(count, false);
+        }, 2, 4);
+        var failure = Assert.Throws<InvalidOperationException>(() => tee.GetReader(0).Read());
+        Assert.Same(failure, Assert.Throws<InvalidOperationException>(() => tee.GetReader(1).Read()));
+        Assert.Equal(0, tee.BufferedCount); Assert.Equal(0, tee.HighWaterMark);
+    }
+
+    [Fact]
+    public void BatchSourceIoDoesNotHoldTheRingLock()
+    {
+        using var entered = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        int calls = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            if (++calls == 1)
+            {
+                destination.Span[0] = new(1); destination.Span[1] = new(2);
+                return new(2, false);
+            }
+            destination.Span[0] = new(3); entered.Set();
+            if (!release.Wait(Deadline)) throw new TimeoutException("Batch source was not released");
+            return new(1, true);
+        }, 2, 3);
+        Event first = tee.GetReader(0).Read()!, second = tee.GetReader(0).Read()!;
+        Assert.Same(first, tee.GetReader(1).Read());
+        var errors = new ConcurrentQueue<Exception>();
+        Thread producer = Start(() => Assert.Equal(3, tee.GetReader(0).Read()!.Number), errors);
+        try
+        {
+            Assert.True(entered.Wait(Deadline));
+            Assert.Same(second, tee.GetReader(1).Read());
+            release.Set(); Join(producer); Assert.Empty(errors);
+            Assert.Equal(3, tee.GetReader(1).Read()!.Number);
+            Assert.Null(tee.GetReader(0).Read()); Assert.Null(tee.GetReader(1).Read());
+            Assert.InRange(tee.HighWaterMark, 1, 3);
+        }
+        finally { release.Set(); tee.Dispose(); Join(producer); }
+    }
+
+    [Fact]
+    public void AStagedBatchIsDiscardedWhenItsLastReaderDetaches()
+    {
+        using var entered = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        using var tee = new StreamTee<Event>(destination => {
+            destination.Span[0] = new(1); entered.Set();
+            if (!release.Wait(Deadline)) throw new TimeoutException("Batch source was not released");
+            return new(1, false);
+        }, 1, 4);
+        var errors = new ConcurrentQueue<Exception>();
+        Thread producer = Start(() => tee.GetReader(0).Read(), errors);
+        try
+        {
+            Assert.True(entered.Wait(Deadline)); tee.GetReader(0).Dispose(); release.Set(); Join(producer);
+            Assert.IsType<ObjectDisposedException>(Assert.Single(errors));
+            Assert.Equal(0, tee.BufferedCount); Assert.Equal(0, tee.HighWaterMark);
+        }
+        finally { release.Set(); tee.Dispose(); Join(producer); }
+    }
+
+}

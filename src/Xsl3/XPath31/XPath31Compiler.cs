@@ -43,6 +43,12 @@ namespace Xsl3.XPath31
         /// <summary>The static base URI (XPath 3.1 §2.1.1), or null if absent.</summary>
         public string? BaseUri { get; set; }
 
+        /// <summary>Host compilation may consume forward nodes; do not collect operands before atomizing them.</summary>
+        internal bool ForwardOnly { get; set; }
+
+        /// <summary>XSLT's MapExpr uses XTDE3365 for duplicate keys (§21.4).</summary>
+        internal bool Xslt { get; set; }
+
         /// <summary>External variables: their values are supplied to <see cref="XPath31Executable.Evaluate"/>.</summary>
         public List<QName> ExternalVariables { get; } = new();
 
@@ -99,21 +105,40 @@ namespace Xsl3.XPath31
         /// <summary>The context item, or null if it is absent (XPDY0002 if used).</summary>
         QilNode? ContextItem();
 
+        /// <summary>The context item as an optional sequence, without demanding an absent focus.</summary>
+        QilNode? ContextItemOrEmpty() => ContextItem();
+
         QilNode ContextPosition();
 
         QilNode ContextLast();
 
+        // An empty value preserves absent focus until a captured numeric function is called.
+        QilNode? CaptureNumericFocus(bool size) => null;
+
         /// <summary>A variable in scope in the host, or null.</summary>
         QilNode? ResolveVariable(QName name);
+
+        /// <summary>Whether the host declaration permits only grounded values for this binding.</summary>
+        bool IsGroundedVariable(QName name) => false;
 
         /// <summary>The lifted functions of the host's compilation unit, or null to keep them per expression.</summary>
         FunctionItemRegistry? FunctionItems { get; }
 
+        /// <summary>A suspended population using the host's capture and pull ABI, when supported.</summary>
+        QilNode? LiftPopulation(QilNode population) => null;
+
+        /// <summary>A motionless node-header test through the host's capture ABI.</summary>
+        QilNode? LiftHeaderTest(System.Func<QilNode, QilNode> predicate) => null;
+
+
+        /// <summary>Independent map-entry values evaluated through the host's fork runtime, when supported.</summary>
+        QilNode? ParallelMap(IReadOnlyList<QilNode> entries, bool xslt) => null;
+
         /// <summary>
         /// A call of a host function (or of a function the host overrides), or null to use the F&amp;O library.
-        /// <paramref name="compile"/> compiles an argument to boxed QIL.
+        /// <paramref name="compile"/> compiles an argument to boxed QIL using the declared parameter type, if known.
         /// </summary>
-        QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile);
+        QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, CompileXPathArgument compile);
 
         /// <summary>The declared parameter and result types of a host function, for a named reference to it; null if unknown.</summary>
         (IReadOnlyList<SequenceTypeTest> Parameters, SequenceTypeTest Result)? FunctionSignature(QName name, int arity) => null;
@@ -124,6 +149,8 @@ namespace Xsl3.XPath31
         /// </summary>
         System.IDisposable? DeclaredComponents() => null;
     }
+
+    internal delegate QilNode CompileXPathArgument(Expr expression, ItemTest? requiredType = null);
 
     internal sealed partial class XPath31Compiler
     {
@@ -140,7 +167,7 @@ namespace Xsl3.XPath31
         /// The focus inside a path step, predicate or simple map; null at the top level. A QIL graph is a tree, so
         /// position and last are factories: each use gets its own node (iterators may be referenced freely).
         /// </summary>
-        private sealed record Focus(QilNode Item, System.Func<QilNode> Position, System.Func<QilNode>? Last);
+        private sealed record Focus(QilNode Item, System.Func<QilNode> Position, System.Func<QilNode>? Last, QilNode? ExactPosition = null, QilNode? OptionalItems = null);
 
         private XPath31Compiler(XPathStaticContext sc, QilPatternFactory? f = null, IXPath31Environment? env = null)
         {
@@ -200,8 +227,11 @@ namespace Xsl3.XPath31
         public static QilNode CompileEmbedded(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env)
         {
             var compiler = new XPath31Compiler(sc, f, env);
-            return compiler.Items(compiler.Build(ast));
+            return compiler.Items(sc.ForwardOnly ? compiler.BuildValueSource(ast) : compiler.Build(ast));
         }
+
+        internal static QilNode AtomizeSimpleContent(QilNode value, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env) =>
+            new XPath31Compiler(sc, f, env).AtomizeEach(new ContextItemExpr(), value, preserveTextNodes: true);
 
         /// <summary>
         /// Xsl3 (P4): a value template's expression as a native string: directly when it is one string or one node,
@@ -210,18 +240,19 @@ namespace Xsl3.XPath31
         public static QilNode CompileEmbeddedString(Expr ast, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env)
         {
             var compiler = new XPath31Compiler(sc, f, env);
-            QilNode built = compiler.Build(ast);
+            QilNode built = sc.ForwardOnly ? compiler.BuildValueSource(ast) : compiler.Build(ast);
             // Several nodes are joined with spaces here, not an error: they don't take the optional-string path.
             bool severalNodes = built.XmlType!.IsSubtypeOf(T.NodeNotRtfS) && !built.XmlType.IsSubtypeOf(T.NodeNotRtfQ);
             if (!severalNodes && compiler.OptionalString(built) is QilNode s)
             {
                 return s;
             }
-            if (built.XmlType!.IsSubtypeOf(s_elementsOrAttributes))
+            if (sc.Schemas == null && built.XmlType!.IsSubtypeOf(s_elementsOrAttributes))
             {
                 QilIterator i = f.For(built);
-                return f.BaseFactory.StrConcat(f.String(" "), f.Loop(i, f.XPathNodeValue(i)));
+                return f.BaseFactory.StrConcat(f.String(" "), f.Loop(i, f.XPathNodeValue(compiler.ValueReplayOperand(i, built))));
             }
+            if (sc.ForwardOnly) built = compiler.AtomizeEach(ast, built, preserveTextNodes: true);
             return compiler.Call(nameof(XsltLibrary.X31AvtString), T.StringX, compiler.Items(built));
         }
 
@@ -279,6 +310,9 @@ namespace Xsl3.XPath31
         private QilNode Constant(AtomicValue value)
         {
             QilNode constant = Call(nameof(XsltLibrary.X31Constant), T.Item, _f.Double(ConstantPool.Add(value)));
+            // ConstantPool entries created here are already atomic. Streamed comparisons and
+            // function arguments need no per-item atomization to consume them safely.
+            if (_sc.ForwardOnly) s_atomicItems.AddOrUpdate(constant, value.Type);
             if (value.Type == AtomicTypes.String)
             {
                 // Xsl3 (P4): known, for calls that take native strings.
@@ -314,22 +348,49 @@ namespace Xsl3.XPath31
         }
 
         /// <summary>The effective boolean value, as a native QIL boolean.</summary>
-        private QilNode Bool(QilNode n) => IsBoolean(n) ? n : Call(nameof(XsltLibrary.X31Ebv), T.BooleanX, Items(n));
+        private QilNode Bool(QilNode n) => IsBoolean(n) ? n
+            : _sc.ForwardOnly && n.XmlType!.IsSubtypeOf(T.NodeNotRtfS) ? _f.Not(_f.IsEmpty(n))
+            : _sc.ForwardOnly ? ForwardBoolean(n)
+            : Call(nameof(XsltLibrary.X31Ebv), T.BooleanX, Items(n));
 
-        private QilNode Nodes(QilNode n, string errorCode) =>
-            n.XmlType!.IsSubtypeOf(T.NodeNotRtfS) ? n : Call(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, Items(n), _f.String(errorCode));
+        private QilNode Nodes(QilNode n, string errorCode)
+        {
+            if (n.XmlType!.IsSubtypeOf(T.NodeNotRtfS)) return n;
+            if (!_sc.ForwardOnly) return Call(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, Items(n), _f.String(errorCode));
+            // A generic item parameter may carry live nodes. Check each item before
+            // its population advances rather than collecting the complete argument.
+            QilIterator item = _f.For(Items(n));
+            return _f.Loop(item, Call(nameof(XsltLibrary.X31Nodes), T.NodeNotRtfS, Items(item), _f.String(errorCode)));
+        }
 
         private static XPathStaticException NotYetSupported(Expr e, string what) =>
             new("XSL30001", $"{what} is not supported yet", e.Span.Start);
 
         // ------------------------------------------------------------ focus
 
-        private QilNode FocusItem(string? absentCode = null) =>
-            _focus?.Item
-            ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent in a function body")) : null)
-            ?? (_env != null
-                ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent"))
-                : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
+        private QilNode FocusItem(string? absentCode = null)
+        {
+            if (absentCode != null && !_focusAbsent)
+            {
+                QilNode? optional = _focus?.OptionalItems;
+                if (_focus == null)
+                    optional = _env == null ? Call(nameof(XsltLibrary.X31ContextItemOrEmpty), T.ItemS)
+                        : _env.ContextItemOrEmpty() ?? _f.Sequence();
+                if (optional != null)
+                {
+                    if (optional.XmlType!.IsSingleton) return optional;
+                    QilIterator items = _f.Let(Items(optional));
+                    return _f.Loop(items, _f.Conditional(_f.IsEmpty(items),
+                        Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode), _f.String("The context item is absent")),
+                        Call(nameof(XsltLibrary.X31SingleItemOf), T.Item, items)));
+                }
+            }
+            return _focus?.Item
+                ?? (_focusAbsent ? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent in a function body")) : null)
+                ?? (_env != null
+                    ? _env.ContextItem() ?? Call(nameof(XsltLibrary.X31RaiseItem), T.Item, _f.String(absentCode ?? "XPDY0002"), _f.String("The context item is absent"))
+                    : Call(nameof(XsltLibrary.X31ContextItem), T.Item));
+        }
 
         private QilNode FocusNode()
         {
@@ -354,18 +415,19 @@ namespace Xsl3.XPath31
         /// Iterates <paramref name="input"/> with each item as the focus, building the body with <paramref name="body"/>.
         /// last() needs the input bound to a variable; it is only bound when <paramref name="needsLast"/>.
         /// </summary>
-        private (QilIterator Iterator, QilNode Body, QilIterator? Let) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body)
+        private (QilIterator Iterator, QilNode Body, QilIterator? Let) WithFocus(QilNode input, bool needsLast, System.Func<QilNode> body, Action? positionUsed = null)
         {
             System.Func<QilNode>? last = null;
             QilIterator? let = null;
             if (needsLast)
             {
+                positionUsed?.Invoke();
                 QilIterator bound = let = _f.Let(input);
                 last = () => _f.XsltConvert(_f.Length(bound), T.DoubleX);
             }
             QilIterator it = _f.For(let ?? input);
             Focus? saved = _focus;
-            _focus = new Focus(it, () => _f.XsltConvert(_f.PositionOf(it), T.DoubleX), last);
+            _focus = new Focus(it, () => { positionUsed?.Invoke(); return _f.XsltConvert(_f.PositionOf(it), T.DoubleX); }, last);
             try
             {
                 QilNode result = body();
@@ -382,20 +444,8 @@ namespace Xsl3.XPath31
         private QilNode WrapLet(QilIterator? let, QilNode loop) => let != null ? _f.Loop(let, loop) : loop;
 
         // Whether an expression calls last() for the focus it is evaluated in.
-        private static bool UsesLast(Expr e) => e switch
-        {
-            FunctionCall { Name: { Prefix: null or "fn", LocalName: "last" }, Arguments.Count: 0 } => true,
-            // last#0 keeps the focus it is made in; function-lookup may make it.
-            NamedFunctionRef { Name: { LocalName: "last" } name, Arity: var arity } when arity.IsZero && (name.Prefix is null or "fn" || name.BracedUri == QName.Ns.Fn) => true,
-            FunctionCall { Name: { Prefix: null or "fn", LocalName: "function-lookup" } } => true,
-            DynamicFunctionCall d => UsesLast(d.Function) || d.Arguments.Any(UsesLast),
-            // last() inside a nested path step or predicate refers to that inner focus
-            PathExpr p => UsesLast(p.Left),
-            SimpleMapExpr m => UsesLast(m.Left),
-            AxisStep => false,
-            FilterExpr f => UsesLast(f.Base),
-            _ => Children(e).Any(UsesLast),
-        };
+        private bool UsesLast(Expr e) => (FocusAnalysis.Analyze(e,
+            name => _types.Expand(name, _sc.DefaultFunctionNamespace).NamespaceUri == QName.Ns.Fn) & FocusDependency.Size) != 0;
 
         private static IEnumerable<Expr> Children(Expr e) => e switch
         {
@@ -440,7 +490,7 @@ namespace Xsl3.XPath31
                 case BinaryExpr b:
                     return Binary(b);
                 case UnaryExpr u:
-                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, CompatNumeric(Items(Build(u.Operand))), u.Minus ? _f.True() : _f.False());
+                    return Call(nameof(XsltLibrary.X31Unary), T.ItemS, NumericOperand(u.Operand), u.Minus ? _f.True() : _f.False());
                 case CompatArgument c:
                     return Call(nameof(XsltLibrary.X31CompatArgument), T.ItemS, Items(Build(c.Operand)), _f.Double(c.Kind));
                 case IfExpr i:
@@ -482,13 +532,15 @@ namespace Xsl3.XPath31
                 case ArrowExpr { FunctionName: LexicalQName name } a:
                     return FunctionCall(a, name, a.Arguments.Prepend(a.Target).ToList());
                 case InstanceOfExpr x:
+                    if (_sc.ForwardOnly) return ForwardTypeTest(x.Operand, x.Type, assertion: false);
                     return Call(nameof(XsltLibrary.X31InstanceOf), T.BooleanX, Items(Build(x.Operand)), TypeId(x.Type));
                 case TreatExpr x:
+                    if (_sc.ForwardOnly) return ForwardTypeTest(x.Operand, x.Type, assertion: true);
                     return Call(nameof(XsltLibrary.X31Treat), T.ItemS, Items(Build(x.Operand)), TypeId(x.Type));
                 case CastExpr x:
-                    return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(x.Operand)), CastTargetId(x.Type), x.Type.AllowsEmpty ? _f.True() : _f.False());
+                    return Cast(x.Operand, CastTargetId(x.Type), x.Type.AllowsEmpty);
                 case CastableExpr x:
-                    return Call(nameof(XsltLibrary.X31Castable), T.BooleanX, Items(Build(x.Operand)), CastTargetId(x.Type), x.Type.AllowsEmpty ? _f.True() : _f.False());
+                    return Call(nameof(XsltLibrary.X31Castable), T.BooleanX, AtomicOperand(x.Operand), CastTargetId(x.Type), x.Type.AllowsEmpty ? _f.True() : _f.False());
                 case InlineFunctionExpr fn:
                     return InlineFunction(fn);
                 case NamedFunctionRef r:
@@ -498,14 +550,7 @@ namespace Xsl3.XPath31
                 case ArrowExpr { FunctionExpr: Expr fe } a:
                     return DynamicFunctionCall(new DynamicFunctionCall(fe, a.Arguments.Prepend(a.Target).ToList()) { Span = a.Span });
                 case MapConstructor map:
-                {
-                    QilNode builder = Call(nameof(XsltLibrary.X31MapNew), T.Item);
-                    foreach (MapConstructorEntry entry in map.Entries)
-                    {
-                        builder = Call(nameof(XsltLibrary.X31MapEntry), T.Item, builder, Items(Build(entry.Key)), Items(Build(entry.Value)));
-                    }
-                    return Call(nameof(XsltLibrary.X31MapDone), T.Item, builder);
-                }
+                    return Map(map);
                 case SquareArrayConstructor array:
                 {
                     QilNode builder = Call(nameof(XsltLibrary.X31ArrayNew), T.Item);
@@ -577,6 +622,7 @@ namespace Xsl3.XPath31
                 return Items(Build(ret));
             }
             QilIterator it = _f.For(Items(Build(bindings[index].Value)));
+            if (_sc.ForwardOnly && GroundedSetOperand(bindings[index].Value)) GroundedSetBindings.Values.AddOrUpdate(it, GroundedSetBindings.Marker);
             QilNode body = Scoped(_types.Expand(bindings[index].Variable, ""), it, () => For(bindings, index + 1, ret));
             return _f.Loop(it, body);
         }
@@ -588,6 +634,7 @@ namespace Xsl3.XPath31
                 return Items(Build(ret));
             }
             QilIterator it = _f.Let(Items(Build(bindings[index].Value)));
+            if (_sc.ForwardOnly && GroundedSetOperand(bindings[index].Value)) GroundedSetBindings.Values.AddOrUpdate(it, GroundedSetBindings.Marker);
             QilNode body = Scoped(_types.Expand(bindings[index].Variable, ""), it, () => Let(bindings, index + 1, ret));
             return _f.Loop(it, body);
         }
@@ -622,23 +669,23 @@ namespace Xsl3.XPath31
                     return Call(nameof(XsltLibrary.X31CompatGeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.GeneralEq when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
                     // $x = (a to b): a range test, not a comparison with each integer of the range.
-                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
+                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, AtomicOperand(b.Left), AtomicOperand(range.Left), AtomicOperand(range.Right), StaticId());
                 case BinaryOp.GeneralEq when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
-                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), StaticId());
+                    return Call(nameof(XsltLibrary.X31InRange), T.BooleanX, AtomicOperand(b.Right), AtomicOperand(range.Left), AtomicOperand(range.Right), StaticId());
                 case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Right is BinaryExpr { Op: BinaryOp.Range } range:
-                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, AtomicOperand(b.Left), AtomicOperand(range.Left), AtomicOperand(range.Right), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.GeneralLt or BinaryOp.GeneralLe or BinaryOp.GeneralGt or BinaryOp.GeneralGe when b.Left is BinaryExpr { Op: BinaryOp.Range } range:
                 {
                     // (a to b) < $x is $x > (a to b).
                     BinaryOp mirrored = b.Op switch { BinaryOp.GeneralLt => BinaryOp.GeneralGt, BinaryOp.GeneralLe => BinaryOp.GeneralGe, BinaryOp.GeneralGt => BinaryOp.GeneralLt, _ => BinaryOp.GeneralLe };
-                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, Items(Build(b.Right)), Items(Build(range.Left)), Items(Build(range.Right)), _f.Double(mirrored - BinaryOp.GeneralEq), StaticId());
+                    return Call(nameof(XsltLibrary.X31RangeCompare), T.BooleanX, AtomicOperand(b.Right), AtomicOperand(range.Left), AtomicOperand(range.Right), _f.Double(mirrored - BinaryOp.GeneralEq), StaticId());
                 }
                 case BinaryOp.GeneralEq: case BinaryOp.GeneralNe: case BinaryOp.GeneralLt:
                 case BinaryOp.GeneralLe: case BinaryOp.GeneralGt: case BinaryOp.GeneralGe:
-                    return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
+                    return Call(nameof(XsltLibrary.X31GeneralCompare), T.BooleanX, AtomicOperand(b.Left), AtomicOperand(b.Right), _f.Double(b.Op - BinaryOp.GeneralEq), StaticId());
                 case BinaryOp.ValueEq: case BinaryOp.ValueNe: case BinaryOp.ValueLt:
                 case BinaryOp.ValueLe: case BinaryOp.ValueGt: case BinaryOp.ValueGe:
-                    return Call(nameof(XsltLibrary.X31ValueCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.ValueEq), StaticId());
+                    return Call(nameof(XsltLibrary.X31ValueCompare), T.ItemS, AtomicOperand(b.Left), AtomicOperand(b.Right), _f.Double(b.Op - BinaryOp.ValueEq), StaticId());
                 case BinaryOp.Is: case BinaryOp.Precedes: case BinaryOp.Follows:
                     return Call(nameof(XsltLibrary.X31NodeCompare), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.Is));
                 case BinaryOp.StringConcat:
@@ -648,6 +695,10 @@ namespace Xsl3.XPath31
                 case BinaryOp.Range:
                     return Call(nameof(XsltLibrary.X31Range), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)));
                 case BinaryOp.Union: case BinaryOp.Intersect: case BinaryOp.Except:
+                    if (ForwardClimbingSet(b) is { } climbing) return climbing;
+                    if (ForwardSharedSet(b) is { } shared) return shared;
+                    if (ForwardHeaderSet(b) is { } headerSet) return headerSet;
+                    if (ForwardIndependentSet(b) is { } forward) return forward;
                     return Call(nameof(XsltLibrary.X31SetOp), T.ItemS, Items(Build(b.Left)), Items(Build(b.Right)), _f.Double(b.Op - BinaryOp.Union));
                 default:
                     ArithmeticOp op = b.Op switch
@@ -659,7 +710,11 @@ namespace Xsl3.XPath31
                         BinaryOp.IntegerDivide => ArithmeticOp.IntegerDivide,
                         _ => ArithmeticOp.Modulo,
                     };
-                    return Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, CompatNumeric(Items(Build(b.Left))), CompatNumeric(Items(Build(b.Right))), _f.Double((int)op));
+                    QilNode arithmetic = Call(nameof(XsltLibrary.X31Arithmetic), T.ItemS, NumericOperand(b.Left), NumericOperand(b.Right), _f.Double((int)op));
+                    // Arithmetic produces atomic values (or empty), never streamed nodes. Keep that
+                    // contract when a surrounding comparison decides whether to atomize its operands.
+                    if (_sc.ForwardOnly) s_atomicItems.AddOrUpdate(arithmetic, AtomicTypes.AnyAtomicType);
+                    return arithmetic;
             }
         }
 
@@ -680,7 +735,20 @@ namespace Xsl3.XPath31
 
         private QilNode Path(PathExpr p)
         {
-            if (IndexedPath(p) is QilNode indexed)
+            if (ForwardSetPath(p) is { } setPath) return setPath;
+            if (ForwardSequencePath(p) is { } sequencePath) return sequencePath;
+            if (ForwardDescendantChildren(p) is { } children) return children;
+            if (_sc.ForwardOnly && NeedsHeaderPath(p) && ForwardHeaderSet(p) is { } headers) return headers;
+            if (_sc.ForwardOnly && p.Descendants && p.Right is AxisStep { Axis: Axis.Child } step)
+            {
+                // A//child::N is A/descendant::N. The expanded descendant-or-self/child form would
+                // traverse each streamed ancestor twice. Predicates can follow the rewrite only if their
+                // compiled conditions never use the outer position or size (including numeric predicates).
+                bool positional = false;
+                QilNode candidate = Join(Build(p.Left), () => StepFor(Axis.Descendant, step.Test, step.Predicates, () => positional = true), needsLast: false);
+                if (!positional) return candidate;
+            }
+            if (!_sc.ForwardOnly && IndexedPath(p) is QilNode indexed)
             {
                 return indexed;
             }
@@ -689,13 +757,19 @@ namespace Xsl3.XPath31
 
         private QilNode PathAsWritten(PathExpr p)
         {
+            if (ParameterChildPath(p) is { } parameterPath) return parameterPath;
             QilNode left = Build(p.Left);
-            if (!p.Descendants && p.Right is AxisStep { Axis: Axis.Child or Axis.Attribute } step && s_sameDepth.TryGetValue(left, out _)
+            // A singleton (including an optional one) has disjoint child and attribute results.
+            // Retain this proof before Join introduces a sort that would exhaust a live selection.
+            if (!p.Descendants && p.Right is AxisStep { Axis: Axis.Child or Axis.Attribute } step
+                && (s_sameDepth.TryGetValue(left, out _) || _sc.ForwardOnly && (!left.XmlType!.MaybeMany || DisjointChildAnchors(p.Left)
+                    || step.Axis == Axis.Attribute && left.XmlType.IsDod))
                 && left.XmlType!.IsSubtypeOf(T.NodeNotRtfS))
             {
                 var (sit, sbody, sinput) = WithFocus(left, UsesLast(p.Right), () => Build(p.Right));
                 QilNode loop = WrapLet(sinput, _f.Loop(sit, sbody));
-                return step.Axis == Axis.Child ? SameDepth(loop) : loop;
+                return step.Axis == Axis.Child ? SameDepth(loop)
+                    : _sc.ForwardOnly && left.XmlType.IsDod ? _f.TypeAssert(loop, T.NodeSDod) : loop;
             }
             if (p.Descendants)
             {
@@ -726,12 +800,12 @@ namespace Xsl3.XPath31
             {
                 return null;
             }
-            QilNode site = _f.Double(System.Threading.Interlocked.Increment(ref s_indexSites));
+            int site = System.Threading.Interlocked.Increment(ref s_indexSites);
             QilIterator values = _f.Let(Items(Build(value!)));
             // (The context node: the runtime finds its root, and scans, so that the path raises XPDY0050, when the root
             // isn't a document node.)
             QilIterator root = _f.Let(FocusNode());
-            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, site, root, values));
+            QilIterator state = _f.Let(Call(nameof(XsltLibrary.X31IndexState), T.DoubleX, _f.Double(site), root, values));
             // One pass over the candidates (the path without its predicate: the predicate doesn't use the position, so
             // filtering them all is filtering each step's), with each one's key values compiled once: kept when a key
             // equals a value (state 0, the path as written), or put in the index being built (state 2).
@@ -743,7 +817,7 @@ namespace Xsl3.XPath31
                     FocusNode(), _f.Sequence());
             });
             QilNode scan = WrapLet(input, _f.Loop(it, body));
-            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, site, root, values);
+            QilNode lookup = Call(nameof(XsltLibrary.X31IndexGet), T.NodeNotRtfS, _f.Double(site), root, values);
             // The scan unless the index is there; the lookup unless the path is evaluated as written.
             return _f.Loop(values, _f.Loop(root, _f.Loop(state, _f.Sequence(
                 _f.Conditional(_f.Eq(state, _f.Double(1)), _f.Sequence(), scan),
@@ -774,6 +848,7 @@ namespace Xsl3.XPath31
         {
             var (it, body, input) = WithFocus(Nodes(left, "XPTY0019"), needsLast, right);
             QilNode loop = WrapLet(input, _f.Loop(it, Items(body)));
+            if (_sc.ForwardOnly && AtomicItems(body)) return loop;
             return body.XmlType!.IsNode ? _f.DocOrderDistinct(loop) : Call(nameof(XsltLibrary.X31PathResult), T.ItemS, loop);
         }
 
@@ -808,9 +883,14 @@ namespace Xsl3.XPath31
         };
 
         // E[P]: keeps the items for which P is true, or whose position equals P when P is numeric.
-        private QilNode Predicate(QilNode input, Expr predicate)
+        private QilNode Predicate(QilNode input, Expr predicate, Action? positionUsed = null)
         {
-            var (it, condition, bound) = WithFocus(input, UsesLast(predicate), () => PredicateCondition(predicate));
+            if (_sc.ForwardOnly && predicate is IntegerLiteral { Value.Sign: > 0 } integer)
+            {
+                positionUsed?.Invoke();
+                return ForwardIntegerPredicate(input, Constant(AtomicValue.OfInteger(integer.Value)));
+            }
+            var (it, condition, bound) = WithFocus(input, UsesLast(predicate), () => PredicateCondition(predicate), positionUsed);
             return WrapLet(bound, _f.Filter(it, condition));
         }
 
@@ -821,12 +901,15 @@ namespace Xsl3.XPath31
                 return _f.Eq(FocusPosition(), _f.Double((double)i.Value));
             }
             QilNode p = Build(predicate);
+            // A node sequence is true by existence, never by its numeric position. Keeping
+            // that proof avoids expanding A//N[@a] into two traversals of a forward reader.
+            if (_sc.ForwardOnly && p.XmlType!.IsSubtypeOf(T.NodeNotRtfS)) return Bool(p);
             return IsBoolean(p) ? p : Call(nameof(XsltLibrary.X31Predicate), T.BooleanX, Items(p), FocusPosition());
         }
 
         private QilNode Step(AxisStep step) => StepFor(step.Axis, step.Test, step.Predicates);
 
-        private QilNode StepFor(Axis axis, XPath31.NodeTest test, IReadOnlyList<Expr> predicates)
+        private QilNode StepFor(Axis axis, XPath31.NodeTest test, IReadOnlyList<Expr> predicates, Action? positionUsed = null, bool topmost = false)
         {
             QilNode context = FocusNode();
             QilNode nodes = axis switch
@@ -844,10 +927,11 @@ namespace Xsl3.XPath31
                 Axis.PrecedingSibling => _f.PrecedingSibling(context),
                 _ => _f.XPathNamespace(context),
             };
+            if (topmost) Xsl3.IlGen.OptimizerPatterns.Write(nodes).AddPattern(Xsl3.IlGen.OptimizerPatternName.Topmost);
             nodes = ApplyNodeTest(nodes, axis, test);
             foreach (Expr predicate in predicates)
             {
-                nodes = Predicate(nodes, predicate);
+                nodes = Predicate(nodes, predicate, positionUsed);
             }
             // Reverse axes deliver nodes nearest first, which is what their predicates count; the step's result is
             // in document order.
@@ -868,6 +952,19 @@ namespace Xsl3.XPath31
             Axis.Attribute => XmlNodeKindFlags.Attribute,
             Axis.Namespace => XmlNodeKindFlags.Namespace,
             _ => XmlNodeKindFlags.Element,
+        };
+
+        private static XmlNodeKindFlags NodeTestKinds(Axis axis, NodeTest test) => test switch
+        {
+            NameTest => PrincipalKind(axis),
+            KindNodeTest { Kind: DocumentTest } => XmlNodeKindFlags.Document,
+            KindNodeTest { Kind: ElementTest } => XmlNodeKindFlags.Element,
+            KindNodeTest { Kind: AttributeTest } => XmlNodeKindFlags.Attribute,
+            KindNodeTest { Kind: TextTest } => XmlNodeKindFlags.Text,
+            KindNodeTest { Kind: CommentTest } => XmlNodeKindFlags.Comment,
+            KindNodeTest { Kind: PITest } => XmlNodeKindFlags.PI,
+            KindNodeTest { Kind: NamespaceNodeTest } => XmlNodeKindFlags.Namespace,
+            _ => XmlNodeKindFlags.Any,
         };
 
         private QilNode ApplyNodeTest(QilNode nodes, Axis axis, XPath31.NodeTest test)
@@ -900,18 +997,7 @@ namespace Xsl3.XPath31
                 case KindNodeTest { Kind: var kind }:
                 {
                     NodeKindTest resolved = _types.ResolveKind(kind);
-                    kinds = kind switch
-                    {
-                        AnyKindTest => XmlNodeKindFlags.Any,
-                        DocumentTest => XmlNodeKindFlags.Document,
-                        ElementTest => XmlNodeKindFlags.Element,
-                        AttributeTest => XmlNodeKindFlags.Attribute,
-                        TextTest => XmlNodeKindFlags.Text,
-                        CommentTest => XmlNodeKindFlags.Comment,
-                        PITest => XmlNodeKindFlags.PI,
-                        NamespaceNodeTest => XmlNodeKindFlags.Namespace,
-                        _ => XmlNodeKindFlags.Any,
-                    };
+                    kinds = NodeTestKinds(axis, test);
                     // Xsl3 (P6): a test that names a type, or schema-element()/schema-attribute(), is decided at run time
                     // when there are schemas: a node may then be typed.
                     bool typed = resolved.TypeName != null && _sc.Schemas != null;
@@ -942,6 +1028,15 @@ namespace Xsl3.XPath31
             if (kinds == 0)
             {
                 return _f.Sequence();
+            }
+            if (_sc.ForwardOnly && axis == Axis.Attribute && condition != null)
+            {
+                // Attribute name tests must stay above an attribute-only iterator. A mixed content scan
+                // would advance through children to prove that there are no more matching attributes.
+                QilIterator attribute = _f.For(nodes);
+                nodes = _f.Filter(attribute, _f.IsType(attribute, T.Attribute));
+                QilIterator named = _f.For(nodes);
+                return _f.Filter(named, condition(named));
             }
             QilIterator i = _f.For(nodes);
             QilNode test2 = _f.IsType(i, T.NodeChoice(kinds));
@@ -979,8 +1074,20 @@ namespace Xsl3.XPath31
         };
 
         // An operand of arithmetic in XPath 1.0 compatibility mode: its first item as a number (XPath 2.0 §3.4).
-        private QilNode CompatNumeric(QilNode operand) =>
-            _sc.BackwardsCompatible ? Call(nameof(XsltLibrary.X31CompatNumeric), T.ItemS, operand) : operand;
+        private QilNode NumericOperand(Expr expression)
+        {
+            if (!_sc.BackwardsCompatible) return AtomicOperand(expression);
+            QilNode operand = Items(Build(expression));
+            if (_sc.ForwardOnly && !AtomicItems(operand) && !operand.XmlType!.IsEmpty)
+            {
+                // Compatibility mode converts only the first item. Convert it while
+                // live, preserving its scalar atomization check and empty -> NaN rule.
+                QilNode first = ForwardSubsequence(operand, _f.Double(1), _f.Double(1), head: true);
+                QilIterator item = _f.For(first);
+                operand = _f.Loop(item, Call(nameof(XsltLibrary.X31CompatArgument), T.ItemS, Items(item), _f.Double(3)));
+            }
+            return Call(nameof(XsltLibrary.X31CompatNumeric), T.ItemS, operand);
+        }
 
         /// <summary>
         /// In XPath 1.0 compatibility mode, an argument of a built-in function that expects one item: its first item,
@@ -1016,6 +1123,8 @@ namespace Xsl3.XPath31
             }
             QName name = _types.Expand(lexicalName, _sc.DefaultFunctionNamespace);
             args = CompatArguments(name, args);
+            if (_sc.ForwardOnly && name.NamespaceUri == QName.Ns.Fn && name.LocalName == "outermost" && args.Count == 1
+                && (OutermostStep(args[0]) ?? ForwardOutermost(args[0])) is { } outermost) return outermost;
             if (HigherOrderFunction(name, args) is QilNode hof)
             {
                 return hof;
@@ -1037,7 +1146,7 @@ namespace Xsl3.XPath31
             if (name.NamespaceUri == QName.Ns.Xs && name.LocalName == "error" && args.Count == 1)
             {
                 // xs:error (XPath 3.1 §3.1.5.1): a union type with no members: () casts to (), anything else is FORG0001.
-                return Call(nameof(XsltLibrary.X31CastToError), T.ItemS, Items(Build(args[0])));
+                return Call(nameof(XsltLibrary.X31CastToError), T.ItemS, AtomicOperand(args[0]));
             }
             if (name.NamespaceUri == QName.Ns.Xs)
             {
@@ -1047,15 +1156,15 @@ namespace Xsl3.XPath31
                     throw new XPathStaticException("XPST0017", $"Unknown function {name.EQName}#{args.Count}", call.Span.Start);
                 }
                 int target = ConstantPool.Add(new CastTarget(type, _namespaces, kind));
-                return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(target), _f.True());
+                return Cast(args[0], _f.Double(target), allowEmpty: true);
             }
 
             if (args.Count == 1 && _types.FindSchemaCastTarget(name, _namespaces) is { } schemaConstructor)
             {
                 // Xsl3 (P6): the constructor function of a simple type an imported schema defines.
-                return Call(nameof(XsltLibrary.X31Cast), T.ItemS, Items(Build(args[0])), _f.Double(ConstantPool.Add(schemaConstructor)), _f.True());
+                return Cast(args[0], _f.Double(ConstantPool.Add(schemaConstructor)), allowEmpty: true);
             }
-            if (_env?.ResolveFunction(name, args, a => Items(Build(a))) is QilNode hostCall)
+            if (_env?.ResolveFunction(name, args, FunctionArgument) is QilNode hostCall)
             {
                 return hostCall;
             }
@@ -1064,8 +1173,28 @@ namespace Xsl3.XPath31
             {
                 switch (name.LocalName, args.Count)
                 {
+                    case ("head", 1) when _sc.ForwardOnly:
+                        return ForwardSubsequence(Build(args[0]), _f.Double(1), _f.Double(1), head: true);
+                    case ("tail", 1) when _sc.ForwardOnly:
+                        return ForwardSubsequence(Build(args[0]), _f.Double(2), null);
+                    case ("subsequence", 2 or 3) when _sc.ForwardOnly:
+                        return ForwardSubsequence(Build(args[0]), AtomicOperand(args[1]), args.Count == 3 ? AtomicOperand(args[2]) : null);
+                    case ("remove", 2) when _sc.ForwardOnly:
+                        return ForwardRemove(Build(args[0]), AtomicOperand(args[1]));
+                    case ("unordered", 1) when _sc.ForwardOnly:
+                        return Build(args[0]);
+                    case ("zero-or-one" or "one-or-more" or "exactly-one", 1) when _sc.ForwardOnly:
+                        return ForwardCardinality(args[0], name.LocalName);
+                    case ("insert-before", 3) when _sc.ForwardOnly:
+                        return ForwardInsertBefore(Build(args[0]), AtomicOperand(args[1]), Build(args[2]), DisjointChildAnchors(args[0]));
+                    case ("trace", 1 or 2) when _sc.ForwardOnly:
+                        return ForwardTrace(call, name, args[0], args.Count == 2 ? args[1] : null);
+                    case ("deep-equal", 2 or 3) when _sc.ForwardOnly && ForwardDeepEqual(args) is { } comparison:
+                        return comparison;
+                    case ("xml-to-json", 1 or 2) when _sc.ForwardOnly:
+                        return ForwardXmlToJson(args[0], args.Count == 2 ? args[1] : null);
                     case ("position", 0):
-                        return FocusPosition();
+                        return _focus?.ExactPosition ?? FocusPosition();
                     case ("last", 0):
                         return FocusLast();
                     case ("true", 0):
@@ -1076,10 +1205,17 @@ namespace Xsl3.XPath31
                         return _f.Not(Bool(Build(args[0])));
                     case ("boolean", 1):
                         return Bool(Build(args[0]));
-                    case ("empty", 1):
-                        return _f.IsEmpty(Items(Build(args[0])));
-                    case ("exists", 1):
-                        return _f.Not(_f.IsEmpty(Items(Build(args[0]))));
+                    case ("empty" or "exists", 1):
+                    {
+                        QilNode source = Items(Build(args[0]));
+                        if (_sc.ForwardOnly && s_functionParameters.TryGetValue(source, out QilNode? parameter))
+                        {
+                            QilNode exists = StatefulCall(nameof(XsltLibrary.X31FunctionParameterExists), T.BooleanX, parameter);
+                            return name.LocalName == "exists" ? exists : _f.Not(exists);
+                        }
+                        QilNode empty = _f.IsEmpty(source);
+                        return name.LocalName == "empty" ? empty : _f.Not(empty);
+                    }
                     case ("string-length" or "normalize-space", 0) when _sc.Schemas != null:
                         // Xsl3 (P6): of the context item's string value, not its typed value (F&O 3.1 §5.4.4, §5.4.5).
                         return FunctionCall(call, lexicalName, new List<Expr> { new FunctionCall(new LexicalQName(null, "string", QName.Ns.Fn), new List<Expr> { new ContextItemExpr() }) { Span = call.Span } });
@@ -1096,18 +1232,30 @@ namespace Xsl3.XPath31
             if (name.NamespaceUri == QName.Ns.Fn)
             {
                 // Xsl3 (P4): string functions of single strings or nodes run on native strings, without item lists.
-                List<QilNode> built = args.Select(Build).ToList();
+                List<QilNode> built = _sc.ForwardOnly ? args.Select(BuildValueSource).ToList() : args.Select(Build).ToList();
                 switch (name.LocalName, built.Count)
                 {
+                    case ("count", 1) when _sc.ForwardOnly && s_functionParameters.TryGetValue(built[0], out QilNode? parameter):
+                        return StatefulCall(nameof(XsltLibrary.X31FunctionParameterCount), T.Item, parameter);
                     case ("count", 1):
                         // A native double is an xs:integer to Items (as positions are).
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
-                    case ("sum", 1) when built[0].XmlType!.IsSubtypeOf(T.NodeNotRtfS):
+                    case ("data", 1) when _sc.ForwardOnly:
+                        return AtomizeEach(call, built[0]);
+                    case ("string", 1) when _sc.ForwardOnly && !AtomicItems(built[0]):
+                        return CallLibrary(call, name, new List<QilNode> { StringArguments(built[0]) });
+                    case ("avg" or "min" or "max", 1) when _sc.ForwardOnly && UntypedNumericNodes(built[0])
+                        && (name.LocalName == "avg" || _sc.DefaultCollation == Functions.Collation.CodepointUri):
+                        return ForwardUntypedAggregate(name.LocalName, built[0]);
+                    case ("sum", 1) when UntypedNumericNodes(built[0]):
                     {
-                        // The nodes' values as a stream of native doubles (no node list to clone), summed in order.
-                        QilIterator n = _f.For(built[0]);
-                        QilNode doubles = _f.Loop(n, Call(nameof(XsltLibrary.X31UntypedDouble), T.DoubleX, _f.XPathNodeValue(n)));
-                        return Call(nameof(XsltLibrary.X31SumDoubles), T.Item, doubles);
+                        // Untyped nodes have one untypedAtomic value each, converted to double by sum.
+                        // Typed nodes can have list values, decimals or exact integers and use atomization below.
+                        QilNode doubles = UntypedDoubles(built[0]);
+                        // A list-valued library argument would cache every double. The QIL aggregate
+                        // folds the forward iterator in order and yields at most one value; the existing
+                        // helper preserves xs:integer zero for empty input and xs:double otherwise.
+                        return Call(nameof(XsltLibrary.X31SumDoubles), T.Item, _sc.ForwardOnly ? _f.Sum(doubles) : doubles);
                     }
                     case ("number", 1) when OptionalString(built[0]) is QilNode numberString:
                         // A string, or zero or one node (whose value is xs:untypedAtomic): cast as a string; () is "", NaN.
@@ -1118,6 +1266,15 @@ namespace Xsl3.XPath31
                 return TypedCall(name.LocalName, built) ?? CallLibrary(call, name, built.Select(Items).ToList());
             }
             return CallLibrary(call, name, args.Select(a => Items(Build(a))).ToList());
+        }
+
+        private bool UntypedNumericNodes(QilNode nodes) => _sc.Schemas == null && nodes.XmlType!.IsSubtypeOf(T.NodeNotRtfS)
+            && (nodes.XmlType.NodeKinds & (XmlNodeKindFlags.Comment | XmlNodeKindFlags.PI | XmlNodeKindFlags.Namespace)) == 0;
+
+        private QilNode UntypedDoubles(QilNode nodes)
+        {
+            QilIterator item = _f.For(nodes);
+            return _f.Loop(item, Call(nameof(XsltLibrary.X31UntypedDouble), T.DoubleX, _f.XPathNodeValue(ValueReplayOperand(item, nodes))));
         }
 
         /// <summary>
@@ -1133,7 +1290,7 @@ namespace Xsl3.XPath31
             }
             if (n.XmlType.IsSubtypeOf(T.NodeNotRtf) && _sc.Schemas == null)
             {
-                return _f.XPathNodeValue(n); // (with schemas, P6, a node may be typed: it is atomized instead)
+                return _f.XPathNodeValue(ValueReplayOperand(n, n)); // (with schemas, P6, a node may be typed: it is atomized instead)
             }
             if (s_literalStrings.TryGetValue(n, out string? literal))
             {
@@ -1180,6 +1337,14 @@ namespace Xsl3.XPath31
         // Xsl3 (P4): calls of library functions declared to return strings (xs:string*, xs:string?, ...), so that the
         // items of what they return are known to be strings. Shared by the compilers of a stylesheet's expressions.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_stringItems = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<QilNode, object> s_atomicItems = new();
+
+        private static bool AtomicItems(QilNode node) => node.XmlType!.IsAtomicValue || node.NodeType switch
+        {
+            QilNodeType.Loop => AtomicItems(node[1]),
+            QilNodeType.Sequence => Enumerable.Range(0, node.Count).All(i => AtomicItems(node[i])),
+            _ => s_atomicItems.TryGetValue(node, out _),
+        };
 
         /// <summary>Whether every item of a sequence is certainly an xs:string (or a string subtype).</summary>
         private static bool StringItems(QilNode n) => n.NodeType switch
@@ -1255,6 +1420,14 @@ namespace Xsl3.XPath31
             {
                 throw new XPathStaticException("XPST0017", $"Unknown function {name.EQName}#{args.Count}", call.Span.Start);
             }
+            if (_sc.ForwardOnly)
+            {
+                for (int i = 0; i < args.Count; i++)
+                    if (def.ParameterType(i).Item is AtomicTypeTest or NumericTest or UnionTypeTest && !AtomicItems(args[i]))
+                    {
+                        args[i] = AtomizeEach(call, args[i]);
+                    }
+            }
             string method = args.Count switch
             {
                 0 => nameof(XsltLibrary.X31Call0),
@@ -1266,6 +1439,8 @@ namespace Xsl3.XPath31
                 _ => throw NotYetSupported(call, $"Calling {name}#{args.Count}"),
             };
             QilNode result = Call(method, T.ItemS, args.Prepend(StaticId()).Prepend(_f.Double(def.Id)).ToArray());
+            if (_sc.ForwardOnly && def.ReturnType.Item is AtomicTypeTest atomicResult)
+                s_atomicItems.AddOrUpdate(result, atomicResult);
             if (def.ReturnType.Item is AtomicTypeTest { } atomic && atomic.Type.DerivesFrom(AtomicTypes.String))
             {
                 s_stringItems.AddOrUpdate(result, atomic);
@@ -1291,7 +1466,7 @@ namespace Xsl3.XPath31
         }
 
         public IList<XPathItem> Evaluate(XPathItem? contextItem = null, IReadOnlyDictionary<QName, IList<XPathItem>>? variables = null, int? implicitTimezoneMinutes = null, XmlResolver? resolver = null,
-            XsDateTime? currentDateTime = null)
+            XsDateTime? currentDateTime = null, XmlQueryRuntime? resourceOwner = null)
         {
             var args = new XsltArgumentList();
             if (currentDateTime is XsDateTime now)
@@ -1317,7 +1492,10 @@ namespace Xsl3.XPath31
                     args.AddParam(name.LocalName, name.NamespaceUri, value);
                 }
             }
-            return _command.Evaluate((contextItem as XPathNavigator)!, resolver, args);
+            // Hosted evaluation receives its focus through the explicit context-item parameter.
+            // Treating that focus as another principal input could replace the host's URI mapping.
+            return _command.Evaluate(resourceOwner == null ? (contextItem as XPathNavigator)! : XslCompiledTransform.AbsentInput,
+                resolver, args, resourceOwner);
         }
     }
 }

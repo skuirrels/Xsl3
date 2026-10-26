@@ -126,9 +126,26 @@ namespace Xsl3.Tree
             internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
             /// <param name="typed">Xsl3 (P6): keep the reader's type annotations even if it has none before it is read (a copy of a typed tree).</param>
-            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false)
+            public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false,
+                IEnumerable<KeyValuePair<string, string>>? rootNamespaces = null,
+                IReadOnlyDictionary<(string, string), (string, string)>? idDeclarations = null,
+                IEnumerable<(string, string, string, string)>? idrefDeclarations = null)
             {
+                if (idDeclarations is { Count: > 0 })
+                {
+                    _idAttributes ??= new();
+                    foreach (var declaration in idDeclarations) _idAttributes[declaration.Key] = declaration.Value;
+                }
+                if (idrefDeclarations != null)
+                    foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in idrefDeclarations)
+                    {
+                        _idrefAttributes ??= new();
+                        if (!_idrefAttributes.TryGetValue((elementLocal, elementPrefix), out var declarations))
+                            _idrefAttributes[(elementLocal, elementPrefix)] = declarations = new();
+                        declarations.Add((attributeLocal, attributePrefix));
+                    }
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
+                Xsl3.Schema.INodeIdentityReader? identities = Xsl3.Schema.NodeIdentity.Reader(reader);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
                 // Xsl3: the elements the DTD declares with element-only content, and whether each open one is such.
                 HashSet<(string, string)>? elementOnly = null;
@@ -150,6 +167,7 @@ namespace Xsl3.Tree
                     {
                         case XmlNodeType.Element:
                         {
+                            Xsl3.Schema.NodeIdentity? identity = identities?.CurrentIdentity;
                             bool empty = reader.IsEmptyElement;
                             if (elementOnly != null)
                             {
@@ -161,6 +179,7 @@ namespace Xsl3.Tree
                                 inElementOnly[reader.Depth] = elementOnly.Contains((reader.LocalName, reader.Prefix));
                             }
                             StartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI, reader.BaseURI);
+                            if (identity?.LookupIds is { } lookups) PreserveIdLookup(lookups);
                             if (typed && reader.SchemaInfo is { } elementInfo)
                             {
                                 AnnotateElement(elementInfo.SchemaType, elementInfo.IsNil);
@@ -187,6 +206,21 @@ namespace Xsl3.Tree
                                 {
                                     Attribute(reader.Prefix, reader.LocalName, ns, reader.Value);
                                 }
+                                var name = (reader.LocalName, ns);
+                                if (identity?.IdAttributes?.Contains(name) == true) MarkAttributeId(reader.Value);
+                                if (identity?.IdrefAttributes?.Contains(name) == true) MarkAttributeIdref();
+                            }
+                            if (rootNamespaces != null)
+                            {
+                                // Grounding a streamed subtree must keep in-scope namespaces that
+                                // ReadSubtree does not expose as physical xmlns attributes.
+                                int element = _open[_depth - 1];
+                                var declaredPrefixes = new HashSet<string>(StringComparer.Ordinal) { "xml" };
+                                for (int n = _doc._nsCount - 1; n >= 0 && _doc._nsOwner[n] == element; n--)
+                                    declaredPrefixes.Add(_doc._nsPrefix[n]);
+                                foreach (var ns in rootNamespaces)
+                                    if (declaredPrefixes.Add(ns.Key)) NamespaceDeclaration(ns.Key, ns.Value);
+                                rootNamespaces = null;
                             }
                             if (empty)
                             {
@@ -496,8 +530,7 @@ namespace Xsl3.Tree
                 }
                 if (_idAttribute is { } id && local == id.Local && prefix == id.Prefix)
                 {
-                    d._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
-                    d._ids.TryAdd(value, element);
+                    MarkAttributeId(value);
                 }
             }
 
@@ -566,6 +599,19 @@ namespace Xsl3.Tree
                 {
                     _doc._ids ??= new Dictionary<string, int>(StringComparer.Ordinal);
                     _doc._ids.TryAdd(Xsl3.Xdm.Lexical.Collapse(value), element);
+                }
+            }
+
+            internal void PreserveIdLookup(IEnumerable<string> values)
+            {
+                int element = _open[_depth - 1];
+                foreach (string value in values)
+                {
+                    _doc._ids ??= new(StringComparer.Ordinal);
+                    if (!_doc._ids.TryAdd(value, element)) continue;
+                    _doc._lookupIds ??= new();
+                    if (!_doc._lookupIds.TryGetValue(element, out var ids)) _doc._lookupIds.Add(element, ids = new());
+                    ids.Add(value);
                 }
             }
 

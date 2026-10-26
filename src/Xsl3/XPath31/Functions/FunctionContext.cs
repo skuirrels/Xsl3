@@ -12,16 +12,25 @@ namespace Xsl3.XPath31.Functions
     /// </summary>
     internal sealed class FunctionContext
     {
-        private XsDateTime? _now;
+        private System.Lazy<XsDateTime> _clock;
         private readonly System.Func<XPathNavigator, XPathNavigator, int> _comparePosition;
 
         public FunctionContext(int implicitTimezoneMinutes, System.Func<XPathNavigator, XPathNavigator, int> comparePosition)
+            : this(new ImplicitTimezone(implicitTimezoneMinutes), comparePosition) { }
+
+        internal FunctionContext(ImplicitTimezone timezone, System.Func<XPathNavigator, XPathNavigator, int> comparePosition)
+            : this(timezone, comparePosition, null) { }
+
+        private FunctionContext(ImplicitTimezone timezone, System.Func<XPathNavigator, XPathNavigator, int> comparePosition,
+            System.Lazy<XsDateTime>? clock)
         {
-            ImplicitTimezoneMinutes = implicitTimezoneMinutes;
+            Timezone = timezone;
             _comparePosition = comparePosition;
+            _clock = clock ?? new System.Lazy<XsDateTime>(Now);
         }
 
-        public int ImplicitTimezoneMinutes { get; }
+        internal ImplicitTimezone Timezone { get; }
+        public int ImplicitTimezoneMinutes => Timezone.Minutes;
 
         public Collation DefaultCollation { get; init; } = Collation.Codepoint;
 
@@ -35,9 +44,8 @@ namespace Xsl3.XPath31.Functions
         public DecimalFormatTable DecimalFormats { get; init; } = DecimalFormatTable.Empty;
 
         /// <summary>This dynamic context with the static parts of one expression's context.</summary>
-        public FunctionContext WithStatic(StaticInfo info) => new(ImplicitTimezoneMinutes, _comparePosition)
+        public FunctionContext WithStatic(StaticInfo info) => new(Timezone, _comparePosition, _clock)
         {
-            _now = CurrentDateTime,
             DefaultCollation = Collation.Resolve(info.DefaultCollation),
             Runtime = Runtime,
             StaticBaseUri = info.BaseUri,
@@ -45,20 +53,35 @@ namespace Xsl3.XPath31.Functions
         };
 
         /// <summary>This context with another default collation (for functions given an explicit collation).</summary>
-        public FunctionContext WithDefaultCollation(Collation collation) => new(ImplicitTimezoneMinutes, _comparePosition)
+        public FunctionContext WithDefaultCollation(Collation collation) => new(Timezone, _comparePosition, _clock)
         {
-            _now = CurrentDateTime,
             DefaultCollation = collation,
             Runtime = Runtime,
             StaticBaseUri = StaticBaseUri,
             DecimalFormats = DecimalFormats,
         };
 
+        /// <summary>A captured built-in function's static context in an isolated fork runtime.</summary>
+        internal FunctionContext WithRuntime(Xsl3.Runtime.XmlQueryRuntime runtime) =>
+            new(Timezone, (a, b) => runtime.ComparePosition(a, b), _clock)
+            {
+                DefaultCollation = DefaultCollation,
+                Runtime = runtime,
+                StaticBaseUri = StaticBaseUri,
+                DecimalFormats = DecimalFormats,
+            };
+
         /// <summary>A current dateTime fixed by the caller (an expression evaluated in a host's execution scope).</summary>
-        public XsDateTime? FixedCurrentDateTime { init => _now = value; }
+        public XsDateTime? FixedCurrentDateTime
+        {
+            init
+            {
+                if (value is XsDateTime fixedTime) _clock = new System.Lazy<XsDateTime>(() => fixedTime);
+            }
+        }
 
         /// <summary>fn:current-dateTime(): fixed for the whole evaluation, in the implicit timezone.</summary>
-        public XsDateTime CurrentDateTime => _now ??= Now();
+        public XsDateTime CurrentDateTime => _clock.Value;
 
         private XsDateTime Now()
         {

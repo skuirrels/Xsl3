@@ -37,6 +37,15 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/Xsl3.Tests -c Release --no-build --logger trx --results-directory artifacts/test-results
 
+      # Functional probe checks only. The approved absolute RSS gates remain separate and unmet.
+      - name: Streaming process probe smoke
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -m unittest discover -s eng/tests -p 'test_streaming_*.py'
+          python3 eng/streaming-gate.py --assembly tests/Xsl3.Tests/bin/Release/net10.0/Xsl3.Tests.dll --bytes 2097152 --baseline-bytes 65536 --limit 0 --output artifacts/test-results/streaming-probe-smoke
+
       # The XSLT 1.0 regression gate (SPEC §20): upstream's XslCompiledTransform tests, 100% on both TFMs.
       # PlatformSpecific tests for other platforms and conditional ActiveIssues carry category=failing.
       - name: Upstream tests
@@ -57,6 +66,20 @@ jobs:
           eng/fetch-w3c.sh
           eng/fetch-bench.sh
           dotnet test tests/Xsl3.W3C -c Release --no-build --logger trx --results-directory artifacts/test-results
+
+      # P7 S1: the analysis-only sets are not listed in the suite's main catalogue. These run through
+      # the XPath AST hook and a separate baseline; they do not claim streamed execution.
+      - name: Posture and sweep analysis
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: sandp
+        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability
+
+      - name: Streaming development baseline (UNSTREAMED)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: strm
+        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-unstreamed
 
       # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is
       # generated: in the job summary and the test-results artifact.
@@ -92,6 +115,39 @@ jobs:
 
       - name: Run it
         run: artifacts/aot/Xsl3.AotSample
+
+      # Saved versions of all real process workloads. This smoke proves the native
+      # artifact and its public legacy result-delivery path; limit 0 is not a budget pass.
+      - name: Publish the NativeAOT streaming probe
+        run: |
+          set -o pipefail
+          eng/publish-stream-probe.sh linux-x64 artifacts/streaming-probe 2>&1 | tee artifacts/streaming-probe-publish.log
+
+      # PublishAot also disables the dynamic-code feature switch in this managed
+      # intermediate. It must still be rejected as a CoreCLR-hosted process.
+      - name: Reject the JIT-hosted streaming probe
+        run: |
+          set +e
+          dotnet tests/Xsl3.StreamingProbe.Native/bin/Release/net10.0/linux-x64/Xsl3.StreamingProbe.Native.dll stream-probe identity stream 1024 0 > artifacts/streaming-probe-jit-guard.stdout 2> artifacts/streaming-probe-jit-guard.stderr
+          probe_status=$?
+          set -e
+          test "$probe_status" -eq 1
+          grep -Fq "must be published with NativeAOT" artifacts/streaming-probe-jit-guard.stderr
+
+      - name: NativeAOT streaming probe smoke
+        run: python3 eng/streaming-gate.py --native artifacts/streaming-probe/bin/Xsl3.StreamingProbe.Native --bytes 2097152 --baseline-bytes 65536 --limit 0 --output artifacts/streaming-probe-smoke
+
+      # Full P7 RSS/throughput acceptance is tracked in streaming-development.yml.
+      # P7A ships foundations with streaming unsupported (docs/plan/p7a-closeout.md).
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-streaming-probe
+          path: |
+            artifacts/streaming-probe-publish.log
+            artifacts/streaming-probe-jit-guard.*
+            artifacts/streaming-probe-smoke
 
   # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
   # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric

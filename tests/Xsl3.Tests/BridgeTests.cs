@@ -33,6 +33,16 @@ public class BridgeTests
     }
 
     [Fact]
+    public void ReaderResolverBridgePreservesExplicitPolicy()
+    {
+        var resolver = new XmlUrlResolver();
+        var settings = new XmlReaderSettings { XmlResolver = resolver };
+        Assert.Same(resolver, XmlReaderSettingsInternals.GetEffectiveResolver(settings));
+        settings.XmlResolver = null;
+        Assert.Null(XmlReaderSettingsInternals.GetEffectiveResolver(settings));
+    }
+
+    [Fact]
     public void XmlWriterSettingsInternalsRoundTrip()
     {
         var settings = new XmlWriterSettings();

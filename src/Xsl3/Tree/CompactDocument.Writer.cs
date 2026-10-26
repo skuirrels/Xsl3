@@ -76,6 +76,22 @@ namespace Xsl3.Tree
 
         internal void SetDocumentBaseUri(string baseUri) => _builder.SetDocumentBaseUri(baseUri);
 
+            // Principal result-document delivery may write a complete validated node directly.
+            // XmlWriter.WriteNode alone would retain its text and lose its type/ID annotations.
+            internal void WriteAnnotatedNode(XPathNavigator node)
+            {
+                XPathNavigator copy = node.Clone();
+                if (copy.NodeType == XPathNodeType.Root)
+                {
+                    if (!copy.MoveToFirstChild()) return;
+                    do { Schema.NodeValidator.CopyChild(_builder, copy, copyNamespaces: true, keepTypes: true); }
+                    while (copy.MoveToNext());
+                }
+                else if (copy.NodeType == XPathNodeType.Element)
+                    Schema.NodeValidator.CopyElement(_builder, copy, copyNamespaces: true, top: true, keepTypes: true);
+                else Schema.NodeValidator.CopyChild(_builder, copy, copyNamespaces: true, keepTypes: true);
+            }
+
             public override void WriteEndElement() => _builder.EndElement(emptyTag: true);
 
             public override void WriteFullEndElement() => _builder.EndElement(emptyTag: false);

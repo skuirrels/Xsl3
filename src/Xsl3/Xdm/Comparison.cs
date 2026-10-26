@@ -20,7 +20,7 @@ namespace Xsl3.Xdm
         /// Evaluates <c>a op b</c>. xs:untypedAtomic operands compare as xs:string. Throws XPTY0004 when the
         /// types can't be compared with this operator.
         /// </summary>
-        public static bool Compare(AtomicValue a, AtomicValue b, ValueComparisonOp op, int implicitTimezoneMinutes, IComparer<string>? collation = null)
+        public static bool Compare(AtomicValue a, AtomicValue b, ValueComparisonOp op, ImplicitTimezone implicitTimezoneMinutes, IComparer<string>? collation = null)
         {
             bool ordering = op is not (ValueComparisonOp.Eq or ValueComparisonOp.Ne);
             int? c = CompareCore(a, b, ordering, implicitTimezoneMinutes, collation ?? CodepointCollation);
@@ -40,7 +40,7 @@ namespace Xsl3.Xdm
         }
 
         /// <summary>Returns the sign of a - b, or null when the values are unordered (NaN).</summary>
-        private static int? CompareCore(AtomicValue a, AtomicValue b, bool ordering, int implicitTz, IComparer<string> collation)
+        private static int? CompareCore(AtomicValue a, AtomicValue b, bool ordering, ImplicitTimezone implicitTz, IComparer<string> collation)
         {
             Primitive pa = Normalize(a.Type.Primitive), pb = Normalize(b.Type.Primitive);
 

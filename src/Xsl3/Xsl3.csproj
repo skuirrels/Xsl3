@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <Xsl3MinimumTargetFramework>net8.0</Xsl3MinimumTargetFramework>
+    <TargetFrameworks>net10.0;$(Xsl3MinimumTargetFramework)</TargetFrameworks>
     <RootNamespace>Xsl3</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -36,6 +37,11 @@
     <!-- (CompileToAssembly needs .NET 9's PersistedAssemblyBuilder: .NET 10 only.) -->
     <AdditionalFiles Include="PublicAPI\net10.0\PublicAPI.Shipped.txt" Condition="'$(TargetFramework)' == 'net10.0'" />
     <AdditionalFiles Include="PublicAPI\net10.0\PublicAPI.Unshipped.txt" Condition="'$(TargetFramework)' == 'net10.0'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Saved IL uses the BCL contract shared by every target this library supports. -->
+    <AssemblyMetadata Include="Xsl3.MinimumSavedRuntimeVersion" Value="$([MSBuild]::GetTargetFrameworkVersion('$(Xsl3MinimumTargetFramework)')).0.0" />
   </ItemGroup>
 
   <ItemGroup>

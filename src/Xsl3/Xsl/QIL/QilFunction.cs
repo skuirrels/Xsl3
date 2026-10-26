@@ -24,6 +24,18 @@ namespace Xsl3.Qil
     {
         private QilNode _arguments, _definition, _sideEffects;
 
+        // A compiler-created iterator function returns one item per invocation. Its final explicit
+        // argument carries the continuation; ordinary functions retain their existing calling convention.
+        internal int PullArgument { get; set; } = -1;
+
+        // Output workers write through the runtime's current output and return an empty
+        // sequence. Debugger writer conversion would capture and discard that output.
+        internal bool IsOutputWorker { get; set; }
+
+        // Xsl3: A template or mode dispatcher whose mixed sequence may need a pull companion.
+        internal bool IsTemplateResult { get; set; }
+
+
         //-----------------------------------------------
         // Constructor
         //-----------------------------------------------

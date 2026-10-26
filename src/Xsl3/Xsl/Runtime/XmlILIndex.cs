@@ -15,6 +15,8 @@ namespace Xsl3.Runtime
     public sealed class XmlILIndex
     {
         private readonly Dictionary<string, XmlQueryNodeSequence> _table;
+        private bool _shared;
+        internal void Share() => _shared = true;
 
         /// <summary>
         /// This constructor is internal so that external users cannot construct it (and therefore we do not have to test it separately).
@@ -29,6 +31,7 @@ namespace Xsl3.Runtime
         /// </summary>
         public void Add(string key, XPathNavigator navigator)
         {
+            if (_shared) throw new System.InvalidOperationException("An index cannot be changed after it is shared");
             // Xsl3 (P4): one probe of the table for both the lookup and the insertion
             ref XmlQueryNodeSequence? seq = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(_table, key, out bool exists);
 
@@ -60,8 +63,9 @@ namespace Xsl3.Runtime
 
             if (!_table.TryGetValue(key, out seq))
                 seq = new XmlQueryNodeSequence();
-
-            return seq;
+            // Each prong owns sequence reuse/sorting state and navigator positions. The index
+            // itself is immutable once published to workers.
+            return _shared ? new XmlQueryNodeSequence(seq) { IsDocOrderDistinct = true } : seq;
         }
     }
 }

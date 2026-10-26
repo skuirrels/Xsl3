@@ -20,16 +20,16 @@ namespace Xsl3.XPath31
     /// </summary>
     internal static class ConstantSerializer
     {
-        // Xsl3 (P6): a schema-aware stylesheet's constants refer to its imported schemas, which aren't saved.
+        // Older constant formats have no table-scoped schema references.
         private static void NoSchema(bool usesSchemas)
         {
             if (usesSchemas)
             {
-                throw new System.NotSupportedException("A schema-aware stylesheet can't be saved: its imported schemas aren't saved with it");
+                throw new System.NotSupportedException("Saving schema-dependent type or expression metadata is not supported yet");
             }
         }
 
-        private const int FormatVersion = 1;
+        private const int FormatVersion = 6;
 
         private enum Kind : byte
         {
@@ -50,30 +50,37 @@ namespace Xsl3.XPath31
             Accumulators,
             Sequence,
             Frame,
+            EmptySchemaSet,
+            SchemaSet,
+            SchemaSetReference,
         }
 
         public static void Write(XmlQueryDataWriter w, ConstantTable table)
         {
-            w.Write(FormatVersion);
+            SchemaConstantContext context = SchemaConstantContext.Collect(table);
+            int version = context.NodeAnnotations ? FormatVersion : context.Required ? 5 : 3;
+            if (!context.Required)
+                for (int i = 0; i < table.Count; i++)
+                    if (table.Get(i) is System.Xml.Schema.XmlSchemaSet { Count: > 0 }) version = 4;
+            w.Write(version);
             w.Write(table.Count);
-            for (int i = 0; i < table.Count; i++)
-            {
-                WriteValue(w, table.Get(i));
-            }
+            if (context.Required) context.Write(w);
+            using var scoped = context.Required ? new SchemaConstantWriter(w, context) : null;
+            BinaryWriter values = scoped == null ? w : scoped;
+            for (int i = 0; i < table.Count; i++) WriteValue(values, table.Get(i));
         }
 
         public static ConstantTable Read(XmlQueryDataReader r)
         {
-            if (r.ReadInt32() != FormatVersion)
-            {
+            int version = r.ReadInt32();
+            if (version < 1 || version > FormatVersion)
                 throw new System.NotSupportedException("The compiled stylesheet's constants were saved in a format this version of Xsl3 doesn't read");
-            }
-            var table = new ConstantTable();
             int count = r.ReadInt32();
-            for (int i = 0; i < count; i++)
-            {
-                table.Add(ReadValue(r)!);
-            }
+            SchemaConstantContext? context = version >= 5 ? SchemaConstantContext.Read(r) : null;
+            using var scoped = context == null ? null : new SchemaConstantReader(r, context, version);
+            BinaryReader values = scoped == null ? r : scoped;
+            var table = new ConstantTable { SchemaContext = context?.Primary };
+            for (int i = 0; i < count; i++) table.Add(ReadValue(values, version)!);
             return table;
         }
 
@@ -88,7 +95,7 @@ namespace Xsl3.XPath31
                     break;
                 case QNameValue q:
                     w.Write((byte)Kind.QName);
-                    WriteName(w, q.Type.Name);
+                    WriteAtomicType(w, q.Type);
                     WriteName(w, q.QName);
                     break;
                 case AtomicValue a:
@@ -103,18 +110,19 @@ namespace Xsl3.XPath31
                     WriteResolver(w, s.Namespaces);
                     break;
                 case CastTarget c:
-                    NoSchema(c.Kind == CastKind.Schema || c.Type.IsUserDefined);
+                    if (w is not SchemaConstantWriter) NoSchema(c.Kind == CastKind.Schema || c.Type.IsUserDefined);
                     w.Write((byte)Kind.CastTarget);
-                    WriteName(w, c.Type.Name);
+                    WriteAtomicType(w, c.Type);
                     WriteResolver(w, c.Namespaces);
                     w.Write((byte)c.Kind);
+                    if (w is SchemaConstantWriter castWriter) castWriter.Context.WriteType(w, c.Schema);
                     break;
                 case SequenceTypeTest t:
                     w.Write((byte)Kind.SequenceType);
                     WriteSequenceType(w, t);
                     break;
                 case XsltNameContext n:
-                    NoSchema(n.Schemas != null);
+                    if (w is not SchemaConstantWriter) NoSchema(n.Schemas != null);
                     w.Write((byte)Kind.NameContext);
                     WriteStringMap(w, n.Namespaces);
                     w.Write(n.StylesheetFunctions.Count);
@@ -125,6 +133,10 @@ namespace Xsl3.XPath31
                         w.Write(arity);
                     }
                     w.Write(n.EvaluateEnabled);
+                    if (w is SchemaConstantWriter namesWriter)
+                    {
+                        w.Write(n.SchemaAware); w.Write(n.Static); namesWriter.Context.WriteSet(w, n.Schemas);
+                    }
                     break;
                 case FunctionSignature f:
                     w.Write((byte)Kind.FunctionSignature);
@@ -176,9 +188,6 @@ namespace Xsl3.XPath31
                         WriteNullable(w, s);
                     }
                     break;
-                case EvaluateContext e when e.Schemas != null:
-                    NoSchema(true);
-                    break;
                 case EvaluateContext e:
                     w.Write((byte)Kind.EvaluateContext);
                     WriteStringMap(w, e.Namespaces);
@@ -192,6 +201,8 @@ namespace Xsl3.XPath31
                         WriteName(w, name);
                         WriteDecimalFormat(w, format);
                     }
+                    if (w is SchemaConstantWriter evaluateWriter) evaluateWriter.Context.WriteSet(w, e.Schemas);
+                    else NoSchema(e.Schemas != null);
                     break;
                 case Dictionary<string, AccumulatorInfo> accumulators:
                     w.Write((byte)Kind.Accumulators);
@@ -208,6 +219,7 @@ namespace Xsl3.XPath31
                             WriteSequenceType(w, info.Type);
                         }
                         w.Write(info.OnPrincipal);
+                        w.Write(info.Streamable);
                     }
                     break;
                 case IList<XPathItem> items:
@@ -228,26 +240,50 @@ namespace Xsl3.XPath31
                     w.Write(frame.LineNumber);
                     w.Write(frame.ColumnNumber);
                     break;
+                case System.Xml.Schema.XmlSchemaSet schemas:
+                    if (w is SchemaConstantWriter schemaWriter)
+                    {
+                        w.Write((byte)Kind.SchemaSetReference); schemaWriter.Context.WriteSet(w, schemas);
+                    }
+                    else if (schemas.Count == 0) w.Write((byte)Kind.EmptySchemaSet);
+                    else
+                    {
+                        w.Write((byte)Kind.SchemaSet);
+                        Xsl3.Schema.SchemaSetSerializer.Write(w, schemas);
+                    }
+                    break;
                 default:
                     throw new System.NotSupportedException($"A compiled stylesheet can't be saved with a constant of type {value.GetType().Name}");
             }
         }
 
-        private static object? ReadValue(BinaryReader r)
+        private static object? ReadValue(BinaryReader r, int version = FormatVersion)
         {
             var kind = (Kind)r.ReadByte();
             switch (kind)
             {
                 case Kind.Null:
                     return null;
+                case Kind.EmptySchemaSet:
+                    return new System.Xml.Schema.XmlSchemaSet { XmlResolver = null };
+                case Kind.SchemaSet when version >= 4:
+                    return Xsl3.Schema.SchemaSetSerializer.Read(r);
+                case Kind.SchemaSetReference when r is SchemaConstantReader schemaReader:
+                    return schemaReader.Context.ReadSet(r) ?? throw new InvalidDataException("Missing saved schema set");
                 case Kind.QName:
-                    return new QNameValue(Type(ReadName(r)), ReadName(r));
+                    return new QNameValue(ReadAtomicType(r), ReadName(r));
                 case Kind.Atomic:
                     return ReadAtomic(r);
                 case Kind.StaticInfo:
                     return new StaticInfo(ReadNullable(r), r.ReadString(), ReadDecimalFormats(r)) { Namespaces = ReadResolver(r) };
                 case Kind.CastTarget:
-                    return new CastTarget(Type(ReadName(r)), ReadResolver(r), (CastKind)r.ReadByte());
+                {
+                    AtomicType type = ReadAtomicType(r);
+                    var namespaces = ReadResolver(r);
+                    var castKind = (CastKind)r.ReadByte();
+                    return new CastTarget(type, namespaces, castKind)
+                    { Schema = r is SchemaConstantReader castReader ? (System.Xml.Schema.XmlSchemaSimpleType?)castReader.Context.ReadType(r) : null };
+                }
                 case Kind.SequenceType:
                     return ReadSequenceType(r);
                 case Kind.NameContext:
@@ -258,7 +294,10 @@ namespace Xsl3.XPath31
                     {
                         functions.Add((r.ReadString(), r.ReadString(), r.ReadInt32()));
                     }
-                    return new XsltNameContext(namespaces, functions) { EvaluateEnabled = r.ReadBoolean() };
+                    bool evaluate = r.ReadBoolean();
+                    if (r is SchemaConstantReader namesReader)
+                        return new XsltNameContext(namespaces, functions) { EvaluateEnabled = evaluate, SchemaAware = r.ReadBoolean(), Static = r.ReadBoolean(), Schemas = namesReader.Context.ReadSet(r) };
+                    return new XsltNameContext(namespaces, functions) { EvaluateEnabled = evaluate };
                 }
                 case Kind.FunctionSignature:
                 {
@@ -333,7 +372,8 @@ namespace Xsl3.XPath31
                     {
                         named[ReadName(r)] = ReadDecimalFormat(r);
                     }
-                    return new EvaluateContext(namespaces, defaultElement, baseUri, collation, unnamed, named);
+                    return new EvaluateContext(namespaces, defaultElement, baseUri, collation, unnamed, named)
+                    { Schemas = r is SchemaConstantReader evaluateReader ? evaluateReader.Context.ReadSet(r) : null };
                 }
                 case Kind.Accumulators:
                 {
@@ -348,7 +388,8 @@ namespace Xsl3.XPath31
                             phases[j] = r.ReadBoolean();
                         }
                         SequenceTypeTest? type = r.ReadBoolean() ? ReadSequenceType(r) : null;
-                        accumulators[name] = new AccumulatorInfo(offset, phases, type, r.ReadBoolean());
+                        bool principal = r.ReadBoolean();
+                        accumulators[name] = new AccumulatorInfo(offset, phases, type, principal, version >= 2 && r.ReadBoolean());
                     }
                     return accumulators;
                 }
@@ -378,8 +419,13 @@ namespace Xsl3.XPath31
                     w.Write((byte)0);
                     WriteValue(w, item);
                     break;
+                case XPathNavigator node when w is SchemaConstantWriter schemaWriter && schemaWriter.Context.NodeAnnotations:
+                    w.Write((byte)6);
+                    WriteSharedNode(schemaWriter, node);
+                    break;
                 case XPathNavigator { NodeType: XPathNodeType.Root } document:
                     // A document is saved as its markup, and parsed again into a compact tree.
+                    NoSchemaAnnotations(document);
                     w.Write((byte)1);
                     WriteNullable(w, document.BaseURI);
                     w.Write(document.InnerXml);
@@ -450,6 +496,8 @@ namespace Xsl3.XPath31
                 }
                 case 2:
                     return ReadNode(r);
+                case 6 when r is SchemaConstantReader { Version: >= 6 } schemaReader:
+                    return ReadSharedNode(schemaReader);
                 case 3:
                 {
                     var entries = new List<KeyValuePair<AtomicValue, IList<XPathItem>>>();
@@ -473,30 +521,61 @@ namespace Xsl3.XPath31
                     QName name = ReadName(r);
                     int arity = r.ReadInt32();
                     return new LibraryFunction(FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity)!, arity,
-                        new FunctionContext(FunctionContext.LocalTimezoneMinutes, (a, b) => a.ComparePosition(b) switch
+                        new FunctionContext(ImplicitTimezone.Local(), (a, b) => a.ComparePosition(b) switch
                         {
                             XmlNodeOrder.Before => -1,
                             XmlNodeOrder.After => 1,
                             _ => 0,
                         }));
                 }
-                default:
+                case 0:
                     return (XPathItem)ReadValue(r)!;
+                default:
+                    throw new InvalidDataException("Unknown saved item record");
+            }
+        }
+
+        // The untyped tree record cannot silently discard annotations from a typed static parameter.
+        private static void NoSchemaAnnotations(XPathNavigator node)
+        {
+            XPathNavigator root = node.Clone();
+            root.MoveToRoot();
+            NoSchema(root.SchemaInfo?.SchemaType != null);
+            XPathNodeIterator elements = root.SelectDescendants(XPathNodeType.Element, matchSelf: true);
+            while (elements.MoveNext())
+            {
+                XPathNavigator element = elements.Current!;
+                NoSchema(element.SchemaInfo?.SchemaType != null);
+                XPathNavigator attribute = element.Clone();
+                if (attribute.MoveToFirstAttribute())
+                    do { NoSchema(attribute.SchemaInfo?.SchemaType != null); } while (attribute.MoveToNextAttribute());
             }
         }
 
         // A node's tree: element, attribute, namespace, text, comment and PI records, from the root down.
         private const byte TreeElement = 1, TreeEnd = 2, TreeAttribute = 3, TreeNamespace = 4, TreeText = 5, TreeComment = 6, TreePI = 7, TreeDone = 0;
 
-        private static void WriteNode(BinaryWriter w, XPathNavigator node)
+        private static void WriteNode(BinaryWriter w, XPathNavigator node, bool annotations = false)
         {
+            if (!annotations) NoSchemaAnnotations(node);
             XPathNavigator root = node.Clone();
             root.MoveToRoot();
             w.Write(root.NodeType == XPathNodeType.Root);
             WriteNullable(w, root.BaseURI);
-            WriteTree(w, root);
+            if (annotations)
+            {
+                byte flags = root is Tree.CompactNavigator native
+                    ? (byte)((native.Document._constructed ? 1 : 0) | (native.Document.NoDocumentUri ? 2 : 0) | (native.Document._writerBuilt ? 4 : 0))
+                    : (byte)(root is MS.Internal.Xml.Cache.XPathDocumentNavigator { OwnerDocument.NoDocumentUri: true } ? 2 : 0);
+                w.Write(flags);
+            }
+            WriteTree(w, root, annotations);
             w.Write(TreeDone);
+            WriteNodePath(w, node);
+        }
 
+        private static void WriteNodePath(BinaryWriter w, XPathNavigator node)
+        {
             // The way from the root to the node: child positions, attribute positions, namespace prefixes.
             var steps = new List<(byte, int, string)>();
             XPathNavigator at = node.Clone();
@@ -545,12 +624,12 @@ namespace Xsl3.XPath31
             return index;
         }
 
-        private static void WriteTree(BinaryWriter w, XPathNavigator node)
+        private static void WriteTree(BinaryWriter w, XPathNavigator node, bool annotations = false)
         {
             switch (node.NodeType)
             {
                 case XPathNodeType.Root:
-                    WriteChildren(w, node);
+                    WriteChildren(w, node, annotations);
                     break;
                 case XPathNodeType.Element:
                     w.Write(TreeElement);
@@ -558,11 +637,19 @@ namespace Xsl3.XPath31
                     w.Write(node.LocalName);
                     w.Write(node.NamespaceURI);
                     w.Write(node.BaseURI);
+                    if (annotations)
+                    {
+                        ((SchemaConstantWriter)w).Context.WriteType(w, node.SchemaInfo?.SchemaType);
+                        w.Write(node.SchemaInfo?.IsNil == true);
+                        var ids = (node as Tree.CompactNavigator)?.LookupIds;
+                        w.Write(ids?.Count ?? 0);
+                        if (ids != null) foreach (string id in ids) w.Write(id);
+                    }
                     if (node.MoveToFirstNamespace(XPathNamespaceScope.Local))
                     {
                         do
                         {
-                            WriteTree(w, node);
+                            WriteTree(w, node, annotations);
                         }
                         while (node.MoveToNextNamespace(XPathNamespaceScope.Local));
                         node.MoveToParent();
@@ -571,12 +658,12 @@ namespace Xsl3.XPath31
                     {
                         do
                         {
-                            WriteTree(w, node);
+                            WriteTree(w, node, annotations);
                         }
                         while (node.MoveToNextAttribute());
                         node.MoveToParent();
                     }
-                    WriteChildren(w, node);
+                    WriteChildren(w, node, annotations);
                     w.Write(TreeEnd);
                     break;
                 case XPathNodeType.Attribute:
@@ -585,6 +672,12 @@ namespace Xsl3.XPath31
                     w.Write(node.LocalName);
                     w.Write(node.NamespaceURI);
                     w.Write(node.Value);
+                    if (annotations)
+                    {
+                        ((SchemaConstantWriter)w).Context.WriteType(w, node.SchemaInfo?.SchemaType);
+                        w.Write(node is Tree.CompactNavigator { IsIdAttribute: true });
+                        w.Write(node is Tree.CompactNavigator { IsIdrefAttribute: true });
+                    }
                     break;
                 case XPathNodeType.Namespace:
                     w.Write(TreeNamespace);
@@ -604,27 +697,35 @@ namespace Xsl3.XPath31
                     w.Write(TreeText);
                     w.Write((byte)node.NodeType);
                     w.Write(node.Value);
+                    if (annotations)
+                    {
+                        var raw = (node as Tree.CompactNavigator)?.RawText;
+                        w.Write(raw?.Count ?? 0);
+                        if (raw != null) foreach (var part in raw) { w.Write(part.Start); w.Write(part.Length); }
+                    }
                     break;
             }
         }
 
-        private static void WriteChildren(BinaryWriter w, XPathNavigator node)
+        private static void WriteChildren(BinaryWriter w, XPathNavigator node, bool annotations = false)
         {
             if (node.MoveToFirstChild())
             {
                 do
                 {
-                    WriteTree(w, node);
+                    WriteTree(w, node, annotations);
                 }
                 while (node.MoveToNext());
                 node.MoveToParent();
             }
         }
 
-        private static XPathNavigator ReadNode(BinaryReader r)
+        private static XPathNavigator ReadNode(BinaryReader r, bool annotations = false)
         {
             bool document = r.ReadBoolean();
             string baseUri = ReadNullable(r) ?? "";
+            byte flags = annotations ? r.ReadByte() : (byte)0;
+            if ((flags & ~7) != 0) throw new InvalidDataException("Invalid saved node flags");
             var builder = new Tree.CompactDocument.Builder(new NameTable(), baseUri, fragment: !document, small: true);
             for (byte record = r.ReadByte(); record != TreeDone; record = r.ReadByte())
             {
@@ -632,13 +733,34 @@ namespace Xsl3.XPath31
                 {
                     case TreeElement:
                         builder.StartElement(r.ReadString(), r.ReadString(), r.ReadString(), r.ReadString());
+                        if (annotations)
+                        {
+                            var type = ((SchemaConstantReader)r).Context.ReadType(r); bool nilled = r.ReadBoolean();
+                            if (type != null) builder.AnnotateElement(type, nilled);
+                            else if (nilled) throw new InvalidDataException("A nilled saved node must have a schema type");
+                            int count = r.ReadInt32();
+                            if (count < 0) throw new InvalidDataException("Invalid saved ID lookup count");
+                            var ids = new string[count]; for (int i = 0; i < count; i++) ids[i] = r.ReadString();
+                            if (count != 0) builder.PreserveIdLookup(ids);
+                        }
                         break;
                     case TreeEnd:
                         builder.EndElement(emptyTag: false);
                         break;
                     case TreeAttribute:
-                        builder.Attribute(r.ReadString(), r.ReadString(), r.ReadString(), r.ReadString());
+                    {
+                        string prefix = r.ReadString(), local = r.ReadString(), ns = r.ReadString(), value = r.ReadString();
+                        builder.Attribute(prefix, local, ns, value);
+                        if (annotations)
+                        {
+                            var type = ((SchemaConstantReader)r).Context.ReadType(r);
+                            if (type != null) builder.AnnotateAttribute(type, value);
+                            bool id = r.ReadBoolean(), idref = r.ReadBoolean();
+                            if (id && (type == null || !Xsl3.Schema.SchemaTypes.IsId(type))) builder.MarkAttributeId(value);
+                            if (idref && (type == null || !Xsl3.Schema.SchemaTypes.IsIdref(type))) builder.MarkAttributeIdref();
+                        }
                         break;
+                    }
                     case TreeNamespace:
                         builder.NamespaceDeclaration(r.ReadString(), r.ReadString());
                         break;
@@ -648,45 +770,83 @@ namespace Xsl3.XPath31
                     case TreePI:
                         builder.ProcessingInstruction(r.ReadString(), r.ReadString());
                         break;
-                    default:
+                    case TreeText:
+                    {
                         var type = (XPathNodeType)r.ReadByte();
-                        builder.Text(r.ReadString(), type);
+                        string value = r.ReadString();
+                        int count = annotations ? r.ReadInt32() : 0;
+                        if (count < 0) throw new InvalidDataException("Invalid saved raw text count");
+                        int offset = 0;
+                        for (int i = 0; i < count; i++)
+                        {
+                            int start = r.ReadInt32(), length = r.ReadInt32();
+                            if (start < offset || length < 0 || start > value.Length - length) throw new InvalidDataException("Invalid saved raw text range");
+                            builder.Text(value.Substring(offset, start - offset), type);
+                            builder.Text(value.Substring(start, length), type, raw: true); offset = start + length;
+                        }
+                        builder.Text(value.Substring(offset), type);
                         break;
+                    }
+                    default: throw new InvalidDataException("Unknown saved tree record");
                 }
             }
-            XPathNavigator node = builder.Finish().CreateNavigator();
-            for (int steps = r.ReadInt32(); steps > 0; steps--)
+            var tree = builder.Finish();
+            tree._constructed = (flags & 1) != 0; tree.NoDocumentUri = (flags & 2) != 0; tree._writerBuilt = (flags & 4) != 0;
+            XPathNavigator node = tree.CreateNavigator();
+            ReadNodePath(r, node);
+            return node;
+        }
+
+        private static void ReadNodePath(BinaryReader reader, XPathNavigator node)
+        {
+            int steps = reader.ReadInt32();
+            if (steps < 0) throw new InvalidDataException("Invalid saved node path length");
+            for (int i = 0; i < steps; i++)
             {
-                byte kind = r.ReadByte();
-                int index = r.ReadInt32();
-                string prefix = r.ReadString();
+                byte kind = reader.ReadByte(); int index = reader.ReadInt32(); string prefix = reader.ReadString();
+                if (index < 0) throw new InvalidDataException("Invalid saved node path index");
+                bool moved;
                 switch (kind)
                 {
+                    case 0:
+                        moved = node.MoveToFirstChild();
+                        for (int n = 0; moved && n < index; n++) moved = node.MoveToNext();
+                        break;
                     case 1:
-                        node.MoveToFirstAttribute();
-                        for (; index > 0; index--)
-                        {
-                            node.MoveToNextAttribute();
-                        }
+                        moved = node.MoveToFirstAttribute();
+                        for (int n = 0; moved && n < index; n++) moved = node.MoveToNextAttribute();
                         break;
-                    case 2:
-                        node.MoveToNamespace(prefix);
-                        break;
-                    default:
-                        node.MoveToFirstChild();
-                        for (; index > 0; index--)
-                        {
-                            node.MoveToNext();
-                        }
-                        break;
+                    case 2: moved = index == 0 && node.MoveToNamespace(prefix); break;
+                    default: throw new InvalidDataException("Unknown saved node path step");
                 }
+                if (!moved) throw new InvalidDataException("Saved node path is outside its tree");
             }
-            return node;
+        }
+
+        private static void WriteSharedNode(SchemaConstantWriter writer, XPathNavigator node)
+        {
+            XPathNavigator root = node.Clone(); root.MoveToRoot();
+            int id = writer.NodeRoots.FindIndex(previous => previous.IsSamePosition(root));
+            if (id < 0)
+            {
+                id = writer.NodeRoots.Count; writer.NodeRoots.Add(root.Clone());
+                writer.Write(id); WriteNode(writer, root, annotations: true);
+            }
+            else writer.Write(id);
+            WriteNodePath(writer, node);
+        }
+
+        private static XPathNavigator ReadSharedNode(SchemaConstantReader reader)
+        {
+            int id = reader.ReadInt32();
+            if (id < 0 || id > reader.NodeRoots.Count) throw new InvalidDataException("Invalid saved node-tree reference");
+            if (id == reader.NodeRoots.Count) reader.NodeRoots.Add(ReadNode(reader, annotations: true));
+            XPathNavigator node = reader.NodeRoots[id].Clone(); ReadNodePath(reader, node); return node;
         }
 
         private static void WriteAtomic(BinaryWriter w, AtomicValue a)
         {
-            WriteName(w, a.Type.Name);
+            WriteAtomicType(w, a.Type);
             switch (a)
             {
                 case DoubleValue d:
@@ -710,11 +870,11 @@ namespace Xsl3.XPath31
 
         private static AtomicValue ReadAtomic(BinaryReader r)
         {
-            AtomicType type = Type(ReadName(r));
+            AtomicType type = ReadAtomicType(r);
             return r.ReadByte() switch
             {
-                1 => AtomicValue.OfDouble(r.ReadDouble()),
-                2 => AtomicValue.OfFloat(r.ReadSingle()),
+                1 => WithSavedType(AtomicValue.OfDouble(r.ReadDouble()), type),
+                2 => WithSavedType(AtomicValue.OfFloat(r.ReadSingle()), type),
                 3 => new StringValue(type, r.ReadString()),
                 _ => Casting.Cast(AtomicValue.OfUntyped(r.ReadString()), type),
             };
@@ -747,15 +907,14 @@ namespace Xsl3.XPath31
                     w.Write((byte)TestKind.Any);
                     break;
                 case AtomicTypeTest a:
-                    NoSchema(a.Type.IsUserDefined);
                     w.Write((byte)TestKind.Atomic);
-                    WriteName(w, a.Type.Name);
+                    WriteAtomicType(w, a.Type);
                     break;
                 case NumericTest:
                     w.Write((byte)TestKind.Numeric);
                     break;
                 case NodeKindTest n:
-                    NoSchema(n.Names != null || n.SchemaType != null && !Xsl3.Schema.SchemaTypes.IsBuiltIn(n.SchemaType));
+                    if (w is not SchemaConstantWriter) NoSchema(n.Names != null || n.SchemaType != null && !Xsl3.Schema.SchemaTypes.IsBuiltIn(n.SchemaType));
                     w.Write((byte)TestKind.Node);
                     w.Write(n.Kind is XPathNodeType kind ? (int)kind : -1);
                     WriteNullable(w, n.NamespaceUri);
@@ -764,6 +923,13 @@ namespace Xsl3.XPath31
                     WriteItemTest(w, n.DocumentElement);
                     WriteNullable(w, n.TypeName);
                     w.Write(n.Nillable);
+                    if (w is SchemaConstantWriter nodeWriter)
+                    {
+                        nodeWriter.Context.WriteType(w, n.SchemaType);
+                        w.Write(n.Names?.Count ?? -1);
+                        if (n.Names != null) foreach (var name in n.Names.OrderBy(name => name.Ns, System.StringComparer.Ordinal).ThenBy(name => name.Local, System.StringComparer.Ordinal))
+                        { w.Write(name.Ns); w.Write(name.Local); }
+                    }
                     break;
                 case FunctionItemTest f:
                     w.Write((byte)TestKind.Function);
@@ -783,7 +949,7 @@ namespace Xsl3.XPath31
                     w.Write(m.KeyType != null);
                     if (m.KeyType != null)
                     {
-                        WriteName(w, m.KeyType.Name);
+                        WriteAtomicType(w, m.KeyType);
                     }
                     w.Write(m.ValueType != null);
                     if (m.ValueType != null)
@@ -813,7 +979,7 @@ namespace Xsl3.XPath31
                 case TestKind.Any:
                     return AnyItemTest.Instance;
                 case TestKind.Atomic:
-                    return new AtomicTypeTest(Type(ReadName(r)));
+                    return new AtomicTypeTest(ReadAtomicType(r));
                 case TestKind.Numeric:
                     return NumericTest.Instance;
                 case TestKind.Node:
@@ -823,14 +989,23 @@ namespace Xsl3.XPath31
                     bool anyType = r.ReadBoolean();
                     var documentElement = (NodeKindTest?)ReadItemTest(r);
                     string? typeName = ReadNullable(r);
-                    return new NodeKindTest(kind < 0 ? null : (XPathNodeType)kind, ns, local, anyType, documentElement)
+                    bool nillable = r.ReadBoolean();
+                    System.Xml.Schema.XmlSchemaType? schema = typeName == null ? null : typeName == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
+                        : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(new System.Xml.XmlQualifiedName(typeName, QName.Ns.Xs));
+                    HashSet<(string Ns, string Local)>? names = null;
+                    if (r is SchemaConstantReader nodeReader)
                     {
-                        TypeName = typeName,
-                        Nillable = r.ReadBoolean(),
-                        // (Only a built-in type is saved: P6.)
-                        SchemaType = typeName == null ? null : typeName == "anyType" ? Xsl3.Schema.SchemaTypes.AnyType
-                            : System.Xml.Schema.XmlSchemaType.GetBuiltInSimpleType(new System.Xml.XmlQualifiedName(typeName, QName.Ns.Xs)),
-                    };
+                        schema = nodeReader.Context.ReadType(r);
+                        int length = r.ReadInt32();
+                        if (length < -1) throw new InvalidDataException("Invalid saved schema name set");
+                        if (length >= 0)
+                        {
+                            names = new();
+                            for (int i = 0; i < length; i++) names.Add((r.ReadString(), r.ReadString()));
+                        }
+                    }
+                    return new NodeKindTest(kind < 0 ? null : (XPathNodeType)kind, ns, local, anyType, documentElement)
+                    { TypeName = typeName, Nillable = nillable, SchemaType = schema, Names = names };
                 }
                 case TestKind.Function:
                 {
@@ -845,7 +1020,7 @@ namespace Xsl3.XPath31
                 }
                 case TestKind.Map:
                 {
-                    AtomicType? key = r.ReadBoolean() ? Type(ReadName(r)) : null;
+                    AtomicType? key = r.ReadBoolean() ? ReadAtomicType(r) : null;
                     SequenceTypeTest? value = r.ReadBoolean() ? ReadSequenceType(r) : null;
                     return key == null && value == null ? MapTest.Any : new MapTest(key, value);
                 }
@@ -863,13 +1038,13 @@ namespace Xsl3.XPath31
 
         private static void WriteResultFormat(BinaryWriter w, ResultFormat format)
         {
-            format.Settings.GetObjectData((XmlQueryDataWriter)w);
+            format.Settings.GetObjectData(w is SchemaConstantWriter scoped ? scoped.Original : (XmlQueryDataWriter)w);
             WriteOutputExtras(w, format.Extras);
             w.Write(format.Text);
         }
 
         private static ResultFormat ReadResultFormat(BinaryReader r) =>
-            new(XmlWriterSettingsInternals.Create((XmlQueryDataReader)r), ReadOutputExtras(r), r.ReadBoolean());
+            new(XmlWriterSettingsInternals.Create(r is SchemaConstantReader scoped ? scoped.Original : (XmlQueryDataReader)r), ReadOutputExtras(r), r.ReadBoolean());
 
         internal static void WriteOutputExtras(BinaryWriter w, OutputExtras? extras)
         {
@@ -1073,6 +1248,27 @@ namespace Xsl3.XPath31
         }
 
         private static string? ReadNullable(BinaryReader r) => r.ReadBoolean() ? r.ReadString() : null;
+
+        private static AtomicValue WithSavedType(AtomicValue value, AtomicType type) => ReferenceEquals(value.Type, type) ? value : value.WithType(type);
+
+        private static void WriteAtomicType(BinaryWriter writer, AtomicType type)
+        {
+            if (writer is not SchemaConstantWriter) NoSchema(type.IsUserDefined);
+            WriteName(writer, type.Name);
+            if (writer is SchemaConstantWriter scoped) scoped.Context.WriteType(writer, type.UserSchemaType);
+        }
+
+        private static AtomicType ReadAtomicType(BinaryReader reader)
+        {
+            QName name = ReadName(reader);
+            if (reader is SchemaConstantReader scoped && scoped.Context.ReadType(reader) is { } schema)
+            {
+                AtomicType type = Xsl3.Schema.SchemaTypes.AtomicTypeOf(schema) ?? throw new InvalidDataException("A saved atomic type is not atomic");
+                if (!type.Name.Equals(name)) throw new InvalidDataException("Saved atomic type name does not match its schema");
+                return type;
+            }
+            return Type(name);
+        }
 
         private static AtomicType Type(QName name) =>
             AtomicTypes.Find(name.NamespaceUri, name.LocalName) ?? throw new System.NotSupportedException($"Unknown atomic type {name.EQName} in a compiled stylesheet");

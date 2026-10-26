@@ -71,12 +71,7 @@ namespace Xsl3.Runtime
             name = name.Trim();
             if (name.StartsWith("Q{", System.StringComparison.Ordinal) && name.IndexOf('}') is int close and > 0)
             {
-                string local = name[(close + 1)..];
-                if (!Casting.IsNCName(local))
-                {
-                    throw new XdmException(code, $"'{name}' is not a valid EQName");
-                }
-                return (name[2..close], local);
+                return ResolveExpandedName(name, code);
             }
             int colon = name.IndexOf(':');
             if (colon < 0)
@@ -89,6 +84,14 @@ namespace Xsl3.Runtime
                 throw new XdmException(code, $"'{name}' is not a valid QName");
             }
             return Namespaces.TryGetValue(prefix, out string? ns) ? (ns, rest) : throw new XdmException(code, $"The prefix of '{name}' is not declared");
+        }
+
+        internal static (string Ns, string Local) ResolveExpandedName(string name, string code)
+        {
+            int close = name.IndexOf('}');
+            if (!name.StartsWith("Q{", System.StringComparison.Ordinal) || close < 2 || !Casting.IsNCName(name[(close + 1)..]))
+                throw new XdmException(code, $"'{name}' is not a valid EQName");
+            return (name[2..close], name[(close + 1)..]);
         }
 
         /// <summary>The system properties in the XSLT namespace (XSLT 3.0 §20.4.4), for fn:available-system-properties.</summary>

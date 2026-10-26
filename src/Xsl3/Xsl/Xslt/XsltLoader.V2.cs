@@ -321,6 +321,8 @@ namespace Xsl3.Xslt
             }
             string? forEachItem = ParseStringAttribute(1, "for-each-item");
             string? forEachSource = ParseStringAttribute(2, "for-each-source");
+            string? sourceForEachSource = forEachSource;
+            string? accumulators = ParseStringAttribute(5, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
             string? validation = ParseValidationAttribute(7, /*defVal:*/false);
             XmlQualifiedName? type = ParseTypeAttribute(8);
             if (validation != null && type != null)
@@ -330,7 +332,6 @@ namespace Xsl3.Xslt
             if (forEachSource != null)
             {
                 // The documents, with their applicable accumulators; validated as validation or type asks (Xsl3, P6).
-                string? accumulators = ParseStringAttribute(5, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
                 string documents = $"({forEachSource}) ! doc(.)";
                 if (validation is "strict" or "lax" || type != null && type is not { Name: "untyped", Namespace: XmlReservedNs.NsXs })
                 {
@@ -339,11 +340,13 @@ namespace Xsl3.Xslt
                 forEachSource = ApplicableAccumulators31(documents, accumulators);
             }
             string? select = ParseStringAttribute(3, "select");
-            ParseYesNoAttribute(4, "streamable");
+            TriState streamable = ParseYesNoAttribute(4, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             TriState sortBefore = ParseYesNoAttribute(6, "sort-before-merge");
-            if (forEachItem != null && forEachSource != null)
+            if (forEachItem != null && (forEachSource != null || streamable != TriState.Unknown || accumulators != null)
+                || accumulators != null && forEachSource == null)
             {
-                ReportError(SR.Xml_UserException, "XTSE3195: xsl:merge-source can't have both for-each-item and for-each-source");
+                ReportError(SR.Xml_UserException, "XTSE3195: for-each-item excludes for-each-source, streamable and use-accumulators; use-accumulators requires for-each-source");
             }
             var keys = new List<XslNode>();
             if (_input.MoveToFirstChild())
@@ -366,7 +369,12 @@ namespace Xsl3.Xslt
                             ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "order", order);
                         }
                         XslNode key = F.XslNode(XslNodeType.MergeKey, null, keySelect ?? (keyContent.Count == 0 ? "." : null), _input.XslVersion);
-                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType, Lang = lang, CaseOrder = caseOrder };
+                        key.V2 = new XslNodeV2 { Order = order ?? "ascending", Collation = collation, DataType = dataType, Lang = lang, CaseOrder = caseOrder,
+                            MergeKeyPresence = (order != null ? Runtime.MergeKeyAttributes.Order : Runtime.MergeKeyAttributes.None)
+                                | (lang != null ? Runtime.MergeKeyAttributes.Language : Runtime.MergeKeyAttributes.None)
+                                | (collation != null ? Runtime.MergeKeyAttributes.Collation : Runtime.MergeKeyAttributes.None)
+                                | (caseOrder != null ? Runtime.MergeKeyAttributes.CaseOrder : Runtime.MergeKeyAttributes.None)
+                                | (dataType != null ? Runtime.MergeKeyAttributes.DataType : Runtime.MergeKeyAttributes.None) };
                         keys.Add(SetInfo(key, LoadEndTag(keyContent), keyInfo));
                     }
                     else if (_input.NodeType == XmlNodeType.Element)
@@ -382,7 +390,9 @@ namespace Xsl3.Xslt
                 ReportError(SR.Xml_UserException, "XTSE0010: xsl:merge-source needs one or more xsl:merge-key elements");
             }
             XslNode source = F.XslNode(XslNodeType.MergeSource, null, select, _input.XslVersion);
-            source.V2 = new XslNodeV2 { NameAvt = name, ForEachItem = forEachItem, ForEachSource = forEachSource, SortBeforeMerge = sortBefore == TriState.True };
+            source.V2 = new XslNodeV2 { NameAvt = name, ForEachItem = forEachItem, ForEachSource = forEachSource,
+                SourceForEachSource = sourceForEachSource, Streamable = streamable, SortBeforeMerge = sortBefore == TriState.True,
+                SourceAccumulators = accumulators, SourceValidation = validation, SourceType = type };
             return SetInfo(source, keys, ctxInfo);
         }
 
@@ -410,7 +420,8 @@ namespace Xsl3.Xslt
             }
             string? initial = ParseStringAttribute(1, "initial-value");
             string? asType = ParseStringAttribute(2, "as");
-            ParseYesNoAttribute(3, "streamable");
+            TriState streamable = ParseYesNoAttribute(3, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             var rules = new List<XslNode>();
             if (_input.MoveToFirstChild())
             {
@@ -454,7 +465,7 @@ namespace Xsl3.Xslt
             }
             XslNode decl = F.XslNode(XslNodeType.Accumulator, name, initial, _input.XslVersion);
             decl.PackageId = _packageId;
-            decl.V2 = new XslNodeV2 { As = asType };
+            decl.V2 = new XslNodeV2 { As = asType, Streamable = streamable };
             SetInfo(decl, rules, ctxInfo);
             int precedence = _curStylesheet!.ImportPrecedence;
             if (_compiler.Accumulators.TryGetValue(name, out var existing))
@@ -539,15 +550,34 @@ namespace Xsl3.Xslt
             {
                 return value;
             }
-            return string.Join(" ", value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Select(token =>
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string token in value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
             {
-                if (token.StartsWith("Q{", System.StringComparison.Ordinal))
+                try
                 {
-                    return token; // already an EQName
+                    string expanded;
+                    if (token.StartsWith("Q{", StringComparison.Ordinal))
+                    {
+                        var (ns, local) = Xsl3.Runtime.XsltNameContext.ResolveExpandedName(token, "XTSE3300");
+                        expanded = new Xsl3.Xdm.QName(ns, local).EQName;
+                    }
+                    else
+                    {
+                        int colon = token.IndexOf(':');
+                        string local = colon < 0 ? token : token[(colon + 1)..];
+                        string? prefix = colon < 0 ? null : token[..colon];
+                        if (!Xsl3.Xdm.Casting.IsNCName(local) || prefix != null && !Xsl3.Xdm.Casting.IsNCName(prefix))
+                            throw new Xsl3.Xdm.XdmException("XTSE3300", $"'{token}' is not a valid accumulator name");
+                        string ns = prefix == null ? "" : _input.LookupXmlNamespace(prefix)
+                            ?? throw new Xsl3.Xdm.XdmException("XTSE3300", $"The prefix in '{token}' is not declared");
+                        expanded = new Xsl3.Xdm.QName(ns, local).EQName;
+                    }
+                    if (!names.Add(expanded))
+                        ReportError(SR.Xml_UserException, $"XTSE3300: duplicate accumulator name {token}");
                 }
-                int colon = token.IndexOf(':');
-                return colon < 0 ? "Q{}" + token : "Q{" + (_input.LookupXmlNamespace(token[..colon]) ?? "") + "}" + token[(colon + 1)..];
-            }).Distinct().OrderBy(n => n, System.StringComparer.Ordinal));
+                catch (Xsl3.Xdm.XdmException error) { ReportError(SR.Xml_UserException, $"XTSE3300: {error.Message}"); }
+            }
+            return string.Join(" ", names.OrderBy(n => n, StringComparer.Ordinal));
         }
 
         /// <summary>
@@ -574,7 +604,8 @@ namespace Xsl3.Xslt
         {
             ContextInfo ctxInfo = _input.GetAttributes(_sourceDocumentAttributes);
             string href = ParseStringAttribute(0, "href") ?? "";
-            ParseYesNoAttribute(1, "streamable");
+            TriState streamable = ParseYesNoAttribute(1, "streamable");
+            _compiler.HasStreamableDeclarations |= streamable == TriState.True;
             string? accumulators = ParseStringAttribute(2, "use-accumulators") is string useAccumulators ? AccumulatorNames(useAccumulators) : null;
             string? validation = ParseValidationAttribute(3, /*defVal:*/false);
             XmlQualifiedName? type = ParseTypeAttribute(4);
@@ -591,7 +622,10 @@ namespace Xsl3.Xslt
             _input.CanHaveApplyImports = false;
             List<XslNode> content = LoadInstructions();
             ctxInfo.SaveExtendedLineInfo(_input);
-            return SetInfo(F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion), content, ctxInfo);
+            XslNode source = F.ForEach(ApplicableAccumulators31(documents, accumulators), ctxInfo, _input.XslVersion);
+            source.V2 = new XslNodeV2 { IsSourceDocument = true, SourceHref = href, Streamable = streamable,
+                SourceAccumulators = accumulators, SourceValidation = validation, SourceType = type };
+            return SetInfo(source, content, ctxInfo);
         }
 
         // XSLT 3.0 §10.4
@@ -625,6 +659,7 @@ namespace Xsl3.Xslt
             string? contextItem = ParseStringAttribute(4, "context-item");
             string? namespaceContext = ParseStringAttribute(5, "namespace-context");
             string? schemaAware = ParseStringAttribute(6, "schema-aware");
+            string sourceXPath = xpath;
             if (schemaAware != null && !schemaAware.Contains('{') && schemaAware.Trim() is not ("yes" or "no" or "true" or "false" or "1" or "0"))
             {
                 ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "schema-aware", schemaAware);
@@ -719,7 +754,10 @@ namespace Xsl3.Xslt
                 content.Add(v);
                 content.Add(SetLineInfo(F.XslNode(XslNodeType.Sequence, null, $"$Q{{{Runtime.DynamicEvaluation.Namespace}}}{result.LocalName}", _input.XslVersion), ctxInfo.lineInfo));
             }
-            return SetInfo(F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion), content, ctxInfo);
+            XslNode evaluate = F.XslNode(XslNodeType.Sequence, null, null, _input.XslVersion);
+            evaluate.V2 = new XslNodeV2 { As = asType,
+                Evaluate = new EvaluateSyntax(sourceXPath, contextItem, withParams, baseUri, namespaceContext, schemaAware, parameters) };
+            return SetInfo(evaluate, content, ctxInfo);
         }
 
         // XSLT 3.0 §23.2
@@ -790,6 +828,7 @@ namespace Xsl3.Xslt
                 $"error({code}, string-join(for $i in {reference} return if ($i instance of function(*)) then '' else string($i), ' '), {reference})", _input.XslVersion), ctxInfo.lineInfo);
             // (Parenthesized, so a test that is a sequence expression stays one argument.)
             XslNode check = F.XslNode(XslNodeType.If, null, $"not(({test}))", _input.XslVersion);
+            check.V2 = new XslNodeV2 { Assert = new AssertSyntax(test, select, errorCode, content) };
             return SetInfo(check, new List<XslNode> { variable, raise }, ctxInfo);
         }
 
@@ -962,11 +1001,21 @@ namespace Xsl3.Xslt
             return $"Q{{{ns}}}{local}";
         }
 
-        // XSLT 3.0 §18.2.4: without streaming, xsl:fork is the concatenation of its prongs.
+        // XSLT 3.0 §16.1: without streaming, xsl:fork is the concatenation of its prongs.
         private XslNode XslFork()
         {
             ContextInfo ctxInfo = _input.GetAttributes();
-            return SetInfo(F.List(), LoadEndTag(LoadInstructions()), ctxInfo);
+            XslNode fork = F.List();
+            fork.V2 = new XslNodeV2 { IsFork = true };
+            List<XslNode> content = LoadInstructions();
+            if (content.Any(n => n.NodeType != XslNodeType.Sequence)
+                && !(content.Count == 1 && content[0].NodeType == XslNodeType.ForEachGroup))
+                ReportError(SR.Xml_UserException, "XTSE0010: xsl:fork requires xsl:sequence prongs or a single xsl:for-each-group");
+            XslNode result = SetInfo(fork, content, ctxInfo);
+            // The debugger's end-tag Nop is not a fork prong. Keep it after the
+            // complete fork so it neither fails validation nor starts another worker.
+            return _compiler.IsDebug && !_input.IsEmptyElement
+                ? SetInfo(F.List(), LoadEndTag(new List<XslNode> { result }), ctxInfo) : result;
         }
 
         private XslNode XslOnEmpty(XslNodeType kind)
@@ -1268,6 +1317,16 @@ namespace Xsl3.Xslt
 
             QilName? name = ParseQNameAttribute(0);
             string? asType = ParseStringAttribute(1, "as");
+            string streamability = ParseStringAttribute(4, "streamability")?.Trim() ?? "unclassified";
+            XmlQualifiedName? streamabilityName = null;
+            if (!Xsl3.Streaming.FunctionStreamability.TryParse(streamability, out var category))
+            {
+                // Unknown categories must still be valid EQNames. Unrecognized categories are
+                // analysed as unclassified (§19.8.5), including extension EQNames.
+                if (ResolveQName(ignoreDefaultNs: true, streamability, out string localCategory, out string categoryNamespace, out _))
+                    streamabilityName = new(localCategory, categoryNamespace);
+            }
+            _compiler.HasStreamableDeclarations |= category != Xsl3.Streaming.FunctionStreamabilityCategory.Unclassified;
             // Validated (XTSE0020); stylesheet functions never override extension functions.
             TriState overrides = ParseYesNoAttribute(2, "override");
             TriState overridesExtension = ParseYesNoAttribute(5, "override-extension-function");
@@ -1301,7 +1360,7 @@ namespace Xsl3.Xslt
             function.IsFunction = true;
             PackageDeclaration(function, functionVisibility);
             bool cache = ParseYesNoAttribute(7, "cache") == TriState.True;
-            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache };
+            function.V2 = new XslNodeV2 { As = asType, NewEachTime = newEachTime, Cache = cache, StreamabilityCategory = streamability, StreamabilityName = streamabilityName };
             _curTemplate = function;
             SetInfo(function, LoadEndTag(LoadInstructions(InstructionFlags.AllowParam)), ctxInfo);
             _curTemplate = null;
@@ -1333,6 +1392,11 @@ namespace Xsl3.Xslt
                 foreach (XslNode n in function.Content)
                 {
                     if (n.NodeType == XslNodeType.Param) arity++;
+                }
+                if (arity == 0 && streamability != "unclassified")
+                {
+                    _compiler.ReportError(function.SourceLine ?? SourceLineInfo.NoSource, SR.Xml_UserException,
+                        $"XTSE3155: the zero-arity function {name.QualifiedName} must have streamability='unclassified'");
                 }
                 if (!_compiler.AddFunction(name, arity, function, _curStylesheet!.ImportPrecedence))
                 {
@@ -1449,10 +1513,14 @@ namespace Xsl3.Xslt
             if (_input.MoveToXsltAttribute(2, "on-multiple-match"))
             {
                 decl.OnMultipleMatch = _input.Value.Trim();
+                if (decl.OnMultipleMatch is not ("use-last" or "fail"))
+                {
+                    ReportError(/*[XTSE0020]*/SR.Xslt_InvalidAttrValue, "on-multiple-match", decl.OnMultipleMatch);
+                }
             }
             ParseYesNoAttribute(3, "warning-on-no-match");
             ParseYesNoAttribute(4, "warning-on-multiple-match");
-            ParseYesNoAttribute(7, "streamable");
+            _compiler.HasStreamableDeclarations |= ParseYesNoAttribute(7, "streamable") == TriState.True;
             for (int i = 1; i < _modeAttributes.Length; i++)
             {
                 if (_input.MoveToXsltAttribute(i, _modeAttributes[i].name))
@@ -1462,7 +1530,13 @@ namespace Xsl3.Xslt
                     {
                         value = AccumulatorNames(value);
                     }
+                    else if (_modeAttributes[i].name is "streamable" or "typed" or "warning-on-no-match" or "warning-on-multiple-match")
+                    {
+                        // Compare boolean values rather than their equivalent lexical forms.
+                        value = value switch { "true" or "1" => "yes", "false" or "0" => "no", _ => value };
+                    }
                     decl.Attributes[_modeAttributes[i].name] = value;
+                    decl.AttributePrecedences[_modeAttributes[i].name] = decl.ImportPrecedence;
                 }
             }
             // Each attribute comes from the declaration of highest import precedence that gives it (modules are read
@@ -1472,44 +1546,38 @@ namespace Xsl3.Xslt
             {
                 _compiler.ModeDecls[mode] = decl;
             }
-            else if (existing.ImportPrecedence != decl.ImportPrecedence)
-            {
-                foreach (var (attribute, value) in decl.Attributes)
-                {
-                    if (existing.Attributes.TryAdd(attribute, value))
-                    {
-                        if (attribute == "on-no-match")
-                        {
-                            existing.OnNoMatch = decl.OnNoMatch;
-                        }
-                        else if (attribute == "on-multiple-match")
-                        {
-                            existing.OnMultipleMatch = decl.OnMultipleMatch;
-                        }
-                        else if (attribute == "typed")
-                        {
-                            existing.Typed = decl.Typed;
-                        }
-                    }
-                }
-            }
             else
             {
                 foreach (var (attribute, value) in decl.Attributes)
                 {
-                    if (existing.Attributes.TryGetValue(attribute, out string? other) && other != value)
+                    if (existing.AttributePrecedences.TryGetValue(attribute, out int precedence))
                     {
-                        ReportError(SR.Xml_UserException, $"XTSE0545: two xsl:mode declarations give {attribute} different values");
+                        if (precedence == decl.ImportPrecedence && existing.Attributes[attribute] != value)
+                        {
+                            ReportError(SR.Xml_UserException, $"XTSE0545: two xsl:mode declarations give {attribute} different values");
+                        }
+                        // Modules arrive in decreasing import precedence. An existing
+                        // value only resolves lower conflicts for this same attribute.
+                        continue;
                     }
                     existing.Attributes[attribute] = value;
-                }
-                if (decl.Attributes.ContainsKey("on-no-match"))
-                {
-                    existing.OnNoMatch = decl.OnNoMatch;
-                }
-                if (decl.Attributes.ContainsKey("on-multiple-match"))
-                {
-                    existing.OnMultipleMatch = decl.OnMultipleMatch;
+                    existing.AttributePrecedences[attribute] = decl.ImportPrecedence;
+                    if (attribute == "on-no-match")
+                    {
+                        existing.OnNoMatch = value;
+                    }
+                    else if (attribute == "on-multiple-match")
+                    {
+                        existing.OnMultipleMatch = value;
+                    }
+                    else if (attribute == "typed")
+                    {
+                        existing.Typed = value;
+                    }
+                    else if (attribute == "visibility")
+                    {
+                        existing.Declaration!.Visibility = value;
+                    }
                 }
             }
             CheckNoContent();

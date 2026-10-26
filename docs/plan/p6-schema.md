@@ -64,3 +64,19 @@ baseline isn't checked for it until the feature is claimed in `Profile.cs`, whic
 The two left: validation-0201 and -0202 (the expected xhtml has no
 attributes the XHTML schema defaults, and isn't indented before inline elements). si-result-document-116 passes since the
 runner receives each result document's tree, typed, through an internal hook (XmlQueryRuntime.ResultTreeHandler).
+
+### Saved schema graph and portability evidence, 2026-10-26
+
+Supported saved source-validation paths now retain resolved schema modules and pass normal/debug NativeAOT execution. General schema-dependent constants and typed static nodes remain unsupported. A new .NET 8 consumer also reproduces a framework-reference failure in retained non-schema DLLs emitted on .NET 10; cross-runtime execution remains open despite the earlier general API comment. See [the current evidence and remaining scope](../streaming-saved-schema-2026-10-26.md).
+
+### Portable framework references, 2026-10-26
+
+New saved emissions now reference the minimum supported BCL contract and pass actual .NET 8 execution, with normal/debug PDB and IL integrity checks. Separate portable copies of the 311-path saved corpus pass all functional probes on .NET 8 and .NET 10; original NativeAOT compatibility remains intact. Existing producer-runtime-bound DLLs need regeneration. General schema metadata and full P7 remain open. See [implementation and evidence](../streaming-portable-emitter-2026-10-26.md).
+
+### Saved schema-dependent metadata, 2026-10-26
+
+Table-scoped constant format 5 now preserves registered schema contexts, named atomic/cast metadata, recursive signatures and anonymous node-type/substitution tests. Normal/debug emissions pass managed .NET 8/10 and NativeAOT consumers; formats 1–4 remain readable. Typed static nodes, anonymous atomic metadata and full P7 remain open. See [implementation and evidence](../streaming-schema-metadata-2026-10-26.md).
+
+### Typed static-node persistence, 2026-10-26
+
+Constant format 6 preserves typed static trees and node identity across values, with schema types, nilled state, namespaces and ID provenance. Nilled simple types atomize to an empty sequence, and optional cardinality follows atomization. Normal/debug emissions pass NativeAOT and .NET 8/10 execution, retaining formats 1–5. Anonymous atomic constants, unowned schema contexts and full P7 remain open. See [implementation and evidence](../streaming-typed-static-nodes-2026-10-26.md).

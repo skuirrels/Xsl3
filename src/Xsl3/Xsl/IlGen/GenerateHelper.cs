@@ -193,7 +193,9 @@ namespace Xsl3.IlGen
         public static readonly MethodInfo ContentMergeCreate = typeof(ContentMergeIterator).GetMethod("Create")!;
         public static readonly MethodInfo ContentMergeNext = typeof(ContentMergeIterator).GetMethod("MoveNext")!;
         public static readonly MethodInfo ContentMergeCurrent = typeof(ContentMergeIterator).GetMethod("get_Current")!;
-        public static readonly MethodInfo DescCreate = typeof(DescendantIterator).GetMethod("Create")!;
+        public static readonly MethodInfo DescCreate = typeof(DescendantIterator).GetMethod("Create", new[] { typeof(XPathNavigator), typeof(XmlNavigatorFilter), typeof(bool) })!;
+        public static readonly MethodInfo DescCreateBounded = typeof(DescendantIterator).GetMethod("CreateBounded")!;
+        public static readonly MethodInfo DescCreateTopmost = typeof(DescendantIterator).GetMethod("CreateTopmost")!;
         public static readonly MethodInfo DescNext = typeof(DescendantIterator).GetMethod("MoveNext")!;
         public static readonly MethodInfo DescCurrent = typeof(DescendantIterator).GetMethod("get_Current")!;
         public static readonly MethodInfo DescMergeCreate = typeof(DescendantMergeIterator).GetMethod("Create")!;
@@ -281,6 +283,7 @@ namespace Xsl3.IlGen
         public static readonly MethodInfo EndRtfConstr = typeof(XmlQueryRuntime).GetMethod("EndRtfConstruction")!;
         public static readonly MethodInfo EndSeqConstr = typeof(XmlQueryRuntime).GetMethod("EndSequenceConstruction")!;
         public static readonly MethodInfo FindIndex = typeof(XmlQueryRuntime).GetMethod("FindIndex")!;
+        public static readonly MethodInfo IndexFailed = typeof(XmlQueryRuntime).GetMethod("IndexValueFailed")!;
         public static readonly MethodInfo GenId = typeof(XmlQueryRuntime).GetMethod("GenerateId")!;
         public static readonly MethodInfo GetAtomizedName = typeof(XmlQueryRuntime).GetMethod("GetAtomizedName")!;
         public static readonly MethodInfo GetCollation = typeof(XmlQueryRuntime).GetMethod("GetCollation")!;
@@ -290,6 +293,7 @@ namespace Xsl3.IlGen
         public static readonly MethodInfo GetGlobalValue = typeof(XmlQueryRuntime).GetMethod("GetGlobalValue")!;
         public static readonly MethodInfo GetTypeFilter = typeof(XmlQueryRuntime).GetMethod("GetTypeFilter")!;
         public static readonly MethodInfo GlobalComputed = typeof(XmlQueryRuntime).GetMethod("IsGlobalComputed")!;
+        public static readonly MethodInfo GlobalFailed = typeof(XmlQueryRuntime).GetMethod("GlobalValueFailed")!;
         public static readonly MethodInfo ItemMatchesCode = typeof(XmlQueryRuntime).GetMethod("MatchesXmlType", new[] { typeof(XPathItem), typeof(XmlTypeCode) })!;
         public static readonly MethodInfo ItemMatchesType = typeof(XmlQueryRuntime).GetMethod("MatchesXmlType", new[] { typeof(XPathItem), typeof(int) })!;
         public static readonly MethodInfo QNameEqualLit = typeof(XmlQueryRuntime).GetMethod("IsQNameEqual", new[] { typeof(XPathNavigator), typeof(int), typeof(int) })!;
@@ -530,6 +534,7 @@ namespace Xsl3.IlGen
 
         public void MethodBegin(MethodBase methInfo, ISourceLineInfo? sourceInfo, bool initWriters)
         {
+            PullLocals = null;
             _methInfo = methInfo;
             _ilgen = XmlILModule.DefineMethodBody(methInfo);
             _lastSourceInfo = null;
@@ -671,6 +676,7 @@ namespace Xsl3.IlGen
         public LocalBuilder DeclareLocal(string name, Type type)
         {
             LocalBuilder locBldr = _ilgen!.DeclareLocal(type);
+            PullLocals?.Add(locBldr);
 #if DEBUG
             if (XmlILTrace.IsEnabled)
             {
@@ -680,6 +686,8 @@ namespace Xsl3.IlGen
 #endif
             return locBldr;
         }
+
+        internal List<LocalBuilder>? PullLocals { get; set; }
 
         public void LoadQueryRuntime()
         {
@@ -701,6 +709,14 @@ namespace Xsl3.IlGen
         public void LoadQueryOutput()
         {
             Emit(OpCodes.Ldloc, _locXOut!);
+        }
+
+        public void InitializeCurrentOutput()
+        {
+            EnsureWriter();
+            LoadQueryRuntime();
+            Call(XmlILMethods.GetOutput);
+            Emit(OpCodes.Stloc, _locXOut);
         }
 
 
@@ -1584,6 +1600,10 @@ namespace Xsl3.IlGen
 
             return lbl;
         }
+
+        public void BeginExceptionBlock() => _ilgen!.BeginExceptionBlock();
+        public void BeginCatchBlock(Type type) => _ilgen!.BeginCatchBlock(type);
+        public void EndExceptionBlock() => _ilgen!.EndExceptionBlock();
 
         public void MarkLabel(Label lbl)
         {

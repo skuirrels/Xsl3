@@ -115,6 +115,7 @@ namespace Xsl3.Runtime
             var sc = new XPathStaticContext
             {
                 BaseUri = baseUri,
+                Xslt = true,
                 DefaultElementNamespace = defaultElementNamespace,
                 DefaultCollation = defaultCollation,
                 DefaultDecimalFormat = defaultDecimalFormat,
@@ -280,7 +281,7 @@ namespace Xsl3.Runtime
             }
             FunctionContext host = X31Context;
             return Copy(executable.Evaluate(contextItem.Count == 1 ? contextItem[0] : null, variables, host.ImplicitTimezoneMinutes,
-                _runtime.ExternalContext.DataSources, host.CurrentDateTime));
+                _runtime.ExternalContext.DataSources, host.CurrentDateTime, _runtime));
         }
 
         // The target expression: the xpath attribute's value converted to xs:string by the function conversion rules.
@@ -322,6 +323,8 @@ namespace Xsl3.Runtime
 
             public QilNode? ContextItem() => XPath31Compiler.Invoke(f, nameof(X31ContextItem), T.Item);
 
+            public QilNode? ContextItemOrEmpty() => XPath31Compiler.Invoke(f, nameof(X31ContextItemOrEmpty), T.ItemS);
+
             public QilNode ContextPosition() => XPath31Compiler.Invoke(f, nameof(X31TopLevelFocus), T.DoubleX);
 
             public QilNode ContextLast() => XPath31Compiler.Invoke(f, nameof(X31TopLevelFocus), T.DoubleX);
@@ -329,7 +332,7 @@ namespace Xsl3.Runtime
             public QilNode? ResolveVariable(QName name) =>
                 variables.Contains(name) ? XPath31Compiler.Invoke(f, nameof(X31Variable), T.ItemS, f.String(name.LocalName), f.String(name.NamespaceUri)) : null;
 
-            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, System.Func<Expr, QilNode> compile)
+            public QilNode? ResolveFunction(QName name, IReadOnlyList<Expr> args, CompileXPathArgument compile)
             {
                 if (!functions.TryGetValue((name.NamespaceUri, name.LocalName, args.Count), out QName? hidden))
                 {

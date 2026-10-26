@@ -17,9 +17,27 @@ namespace Xsl3
         private readonly EntityHandling _entityHandling;
         private readonly bool _namespaces;
         private readonly bool _normalization;
-        private readonly bool _prohibitDtd;
+        private readonly DtdProcessing _dtdProcessing;
         private readonly WhitespaceHandling _whitespaceHandling;
         private readonly XmlResolver? _xmlResolver;
+
+        // Reader policy is immutable after capture, but NameTable is not thread-safe. Each
+        // fork uses its own table while retaining the configured resolver and parser options.
+        private QueryReaderSettings(QueryReaderSettings owner)
+        {
+            _validatingReader = owner._validatingReader;
+            _xmlReaderSettings = owner._xmlReaderSettings?.Clone();
+            if (_xmlReaderSettings != null) _xmlReaderSettings.NameTable = new NameTable();
+            _xmlNameTable = _xmlReaderSettings == null ? new NameTable() : null;
+            _entityHandling = owner._entityHandling;
+            _namespaces = owner._namespaces;
+            _normalization = owner._normalization;
+            _dtdProcessing = owner._dtdProcessing;
+            _whitespaceHandling = owner._whitespaceHandling;
+            _xmlResolver = owner._xmlResolver;
+        }
+
+        internal QueryReaderSettings Fork() => new(this);
 
         public QueryReaderSettings(XmlNameTable xmlNameTable)
         {
@@ -76,7 +94,7 @@ namespace Xsl3
                     _entityHandling = xmlTextReader.EntityHandling;
                     _namespaces = xmlTextReader.Namespaces;
                     _normalization = xmlTextReader.Normalization;
-                    _prohibitDtd = (xmlTextReader.DtdProcessing == DtdProcessing.Prohibit);
+                    _dtdProcessing = xmlTextReader.DtdProcessing;
                     _whitespaceHandling = xmlTextReader.WhitespaceHandling;
                     _xmlResolver = XmlReaderInternals.GetResolver(xmlTextReader);
                 }
@@ -85,19 +103,26 @@ namespace Xsl3
                     _entityHandling = EntityHandling.ExpandEntities;
                     _namespaces = true;
                     _normalization = true;
-                    _prohibitDtd = true;
+                    _dtdProcessing = DtdProcessing.Prohibit;
                     _whitespaceHandling = WhitespaceHandling.All;
                     _xmlResolver = null;
                 }
             }
         }
 
-        public XmlReader CreateReader(Stream stream, string? baseUri)
+        public XmlReader CreateReader(Stream stream, string? baseUri, Runtime.DocumentResources? resources = null)
         {
             XmlReader reader;
             if (_xmlReaderSettings != null)
             {
-                reader = XmlTextReader.Create(stream, _xmlReaderSettings, baseUri);
+                XmlReaderSettings settings = _xmlReaderSettings;
+                if (resources != null && settings.DtdProcessing == DtdProcessing.Parse &&
+                    XmlReaderSettingsInternals.GetEffectiveResolver(settings) is { } resolver)
+                {
+                    settings = settings.Clone();
+                    settings.XmlResolver = resources.TrackResolver(resolver);
+                }
+                reader = XmlTextReader.Create(stream, settings, baseUri);
             }
             else
             {
@@ -106,9 +131,9 @@ namespace Xsl3
                 readerImpl.EntityHandling = _entityHandling;
                 readerImpl.Namespaces = _namespaces;
                 readerImpl.Normalization = _normalization;
-                readerImpl.DtdProcessing = _prohibitDtd ? DtdProcessing.Prohibit : DtdProcessing.Parse;
+                readerImpl.DtdProcessing = _dtdProcessing;
                 readerImpl.WhitespaceHandling = _whitespaceHandling;
-                readerImpl.XmlResolver = _xmlResolver;
+                readerImpl.XmlResolver = resources != null && _dtdProcessing == DtdProcessing.Parse ? resources.TrackResolver(_xmlResolver) : _xmlResolver;
                 reader = readerImpl;
             }
             if (_validatingReader)

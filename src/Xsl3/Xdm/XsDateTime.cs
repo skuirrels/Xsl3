@@ -100,7 +100,7 @@ namespace Xsl3.Xdm
         /// when the value has no timezone. Missing components use the reference values of F&amp;O 3.1 §9.4
         /// (year 1972, December, day 1 for gMonth, and 00:00:00).
         /// </summary>
-        public decimal ToTimeline(Primitive kind, int implicitTimezoneMinutes)
+        public decimal ToTimeline(Primitive kind, ImplicitTimezone implicitTimezoneMinutes)
         {
             (long year, int month, int day) = kind switch
             {
@@ -113,7 +113,7 @@ namespace Xsl3.Xdm
                 _ => (Year, Month, Day),
             };
             decimal seconds = (decimal)DaysFromCivil(year, month, day) * 86400 + Hour * 3600 + Minute * 60 + Second;
-            return seconds - (TimezoneMinutes ?? implicitTimezoneMinutes) * 60;
+            return seconds - (TimezoneMinutes ?? implicitTimezoneMinutes.Minutes) * 60;
         }
 
         /// <summary>The inverse of <see cref="ToTimeline"/> for dateTime-like values, presented in timezone <paramref name="tz"/>.</summary>

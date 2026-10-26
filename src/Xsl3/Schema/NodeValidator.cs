@@ -23,6 +23,7 @@ namespace Xsl3.Schema
         private readonly XmlNameTable _names;
         private readonly bool _strict;
         private readonly bool _byType;
+        private readonly bool _laxRoot;
         private readonly XmlSchemaValidator _validator;
         private readonly CompactDocument.Builder _builder;
         private XPathNavigator _scope = null!;   // the element whose namespaces resolve QNames being validated
@@ -33,12 +34,13 @@ namespace Xsl3.Schema
         private bool _documentConstraint;
         private bool _document;
 
-        private NodeValidator(XmlSchemaSet schemas, XPathNavigator node, bool strict, XmlSchemaObject? partial, bool fragment)
+        private NodeValidator(XmlSchemaSet schemas, XPathNavigator node, bool strict, XmlSchemaObject? partial, bool fragment, bool laxRoot = false)
         {
             _schemas = schemas;
             _names = schemas.NameTable;
             _strict = strict;
             _byType = partial != null;
+            _laxRoot = laxRoot;
             _validator = new XmlSchemaValidator(_names, schemas, this,
                 XmlSchemaValidationFlags.ProcessIdentityConstraints | XmlSchemaValidationFlags.ReportValidationWarnings | XmlSchemaValidationFlags.AllowXmlAttributes);
             _validator.ValidationEventHandler += OnValidation;
@@ -70,13 +72,16 @@ namespace Xsl3.Schema
                 default:
                     return node; // (text, comments and processing instructions are untouched)
             }
-            if (type == null && node.NodeType == XPathNodeType.Element && node.GetAttribute("type", XmlSchema.InstanceNamespace).Length == 0 &&
-                schemas.GlobalElements[new XmlQualifiedName(node.LocalName, node.NamespaceURI)] == null)
+            XPathNavigator? root = node;
+            if (node.NodeType == XPathNodeType.Root)
             {
-                // No declaration for it (XSLT 3.0 §25.4.3): strict is XTTE1512; lax leaves it unvalidated.
-                return strict ? throw new XdmException("XTTE1512", $"No element declaration for {node.Name} is in the imported schemas (validation=\"strict\")") : node;
+                root = node.Clone();
+                if (!root.MoveToChild(XPathNodeType.Element)) root = null;
             }
-            var v = new NodeValidator(schemas, node, strict, type, fragment: node.NodeType != XPathNodeType.Root);
+            bool laxRoot = type == null && !strict && root != null && schemas.GlobalElements[new XmlQualifiedName(root.LocalName, root.NamespaceURI)] == null;
+            // xs:anyType supplies the lax attribute/child wildcard required by §25.4.1.1, including
+            // recursive assessment below an undeclared root. This does not add a schema declaration.
+            var v = new NodeValidator(schemas, node, strict, type ?? (laxRoot ? SchemaTypes.AnyType : null), fragment: node.NodeType != XPathNodeType.Root, laxRoot);
             string code = type != null ? "XTTE1540" : "XTTE1510";
             if (node.NodeType == XPathNodeType.Root)
             {
@@ -91,8 +96,7 @@ namespace Xsl3.Schema
             if (v._error != null)
             {
                 // (Laxly, a value invalid for its datatype is XTTE1515; other failures, an xsi:type say, stay XTTE1510.)
-                throw new XdmException(v._documentConstraint ? "XTTE1555"
-                    : !strict && code == "XTTE1510" && v._error.Contains("according to its datatype", StringComparison.Ordinal) ? "XTTE1515" : code, v._error);
+                throw new XdmException(ValidationErrors.Code(code, strict, v._error, v._documentConstraint), v._error);
             }
             return Constructed(v._builder.Finish(), node);
         }
@@ -147,6 +151,8 @@ namespace Xsl3.Schema
 
         private void Element(XPathNavigator element)
         {
+            if (_depth == 0 && _strict && !_byType && _schemas.GlobalElements[new XmlQualifiedName(element.LocalName, element.NamespaceURI)] == null)
+                throw new XdmException("XTTE1512", $"No element declaration for {element.Name} is in the imported schemas (validation=\"strict\")");
             XPathNavigator parentScope = _scope;
             _scope = element;
             _builder.StartElement(element.Prefix, element.LocalName, element.NamespaceURI, element.BaseURI);
@@ -161,6 +167,7 @@ namespace Xsl3.Schema
             }
             string? xsiType = element.GetAttribute("type", XmlSchema.InstanceNamespace) is { Length: > 0 } t ? t : null;
             string? xsiNil = element.GetAttribute("nil", XmlSchema.InstanceNamespace) is { Length: > 0 } n ? n : null;
+            if (_depth == 0 && _laxRoot) xsiType = xsiNil = null;
             var info = new XmlSchemaInfo();
             _validator.ValidateElement(_names.Add(element.LocalName), _names.Add(element.NamespaceURI), info, xsiType, xsiNil, null, null);
             if (_depth == 0 && _strict && !_byType && info.SchemaElement == null && info.SchemaType == null && _error == null)
@@ -326,6 +333,7 @@ namespace Xsl3.Schema
                     {
                         builder.AnnotateAttribute(type, node.Value);
                     }
+                    CopyAttributeIdentity(builder, node, type);
                     return Constructed(builder.Finish(), node);
                 }
                 case XPathNodeType.Element:
@@ -364,7 +372,7 @@ namespace Xsl3.Schema
             }
         }
 
-        private static void CopyChild(CompactDocument.Builder builder, XPathNavigator node, bool copyNamespaces, bool keepTypes)
+        internal static void CopyChild(CompactDocument.Builder builder, XPathNavigator node, bool copyNamespaces, bool keepTypes)
         {
             switch (node.NodeType)
             {
@@ -385,10 +393,13 @@ namespace Xsl3.Schema
             }
         }
 
-        private static void CopyElement(CompactDocument.Builder builder, XPathNavigator element, bool copyNamespaces, bool top, bool keepTypes)
+        internal static void CopyElementStart(CompactDocument.Builder builder, XPathNavigator element, bool copyNamespaces, bool top, bool keepTypes,
+            bool snapshotAncestor = false)
         {
-            XmlSchemaType? type = keepTypes ? SchemaTypes.TypeOf(element) : null;
+            XmlSchemaType? type = snapshotAncestor ? SchemaTypes.AnyType : keepTypes ? SchemaTypes.TypeOf(element) : null;
             builder.StartElement(element.Prefix, element.LocalName, element.NamespaceURI, element.BaseURI);
+            if (element is CompactNavigator { LookupIds: { } lookups }) builder.PreserveIdLookup(lookups);
+            if (element is CompactNavigator { NoInherit: true }) builder.NoInherit();
             if (copyNamespaces)
             {
                 // The top element takes every namespace in scope; the others, those they declare.
@@ -428,14 +439,15 @@ namespace Xsl3.Schema
             }
             if (type != null)
             {
-                builder.AnnotateElement(type, SchemaTypes.IsNilled(element));
+                builder.AnnotateElement(type, !snapshotAncestor && SchemaTypes.IsNilled(element));
             }
             if (element.MoveToFirstAttribute())
             {
                 do
                 {
                     builder.Attribute(element.Prefix, element.LocalName, element.NamespaceURI, element.Value);
-                    if (keepTypes && SchemaTypes.TypeOf(element) is { } attributeType)
+                    XmlSchemaType? attributeType = keepTypes ? SchemaTypes.TypeOf(element) : null;
+                    if (attributeType != null)
                     {
                         if (!copyNamespaces && SchemaTypes.IsNamespaceSensitive(attributeType))
                         {
@@ -443,10 +455,29 @@ namespace Xsl3.Schema
                         }
                         builder.AnnotateAttribute(attributeType, element.Value);
                     }
+                    CopyAttributeIdentity(builder, element, attributeType);
                 }
                 while (element.MoveToNextAttribute());
                 element.MoveToParent();
             }
+        }
+
+        private static void CopyAttributeIdentity(CompactDocument.Builder builder, XPathNavigator attribute, XmlSchemaType? copiedType)
+        {
+            XmlSchemaType? originalType = SchemaTypes.TypeOf(attribute);
+            bool id = attribute is CompactNavigator { IsIdAttribute: true } or Streaming.StreamedNavigator { IsIdAttribute: true }
+                || originalType != null && SchemaTypes.IsId(originalType);
+            bool idref = attribute is CompactNavigator { IsIdrefAttribute: true } or Streaming.StreamedNavigator { IsIdrefAttribute: true }
+                || originalType != null && SchemaTypes.IsIdref(originalType);
+            // Stripping annotations leaves these identity properties unchanged (§25.4.1.1). An annotated
+            // ID/IDREF already marked itself in the builder; avoid adding its IDREF index twice.
+            if (id && (copiedType == null || !SchemaTypes.IsId(copiedType))) builder.MarkAttributeId(attribute.Value);
+            if (idref && (copiedType == null || !SchemaTypes.IsIdref(copiedType))) builder.MarkAttributeIdref();
+        }
+
+        internal static void CopyElement(CompactDocument.Builder builder, XPathNavigator element, bool copyNamespaces, bool top, bool keepTypes)
+        {
+            CopyElementStart(builder, element, copyNamespaces, top, keepTypes);
             bool empty = true;
             if (element.MoveToFirstChild())
             {
@@ -476,7 +507,7 @@ namespace Xsl3.Schema
             {
                 return; // (an undeclared element or attribute: validated laxly)
             }
-            bool idConstraint = e.Message.Contains("already used as an ID", StringComparison.Ordinal) || e.Message.Contains("undeclared ID", StringComparison.Ordinal);
+            bool idConstraint = ValidationErrors.IsIdConstraint(e.Message);
             if (!_document && idConstraint)
             {
                 return; // ID and IDREF constraints are checked only for a document node (XSLT 3.0 §25.4.3)
@@ -484,8 +515,8 @@ namespace Xsl3.Schema
             if (_error == null)
             {
                 _error = e.Message;
-                // A document-level constraint (IDs, IDREFs, xs:unique, xs:key, xs:keyref): XTTE1555 (§25.4.3).
-                _documentConstraint = idConstraint || e.Exception?.SourceSchemaObject is XmlSchemaIdentityConstraint;
+                // An additional document-level ID/IDREF constraint: XTTE1555 (§25.4.2).
+                _documentConstraint = _document && ValidationErrors.IsDocumentConstraint(e);
             }
         }
 

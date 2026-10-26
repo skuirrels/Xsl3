@@ -36,9 +36,7 @@ namespace Xsl3.Xdm
                     }
                     // Without schema validation every node is untyped: comments, PIs and namespace nodes have
                     // xs:string typed values, everything else xs:untypedAtomic.
-                    return n.NodeType is XPathNodeType.Comment or XPathNodeType.ProcessingInstruction or XPathNodeType.Namespace
-                        ? AtomicValue.OfString(n.Value)
-                        : AtomicValue.OfUntyped(n.Value);
+                    return UntypedNodeValue(n);
                 default:
                     return FromLegacy(item);
             }
@@ -90,23 +88,27 @@ namespace Xsl3.Xdm
             return result;
         }
 
-        /// <summary>Atomises a sequence that must hold at most one item; null if empty, XPTY0004 if longer.</summary>
+        private static AtomicValue UntypedNodeValue(XPathNavigator node) =>
+            node.NodeType is XPathNodeType.Comment or XPathNodeType.ProcessingInstruction or XPathNodeType.Namespace
+                ? AtomicValue.OfString(node.Value) : AtomicValue.OfUntyped(node.Value);
+
+        /// <summary>Atomises a sequence, then requires at most one atomic value; null if empty, XPTY0004 if longer.</summary>
         public static AtomicValue? AtomizeOptional(IList<XPathItem> seq, string what)
         {
-            if (seq.Count == 1 && seq[0] is ArrayItem)
+            if (seq.Count == 1)
             {
-                // An array atomizes to its members' values, possibly none (QT3 value-comparison-7: [] eq 1 is empty).
-                seq = Atomize(seq);
+                if (seq[0] is XPathNavigator node)
+                {
+                    if (Xsl3.Schema.SchemaTypes.TypeOf(node) is not { } type) return UntypedNodeValue(node);
+                    seq = Xsl3.Schema.SchemaTypes.TypedValue(node, type);
+                }
+                else if (seq[0] is ArrayItem array) seq = Atomize(Flatten(array));
+                else return Atomize(seq[0]);
             }
-            if (seq.Count == 0)
-            {
-                return null;
-            }
-            if (seq.Count > 1)
-            {
-                throw Err.XPTY0004($"A sequence of more than one item is not allowed as {what}");
-            }
-            return Atomize(seq[0]);
+            else seq = Atomize(seq);
+            if (seq.Count == 0) return null;
+            if (seq.Count > 1) throw Err.XPTY0004($"A sequence of more than one atomic value is not allowed as {what}");
+            return (AtomicValue)seq[0];
         }
 
         /// <summary>

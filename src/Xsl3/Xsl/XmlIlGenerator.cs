@@ -166,6 +166,7 @@ namespace Xsl3
             staticData.OutputExtras = _qil.OutputExtras;
             staticData.ResultDocuments = _qil.ResultDocuments;
             staticData.Xslt2 = _qil.Xslt2;
+            staticData.StreamedInitialMode = _qil.StreamedInitialMode;
             staticData.CompactTree = _qil.CompactTree;
             staticData.Constants = Xsl3.XPath31.ConstantPool.Compilation;
             if (_qil.Frames != null)

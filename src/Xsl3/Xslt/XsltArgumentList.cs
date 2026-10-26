@@ -36,7 +36,9 @@ namespace Xsl3
         /// <summary>
         /// Xsl3: receives each <c>fn:trace</c> call of a 2.0+ stylesheet (F&amp;O 3.1 §3.2.1): its label ("" without
         /// one) and its value, written out (nodes as XML, atomic values as strings, separated by ", "). Without a
-        /// handler, <c>fn:trace</c> just returns its value.
+        /// handler, <c>fn:trace</c> just returns its value. In streamed execution an installed handler buffers
+        /// traced node subtrees so diagnostics and consumers can both read them; diagnostic size is unbounded.
+        /// The callback runs once per complete call on the invoking thread, including calls in fork prongs.
         /// </summary>
         public Action<string, string>? TraceHandler { get; set; }
 
@@ -45,6 +47,18 @@ namespace Xsl3
         /// <see cref="XsltSettings.EnableTracing"/>.
         /// </summary>
         public IXsltTraceListener? TraceListener { get; set; }
+
+        /// <summary>
+        /// Xsl3: receives each secondary result's resolved URI (which can remain relative without a
+        /// base output URI) and returns its serialization writer.
+        /// Set, it replaces file output for this invocation. Xsl3 disposes the writer on completion,
+        /// errors and cancellation; streamed bodies can leave partial output on a later error.
+        /// Fork callbacks open the writer on the invoking thread.
+        /// </summary>
+        public Func<Uri, System.IO.TextWriter>? ResultDocumentHandler { get; set; }
+
+        internal static Func<string, string, System.IO.TextWriter>? AdaptResultDocumentHandler(Func<Uri, System.IO.TextWriter>? handler) =>
+            handler == null ? null : (uri, _) => handler(new Uri(uri, UriKind.RelativeOrAbsolute));
 
         public object? GetParam(string name, string namespaceUri)
         {

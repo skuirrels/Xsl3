@@ -180,7 +180,7 @@ namespace Xsl3
             var compiler = new Compiler(settings, _enableDebug, null)
             {
                 InitialTemplate = InitialTemplate, InitialMode = InitialMode, StaticParameters = StaticParameters, Packages = Packages,
-                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection,
+                InitialFunction = InitialFunction, InitialFunctionArity = InitialFunctionArity, RawResult = RawResult, InitialMatchSelection = InitialMatchSelection, InitialSourceSelection = InitialSourceSelection,
                 InitialParameters = InitialParameters, RegisteredFunctions = RegisteredFunctions,
             };
             // Xsl3: each XPath text is parsed once in a compilation.
@@ -189,17 +189,17 @@ namespace Xsl3
                 _compilerErrorColl = compiler.Compile(stylesheet, stylesheetResolver, originalStylesheetResolver, out _qil);
             }
             _qil.CompactTree = UseCompactTree;
-            _importsSchemas = compiler.Schemas != null;
+            if (Xsl3.XPath31.ConstantPool.Compilation is { } constants) constants.SchemaContext = compiler.Schemas;
         }
 
-        // Xsl3 (P6): whether the stylesheet last compiled imports schemas (it then can't be saved: CompileToAssembly).
-        private bool _importsSchemas;
 
         /// <summary>
         /// Xsl3: whether an XSLT 1.0 stylesheet builds the documents it parses itself (an input given as a URI or
         /// reader, and those document() loads) as compact trees rather than XPathDocument's, as stock does. Set before
         /// Load. The compact tree takes about 60% of the memory and parses faster; it reads the same, except that
-        /// generate-id() gives different (equally unique) ids. XSLT 2.0+ stylesheets always use it.
+        /// generate-id() gives different (equally unique) ids, and nodes from different documents are ordered by when their
+        /// trees were built (the input before document()'s) rather than by when a comparison first meets them. XSLT 2.0+
+        /// stylesheets always use it.
         /// </summary>
         public bool UseCompactTree { get; set; }
 
@@ -253,11 +253,11 @@ namespace Xsl3
             TransformToItems(input, arguments, documentResolver, BaseOutputUri);
 
         /// <summary>Xsl3: <see cref="TransformToItems(XPathNavigator, XsltArgumentList?, XmlResolver?)"/> with this run's base output URI (the 3.0 API).</summary>
-        internal System.Collections.Generic.IList<XPathItem> TransformToItems(XPathNavigator input, XsltArgumentList? arguments, XmlResolver? documentResolver, Uri? baseOutputUri,
+        internal System.Collections.Generic.IList<XPathItem> TransformToItems(object input, XsltArgumentList? arguments, XmlResolver? documentResolver, Uri? baseOutputUri,
             Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             CheckCommand();
-            CheckInput(input);
+            CheckInput(input as XPathNavigator);
             System.Collections.Generic.IList<XPathItem> items = Array.Empty<XPathItem>();
             Run(arguments, baseOutputUri, () => items = _command.Evaluate(input, documentResolver, arguments), resultDocumentHandler);
             return items;
@@ -267,11 +267,11 @@ namespace Xsl3
         /// Xsl3: serializes a run as <c>xsl:output</c> says to a stream, a text writer or an XML writer, with this run's
         /// base output URI (the 3.0 API).
         /// </summary>
-        internal void TransformTo(XPathNavigator input, XsltArgumentList? arguments, object destination, XmlResolver? documentResolver, Uri? baseOutputUri,
+        internal void TransformTo(object input, XsltArgumentList? arguments, object destination, XmlResolver? documentResolver, Uri? baseOutputUri,
             Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             CheckCommand();
-            CheckInput(input);
+            CheckInput(input as XPathNavigator);
             switch (destination)
             {
                 case Stream stream:
@@ -317,6 +317,7 @@ namespace Xsl3
         /// <see cref="InitialFunctionArguments.Selection"/>, rather than the input document.
         /// </summary>
         internal bool InitialMatchSelection { get; set; }
+        internal bool InitialSourceSelection { get; set; }
 
         /// <summary>
         /// Xsl3: an input that stands for none: an initial named template then has no context item, and an initial mode
@@ -383,11 +384,6 @@ namespace Xsl3
             {
                 throw new XslLoadException(error);
             }
-            if (_importsSchemas)
-            {
-                _qil = null;
-                throw new NotSupportedException("A schema-aware stylesheet can't be saved: its imported schemas aren't saved with it");
-            }
             var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
             ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
             TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
@@ -405,7 +401,11 @@ namespace Xsl3
             _qil = null;
             if (!symbols)
             {
-                assembly.Save(output);
+                using var saved = new MemoryStream();
+                assembly.Save(saved);
+                byte[] image = saved.ToArray();
+                SavedAssemblyReferences.Normalize(image);
+                output.Write(image);
                 return;
             }
             // With debug information (XslCompiledTransform(enableDebug: true)): an embedded portable PDB maps the IL to
@@ -422,7 +422,9 @@ namespace Xsl3
                 new System.Reflection.Metadata.Ecma335.MetadataRootBuilder(metadata), il, fieldData, debugDirectoryBuilder: debugDirectory);
             var peBlob = new System.Reflection.Metadata.BlobBuilder();
             pe.Serialize(peBlob);
-            peBlob.WriteContentTo(output);
+            byte[] savedImage = peBlob.ToArray();
+            SavedAssemblyReferences.Normalize(savedImage);
+            output.Write(savedImage);
         }
 #endif
 
@@ -794,6 +796,8 @@ namespace Xsl3
         private void Run(XsltArgumentList? arguments, Uri? baseOutputUri, Action transform, Func<string, string, TextWriter>? resultDocumentHandler = null)
         {
             XsltSettings settings = _settings ?? XsltSettings.Default;
+            // Xsl3: explicit transformer delivery wins; legacy calls can provide the same per-run contract.
+            resultDocumentHandler ??= XsltArgumentList.AdaptResultDocumentHandler(arguments?.ResultDocumentHandler);
             System.Threading.CancellationToken token = arguments?.CancellationToken ?? default;
             using System.Threading.CancellationTokenSource? limit = settings.Timeout is TimeSpan timeout
                 ? System.Threading.CancellationTokenSource.CreateLinkedTokenSource(token) : null;
@@ -819,7 +823,7 @@ namespace Xsl3
                 {
                     if (resultDocumentHandler != null)
                     {
-                        XmlQueryRuntime.ResultDocumentHandler = resultDocumentHandler; // the 3.0 API's, for this run
+                        XmlQueryRuntime.ResultDocumentHandler = resultDocumentHandler; // scoped to this invocation
                     }
                     if (token.CanBeCanceled)
                     {

@@ -26,7 +26,7 @@ namespace Xsl3.Runtime
     ///   3. External parameters
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public sealed class XmlQueryContext
+    public sealed partial class XmlQueryContext
     {
         private readonly XmlQueryRuntime _runtime;
         private readonly XPathNavigator? _defaultDataSource;
@@ -34,11 +34,26 @@ namespace Xsl3.Runtime
 
         // Xsl3: fn:unparsed-text and friends read resources through the same resolver as documents.
         internal XmlResolver DataSources => _dataSources;
-        private readonly Hashtable _dataSourceCache;
         private readonly XsltArgumentList? _argList;
         private XmlExtensionFunctionTable? _extFuncsLate;
         private readonly WhitespaceRuleLookup? _wsRules;
         private readonly QueryReaderSettings _readerSettings; // If we create reader out of stream we will use these settings
+
+        // This context borrows the global item and initial-selection identity; it never owns
+        // the parent's input. Extension binding caches and query name tables remain local.
+        private readonly XmlQueryContext? _forkContextOwner;
+
+        internal XmlQueryContext(XmlQueryRuntime runtime, XmlQueryContext owner)
+        {
+            _runtime = runtime;
+            _dataSources = owner._dataSources;
+            _argList = owner._argList;
+            _wsRules = owner._wsRules;
+            _readerSettings = owner._readerSettings.Fork();
+            _defaultDataSource = owner._defaultDataSource?.Clone();
+            _initialSelection = owner._initialSelection?.Clone();
+            _forkContextOwner = owner;
+        }
 
         /// <summary>
         /// This constructor is internal so that external users cannot construct it (and therefore we do not have to test it separately).
@@ -47,13 +62,23 @@ namespace Xsl3.Runtime
         {
             _runtime = runtime;
             _dataSources = dataSources;
-            _dataSourceCache = new Hashtable();
             _argList = argList;
             _wsRules = wsRules;
 
-            if (defaultDataSource is XmlReader)
+            if (defaultDataSource is Streaming.InitialSource source)
             {
-                _readerSettings = new QueryReaderSettings((XmlReader)defaultDataSource);
+                _initialSource = source;
+                defaultDataSource = source.GlobalContext;
+            }
+            else if (runtime.StreamedInitialMode && defaultDataSource is XmlReader inputReader)
+            {
+                _initialSource = new(inputReader, null, XslCompiledTransform.AbsentInput);
+                defaultDataSource = XslCompiledTransform.AbsentInput;
+            }
+            object settingsSource = _initialSource?.Input ?? defaultDataSource;
+            if (settingsSource is XmlReader)
+            {
+                _readerSettings = new QueryReaderSettings((XmlReader)settingsSource);
             }
             else if (argList?.GetParam(Xsl3.XPath31.XPath31Executable.ReaderSettingsParam, Xsl3.XPath31.XPath31Executable.ControlNamespace) is XmlReaderSettings readerSettings)
             {
@@ -65,13 +90,7 @@ namespace Xsl3.Runtime
                 // Xsl3: documents a 2.0+ stylesheet loads have their DTDs read (ID attributes, entities, element
                 // content whitespace), the external subset through the transformation's resolver, with entity
                 // expansion capped. 1.0 keeps upstream's settings, which refuse DTDs.
-                _readerSettings = new QueryReaderSettings(new XmlReaderSettings
-                {
-                    NameTable = new NameTable(),
-                    DtdProcessing = DtdProcessing.Parse,
-                    XmlResolver = ReferenceEquals(dataSources, XmlResolver.ThrowingResolver) ? null : dataSources,
-                    MaxCharactersFromEntities = 10_000_000,
-                });
+                _readerSettings = new QueryReaderSettings(InputReaderSettings(dataSources, xslt2: true));
             }
             else
             {
@@ -80,7 +99,17 @@ namespace Xsl3.Runtime
                 _readerSettings = new QueryReaderSettings(new NameTable());
             }
 
-            if (defaultDataSource is string s)
+            if (!runtime.IsXslt2 && _initialSource != null)
+            {
+                _defaultDataSource = InitialSelection(accumulators: false);
+                return;
+            }
+            if (defaultDataSource is XPathNavigator absent && XslCompiledTransform.AbsentInput.IsSamePosition(absent))
+            {
+                // Whitespace stripping must not copy away the sentinel's absence identity.
+                _defaultDataSource = absent;
+            }
+            else if (defaultDataSource is string s)
             {
                 // Load the default document from a Uri
                 _defaultDataSource = GetDataSource(s, null);
@@ -95,7 +124,7 @@ namespace Xsl3.Runtime
                     Uri.TryCreate(root.BaseURI, UriKind.Absolute, out Uri? inputUri))
                 {
                     // Xsl3: doc() of the input document's URI is the input document (fn:doc is stable).
-                    _dataSourceCache[inputUri] = root;
+                    _runtime.Documents.Cache(inputUri, root);
                 }
             }
         }
@@ -151,54 +180,53 @@ namespace Xsl3.Runtime
         /// If the resolver returns a stream or reader, create an instance of XPathDocument.  If the resolver returns an
         /// XPathNavigator, return the navigator.  Throw an exception if no data source was found.
         /// </summary>
-        public XPathNavigator? GetDataSource(string uriRelative, string? uriBase)
-        {
-            object? input;
-            Uri? uriResolvedBase, uriResolved;
-            XPathNavigator? nav = null;
+        public XPathNavigator? GetDataSource(string uriRelative, string? uriBase) => GetDataSourceCore(uriRelative, uriBase, documentView: false);
 
+        internal XPathNavigator? GetDocument(string uriRelative, string? uriBase) => GetDataSourceCore(uriRelative, uriBase, documentView: true);
+
+        private XPathNavigator? GetDataSourceCore(string uriRelative, string? uriBase, bool documentView)
+        {
             try
             {
-                // If the data source has already been retrieved, then return the data source from the cache.
-                uriResolvedBase = (uriBase != null) ? _dataSources.ResolveUri(null, uriBase) : null;
-                uriResolved = _dataSources.ResolveUri(uriResolvedBase, uriRelative);
-                if (uriResolved != null)
-                    nav = _dataSourceCache[uriResolved] as XPathNavigator;
-
-                // Xsl3: a resource the transformation has written as a final result can't be read back (XSLT 3.0 §25.2).
-                if (nav == null && uriResolved != null && _runtime.IsXslt2 && _runtime.ResultDocumentUris.Contains(uriResolved.OriginalString))
+                // Xsl3: fn:doc and source-document validate the URI before provider normalization.
+                if (documentView) DocumentFragment.ValidateReference(uriRelative);
+                Uri? uriResolvedBase = uriBase != null ? _dataSources.ResolveUri(null, uriBase) : null;
+                Uri uriResolved = _dataSources.ResolveUri(uriResolvedBase, uriRelative)
+                    ?? throw new XmlException("The resolver did not resolve the requested document URI");
+                DocumentFragment fragment;
+                try { fragment = DocumentFragment.Parse(uriResolved); }
+                catch (Xsl3.Xdm.XdmException error) when (!documentView && error.Code == "FODC0002")
                 {
-                    throw new Xsl3.Xdm.XdmException("XTDE1500", $"'{uriResolved.OriginalString}' is written by xsl:result-document and can't be read in the same transformation");
+                    throw new Xsl3.Xdm.XdmException("XTDE1160", error.Message);
                 }
-
-                if (nav == null)
-                {
-                    // Get the entity from the resolver and ensure it is cached as a document
-                    input = _dataSources.GetEntity(uriResolved!, null, null);
-
-                    if (input != null)
-                    {
-                        // Construct a document from the entity and add the document to the cache
-                        nav = ConstructDocument(input, uriRelative, uriResolved);
-                        _dataSourceCache.Add(uriResolved!, nav);
-                    }
-                }
+                uriResolved = documentView ? fragment.DocumentUri : fragment.ResourceUri;
+                XPathNavigator? result = _runtime.Documents.TryGet(uriResolved, out XPathNavigator? cached) ? cached : _runtime.Documents.Load(uriResolved, () => {
+                    object? input = _dataSources.GetEntity(fragment.ResourceUri, null, null);
+                    if (input is Stream or XmlReader or IXPathNavigable) _runtime.Documents.MarkRead(fragment.ResourceUri);
+                    return input == null ? null : ConstructDocument(input, uriRelative, uriResolved);
+                }, XmlQueryRuntime.Cancellation, _runtime.DocumentDependencies, _runtime.EvaluationDependencies);
+                // document() returns nodes of the stable complete resource; fn:doc() uses the
+                // implementation-defined selected-document view. Their root identities differ.
+                return !documentView && fragment.Id != null && result != null
+                    ? fragment.Find(result, XmlQueryRuntime.Cancellation) : result;
             }
             catch (XslTransformException)
             {
                 // Don't need to wrap XslTransformException
                 throw;
             }
-            catch (Xsl3.Xdm.XdmException e) when (e.Code == "XTDE1500")
+            catch (Xsl3.Xdm.XdmException e) when (e.Code is "XTDE1500" or "FODC0005" or "XTDE1160")
             {
                 throw;
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception e)
             {
                 if (!XmlException.IsCatchableException(e))
                 {
                     throw;
                 }
+                DocumentResources.RethrowReadControlError(e);
                 if (_runtime.IsXslt2)
                 {
                     // Xsl3: in 2.0+ a document that can't be retrieved or parsed is FODC0002 (XSLT 3.0 §20.1).
@@ -206,12 +234,66 @@ namespace Xsl3.Runtime
                 }
                 throw new XslTransformException(e, SR.XmlIl_DocumentLoadError, uriRelative);
             }
-
-            return nav;
         }
 
-        /// <summary>Xsl3: whether the transformation has read the document at this absolute URI (XTDE1500).</summary>
-        internal bool HasRead(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out Uri? absolute) && _dataSourceCache.ContainsKey(absolute);
+        internal XPathNavigator OpenStreamedSource(string href, string baseUri, bool stripAnnotations, Streaming.StreamedValidation? validation = null)
+        {
+            XmlReader? reader = null;
+            Stream? stream = null;
+            bool ownsReader = false;
+            DocumentResources.ReadClaim? readClaim = null;
+            try
+            {
+                DocumentFragment.ValidateReference(href);
+                Uri? resolvedBase = baseUri.Length == 0 ? null : _dataSources.ResolveUri(null, baseUri);
+                Uri uri = _dataSources.ResolveUri(resolvedBase, href);
+                DocumentFragment fragment = DocumentFragment.Parse(uri);
+                readClaim = _runtime.Documents.BeginRead(fragment.ResourceUri);
+
+                // Xsl3: this scope applies the requested schema, so negotiate bytes before a provider
+                // prevalidates them. Reader-only resolvers retain their existing delivery contract.
+                Type? requestedType = validation != null && _dataSources.SupportsType(fragment.ResourceUri, typeof(Stream))
+                    ? typeof(Stream) : null;
+                object? entity = _dataSources.GetEntity(fragment.ResourceUri, null, requestedType);
+                if (entity is Stream input)
+                {
+                    stream = input;
+                    reader = _readerSettings.CreateReader(input, fragment.ResourceUri.ToString(), _runtime.Documents);
+                    ownsReader = true;
+                }
+                else if (entity is XmlReader supplied) reader = supplied;
+                else throw new Xsl3.Xdm.XdmException("FODC0002", "A streamed source resolver must return a Stream or XmlReader");
+                readClaim.Commit();
+                if (fragment.Id != null)
+                {
+                    reader = fragment.Select(reader, ownsReader, XmlQueryRuntime.Cancellation);
+                    ownsReader = true; // the selected view owns its subtree reader, even for borrowed input
+                }
+
+                XmlReader validating = validation?.Wrap(reader, ownsReader) ?? reader;
+                var chain = new Streaming.StreamedInputReader(WhitespaceRuleReader.CreateReader(validating, _wsRules, stripAnnotations), ownsReader || validation != null, XmlQueryRuntime.Cancellation, stripAnnotations);
+                var document = new Streaming.StreamedDocument(chain, ownsReader: true, cancellation: XmlQueryRuntime.Cancellation, completeValidation: validation != null);
+                _runtime.RegisterStreamedSource(document);
+                validation?.Attach(document);
+                return document.CreateNavigator();
+            }
+            catch (Exception e) when (XmlException.IsCatchableException(e))
+            {
+                try
+                {
+                    if (ownsReader) reader?.Dispose();
+                    else if (reader == null) stream?.Dispose();
+                }
+                catch (Exception cleanup) when (XmlException.IsCatchableException(cleanup))
+                {
+                    // Preserve the source-opening error if a provider also fails while closing it.
+                }
+                if (e is Xsl3.Xdm.XdmException or OperationCanceledException) throw;
+                DocumentResources.RethrowReadControlError(e);
+                throw new Xsl3.Xdm.XdmException("FODC0002", $"Could not open streamed source '{href}': {e.Message}");
+            }
+            finally { readClaim?.Dispose(); }
+        }
 
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.
@@ -224,6 +306,15 @@ namespace Xsl3.Runtime
         private XPathNavigator BuildTree(XmlReader reader, bool typed = false)
         {
             bool compact = Xsl3.Tree.CompactDocument.Override ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
+            var namespaces = DocumentFragment.RootNamespaces(reader);
+            var ids = DocumentFragment.IdDeclarations(reader);
+            var idrefs = DocumentFragment.IdrefDeclarations(reader);
+            if ((compact || typed) && (namespaces != null || ids != null))
+            {
+                var builder = new Xsl3.Tree.CompactDocument.Builder(reader.NameTable, reader.BaseURI);
+                builder.Read(reader, XmlSpace.Preserve, typed: typed, rootNamespaces: namespaces, idDeclarations: ids, idrefDeclarations: idrefs);
+                return builder.Finish().CreateNavigator();
+            }
             return compact || typed
                 ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed).CreateNavigator()
                 : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
@@ -233,31 +324,48 @@ namespace Xsl3.Runtime
         private XPathNavigator? ConstructDocument(object dataSource, string? uriRelative, Uri? uriResolved)
         {
             Debug.Assert(dataSource != null, "GetType() below assumes dataSource is not null");
+            DocumentFragment fragment = uriResolved == null ? default : DocumentFragment.Parse(uriResolved);
             Stream? stream = dataSource as Stream;
             if (stream != null)
             {
                 // Create document from stream
-                XmlReader reader = _readerSettings.CreateReader(stream, uriResolved?.ToString());
-
+                XmlReader? reader = null;
+                bool completed = false;
                 try
                 {
+                    reader = _readerSettings.CreateReader(stream, fragment.ResourceUri?.ToString(), _runtime.Documents);
+                    using XmlReader? selected = fragment.Id == null ? null : fragment.Select(reader, ownsInput: false, XmlQueryRuntime.Cancellation);
                     // Create WhitespaceRuleReader if whitespace should be stripped
-                    return BuildTree(WhitespaceRuleReader.CreateReader(reader, _wsRules));
+                    XPathNavigator value = BuildTree(WhitespaceRuleReader.CreateReader(selected ?? reader, _wsRules), typed: selected != null);
+                    completed = true;
+                    return value;
                 }
                 finally
                 {
                     // Always close reader that was opened here
-                    reader.Close();
+                    try
+                    {
+                        if (reader != null) reader.Close();
+                        else stream.Dispose();
+                    }
+                    catch (Exception) when (!completed) { }
                 }
             }
             else if (dataSource is XmlReader reader)
             {
                 // Create document from reader
                 // Create WhitespaceRuleReader if whitespace should be stripped
-                return BuildTree(WhitespaceRuleReader.CreateReader(reader, _wsRules));
+                using XmlReader? selected = fragment.Id == null ? null : fragment.Select(reader, ownsInput: false, XmlQueryRuntime.Cancellation);
+                return BuildTree(WhitespaceRuleReader.CreateReader(selected ?? reader, _wsRules), typed: selected != null);
             }
             else if (dataSource is IXPathNavigable xPathNavigable)
             {
+                if (fragment.Id != null)
+                {
+                    XPathNavigator navigator = xPathNavigable.CreateNavigator()!;
+                    using XmlReader selected = fragment.Select(navigator, XmlQueryRuntime.Cancellation);
+                    return BuildTree(WhitespaceRuleReader.CreateReader(selected, _wsRules), typed: true);
+                }
                 if (_wsRules != null)
                 {
                     XPathNavigator? loaded = xPathNavigable.CreateNavigator();
@@ -418,17 +526,20 @@ namespace Xsl3.Runtime
         /// <summary>Xsl3: the trace listener of the argument list, for stylesheets compiled with EnableTracing.</summary>
         internal IXsltTraceListener? TraceListener => _argList?.TraceListener;
 
+        internal bool HasTraceHandler => _argList?.TraceHandler != null;
+
         /// <summary>Xsl3: fn:trace, to XsltArgumentList.TraceHandler if there is one.</summary>
         internal void OnTrace(string label, IList<XPathItem> value)
         {
             if (_argList?.TraceHandler is Action<string, string> handler)
             {
-                handler(label, string.Join(", ", System.Linq.Enumerable.Select(value, item => item switch
+                string text = string.Join(", ", System.Linq.Enumerable.Select(value, item => item switch
                 {
                     XPathNavigator node => node.NodeType == XPathNodeType.Root ? node.InnerXml : node.OuterXml,
                     Xdm.FunctionItem function => function.Describe(),
                     _ => item.Value,
-                })));
+                }));
+                _runtime.InvokeOnCaller(() => handler(label, text));
             }
         }
 

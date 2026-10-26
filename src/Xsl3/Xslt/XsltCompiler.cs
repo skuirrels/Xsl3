@@ -369,15 +369,17 @@ namespace Xsl3
         /// <summary>Receives the text of each <c>xsl:message</c>.</summary>
         public Action<string>? MessageHandler { get; set; }
 
-        /// <summary>Receives <c>fn:trace</c> output: the value's text and the label.</summary>
+        /// <summary>Receives <c>fn:trace</c> output as (label, value text), once per complete call on the invoking
+        /// thread. Streamed diagnostics explicitly buffer traced node subtrees and can grow without bound.</summary>
         public Action<string, string>? TraceHandler { get; set; }
 
         /// <summary>Receives the entry and exit of templates and functions, when the settings had <see cref="XsltSettings.EnableTracing"/>.</summary>
         public IXsltTraceListener? TraceListener { get; set; }
 
         /// <summary>
-        /// Receives each secondary result (<c>xsl:result-document</c>): given its absolute URI, returns the writer it is
+        /// Receives each secondary result (<c>xsl:result-document</c>): given its resolved URI, returns the writer it is
         /// serialized to, which Xsl3 disposes when the result is complete. Set, it replaces writing files.
+        /// Streamed document results can write while their body is evaluated; a later error can leave partial output.
         /// </summary>
         public Func<Uri, TextWriter>? ResultDocumentHandler { get; set; }
 
@@ -413,6 +415,84 @@ namespace Xsl3
         /// <inheritdoc cref="ApplyTemplates(XdmValue, Stream, QName?, IDictionary{QName, XdmValue}?, IDictionary{QName, XdmValue}?)"/>
         public void ApplyTemplates(XdmValue selection, XmlWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
             Serialize(PrepareApply(selection, mode, parameters, tunnelParameters, raw: false), destination);
+
+        // Reader, stream and URI inputs are deferred until execution, after global-context checks.
+        // The initial selection is separate from GlobalContextItem even in a nonstreamable mode.
+
+        /// <summary>Reads the initial document from a caller-owned reader, which remains open. Returns the result sequence.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public XdmValue ApplyTemplates(XmlReader input, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Raw(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: true));
+
+        /// <summary>Reads the initial document from a caller-owned reader, which remains open. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(XmlReader input, Stream destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Reads the initial document from a caller-owned reader, which remains open. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(XmlReader input, TextWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Reads the initial document from a caller-owned reader, which remains open. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(XmlReader input, XmlWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Reads the initial document from a caller-owned stream, which remains open. The base URI may be null. Returns the result sequence.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public XdmValue ApplyTemplates(Stream input, Uri? baseUri = null, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Raw(PrepareSource(input, baseUri, mode, parameters, tunnelParameters, raw: true));
+
+        /// <summary>Reads the initial document from a caller-owned stream, which remains open. The base URI may be null. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Stream input, Uri? baseUri, Stream destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, baseUri, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Reads the initial document from a caller-owned stream, which remains open. The base URI may be null. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Stream input, Uri? baseUri, TextWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, baseUri, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Reads the initial document from a caller-owned stream, which remains open. The base URI may be null. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Stream input, Uri? baseUri, XmlWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, baseUri, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Resolves the initial document through DocumentResolver and closes the acquired input. Returns the result sequence.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public XdmValue ApplyTemplates(Uri input, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Raw(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: true));
+
+        /// <summary>Resolves the initial document through DocumentResolver and closes the acquired input. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Uri input, Stream destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Resolves the initial document through DocumentResolver and closes the acquired input. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Uri input, TextWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        /// <summary>Resolves the initial document through DocumentResolver and closes the acquired input. Serializes the result to <paramref name="destination"/>.
+        /// The selected mode may stream; GlobalContextItem is independent and remains grounded.</summary>
+        public void ApplyTemplates(Uri input, XmlWriter destination, QName? mode = null, IDictionary<QName, XdmValue>? parameters = null, IDictionary<QName, XdmValue>? tunnelParameters = null) =>
+            Serialize(PrepareSource(input, null, mode, parameters, tunnelParameters, raw: false), destination);
+
+        private Run PrepareSource(object input, Uri? baseUri, QName? mode, IDictionary<QName, XdmValue>? parameters,
+            IDictionary<QName, XdmValue>? tunnelParameters, bool raw)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            if (baseUri is { IsAbsoluteUri: false }) throw new ArgumentException("The base URI must be absolute", nameof(baseUri));
+            var (initialParameters, arguments) = InitialParameters(parameters, tunnelParameters);
+            XslCompiledTransform unit = _executable.Unit($"source|{mode?.EQName ?? "#default"}|{Signature(initialParameters)}", t =>
+            {
+                t.InitialMode = mode == null ? null : mode == UnnamedMode ? XmlQualifiedName.Empty : new XmlQualifiedName(mode.LocalName, mode.NamespaceUri);
+                t.InitialSourceSelection = true;
+                t.InitialParameters = initialParameters;
+            }, raw);
+            return new Run(unit, new Streaming.InitialSource(input, baseUri, GlobalContextItem?.Navigator ?? XslCompiledTransform.AbsentInput), arguments);
+        }
 
         private Run PrepareApply(XdmValue selection, QName? mode, IDictionary<QName, XdmValue>? parameters, IDictionary<QName, XdmValue>? tunnelParameters, bool raw)
         {
@@ -490,7 +570,7 @@ namespace Xsl3
 
         // ------------------------------------------------------------ running
 
-        private sealed record Run(XslCompiledTransform Unit, XPathNavigator Input, List<(XmlQualifiedName Name, IList<XPathItem> Value)> Values);
+        private sealed record Run(XslCompiledTransform Unit, object Input, List<(XmlQualifiedName Name, IList<XPathItem> Value)> Values);
 
         private static (List<(XmlQualifiedName, bool)>? Names, List<(XmlQualifiedName, IList<XPathItem>)> Values) InitialParameters(
             IDictionary<QName, XdmValue>? parameters, IDictionary<QName, XdmValue>? tunnelParameters)
@@ -531,7 +611,7 @@ namespace Xsl3
         }
 
         private Func<string, string, TextWriter>? Handler() =>
-            ResultDocumentHandler is Func<Uri, TextWriter> handler ? (uri, _) => handler(new Uri(uri, UriKind.RelativeOrAbsolute)) : null;
+            XsltArgumentList.AdaptResultDocumentHandler(ResultDocumentHandler);
 
         private XdmValue Raw(Run run)
         {

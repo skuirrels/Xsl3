@@ -192,7 +192,6 @@ namespace Xsl3.Xslt
                 {
                     CompileFunctions31();
                     CompileAccumulators31();
-                    _functionItems31?.Finish();
                 }
                 _varHelper.CheckEmpty();
             }
@@ -212,6 +211,9 @@ namespace Xsl3.Xslt
 
             CompileInitializationCode();
             QilNode root = CompileRootExpression(compiler.StartApplyTemplates!);
+            // Root complex-content conversion can lift a resumable population too.
+            // Complete dispatch only after every expression has registered its functions.
+            if (IsV2) _functionItems31?.Finish();
 
             // Clean default values which we calculate in caller context
             foreach (ProtoTemplate tmpl in compiler.AllTemplates)
@@ -241,6 +243,10 @@ namespace Xsl3.Xslt
 
             QilExpression qil = _f.QilExpression(root, _f.BaseFactory);
             {
+                qil.HasStreamedInputs = _streamedInputs31 || compiler.StreamedInitialMode;
+                qil.StreamedInitialMode = compiler.StreamedInitialMode;
+                if (compiler.StreamabilityResults is { Count: > 0 } streamability)
+                    qil.Annotation = streamability.Values.Cast<object>().ToList();
                 qil.EarlyBoundTypes = ebTypes;
                 qil.FunctionList = _functions;
                 qil.GlobalParameterList = _extPars;
@@ -262,6 +268,40 @@ namespace Xsl3.Xslt
                 }
             }
 
+            if (IsV2 && StreamedCompilation31)
+            {
+                new Streaming.StreamedFocusPruning(_f.BaseFactory).Prune(qil);
+                var streamableFunctions = new HashSet<QilFunction>();
+                var singletonFunctions = new Dictionary<QilFunction, (Xdm.SequenceTypeTest, bool)>();
+                var nodeResults = new HashSet<QilFunction>();
+                foreach (var (function, _) in compiler.Functions.Values)
+                {
+                    if (!compiler.Settings.EnableTracing && compiler.Settings.MaxRecursionDepth == 0
+                        && function.V2 is { StreamabilityCategory: not (null or "unclassified"), Cache: not true, NewEachTime: not "no" })
+                        streamableFunctions.Add(function.Function!);
+                    if (function.V2?.StreamabilityCategory is not (null or "unclassified")
+                        && FunctionTypes31(function)?.Parameters is { Count: > 0 } parameters
+                        && parameters[0] is { Item: Xdm.NodeKindTest, AllowsMany: false } parameter)
+                        singletonFunctions.Add(function.Function!, (parameter, function.V2.StreamabilityCategory is "absorbing" or "inspection"));
+                    // A narrow native result can stop after its first item. Keep that call eager
+                    // until its complete result-cardinality check can survive a suspended return.
+                    if (FunctionTypes31(function)?.ReturnType is { Item: Xdm.NodeKindTest, Cardinality: Xdm.Cardinality.ZeroOrMore })
+                        nodeResults.Add(function.Function!);
+                }
+                new Streaming.StreamedFunctionLowering(_f.BaseFactory, streamableFunctions, singletonFunctions,
+                    ((XPath31.IXPath31Environment)this).FunctionItems, nodeResults,
+                    compiler.Settings.EnableTracing || compiler.Settings.MaxRecursionDepth != 0 ? null
+                        : new HashSet<QilFunction>(_functions.Cast<QilFunction>().Where(function => function.IsTemplateResult
+                            && function.XmlType == T.ItemS && function.Arguments.Cast<QilParameter>().All(parameter => parameter.DefaultValue == null))),
+                    Unbox31, (original, producer) =>
+                    {
+                        if (_frames31 != null && _frames31.TryGetValue(original, out int frame)) _frames31[producer] = frame;
+                    }).Lower(qil);
+                // Recursive transmitting functions register resumable implementations during
+                // lowering. Include them in the same dispatcher as the other lifted populations.
+                _functionItems31?.Finish();
+                qil.Dispatcher = _functionItems31?.DispatcherIfUsed;
+            }
             QilDepthChecker.Check(qil);
 
             return qil;
@@ -270,7 +310,13 @@ namespace Xsl3.Xslt
         private QilNode InvokeOnCurrentNodeChanged()
         {
             Debug.Assert(IsDebug && _curLoop.IsFocusSet);
-            return _f.Loop(_f.Let(_f.InvokeOnCurrentNodeChanged(_curLoop.GetCurrent()!)), _f.Sequence());
+            QilNode current = _curLoop.GetCurrent()!;
+            QilNode Notify(QilNode node) => _f.Loop(_f.Let(_f.InvokeOnCurrentNodeChanged(node)), _f.Sequence());
+            // The legacy debugger hook accepts a navigator. XPath 2.0+ loops also have atomic,
+            // map and function context items, whose debug variables and sequence points remain
+            // available without emitting an invalid navigator argument to the node-only hook.
+            return current.XmlType!.IsSubtypeOf(T.NodeNotRtf) ? Notify(current)
+                : _f.Conditional(_f.IsType(current, T.NodeNotRtf), Notify(_f.TypeAssert(current, T.NodeNotRtf)), _f.Nop(_f.Sequence()));
         }
 
         [Conditional("DEBUG")]
@@ -363,15 +409,20 @@ namespace Xsl3.Xslt
                 : IsV2 && applyTmpls.Select != null
                 ? CompileApplyTemplates31((XslNodeEx)applyTmpls)
                 : GenerateApply(_compiler.Root!, applyTmpls);
-            if (IsV2 && _compiler.GlobalContextItem is ("required", string requiredType))
+            if (IsV2 && _compiler.GlobalContextItem is (string use, string requiredType) && use != "absent")
             {
-                // Xsl3: xsl:global-context-item use="required" as="…": the global context item must be of the type.
-                result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), requiredType, "XTTE0590")), result);
+                // Optional global context items have the same type requirement when one is supplied.
+                QilNode check = X31(nameof(XsltLibrary.X31Discard), T.ItemS, InstanceCheck31(GetCurrentNode(), requiredType, "XTTE0590"));
+                if (use != "required")
+                    check = _f.Conditional(X31(nameof(XsltLibrary.X31IsAbsent), T.BooleanX,
+                        X31(nameof(XsltLibrary.X31InitialFocus), T.Item, GetCurrentNode())), _f.Sequence(), check);
+                // Evaluate the prerequisite without adding item()* to the result, preserving push serialization.
+                result = _f.Conditional(_f.IsEmpty(check), result, _f.Sequence());
             }
             if (IsV2 && _compiler.GlobalContextItem is ("required", _))
             {
                 // Xsl3: use="required" and no global context item supplied: XTDE3086, whether or not anything uses it.
-                result = _f.Sequence(X31(nameof(XsltLibrary.X31RequireGlobalContextItem), T.ItemS, GetCurrentNode()), result);
+                result = _f.Conditional(_f.IsEmpty(X31(nameof(XsltLibrary.X31RequireGlobalContextItem), T.ItemS, GetCurrentNode())), result, _f.Sequence());
             }
             if (IsV2 && _compiler.PackageInfos.Count <= 1)
             {
@@ -381,7 +432,7 @@ namespace Xsl3.Xslt
                 {
                     if (par.NodeType == XslNodeType.Param && par.V2 is { Required: true, StaticValue: null } && par.Value is QilIterator it)
                     {
-                        result = _f.Sequence(X31(nameof(XsltLibrary.X31Discard), T.ItemS, Box(it)), result);
+                        result = _f.Conditional(_f.IsEmpty(X31(nameof(XsltLibrary.X31Discard), T.ItemS, Box(it))), result, _f.Sequence());
                     }
                 }
             }
@@ -437,6 +488,7 @@ namespace Xsl3.Xslt
 
         private QilList? EnterScope(XslNode node)
         {
+            if (_compiler.HasStreamableDeclarations) EnterStreamableScope31(node);
             // This is the only place where lastScope is changed
             _lastScope = node;
             _xslVersion = node.XslVersion;
@@ -449,6 +501,7 @@ namespace Xsl3.Xslt
 
         private void ExitScope()
         {
+            if (_compiler.HasStreamableDeclarations) ExitStreamableScope31();
             _scope.ExitScope();
         }
 
@@ -524,7 +577,7 @@ namespace Xsl3.Xslt
             }
             else if (_fixedFocus31 is var (_, position, _))
             {
-                return position;
+                return position.DeepClone(_f.BaseFactory);
             }
             else if (_funcFocus.IsFocusSet)
             {
@@ -545,7 +598,7 @@ namespace Xsl3.Xslt
             }
             else if (_fixedFocus31 is var (_, _, last))
             {
-                return last;
+                return last.DeepClone(_f.BaseFactory);
             }
             else if (_funcFocus.IsFocusSet)
             {
@@ -635,7 +688,7 @@ namespace Xsl3.Xslt
                 Debug.Assert(tmpl != null && tmpl.Function == null);
                 Debug.Assert(tmpl.NodeType == XslNodeType.AttributeSet || tmpl.NodeType == XslNodeType.Template);
                 QilList args = _f.FormalParameterList();
-                XslFlags flags = !IsDebug ? tmpl.Flags : XslFlags.FullFocus;
+                XslFlags flags = WithDebugFocus(tmpl.Flags);
 
                 QilList? nsList = EnterScope(tmpl);
                 if ((flags & XslFlags.Current) != 0)
@@ -775,13 +828,13 @@ namespace Xsl3.Xslt
                                 }
                             }
                             SetLineInfo(param, xslPar.SourceLine);
+                            if (IsV2)
+                            {
+                                RegisterTemplateParameter31(param, xslPar);
+                            }
                             ExitScope();
                             _scope.AddVariable(xslPar.Name, param);
                             args.Add(param);
-                            if (IsV2)
-                            {
-                                _paramDecls[param] = xslPar;
-                            }
                         }
                         else
                         {
@@ -796,6 +849,8 @@ namespace Xsl3.Xslt
                     _f.Boolean((tmpl.Flags & XslFlags.SideEffects) != 0),
                     tmpl is AttributeSet ? T.AttributeS : IsV2 ? TemplateType31(tmpl) : T.NodeNotRtfS // Xsl3: 2.0 templates may return sequences
                 );
+                // Xsl3: Preserve template identity for mixed-result pull lowering.
+                tmpl.Function.IsTemplateResult = IsV2 && tmpl is Template { IsFunction: false };
                 tmpl.Function.DebugName = tmpl.GetDebugName();
                 Debug.Assert((template != null) == (tmpl.SourceLine != null), "Templates must have line information, and attribute sets must not");
                 SetLineInfo(tmpl.Function, tmpl.SourceLine ?? SourceLineInfo.NoSource);
@@ -854,7 +909,7 @@ namespace Xsl3.Xslt
             EnterComponent31(tmpl);
 
             CheckSingletonFocus();
-            _funcFocus.StartFocus(tmpl.Function.Arguments, !IsDebug ? tmpl.Flags : XslFlags.FullFocus);
+            _funcFocus.StartFocus(tmpl.Function.Arguments, WithDebugFocus(tmpl.Flags));
             foreach (QilParameter arg in tmpl.Function.Arguments)
             {
                 if (arg.Name!.NamespaceUri != XmlReservedNs.NsXslDebug)
@@ -893,9 +948,9 @@ namespace Xsl3.Xslt
                 _noFocus = true;
             }
             _namedFocus31 = IsV2 && tmpl is Template { Match: null, IsFunction: false } && (XslFlags.Current & tmpl.Flags) != 0;
-            _namedTemplateBody31 = IsV2 && tmpl is Template { Match: null, IsFunction: false };
+            _componentBody31 = IsV2 && (tmpl is Template { IsFunction: false } or AttributeSet);
             QilNode body = CompileInstructions(tmpl.Content);
-            _namedTemplateBody31 = false;
+            _componentBody31 = false;
             _namedFocus31 = false;
             _noFocus = savedNoFocus;
             if (IsV2)
@@ -933,6 +988,7 @@ namespace Xsl3.Xslt
                 }
             }
             tmpl.Function.Definition = body;
+            Streaming.StreamabilityVerdict.Attach(_compiler, tmpl, tmpl.Function);
             _currentTemplateRule = null;
             _currentTunnel = null;
             // tmpl.Function.Definition = AddCurrentPositionLast(tmpl.Function.Definition); We don't mask Cur,Pos,Last parameters with Cur,Pos,Last wariables any more
@@ -1023,7 +1079,9 @@ namespace Xsl3.Xslt
 
                 ExitScope();
                 Debug.Assert(result != null, "Result of compilation should not be null");
-                if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType != XslNodeType.ResultDocument)
+                if (node.V2?.IsSourceDocument == true)
+                    Streaming.StreamabilityVerdict.Attach(_compiler, node, result);
+                if (IsV2 && node.V2 is { } validated && (validated.Validation is "strict" or "lax" || validated.ValidationType != null) && nodeType is not (XslNodeType.ResultDocument or XslNodeType.CopyOf))
                 {
                     result = Validate31(result, validated, copy: nodeType is XslNodeType.Copy or XslNodeType.CopyOf, attribute: nodeType == XslNodeType.Attribute);
                 }
@@ -1569,7 +1627,7 @@ namespace Xsl3.Xslt
         private QilNode CompileApplyImports(XslNode node)
         {
             Debug.Assert(node.NodeType == XslNodeType.ApplyImports);
-            Debug.Assert(!_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each");
+            Debug.Assert(IsV2 || !_curLoop.IsFocusSet, "xsl:apply-imports cannot be inside of xsl:for-each in XSLT 1.0");
 
             if (IsV2 && _currentTemplateRule is { OverrideOf: >= 0 })
             {
@@ -1626,11 +1684,18 @@ namespace Xsl3.Xslt
                 VerifyXPathQName(node.Name!); // (an initial template's name comes from the API, not a prefix)
             }
             int varScope = _varHelper.StartVariables();
+            Template? tmpl = null;
+            bool found = IsV2 ? ResolveComponent31('T', node.Name!, -1) is QilName called && _compiler.NamedTemplates.TryGetValue(called, out tmpl)
+                : _compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl);
 
             IList<XslNode> content = node.Content;
             foreach (VarPar withParam in content)
             {
                 CompileWithParam(withParam);
+                if (IsV2 && node != _compiler.StartApplyTemplates && found)
+                {
+                    withParam.Value = TemplateArgument31(withParam.Value!, withParam, tmpl!);
+                }
                 // In debug mode precalculate all with-param's
                 if (IsDebug)
                 {
@@ -1644,11 +1709,9 @@ namespace Xsl3.Xslt
 
             QilNode result;
             {
-                Template? tmpl;
-                if (IsV2 ? ResolveComponent31('T', node.Name!, -1) is QilName called && _compiler.NamedTemplates.TryGetValue(called, out tmpl)
-                    : _compiler.NamedTemplates.TryGetValue(node.Name!, out tmpl))
+                if (found)
                 {
-                    Debug.Assert(tmpl.Function != null, "All templates should be already compiled");
+                    Debug.Assert(tmpl!.Function != null, "All templates should be already compiled");
                     if (IsV2 && node != _compiler.StartApplyTemplates)
                     {
                         // (Parameters supplied to the initial template that it doesn't declare are ignored.)
@@ -3031,10 +3094,7 @@ namespace Xsl3.Xslt
         private IList<XslNode>? AddRemoveImplicitArgs(IList<XslNode>? args, XslFlags flags)
         {
             //We currently don't reuse the same argument list. So remove is not needed and will not work in this code
-            if (IsDebug)
-            {
-                flags = XslFlags.FullFocus;
-            }
+            flags = WithDebugFocus(flags);
             if ((flags & XslFlags.FocusFilter) != 0)
             {
                 if (args == null || args.IsReadOnly)
@@ -3238,6 +3298,8 @@ namespace Xsl3.Xslt
                 );
                 string attMode = (mode.LocalName.Length == 0) ? string.Empty : $" mode=\"{mode.QualifiedName}\"";
                 applyFunction.DebugName = $"{(sheet is RootLevel ? "<xsl:apply-templates" : "<xsl:apply-imports")}{attMode}>";
+                // Xsl3: Mode dispatch has the same result boundary as its template rules.
+                applyFunction.IsTemplateResult = IsV2;
                 functionsForMode.Add(applyFunction);
                 _functions.Add(applyFunction);
 
@@ -3448,11 +3510,15 @@ namespace Xsl3.Xslt
             return n!;
         }
 
+        // Inspecting a debug variable must not force a forward population to be counted.
+        // Explicit language-level focus demands still use the normal template flags.
+        private XslFlags WithDebugFocus(XslFlags flags) => IsDebug && !StreamedCompilation31 ? XslFlags.FullFocus : flags;
+
         private QilNode AddCurrentPositionLast(QilNode content)
         {
             if (IsDebug)
             {
-                content = AddDebugVariable(CloneName(_nameLast), GetLastPosition(), content);
+                if (!StreamedCompilation31) content = AddDebugVariable(CloneName(_nameLast), GetLastPosition(), content);
                 content = AddDebugVariable(CloneName(_namePosition), GetCurrentPosition(), content);
                 content = AddDebugVariable(CloneName(_nameCurrent), GetCurrentNode(), content);
             }

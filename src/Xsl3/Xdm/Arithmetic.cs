@@ -76,7 +76,7 @@ namespace Xsl3.Xdm
     /// </summary>
     internal static class Arithmetic
     {
-        public static AtomicValue Apply(ArithmeticOp op, AtomicValue a, AtomicValue b, int implicitTimezoneMinutes)
+        public static AtomicValue Apply(ArithmeticOp op, AtomicValue a, AtomicValue b, ImplicitTimezone implicitTimezoneMinutes)
         {
             a = UntypedToDouble(a);
             b = UntypedToDouble(b);
@@ -224,7 +224,7 @@ namespace Xsl3.Xdm
 
         // ------------------------------------------------------------ durations and dates
 
-        private static AtomicValue TemporalOp(ArithmeticOp op, AtomicValue a, AtomicValue b, int implicitTz)
+        private static AtomicValue TemporalOp(ArithmeticOp op, AtomicValue a, AtomicValue b, ImplicitTimezone implicitTz)
         {
             Primitive pa = a.Type.Primitive, pb = b.Type.Primitive;
 

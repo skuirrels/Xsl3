@@ -1,0 +1,74 @@
+name: Streaming development (experimental P7 acceptance)
+
+# P7A closes the foundations release; full P7 streaming remains unsupported.
+# These original acceptance targets stay strict and failures stay visible here.
+# See docs/plan/p7a-closeout.md; this workflow is separate from release CI.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # S7 uses fresh paired processes so source parsing and first output are measured.
+  # The benchmark heap guard is separate from the exact memory gates below.
+  streaming-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build the streaming benchmark
+        run: dotnet build bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
+      - name: Paired streaming measurements and 100 MB throughput target
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 eng/streaming-benchmark.py --assembly bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --sizes 1mb 100mb 1gb --rounds 3 --heap-limit 4294967296 --timeout-seconds 900 --require-throughput-target --output artifacts/streaming-benchmark
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: streaming-benchmark-nightly
+          path: artifacts/streaming-benchmark
+
+  # P7 decision 6: exact generated-input size and absolute process/managed limits.
+  # A failed or incomplete matrix is a failed job; retained artifacts expose it.
+  streaming-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: push
+            bytes: 209715200
+            limit: 20971520
+          - name: nightly
+            bytes: 2147483648
+            limit: 209715200
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish the NativeAOT streaming probe
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          eng/publish-stream-probe.sh linux-x64 artifacts/streaming-probe 2>&1 | tee artifacts/streaming-probe-publish.log
+
+      - name: Exact streaming memory gate (${{ matrix.name }})
+        run: python3 eng/streaming-gate.py --native artifacts/streaming-probe/bin/Xsl3.StreamingProbe.Native --bytes ${{ matrix.bytes }} --limit ${{ matrix.limit }} --timeout-seconds 900 --output artifacts/streaming-probe-${{ matrix.name }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: streaming-memory-${{ matrix.name }}
+          path: |
+            artifacts/streaming-probe-publish.log
+            artifacts/streaming-probe-${{ matrix.name }}

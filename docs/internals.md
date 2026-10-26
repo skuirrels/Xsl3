@@ -93,7 +93,7 @@ against the .NET 8 and .NET 10 runtimes; the upstream test suite exercises all o
 | `XmlConvert.SplitString`, `TryToDouble`, `ToUri`, `CreateInvalid*Exception` | Copy | `XmlConvertInternals` |
 | `XmlQualifiedName.Verify` | Copy | `XmlQualifiedNameInternals` |
 | `XmlQualifiedName.Init` | UnsafeAccessor | `XmlQualifiedNameInternals` |
-| `XmlReaderSettings.GetDefaultPermissiveResolver` | UnsafeAccessor (keeps the stock `Switch.System.Xml.*` switches) | `XmlReaderSettingsInternals` |
+| `XmlReaderSettings.GetDefaultPermissiveResolver`, `GetXmlResolver_CheckConfig` | UnsafeAccessor (keeps stock switches and effective resolver selection) | `XmlReaderSettingsInternals` |
 | `XmlSchemaComplexType.AnyType`, `UntypedAnyType`; `DatatypeImplementation.AnySimpleType`, `AnyAtomicType`, `UntypedAtomicType` | The public `XmlSchemaType.GetBuiltIn*Type` lookups, which return the same singletons (they are compared by reference) | `XmlSchemaComplexTypeInternals`, `DatatypeImplementation` |
 | `XmlUntypedConverter.Untyped.ToString(object, resolver)` | `xs:untypedAtomic`'s public `XmlSchemaDatatype.ChangeType(value, typeof(string), resolver)`, which runs the same converter | `XmlUntypedConverter` |
 | `XmlWriterSettings.DocTypeSystem`, `DocTypePublic`, `MediaType`, `MergeCDataSections`, `CDataSectionElements`, `ReadOnly`, `OutputMethod` setter | UnsafeAccessor | `XmlWriterSettingsInternals` |
@@ -103,6 +103,7 @@ against the .NET 8 and .NET 10 runtimes; the upstream test suite exercises all o
 | `XmlWriterSettings.CreateWriter` | Copy, building the vendored raw writer chain | `XmlWriterSettingsInternals.CreateRawWriter` |
 | `XmlReader.DtdInfo` and `IDtdInfo` (DTD-declared ID attributes) | Reflection | `DtdInfoBridge` |
 | `XmlTextReaderImpl.GetResolver`, `WhitespaceHandling`; `XmlTextReader.Impl` | Reflection | `XmlReaderInternals` |
+| `XsdValidatingReader(XmlReader, XmlResolver, XmlReaderSettings, XmlSchemaObject)` (partial source types) | Reflection, once per validated source; constructor metadata retained for NativeAOT | `SchemaReaderBridge` |
 | `XmlValidatingReader.Impl.Reader` | Public `XmlValidatingReader.Reader` | `QueryReaderSettings` |
 | `XPathNavigatorReader.Create` | Public `XPathNavigator.ReadSubtree` | `XsltLoader` |
 | `FeatureSwitchDefinitionAttribute` (.NET 9+) | Polyfill on .NET 8 | `Polyfills.cs` |
@@ -135,6 +136,259 @@ Disposing a raw writer directly (upstream only ever closes one through `XmlWellF
 - **AppContext switches** keep the stock names (`Switch.System.Xml.*`), so code that configured stock
   `XslCompiledTransform` through them configures Xsl3 the same way.
 
+The P7 initial-source descriptor separates reader, stream and URI selections from the grounded global context.
+`XmlQueryContext.InitialSource.cs` opens them during execution, after global prerequisites, applies the existing
+whitespace and reader policies, and registers forward inputs with the runtime cleanup scope. Caller inputs
+stay open; resolver-acquired inputs are owned by the run. Accumulator applicability follows documents in the
+initial selection rather than an independent global-context document.
+
+Saved static-data format minor version 4 adds the selected initial mode's forward-input flag. Earlier formats
+default it to false. Minor version 5 adds accumulator streamability metadata in constants format 2; constants
+format 1 remains readable with a non-streamable default. Constants format 3 adds empty schema sets for built-in
+validation; versions 1/2 remain readable, and imported schemas remain unsupported when saving.
+The compiler also applies the single-pass optimizer policy when an initial mode can stream;
+wildcard attribute filters retain the attribute-only iterator annotation, so inspecting a header never scans
+its children. Global prerequisite checks preserve the principal result's node type and push serialization.
+
+Forward outermost scans use a compile-time pruning annotation and an explicit descendant-iterator entry point.
+The annotation is preserved in generated IL and checked by the Debug verifier; ordinary merge optimization
+must not erase it. Per-item typed atomization runs before advancing a forward operand, while simple-content
+construction keeps adjacent text-node merging. Numeric shortcuts require untyped node values; typed list,
+integer and decimal values retain their normal arithmetic semantics.
+
+Acyclic classified functions can keep single-use streamed parameters and node results as iterators through
+a lowering before the streamed optimizer verifier runs. Node-only star result types use canonical per-item
+checks, including name/type constraints. Recursive functions keep their call boundaries; validated singleton
+node parameters and node results retain node/cardinality facts so paths avoid unnecessary buffers. Expansions
+use isolated code-generation annotations, preserve pruning/side-effect policies, and snapshot original bodies.
+Nested expansion follows the streamed operand rather than independent grounded calls, limiting code growth.
+
+Function signatures resolve in their declaration scopes, including parameter-local namespace declarations.
+Known atomic parameters atomize nodes before advancement. Dynamic calls collect argument items through a
+per-call state object, use the runtime function signature to atomize while current, then apply canonical
+conversion/cardinality checks. Mutable call operations carry side-effect annotations so they cannot be hoisted.
+
+`fn:string` reads node string values while each node is current, then uses the canonical function's checks;
+this differs from typed-value atomization. Simple content also atomizes before advancement, preserving adjacent
+text and grouping each non-text item's atoms. Empty typed values and arrays remain boundaries between text
+nodes that were not originally adjacent. Atomic sequences and simple-content results can still require storage;
+these paths do not establish the P7 retained-memory budget.
+
+Singleton argument selection runs an absorbing/inspection call while its first node is current, collecting
+only the grounded result before checking for a second input. Acyclic transmitting expansions instead let
+the caller consume each source result immediately and use a per-call seen flag for argument cardinality.
+An optional empty selection uses the original grounded call, avoiding duplicate expansion of nested chains.
+The runtime flag holds no nodes; original argument/result type conversions remain authoritative.
+
+Before lowering, `StreamedFocusPruning` computes which implicit context-size parameters have real readers,
+propagates demand back through call edges, and removes unused size arguments and declarations. It unwraps
+only loop caches marked as created solely for that count, preserving sorting and true `last()` dependencies.
+Forward general/value comparison operands atomize while current before the canonical comparison routines run.
+
+Forward compilation lowers `xsl:iterate` into an inline QIL loop. Its opaque state holds parameter values and
+the break flag; updates commit after all supplied values have converted successfully. Initializers see earlier
+parameter bindings in their local scope. Body output is consumed
+before advancing the selection. Completion uses the final parameters with absent focus, and body/completion
+clear the current template rule, including the rule carried through named-template tunnel frames. Parameter
+types resolve in their declaration scopes. Ordinary compilation retains its existing callback implementation.
+
+`StreamedLoopGate` marks a filter whose condition was compiled before its iterator existed. Its IL checks
+that condition before fetching the first or next input item, so a break does not fetch another selection item.
+The streamed optimizer preserves this marker, and the Debug verifier detects its removal. Context-size cache
+pruning preserves the gate while removing only unused counting caches. Real grounded `last()` keeps its cache.
+Direct forward `head`, `tail` and `subsequence` use the same gate with per-invocation position/bound state;
+canonical argument conversion and shared subsequence bounds preserve numeric and error semantics. They retain
+no input nodes. Dynamic function references and other buffering paths still need separate runtime work.
+
+Explicit `snapshot`/`copy-of` grounding can record source node events when an active descendant scan may
+need matches inside the copied subtree. `StreamedDocument.Replay` attaches a completed buffer to those source
+positions, preserving their numbers, parent chains, namespaces and schema annotations. Child/sibling navigation
+and string values use the captured events; scanning past its root resumes the physical reader. The buffer
+does not alter copy identity or the selected compact tree. It has no document-wide strong registry and is
+collectible once its last source position dies, including any copy-accumulator provenance that retains one.
+Interrupted captures cannot masquerade as complete subtrees. Scalar consumption does not start a replay
+buffer; unsupported overlapping scalar absorption still raises `stream-position`.
+
+Streamed accumulators observe physical reader start/end events, including skipped subtrees. Motionless callbacks
+cannot advance input. Their values belong to source frames; copied provenance can retain those frames
+and retrieve completed values after the reader closes. Explicit copies therefore record frames when observers
+are active, even without an overlapping scan. Validation preserves that lookup. Disposal releases the runtime
+and function bindings without discarding recorded values needed by live copies. Accumulator-after finishes only
+the context subtree's remaining events. Ordinary rule errors are deferred until a dependent value is demanded;
+actual dependency cycles remain errors even when an earlier phase was cached. Package-resolved initial modes
+and source-document declarations select the applicable bindings. S7 memory and latency gates remain open.
+
+Forward adjacent/starting/ending grouping lifts its population into a compiler-created resumable function.
+`QilFunction.PullArgument` identifies its continuation parameter. IL stores iterator locals in an invocation-owned
+slot array at each yield and restores them before continuing at the original next-item label. End and failure
+release the frame's bindings. Runtime group cursors retain the first member and a boundary item, and pull
+`current-group()` members on demand. Unused members are drained before advancing the group. Grounded members,
+including attribute/namespace headers and explicit copies, remain repeatable. Their caches can retain explicit
+results; the slot array alone is not a retained-memory proof.
+
+Compiled pull producers prepare their converted opaque-state call once per cursor. Resume shares ordinary
+compiled-dispatch selection, including fork runtime selection on each call. Native callbacks retain fresh
+mutable arguments. Completion/failure release the prepared call as well as the producer, owner and slots;
+generated result-sequence containers still allocate. See [predicate/call evidence](streaming-node-predicates-2026-10-24.md).
+
+The pull-sequence annotation makes a generated call's one-item results into an iterator rather than a cached
+list. The Debug verifier protects that policy and the continuation argument. Saved IL calls the same public
+generated-runtime ABI; no additional static-data format change is needed. Lexical declared-streamable scopes
+clear current-group state when preparing invocation tunnel frames. Ordinary named/applied templates and
+attribute sets retain their caller's group independently of context-item availability (§14.2.1).
+
+
+Forward merge wraps each input's selected rows in the same resumable population mechanism. Each row is
+snapshotted before its singleton key function runs, preserving schema annotations and accumulator provenance.
+A priority queue orders one head per input sequence; ties retain source declaration and anchor order. The
+runtime buffers one equal-key group for repeatable action access, then advances its inputs. This can retain the
+largest group, and explicitly sorted ordinary inputs retain their requested sorting buffers. Shared key options
+resolve AVTs/collations and comparison conversions without changing the raw current merge key. Generated calls
+retain the existing static-data representation, including for saved assemblies and NativeAOT.
+
+
+The S6 input/thread foundation is separate from compiler integration. `StreamTee<T>` shares immutable event
+references in a fixed-capacity ring and releases each slot when all attached readers have passed it. Reader
+detachment drops its outstanding references; cancellation wakes blocked readers. `ForkProngs` starts one thread
+per body and services input requests on the invoking thread, leaving parser/accumulator callback thread context
+intact. Following prongs are cancelled after a failure; earlier ones finish to preserve error priority by
+prong order. All started threads are joined. These helpers do not yet adapt streamed XML positions, clone or
+coordinate runtime state, or select output sinks. See [S6 integration requirements](plan/p7-streaming.md#s6-fork-input-and-prong-lifecycle).
+
+
+`StreamedDocument.Fork` supplies logical node events to independent subtree views. Headers freeze source
+metadata, and each view has separate frames/name tables with the same source identity and node numbers.
+`StreamedNavigator` comparisons and document-index lookup recognize that shared identity. Source observers
+run once; view disposal detaches its cursor without disposing the source observer or borrowed reader. Original
+source cancellation is linked into the prongs. Schema metadata survives event transport and explicit grounding.
+Accumulator lookup follows the shared document identity and original source frames. Workers read published
+phases; only the invoking thread evaluates rules. A missing post-descent value advances the requesting view
+through the tee, preserving events for other prongs. Cache publication uses short critical sections and volatile
+phase/fault references; no cache lock spans rule execution or input I/O. Explicit accumulator copies retain
+view replay frames so descendants resolve their original values after both view and source closure. Copies
+without accumulator provenance do not enable this replay. Ancestor headers cannot consume outside the fork
+boundary. Runtime-state coordination and compiler/output lowering remain open; this adapter is not yet a
+stylesheet fork execution path. See [S6 accumulator routing](plan/p7-streaming.md#s6-fork-accumulator-values-and-copy-provenance).
+
+`XmlQueryRuntime.ShareGlobalBindings` promotes the invoking runtime's global values into a coordinator before
+prongs start. Runtime instances share completed values and original failures, claim each unevaluated binding
+once, and wait without holding a lock during evaluation. A wait graph detects cross-thread dependency cycles;
+forks created during global evaluation inherit its active dependencies. Generated global methods publish
+failures with `GlobalValueFailed`, tracked in the generated-runtime ABI, before rethrowing. A claimed global
+uses transformation cancellation so cancelling a later prong cannot poison a value needed by an earlier prong;
+success/failure restores the requesting prong's token. Waiters remain cancellable. Normal execution retains
+the per-runtime array path. This sharing hook is tested between separate runtimes and saved methods; full
+runtime cloning, document/cache coordination, captured functions and compiler/output integration remain open.
+See [S6 shared globals](plan/p7-streaming.md#s6-shared-global-bindings).
+
+`DocumentResources` owns the transformation's document pool, document-order comparer, copy-origin registry and
+URI read/write claims. `ShareDocuments` attaches fresh runtimes before they use those resources. Loads publish
+one document per resolved URI and return independent navigator positions. Resolver/parser work runs outside
+the cache lock; waiters are cancellable, retrieval cycles are detected, and inherited dependencies identify
+individual load attempts so a failed URI can later be retried. A claimed shared load uses transformation
+cancellation and restores its requesting prong's token. Document-index assignment is synchronized while Xsl3
+documents retain weak identity keys.
+
+Read reservations prevent result writes while a resource is opening. Once a readable resource is returned,
+its URI remains recorded even if parsing fails. Doc/source/initial, text, JSON and availability functions use
+these claims. Relative result-handler targets retain their supplied identity when no base output URI exists.
+Copies/snapshots made by child runtimes share provenance with the parent, including copies of copies.
+Hosted XPath evaluation shares the pool and receives its focus through the existing explicit parameter;
+its context item is not cached as another principal input. Full fork-runtime construction, provider policies
+and compiler/output integration remain open. See
+[S6 shared documents](plan/p7-streaming.md#s6-shared-document-resources).
+
+`ResourceResolver` tracks actual external DTD/entity opens in processor-created readers. It wraps the effective
+configured resolver, leaving null/ignored/prohibited policies intact, and forwards URI resolution, capabilities
+and credentials. It records URI claims without caching parser-owned streams. Cancellable streams/text readers
+capture the reading scope's token; async reads combine it with the caller's token. Parser-wrapped cancellation
+and XTDE1500 are rethrown with their original identity. No cache lock spans provider callbacks or entity I/O.
+Callbacks run on the thread requesting the read; no new provider-serialization layer is introduced.
+
+Query/initial/source-document readers, `parse-xml`, unparsed-entity metadata re-reads and serialization parameter
+documents participate. Borrowed readers retain the caller's parsing policy; their already configured internal
+I/O is not rewritten. Materialized document construction now closes owned streams when reader creation fails,
+preserves a parse/control failure if cleanup also fails, and reports a close failure after successful parsing.
+Original-input unparsed-entity metadata capture remains open; fork-runtime policy propagation is described below.
+See [S6 entity tracking](plan/p7-streaming.md#s6-external-entity-resource-tracking).
+
+`CreateForkRuntime` constructs isolated runtime/context instances with shared globals and document resources.
+It copies reader policies with fresh name tables, borrows the global item's identity without reloading it,
+preserves initial-selection applicability and refuses to reopen a parent's forward input. `RunFork` installs
+the captured permissions, callbacks, cancellation, recursion depth and remaining transformation thread state;
+it takes an explicit prong principal writer, closes local sources and restores the worker scope on every exit.
+Time/timezone and random seed remain stable. Early-bound objects retain one transformation identity.
+Captured functions of the same fork family use the calling runtime, including coerced functions and built-in
+function resource contexts. Other mutable library caches remain local. Full compiler/output integration,
+grounded-cache coordination, foreign-unit function ownership and provider concurrency remain open. See
+[S6 isolated runtimes](plan/p7-streaming.md#s6-isolated-fork-runtimes-and-execution-scopes).
+
+`SharedKeyIndexes` promotes a fork family's completed, active and failed key builds. It publishes complete,
+immutable indexes, returns local lookup sequences/positions, preserves original failures and separates owner
+transformation cancellation from waiter cancellation. Newly generated builds call `IndexValueFailed` on error;
+older saved bodies retain their existing build code. Weak native document identities prevent completed
+temporary-tree/index cycles from being retained. Foreign identities follow the existing document comparer.
+`EvaluationWaitGraph` joins key, global and document-load dependencies, including inherited active computations,
+without running user code or entering cache locks. Grounded accumulator coordination, automatic path-index
+retention and full stylesheet fork integration remain open. See
+[S6 key indexes](plan/p7-streaming.md#s6-shared-key-indexes-and-cross-cache-dependencies).
+
+`GroundedAccumulatorValues` owns ordinary and shared grounded phases, faults, active evaluations and source
+applicability. Forks preserve existing state, share future updates and inherit active dependency nodes in the
+common evaluation graph. Unrelated readers wait for completion; recursive readers may use a defined phase.
+Circular errors invalidate cached phases, while later ordinary errors preserve already defined values.
+Cancellation aborts partial evaluations without poisoning later retries. Weak native document identities also
+cover values that point back to their document. Shared reads clone navigator positions.
+Traversal uses heap frames rather than the CLR stack and checks cancellation even without matching rules.
+An evaluation restores its construction/annotation/trace context and closes its local sources, including when
+an error is retained but a prior phase is returned. Streamed accumulators continue through their source observer.
+Foreign ownership, automatic path-index retention and full fork lowering remain open. See
+[S6 grounded values](plan/p7-streaming.md#s6-shared-grounded-accumulator-values).
+
+`ProjectForkBindings` projects a captured graph onto a prong's logical input view. Streamed node positions use
+local ancestor/boundary headers, including an already-inspected first child delivered through the tee; they
+never navigate a parent's reader. Attribute/namespace positions and node identity survive projection. Ordinary
+grounded navigators receive private cursors. Maps, arrays, same-unit compiled/coerced closures, built-in resource
+contexts, tunnel/deferred values and grounded group bindings receive local values with shared graph aliases.
+Work queues and sequence shells support deep containers and recursive closure captures without CLR recursion.
+The helper retains no runtime cache and checks cancellation while projecting. It is a composition primitive:
+foreign-unit functions, suspended streaming populations, unavailable streamed positions and full compiler/output
+integration still require their own handling. No arbitrary parent-runtime callback or implicit grounding is used.
+See [S6 binding projection](plan/p7-streaming.md#s6-captured-source-binding-projection).
+
+`PrepareForkBindings` freezes a captured graph on the invoking thread before prongs start. Source positions become
+private tokens containing immutable ancestor/header snapshots; workers replace them with their own navigators.
+Live content still binds to the local tee. Retained attribute/namespace positions can outlive their element or
+source reader, including captures through closures, maps and arrays. Their metadata-only documents preserve
+identity, annotations, names, values and ancestry, while content axes and grounding remain unavailable.
+Snapshots hold no original source frame or replay buffer. Preparation and projection use temporary header
+registries; returned documents retain a root header rather than a registry of captured nodes. Name atomization
+uses each prong's own name table, including inherited and implicit namespaces. Retained ancestor accumulator
+phases outside a live view, foreign units and full compiler/output integration still need handling. See
+[S6 prepared snapshots](plan/p7-streaming.md#s6-prepared-binding-snapshots-and-retained-headers).
+
+Streaming `xsl:fork` now emits lifted writer bodies and `X31Fork`. The fork expression follows ordinary writer
+construction/caching rules, including when bound to a variable. `X31ForkPush` emits a prong body directly while
+returning an empty dispatcher result. `ForkCaller` pumps input and first-prong output on the invoking thread;
+later prongs own cached output and replay in declaration order. Running callbacks cannot detach from reusable
+worker buffers on cancellation/disposal. `StreamingBufferCapacity` configures input event count (default 64).
+Result-document opener, handler and tree callbacks return to the original invoking thread, including from
+nested forks; resolver and extension callback ownership remains separate work.
+The compiler path also supports grounded/atomic/absent focus, nested forks and saved assemblies. Group-by and
+sorted groups inside a fork explicitly buffer their population while preserving identity and annotations.
+Captured forward groups are buffered on the invoking thread, then projected into private replay documents.
+A fork inside a function can use its captured streamed operand while preserving absent context. Principal
+result documents relay to the invoking thread through nested fork callbacks, sharing ordinary ownership and
+serialization rules. Raw output positions are buffered before their population advances; serialization freezes
+structured values without invoking function captures. Principal callbacks inherit prong cancellation and restore
+caller state. Direct non-memoized absorbing functions now receive many-valued node parameters through suspended
+producers, with separate cursors, incremental type checks, retained conversion faults and boundary draining.
+Recursive calls retain their function boundaries; the grouped recursive fork fixtures use this path.
+Proven ordered/disjoint parameter populations retain child-path iterators; arbitrary grounded arguments keep
+canonical per-step document order and deduplication.
+Other function categories, dynamic/memoized calls and remaining callback/capture/error cases are still open.
+See [parameter evidence and limits](plan/p7-streaming.md#s4-iterator-backed-sequence-parameters-and-recursive-forks).
+
 ## Test infrastructure
 
 `tests/Xsl3.Upstream.Tests` is regenerated by `eng/port-upstream-tests.py <runtime-checkout>`. The port
@@ -143,3 +397,463 @@ nuget.org, so `Shims/XunitExtensions.cs` provides `PlatformDetection`, `Conditio
 `ConditionalClass`, and the `PlatformSpecific`/`OuterLoop`/`ActiveIssue` category traits with arcade's
 semantics. `Shims/AssemblyInfo.cs` disables test parallelization, as upstream's project does (the tests
 share output file names).
+
+W3C result-tree assertions now use one cached annotated replay of the invocation rather than reparsing its
+serialization. A catalog serialization directive and serialization assertions keep the original serialized
+result. Replay preserves the original message/result observations and principal target; explicit principal
+writes retain annotations and secondary trees receive their output URI. Namespace scopes retain outer
+constructor origins across inner no-inherit boundaries. XSLT map constructors select their host-specific
+duplicate-key error while standalone XPath keeps its contract. The replay-based harness still needs broader
+work for serialization-only errors, raw results and non-repeatable external effects. See
+[result-tree evidence and limits](plan/p7-streaming.md#s1s6-result-tree-assertions-namespace-origins-and-host-map-errors).
+
+
+Forward union compilation can now combine compatible predicate-free branches over a stable common anchor
+into one native QIL scan. Descendant/child chains match ancestor headers within the anchor boundary. Ordering
+proofs avoid unnecessary canonicalization; unknown grounded anchors retain sorting and deduplication.
+Node EBV uses native emptiness, general EBV inspects at most two atomic items, and removal uses an iterator
+counter with canonical integer coercion. Negative descendant-path shape results are cached by AST identity.
+See [path and inspection evidence and limits](plan/p7-streaming.md#s4-shared-forward-paths-and-incremental-sequence-inspection).
+
+
+Forward cardinality assertions now validate items and completion while transmitting original nodes.
+Materialized and native calls share canonical errors. `unordered` retains its input iterator; insertion uses
+an exact integer counter and evaluates the insertion once. Empty insertion validates its position through an
+opaque empty iterator, preserving optimizer read regions and target ordering proofs. General insertion does
+not grant an ordering proof to arbitrary mixed nodes. Verifier region diagnostics now include the helper and
+before/after regions; its safety checks are unchanged. See
+[sequence contract evidence and limits](plan/p7-streaming.md#s4-cardinality-assertions-and-native-sequence-insertion).
+
+
+Fixed child paths after insertion now use captured native pull populations and the canonical node comparer.
+A cursor merges proven ordered populations with one head each, sorts unproved populations, deduplicates node
+identities, retains faults and releases captures on completion. Nested insertions validate every position once.
+At-most-one assertions and exact positive integer predicates retain disjoint anchor proofs; static proofs
+supersede conservative dynamic caller flags. Integer windows stop before the next input advance. Predicated
+mixed paths and other unproved native shapes remain open. See
+[ordered path evidence and limits](plan/p7-streaming.md#s4-ordered-mixed-node-paths-and-exact-position-windows).
+
+
+Direct streamed trace now preserves original nodes and ordering proofs. With no handler, trace#2 transmits
+its input iterator after label validation; trace#1 explicitly replays selected subtrees for its absorbing
+operand. With a handler, explicit replay allows diagnostic serialization and subsequent navigation of the
+same nodes. The existing whole-call formatter runs on the prong, then immutable strings are synchronously
+relayed to the invoking thread. Diagnostic buffers can grow without bound. Other callback ownership and
+dynamic function paths remain open. See
+[trace evidence and limits](plan/p7-streaming.md#s4-streamed-trace-and-invoking-thread-diagnostics).
+
+
+Map constructors and direct xsl:map-entry instruction populations now use the existing fork coordinator for
+independent consuming entries. Captured positions determine the XPath source boundary; source-free graphs
+run serially. Retained-result projection preserves callable function values separately from diagnostic
+serialization. Pure predicate-free node-path factories can be projected into node()* parameter prongs and
+completed before their parent returns. Inspected/stateful parameter continuation and foreign functions remain
+open. See [map and parameter evidence](plan/p7-streaming.md#s4-parallel-maps-and-forked-node-parameter-factories).
+
+
+Native streamed node sets reuse ordered population readers for a delayed-advance identity merge when at least
+one independent operand is grounded. Shared child/self/descendant selections use one scan and prefix header
+facts; weak streamed-header keys avoid a strong document-wide index. Prefix predicates run once, and operand
+membership does not short-circuit another operand's eligible predicate. Node-kind restrictions keep irrelevant
+absorbed text out of element-only scans. Unproved live sorting and lost matching descendants fail explicitly.
+Fixed child chains distribute through sets while preserving node/type and ordering contracts. Other predicate
+shapes and analysis enforcement remain open. See
+[node-set evidence and limits](plan/p7-streaming.md#s4-native-node-sets-and-shared-header-paths).
+
+
+Shared set selections now carry exact per-parent counters for child/attribute predicate stages, with self
+positions fixed at one. Numeric equality uses the canonical numeric comparison rules and preserves integer
+position values. Fixed child/self paths annotate a descendant scan's maximum child depth, allowing selected
+element values to be consumed without losing irrelevant deeper headers. Grounded and streamed iterators
+honor the same bound and stable exhaustion. Construction analysis preserves pull functions as iterators even
+for node-valued conditionals; their selected nodes retain identity. The generated optimizer and its pattern
+source agree. Other positional and climbing shapes remain open. See
+[positional evidence and limits](plan/p7-streaming.md#s4-positional-header-predicates-and-bounded-scans).
+
+
+Direct XML-to-JSON calls absorb their selected subtree once. Document and scalar validation use the same
+forward visits as conversion; optional-node argument checks delay the result and canonical body errors until
+the population ends. Proven predicate-free descendant selections can observe consumed matching headers to
+establish invalid cardinality without retaining a subtree. Scoped observers unregister on completion, including
+errors. More complex overlapping populations still require a continuation proof. Large try/catch constructors
+also retain their AST boundary: instruction classification no longer aliases newer enum values through 32-bit
+masks. See [XML-to-JSON evidence and limits](plan/p7-streaming.md#s4-forward-xml-to-json-conversion).
+
+
+Forward deep equality compares one selected item against an explicit grounded reference before advancing the
+source. Its canonical child comparison visits corresponding children incrementally. Proven descendant-element
+selections use outermost source delivery and project already-consumed members from a successfully compared
+grounded subtree. Leaf-header comparisons preserve the owner's readable content, and live subtrees cannot
+silently enter the grounded reference. Pull cancellation is checked before entering a producer. Complex
+selection projection and independently live operands remain open. See
+[deep-equality evidence and limits](plan/p7-streaming.md#s4-forward-deep-equality-and-grounded-descendant-projection).
+
+Forward secondary document results now lift a push body into `X31ResultDocumentPush`. The runtime temporarily
+installs an independent sequence writer, reuses canonical format/parameter resolution and URI ownership, and
+restores the complete output stack on success or failure. Empty dynamic hrefs preserve principal ownership;
+result-tree capture explicitly materializes the requested tree. Validated and raw-sequence results keep their
+existing construction paths. The text method filters markup before serialization transformations, preserving
+Unicode composition across ignored elements and comments. Serialization retains only the final normalized text
+element between writes; an unbounded combining sequence can itself require a growing segment. Character-map
+replacements remain outside normalization. Borrowed principal writers flush their private serialization wrappers
+without being closed.
+
+Streamed accumulator annotations are owned by each source frame rather than a document-wide weak-key table.
+An observer identity token prevents foreign-frame values from crossing source identities. Replay and copy
+provenance retain frames and their published phases together; ordinary discarded frames and values can be
+collected together without accumulating dependent handles. The observer still publishes phase values under its
+existing lock and never holds that lock while reading source events or invoking rule functions.
+
+
+Streamed copy/snapshot origins are annotations on the compact copy, scoped by an independent invocation token.
+They replace per-row dependent handles in the shared registry for streamed originals and their copies. A
+copy-owned cycle is collectible with the copy; the registry owns no history of discarded streamed copies.
+Immutable storage links publish with compare/exchange and preserve independent registry scopes. Callers receive
+only the origin payload, so holding that payload cannot retain obsolete foreign-scope links. Ordinary grounded
+origins keep their weak-table lifetime. Closing a streamed document releases its reader reference without
+closing a borrowed reader; replay headers and completed accumulator phases remain available to retained copies.
+See [copy provenance and memory evidence](plan/p7-streaming.md#s7-copy-owned-streamed-provenance-and-complete-native-memory-matrix).
+
+
+Resolved streamed namespace scopes are immutable source-frame data. Declaration-free frames may share an
+ancestor array, including the declaration owner IDs used for local-scope filtering. Lookup walks ancestors
+iteratively and publishes with compare/exchange. Fork views rebuild from their own atomized declaration
+headers; they do not inherit another view's resolved cache. Cached arrays contain namespace values and
+owner numbers, not descendants or source readers. Discarded frames can be collected.
+
+Copy/validation calls whose selection is proven non-RTF nodes now retain a broad node-only QIL result.
+Annotations are unconstrained because copying/validation can change them. This keeps node-only constructor
+content on the direct writer path instead of buffering it through arbitrary-item content conversion.
+The existing helpers still create copies and enforce their options/errors. See
+[copy-content evidence](streaming-copy-content-2026-10-24.md).
+
+
+Streamed `xsl:copy select` uses the original selected expression and the existing optional-item population
+checker, retaining XTTE3180 without counting a forward element before its body. Template result inference
+also uses the original expression: the loader's error() branch does not yield an arbitrary item. This
+preserves node-only constructor streaming while retaining atomic/mixed return types. Ordinary lowering and
+all copy/validation helpers remain in place. See [selected-copy evidence](streaming-copy-select-2026-10-24.md).
+
+
+Streamed conditional sequence constructors use resumable ordinary/deferred populations. Their cursor
+retains only an undecided vacuous prefix and deferred instructions, then transmits ordinary source nodes
+before advancing input. Streamed complex-content conversion likewise expands document children and array
+members incrementally and preserves atomic spacing. The ordinary helpers share the same vacuity/population
+and invalid-content rules. An arbitrary vacuous prefix and explicit grounded results can still grow.
+
+Each pull cursor owns a private annotation stack and pending constructor type across suspensions; resume
+restores the caller's annotation context in `finally`, including faults. Accumulator isolation uses the
+same stack-copy helper. Content population adapters keep globals lazy; `xsl:try` retains its distinct global
+error-boundary capture policy. Dispatcher finalization follows root compilation so late root populations
+are callable. See [conditional-content implementation and evidence](streaming-conditional-content-2026-10-24.md).
+
+Forward predicates whose result is statically a node sequence use the existing node-existence operation.
+They do not request a synthetic numeric context position, which would prevent a single descendant scan
+for expressions such as `//row[@keep]`. Explicit position references are still recorded while compiling
+the predicate body; numeric and uncertain results keep the general predicate helper. Ordinary compilation
+is unchanged. See [node-predicate regressions](streaming-node-predicates-2026-10-24.md).
+
+Named-template parameter headers retain their declaration-scoped resolved sequence types or deferred
+resolution errors. Explicit non-tunnel calls to atomic parameters atomize source items in the caller
+before the argument list advances; canonical conversion/cardinality remains in the callee. An explicit
+node `as` on `xsl:with-param` reuses the incremental matcher so this extra boundary does not collect
+expired nodes. Deferred errors are cloned into the callee binding rather than resolving the spelling
+under another namespace scope.
+
+Streamed debug compilation retains actual focus requirements instead of forcing `last()` for inspection.
+Position-only demand is separate from context size; grounded size requests remain. The legacy debugger's
+navigator-only node-change hook is guarded when a loop accepts other XDM item kinds. Construction analysis
+keeps the runtime dispatcher's iterator ABI so its list-returning delegate binds in debug and saved code.
+The template-focus scan remains conservative for explicit/scoped `last()` and dynamic lookup. The
+scoped arithmetic failure was isolated to operand atomization and repaired without replacing that
+policy. Shared XPath numeric-focus analysis now handles local bindings and map/array/function-reference
+operands for code generation and S1 scanning predicates. Numeric function references preserve their
+captured focus, including absent-focus errors. See [arithmetic and focus evidence](streaming-arithmetic-focus-2026-10-24.md).
+
+Absorbing-function argument frames also accept `item()*` and omitted parameter types. Grounded lists
+own their navigator positions; live populations retain incremental item validation, forward-position
+checks and completion outside the body's catch boundary. Forwarded arguments preserve grounded values
+and eligible fork origins, while singletons retain their child-order proof. Function inlining keeps
+the semantic `PullSequence` annotation. Existing streamability results identify grounded function
+returns; generic item-to-node paths validate yielded items before advancing the source.
+
+Debug end-tag markers follow a completed fork outside its prongs. Generated fork and secondary-output
+closures carry an internal output-worker flag so construction analysis retains their iterator-return
+ABI: converting them to writer-returning debug functions would capture writes into a dispatcher result
+that the worker caller discards. Their bodies still push directly to the current output. Hidden closure
+entry points precede retained body sequence points. See
+[item-parameter and debug-worker evidence](streaming-item-parameters-2026-10-24.md).
+
+Unfiltered descendant value populations carry a compile-time eligibility proof into atomization,
+string conversion, numeric aggregation, simple content and AVT lowering. `X31ValueOperand` prepares a
+navigator for value-only consumption by its exact producing descendant cursor. Nested matching
+headers and native UTF-16 character ranges spill to two owner-private temporary files; the capture
+stack retains open matching nodes. Final schema information preserves canonical typed/list/union/nil
+atomization. The source resumes after the absorbed subtree once queued matches have been returned.
+
+Documents reuse one spare store across sequential windows and invalidate old ranges with 64-bit
+generations. Delete-on-close handles belong to the source document, including fork views. Flat values
+create no store. General forward-navigation guards and explicit subtree replay remain separate.
+Deferred predicates, higher-order consumers and runtime observer facts still need consumer-aware
+lowering; scalar/string results can grow. See [value replay evidence](streaming-value-replay-2026-10-25.md).
+
+
+Grounded `X31SetOp` intersection/difference merge their independently ordered, deduplicated operands
+with forward cursors. Complete node validation precedes the merge, and cancellation is checked while
+advancing it. `xsl:mode` retains the defining precedence per effective attribute; the loader compares
+boolean values and updates effective `typed` behavior when inheriting it. The full mode declaration
+retains its original component provenance. See [node-set/mode evidence](streaming-set-merge-mode-2026-10-25.md).
+
+
+Materialized merge compilation now shares its action loop with forward merge. A group cursor retains
+total count for last(), releases consumed groups, and exposes the current frame without retaining
+action output. Legacy merge entry points remain. Value-only replay uses a combined 64 KiB serialized
+cache with at most 128 KiB backing arrays per store; crossing the limit copies both prefixes to
+private file streams before switching. Small windows reset memory lengths; spilled stores reuse
+file high-water space. Package mode visibility now follows the effective per-attribute definition.
+See [bounded-value/merge evidence](streaming-bounded-values-merge-2026-10-25.md).
+
+
+Value-only compound descendant paths scan final selected nodes and match the predicate-free path
+backwards against immutable ancestor headers. Historical header names, attribute names and namespace
+bindings are atomized in the owning NameTable so generated QName reference tests remain valid.
+Relative context and self steps retain value replay eligibility; eligible mixed sequences lower their
+value populations separately. Runtime prefix facts and deferred predicates are outside this proof.
+Built-in registration retains stable names/IDs/arities eagerly, resolving canonical parameter/return
+types with one thread-safe lazy signature per definition. Saved fingerprints remain computed with the
+existing algorithm. See [relative values and signature initialization](streaming-relative-values-signatures-2026-10-25.md).
+
+
+Comma and insertion expressions followed by predicate-free child paths now share ordered, distinct
+population merging. Consumers finish the current live node before its producer advances. Streamed
+simple-content calls carry an IL annotation: text construction iterates and emits items directly,
+keeping one text tree open when a result sequence is materialized. Adjacent text/empty-array/typed
+boundaries and cancellation/error state remain explicit. Conditional/singleton-loop rewrites preserve
+the writing path. The scalar ABI remains available; three additive runtime entry points support new
+saved consumers. Debug choose results have a separate sequence-point wrapper. See
+[comma/content implementation evidence](streaming-comma-content-2026-10-25.md).
+
+
+### Recursive transmitting functions
+
+Resumable function implementations now deliver recursive shallow-descent node results before the
+reader advances. Self/mutual recursion, live inspection/transmission, cardinality/name errors, both
+APIs, debug and saved compilation are covered. Body cloning also retains incremental text-writing
+annotations. Strict streaming improves to **2,689/22/1**, fixing `su-shallow-descent-002` and `-004`,
+with seven unmatched expected codes and no new failure IDs across eight profiles. Debug/Release
+units pass **3,192/3,091**, all compatibility checks pass, and the frozen saved NativeAOT consumer
+passes with no publish warnings. Tracing/depth-limited/memoized and narrow-return call paths, general
+continuations and the remaining P7 gates remain open. See [the implementation and evidence](streaming-recursive-functions-2026-10-25.md).
+
+
+### Document fragments and stable resource identity
+
+Shorthand-ID fragments now work in `fn:doc`, source-document and initial URI views. Streaming scans
+the prefix and exposes the selected subtree, preserving namespaces, XML Base and provider-known
+ID/IDREF facts, including already-positioned borrowed readers. `document()` selects original nodes from
+the stable complete resource, so different fragments retain a common root. Cache/loading keys
+distinguish selected views; I/O conflict tracking
+uses the physical resource URI. Only three verified passing baseline entries are removed. Debug/Release
+units pass **3,237/3,134**, all compatibility checks pass, and fourteen new saved normal/debug NativeAOT
+cases plus the retained consumers pass without publish warnings. Strict streaming improves to
+**2,690/21/1** with no new failure IDs across eight profiles. Full P7 remains active. See
+[implementation and evidence](streaming-document-fragments-2026-10-25.md).
+
+The final isolated ordinary three-pair gate passes: time geometric mean **0.990513413537**, maximum
+allocation ratio **1.037238717165**. Focused normal/debug native fragment probes validate exact 200 MiB
+and 2 GiB inputs, independent output digests, early output and owned-source closure, with lifetime
+RSS **24,576,000–27,377,664 bytes** under the 200 MiB guard. These do not satisfy the separate 20 MiB
+push RSS requirement or canonical throughput target. Current source hashes and artifacts match;
+full P7 remains active. See [fragment evidence](streaming-document-fragments-2026-10-25.md).
+
+
+### Navigator ID provenance
+
+The fragment loader now preserves element-local ID/IDREF facts and provider-confirmed ID lookups
+separately. Equal attribute values no longer turn ordinary attributes into ID declarations, and copied
+views retain their real lookups. Twelve additional public API cases cover DTD/XML IDs, repeated copies,
+and locally different schema types, including annotation stripping. Debug/Release units pass
+**3,249/3,146**; eight new normal/debug saved styles pass twelve native checks, with retained consumers
+and no publish warnings. All eight execution profiles were freshly run, with no new failure IDs;
+strict remains **2,690/21/1**. Explicit 2.0 auditing supersedes a previously copied stale report at
+**4,590/8/10**; posture/sweep remains **790/129/0**. This does not attribute the 2.0 changes to this fix.
+The ordinary three-pair gate passes at time geometric mean **0.977000839111**, maximum allocation ratio
+**1.037247283614**. Focused 200 MiB / 2 GiB native runs pass with lifetime RSS **24,805,376–27,475,968 bytes** under the
+200 MiB guard. The separate 20 MiB push RSS, throughput, semantic and complete P7 gates remain open.
+See [implementation and evidence](streaming-id-provenance-2026-10-25.md).
+
+
+### Deferred header storage foundation
+
+Source-owned header/membership scratch storage now shares the existing replay cache and private-file
+machinery. Offset links retain source identity and intrinsic metadata without retaining closed nodes;
+incomplete child metadata is guarded rather than reported empty. Schema-info objects are snapshotted.
+Seven new tests cover the primitive, and a native **100,000**-closed-header probe plus an incomplete
+owner verifies metadata, membership, cache bounds and cleanup. Full Debug/Release units pass
+**3,256/3,153**, retained saved consumers and all compatibility checks pass, and eight freshly run
+execution profiles have no new failure IDs. Strict remains **2,690/21/1**. The final ordinary gate
+passes at time geometric mean **1.005276705514**, maximum allocation ratio **1.037242922079**; retained focused
+200 MiB / 2 GiB native runs pass under the 200 MiB guard.
+
+At this historical storage checkpoint the compiler was not connected to the store.
+The subsequent deferred climbing checkpoint below connects it and repairs those five failures.
+Deferred observer/accumulator snapshots still need serialization and are explicitly rejected by the
+primitive until supported. These are remaining requirements, together with the other semantic,
+analysis, exact push RSS, throughput and full P7 gates. See [the implementation and evidence](streaming-deferred-headers-2026-10-25.md).
+
+### Deferred climbing set execution
+
+The compiler now connects the source-owned header spool to climbing `except`, mixed nested set
+operators, differing projections and nearest-ancestor predicates. Potential headers are registered
+before matched predicates execute; leaf membership, source completion and invocation sealing are
+tracked separately. Each resumable drain returns one result, including at EOF. Explicit replay keeps
+its actual nodes and final canonical order; completion releases foreign-document roots. Existing
+monotonic helper entry points retain their saved-consumer ABI.
+
+Strict streaming improves to **2,695 passed / 16 failed / 1 not run**. All **66** `sx-ExceptExpr` cases
+pass, fixing `sx-except-331` through `-335`, and none of the nine fresh reports adds a failure ID.
+Release and Debug units each pass **3,285 net10.0 / 3,180 net8.0**. Both native publications have no
+warnings, and the new saved normal/debug cases plus retained compatibility consumers pass. The
+three-pair ordinary performance gate passes with time GM **1.027012847257** and maximum allocation
+ratio **1.037238717165**; individual timing outliers are retained in the report.
+
+Actual deferred-set normal/debug native runs also pass at exact **200 MiB** and **2 GiB**, with
+verified output, early emission and owned-input cleanup under the unchanged **200 MiB** heap/RSS guard.
+The separate push RSS and canonical throughput criteria remain open.
+
+Accumulator snapshot serialization, remaining analysis/semantic failures and full P7 acceptance
+remain open. `supports-streaming` remains `no`; no stage is declared complete. See
+[the implementation and evidence](streaming-deferred-climbing-2026-10-25.md).
+
+### Deferred accumulator phase snapshots
+
+Deferred headers now preserve applicable before/after phases using a registered observer codec.
+Scalars and map/array structure spill through the existing source-owned scratch stream. Atomic types,
+QName prefixes, container aliases and deep nesting retain their semantics. Live source frames publish
+late phases to weak snapshot readers, including before source disposal; prong readers use the original
+observer without repeating rules. Unknown observer metadata remains an explicit error.
+
+Node and opaque function values currently retain actual identity handles. General bounded spill of
+those histories remains required; scalar memory results do not close that obligation. Strict analysis
+and all failure baselines are unchanged. Full Release and Debug pass **3,306 net10.0 / 3,199 net8.0**;
+new saved normal/debug consumers, the native late-publication regression and retained compatibility
+cases pass. All nine fresh conformance reports retain their previous failure IDs. The final ordinary
+three-pair gate passes with time GM **0.989223741081** and maximum allocation ratio **1.037234042553**.
+The actual deferred-set/scalar-counter matrix passes normal/debug native runs at exact **200 MiB**
+and **2 GiB**, with verified output, early emission and owned-source cleanup under the unchanged
+**200 MiB** heap/RSS guard. Identity-bearing histories, exact push RSS and canonical throughput remain
+open. Full P7 remains active.
+See [implementation, limits and current evidence](streaming-accumulator-phases-2026-10-25.md).
+
+### Deferred compiled closure captures
+
+Compiled functions now spill their captured sequences through the source-owned XDM scratch codec.
+Actual runtime/code/signature descriptors remain separate from captured values; aliases and cycles
+crossing functions, maps and arrays survive iterative replay. Recorded scalar/container closure
+histories can be collected while the source remains alive. Separate runtime owners retain their
+actual globals even when their generated function IDs and signatures agree.
+
+The descriptor bound assumes a fixed actual code/owner set. Fresh evaluated runtimes can grow it;
+nodes and opaque callable kinds still retain identity. Full Release and Debug each pass **3,324
+net10.0 / 3,212 net8.0**, saved normal/debug and native consumers pass, and all nine conformance report
+headers/failure-ID sets match the preceding checkpoint. The original ordinary gate passes with time
+GM **0.986027868023** and maximum allocation ratio **1.037238403996**. Actual fixed-owner compiled
+closure normal/debug native runs pass exact **200 MiB** and **2 GiB** inputs under the unchanged
+**200 MiB** heap/RSS guard, with full independent output verification and early output. General
+identity-history spill, exact push RSS, canonical throughput and remaining P7 gates stay open.
+See [implementation, limits and evidence](streaming-closure-captures-2026-10-25.md).
+
+### Deferred coerced function values
+
+Coercion wrappers now spill typed target graphs through the source-owned XDM codec, including aliases,
+outer-wrapper dependency cycles and deep chains. Shared function conversion now installs wrappers for
+accumulators and callbacks, supports map/array targets, preserves original function names and reports
+standard accumulator type errors. Fresh parameter arrays do not become retained value histories.
+
+Full Release and Debug each pass **3,341 net10.0 / 3,229 net8.0**; sixteen new saved normal/debug
+styles and retained native compatibility consumers pass without publication warnings. All nine final
+failure-ID sets remain unchanged; unmatched error codes improve strict **7 to 6**, unstreamed **5 to 4**.
+The original ordinary three-pair gate passes on an unchanged retry: GM **1.035572890616**, maximum
+allocation ratio **1.037242608875**. The initial failed timing trial and reversed-order attribution are
+retained in the report. Actual typed-wrapper normal/debug native runs pass exact **200 MiB** and
+**2 GiB** inputs with independent full-output checks, early output and cleanup under the unchanged
+**200 MiB** heap/RSS guard. General opaque/node history spill, exact push RSS, canonical throughput
+and remaining Phase 7 gates stay open; `supports-streaming` remains `no`.
+See [implementation, limits and evidence](streaming-coerced-captures-2026-10-25.md).
+
+### Deferred library function values
+
+Computed library functions now spill their actual definition/context references and per-value arity
+through the source-owned XDM codec. Separate metadata tables preserve provider definition authority
+and all static/dynamic context state without retaining each function object or variadic-arity history.
+Aliases and fork context projection retain their semantics. The bound assumes a fixed set of actual
+definition/context models; arbitrary fresh models, opaque/native callbacks and nodes remain open.
+
+Full Release and Debug each pass **3,349 net10.0 / 3,237 net8.0**. Eight new saved normal/debug
+lookup styles and **133** retained saved DLLs pass NativeAOT without publication warnings. All nine
+conformance report headings/failure-ID sets remain unchanged. The original ordinary three-pair gate
+passes on its first attempt: GM **0.994364503290**, maximum allocation ratio **1.037238717165**.
+Actual computed-lookup normal/debug native cases pass exact **200 MiB** and **2 GiB**, with full
+independent output checks, early output and cleanup under the unchanged **200 MiB** heap/RSS guard.
+Exact push RSS, canonical throughput and remaining Phase 7 gates stay open; `supports-streaming`
+remains `no` and the full plan remains active.
+See [implementation, limits and evidence](streaming-library-captures-2026-10-25.md).
+
+### Deferred random-generator state
+
+Generator maps now spill their actual `next`/`permute` numeric state through the source-owned XDM
+codec, without retaining each callable or a per-state metadata table. The actual generator factory
+owns the descriptor; generic native/provider callbacks retain their identity. Seed hashing, next-state
+transitions and permutation semantics remain unchanged, including shared targets and fork calls.
+
+Full Release and Debug each pass **3,356 net10.0 / 3,244 net8.0**. Six preceding-core and six current
+saved normal/debug random styles plus **141** retained saved DLLs pass NativeAOT without publication
+warnings. All nine conformance report headings/failure-ID sets remain unchanged. The original ordinary
+three-pair gate passes: GM **0.994987004211**, maximum allocation ratio **1.037239186928**.
+Actual per-row seeded-generator normal/debug native cases pass exact **200 MiB** and **2 GiB**, with
+independent seeded-permutation output checks, early output and cleanup under the unchanged
+**200 MiB** heap/RSS guard. General grounded-node/opaque histories, exact push RSS, canonical
+throughput and remaining Phase 7 gates stay open; `supports-streaming` remains `no`.
+See [implementation, limits and evidence](streaming-random-captures-2026-10-25.md).
+
+
+### Optional focus in captured function references
+
+The host supplies optional context separately from checked context-item evaluation. Lifted focus keeps its original zero-or-one sequence, so reference creation does not demand absence and each intrinsic applies its prescribed error when invoked. Existing match/loop knownness and singleton cardinality proofs remove redundant QIL checks. This increment adds no public helper, generated ABI or saved-constant format. See [implementation, limits and evidence](streaming-optional-focus-2026-10-26.md).
+
+
+### XML-to-JSON header-path continuation, 2026-10-26
+
+Eligible filtered descendant/child arguments now preserve continuation while conversion absorbs a selected subtree. Motionless prefix predicates run once, real additional matches produce XPTY0004, and predicate faults retain precedence. Consumed input still requires actual replay. Full Release/Debug pass **3,404 / 3,290**; all nine profile failure-ID sets are unchanged, with strict unmatched codes improving **5 to 4**. Retained/current native saved consumers, the original ordinary gate and four final normal/debug exact-size native JSON cases pass. Unsupported paths, mixed-result try, exact push RSS and full P7 requirements remain open. See [the complete checkpoint](streaming-json-header-continuation-2026-10-26.md).
+
+### Mixed template result streaming, 2026-10-26
+
+Internal template metadata selects unconstrained mixed-result calls for memoized pull companions without changing the ordinary function ABI. Typed arguments use the existing box/unbox path; producers are registered before rewriting recursive references. Only companion choices become balanced iterator branches. A stateful cursor allocation prevents re-creation on resume, while each try transaction and outer complex-content normalization retain their boundaries. Tracing/depth-limited or otherwise ineligible calls keep their existing paths. See [implementation and verification](streaming-mixed-template-results-2026-10-26.md).
+
+### Reference and diagnostic contracts, 2026-10-26
+
+A shared internal URI-reference check runs before resolution, while legacy document() retains its provider path policy. An assessment preserves a specific fatal diagnostic instead of adding a redundant earlier generic error; independent declarations remain assessed. The QT3 runner prefers exact any-of results and propagates all-of code notes. Runtime helper signatures and saved formats remain unchanged. See [implementation and evidence](streaming-reference-diagnostics-2026-10-26.md).
+
+### Source validation negotiation, 2026-10-26
+
+Explicit streamed validation now negotiates bytes from capable resolvers, preserving reader-only and provider-error contracts. Release/Debug pass **3,449 / 3,331**; strict unmatched codes improve **1 to 0**, with unchanged failure-ID sets. Native runtime validation, **225** retained saved styles and the original ordinary performance gate pass. Imported-schema saved compilation and full P7 gates remain open. See [implementation and evidence](streaming-source-validation-negotiation-2026-10-26.md).
+
+### Annotation and whitespace ordering, 2026-10-26
+
+Streamed whitespace filtering now uses the effective annotation-stripping policy, while preserving explicit validation and xml:space behavior. Release/Debug pass **3,457 / 3,339**; all nine profile headings and failure-ID sets remain unchanged. Native checks pass **12** new normal/debug saved styles plus **225** retained styles. The original ordinary performance gate passes; imported-schema persistence and full P7 gates remain open. See [implementation and evidence](streaming-annotation-whitespace-2026-10-26.md).
+
+### Saved imported-schema validation, 2026-10-26
+
+Resolved schema graphs now travel with supported saved source-validation paths. Release/Debug pass **3,486 / 3,358**, with unchanged profile headings and failure-ID sets. Native checks pass **12** new imported-schema saved styles plus **237** retained styles; the ordinary gate passes. General schema-dependent constant metadata, typed static nodes, .NET 10-to-8 saved-DLL portability and full P7 gates remain open. See [implementation and evidence](streaming-saved-schema-2026-10-26.md).
+
+### Portable saved framework references, 2026-10-26
+
+Saved framework references now use the core project's minimum supported runtime contract. Release/Debug pass **3,490 / 3,358**, with unchanged profile headings and failure-ID sets. Fourteen fresh portable emissions pass on .NET 8 and NativeAOT alongside **249** retained native styles. The **311**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes; general schema metadata, typed static nodes and full P7 gates remain open. See [implementation and evidence](streaming-portable-emitter-2026-10-26.md).
+
+### Saved schema-dependent metadata, 2026-10-26
+
+Saved constants now retain registered schema contexts, named atomic/cast metadata and recursive sequence/function/node tests using table-scoped format 5. Release/Debug pass **3,505 / 3,360**, with unchanged conformance profile headings and failure-ID sets. Fourteen fresh saved styles pass with **263** retained styles under NativeAOT; the **325**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Typed static nodes, anonymous atomic metadata and full P7 remain open. See [implementation and evidence](streaming-schema-metadata-2026-10-26.md).
+
+### Typed static-node persistence, 2026-10-26
+
+Annotated static nodes now retain schema types, shared-tree identity, nilled state and node metadata through format 6. Nilled simple-type atomization and optional cardinality checks are corrected. Release/Debug pass **3,519 / 3,372**, with unchanged profile headings and failure-ID sets. Two fresh saved styles pass with **277** retained styles under NativeAOT; the **327**-path portable-copy corpus passes on .NET 8 and .NET 10. The ordinary gate passes. Anonymous atomic constants, unowned schema contexts and full P7 remain open. See [implementation and evidence](streaming-typed-static-nodes-2026-10-26.md).
