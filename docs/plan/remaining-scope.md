@@ -4,6 +4,9 @@
 > Full P7 is deferred, streaming remains unsupported, and the original targets below are unchanged.
 > Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
 > entries below do not expand this release. Release version: 1.1.0.
+>
+> The next proposed step is [P7B analysis close-out](p7b-analysis-closeout.md), a six-ticket static-analysis
+> phase with explicit exclusions and a stopping point.
 
 This is the brief for whoever carries Xsl3 from here: what is left of the SPEC.md roadmap once Phase 5
 (`xsl:evaluate` and serialization completion, merged in skuirrels/Xsl3#1) is done. It covers:

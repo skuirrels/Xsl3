@@ -1,0 +1,4 @@
+# P7B exact static diagnostics. These raw-suite expectation conflicts remain failures.
+# A baseline match does not close the original S2 gate. See docs/plan/p7b-analysis-closeout.md.
+si-fork/si-fork-953
+sx-UnionExpr/sx-union-202

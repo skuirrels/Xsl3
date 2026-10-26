@@ -22,6 +22,10 @@ Normal execution continues to build trees. `XsltSettings.Streamability` controls
 switch `XSL3_STREAM_STRICT=1` enables experimental forward execution. `supports-streaming` remains `no`.
 See [release notes and migration guidance](../releases/1.1.0.md).
 
+The next proposed phase is [P7B: static streamability analysis close-out](p7b-analysis-closeout.md).
+Its six-ticket plan addresses analysis reconciliation and static diagnostic evidence only; the full-P7
+memory, throughput and execution obligations below remain deferred.
+
 ## Exit evidence
 
 The frozen implementation has 418 source/configuration files, recorded by SHA-256 in the local release evidence.

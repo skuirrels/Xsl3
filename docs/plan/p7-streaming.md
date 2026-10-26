@@ -4,6 +4,9 @@
 > Full P7 is deferred, streaming remains unsupported, and the original targets below are unchanged.
 > Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
 > entries below do not expand this release. Release version: 1.1.0.
+>
+> **Next bounded phase:** [P7B analysis close-out](p7b-analysis-closeout.md) has six tickets and exact
+> S1/S2 case inventories. It does not resume the full runtime or performance workstream.
 
 docs/plan/remaining-scope.md, workstream 7 (items 7.1 to 7.5): XSLT 3.0 streaming, the streaming feature of XSLT 3.0
 §27.5. SPEC §17, §22 (P7), §19.6 (the streaming row). A 1.x release, after 1.0 (owner's decision, 2026-10-22).

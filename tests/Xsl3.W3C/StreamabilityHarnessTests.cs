@@ -30,6 +30,44 @@ public class StreamabilityHarnessTests
         });
     }
 
+    [Fact]
+    public void AuditIncludesEveryExpressionBeforeTheFirstAssertionMismatch()
+    {
+        WithCase("<posture-and-sweep context-posture='striding'><xpath part='1'>a</xpath><xpath part='2'>@code</xpath></posture-and-sweep>",
+            "grounded", "motionless", test =>
+        {
+            string[]? expressions = null;
+            var runner = new Runner { AnalysisCompleted = (_, values) => expressions = values.Select(v => v.Expression.Value).ToArray() };
+            Assert.Equal(OutcomeKind.Fail, runner.Run(test).Kind);
+            Assert.Equal(new[] { "a", "@code" }, expressions);
+        });
+    }
+
+    [Fact]
+    public void StaticAuditDoesNotMatchAMessageMentionOrADynamicError()
+    {
+        Assert.False(Xslt30RunTests.MatchesStaticCode(Xslt30RunTests.PrimaryDiagnostic(
+            new InvalidOperationException("Expected XTSE3430 but the harness failed")), "XTSE3430"));
+        Assert.False(Xslt30RunTests.MatchesStaticCode(Xslt30RunTests.PrimaryDiagnostic(
+            new XsltDynamicException(new Xdm.QName("http://www.w3.org/2005/xqt-errors", "XTSE3430"), "wrong phase")), "XTSE3430"));
+    }
+
+    [Fact]
+    public void StaticAuditUsesThePrimaryErrorAndRetainsItsLocation()
+    {
+        var warning = new XsltStaticError(new Xsl3.Xslt.CompilerError("test.xsl", 1, 2, "", "XTSE3430: warning") { IsWarning = true });
+        var first = new XsltStaticError(new Xsl3.Xslt.CompilerError("test.xsl", 3, 4, "", "XTSE0730: before XTSE3430"));
+        var second = new XsltStaticError(new Xsl3.Xslt.CompilerError("test.xsl", 5, 6, "", "XTSE3430: later error"));
+        var exception = new XsltStaticException(new[] { warning, first, second }, null);
+        var actual = Xslt30RunTests.PrimaryDiagnostic(new Exception("wrapper mentions XTSE3430", exception));
+        Assert.False(Xslt30RunTests.MatchesStaticCode(actual, "XTSE3430"));
+        Assert.True(Xslt30RunTests.MatchesStaticCode(actual, "XTSE0730"));
+        Assert.Equal("test.xsl", actual.ModuleUri);
+        Assert.Equal(3, actual.Line);
+        Assert.Equal(4, actual.Column);
+        Assert.Equal(first.Message, actual.Reason);
+    }
+
     [Theory]
     [InlineData("item()", "child::node()", "striding", "consuming")]
     [InlineData("node()", "child::node()", "striding", "consuming")]

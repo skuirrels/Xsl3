@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Reject instructions processed with XSLT 1.0 behavior in declared-streamable content with `XTSE3430`,
+  as required by §3.9.1. Explicit `Fallback` and ordinary non-streamable compatibility processing remain available.
+- Add reproducible per-expression inspection and exact static diagnostic audits for the bounded P7B phase.
+  Original suite discrepancies remain visible; this does not claim streaming support.
+
 ## [1.1.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.0) — 2026-10-26
 
 P7A closes the implemented streaming foundations. Streaming remains experimental and unsupported;

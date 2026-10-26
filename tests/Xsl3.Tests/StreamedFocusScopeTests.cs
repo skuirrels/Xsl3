@@ -91,9 +91,11 @@ public class StreamedFocusScopeTests
     [InlineData("-(price,map{})", "-1.25|-2.75|")]
     [InlineData("(price, map{}) * 2", "2.5|5.5|")]
     [InlineData("() + 0", "NaN|NaN|")]
-    public void CompatibilityArithmeticConvertsOnlyTheFirstItem(string expression, string expected)
+    public void CompatibilityArithmeticConvertsOnlyTheFirstItemInANonStreamableMode(string expression, string expected)
     {
-        string sheet = "<xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'><xsl:mode streamable='yes'/><xsl:output method='text'/>"
+        // Compatibility arithmetic still needs coverage with either execution setting, but §3.9.1
+        // makes these instructions ineligible for a guaranteed-streamable mode.
+        string sheet = "<xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'><xsl:mode streamable='no'/><xsl:output method='text'/>"
             + "<xsl:template match='/'><xsl:for-each select='doc/row' version='1.0'><xsl:value-of select='" + SecurityElement.Escape(expression)
             + "'/><xsl:text>|</xsl:text></xsl:for-each></xsl:template></xsl:stylesheet>";
         foreach (bool forward in new[] { false, true }) Assert.Equal(expected, Run(sheet, forward));

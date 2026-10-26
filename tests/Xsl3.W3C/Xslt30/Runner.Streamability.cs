@@ -12,7 +12,10 @@ namespace Xsl3.W3C.Xslt30;
 
 public sealed partial class Runner
 {
-    private sealed record AssessedExpression(XElement Expression, Streamability Value);
+    internal sealed record AssessedExpression(XElement Expression, Streamability Value);
+
+    // Optional audit sink: observe actual assessments without changing assertions or suite data.
+    internal Action<TestCase, IReadOnlyList<AssessedExpression>>? AnalysisCompleted { get; init; }
 
     private Outcome RunPostureAndSweep(TestCase test, XElement input)
     {
@@ -58,6 +61,7 @@ public sealed partial class Runner
                 return Outcome.Fail($"part {(string?)expression.Attribute("part") ?? "?"}: {e.Code}: {e.Message}");
             }
         }
+        AnalysisCompleted?.Invoke(test, assessed);
         return Check(test, test.Result, new RunResult(null, null, Array.Empty<string>()) { StreamabilityResults = assessed });
     }
 

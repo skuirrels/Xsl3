@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using Xsl3.W3C.Qt3;
 using Xsl3.W3C.Xslt30;
 using Xunit;
@@ -18,7 +19,7 @@ namespace Xsl3.W3C;
 /// w3c-reports/xslt30-run.md next to the test binaries (xslt30-run-2.0.md for the 2.0 profile);
 /// eng/conformance-report.sh assembles the reports into docs/conformance-sets.md.
 /// </summary>
-public class Xslt30RunTests
+public partial class Xslt30RunTests
 {
     private readonly ITestOutputHelper _output;
 
@@ -31,14 +32,32 @@ public class Xslt30RunTests
         string? root = Xslt30.Catalog.Locate();
         if (root == null)
         {
-            Assert.False(requestedProfile is "sandp" or "strm", "The streaming development profiles require xslt30-test; run eng/fetch-w3c.sh.");
+            Assert.False(requestedProfile is "sandp" or "strm" or "s2", "The streaming development profiles require xslt30-test; run eng/fetch-w3c.sh.");
             _output.WriteLine("xslt30-test not found (run eng/fetch-w3c.sh); skipping.");
             return;
         }
 
         bool sandp = requestedProfile == "sandp";
         Xslt30.Catalog catalog = Xslt30.Catalog.Load(root, includePostureAndSweep: sandp);
-        var runner = new Xslt30.Runner();
+        if (requestedProfile == "s2")
+        {
+            RunStaticDiagnostics(catalog);
+            return;
+        }
+        string? assessmentPath = Environment.GetEnvironmentVariable("XSL3_XSLT30_ASSESSMENTS");
+        using StreamWriter? assessments = assessmentPath == null ? null : new StreamWriter(assessmentPath, append: false);
+        var runner = new Xslt30.Runner
+        {
+            AnalysisCompleted = assessments == null ? null : (test, values) =>
+            {
+                foreach (var (expression, value) in values)
+                    assessments.WriteLine(JsonSerializer.Serialize(new
+                    {
+                        Case = test.Id, Part = (string?)expression.Attribute("part"), Expression = expression.Value,
+                        Type = value.Type.ToString(), Posture = value.Posture.ToString(), Sweep = value.Sweep.ToString(), value.Rule,
+                    }));
+            },
+        };
         var failures = new Dictionary<string, string>(StringComparer.Ordinal);
         var perSet = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // pass, fail, not run
         var perFeature = new SortedDictionary<string, int[]>(StringComparer.Ordinal); // the same, by spec and feature
@@ -117,6 +136,8 @@ public class Xslt30RunTests
         WriteReport(report + ".md", summary, perSet, perFeature, failures, notRunReasons);
         Assert.True(perSet.Count > 0, "No test cases selected; check the profile, set filter and suite checkout.");
         if (sandp) Assert.True(notRun == 0, $"Posture-and-sweep coverage regressed: {notRun} cases were not run.");
+        if (sandp && sets == null)
+            Assert.True(pass + fail == 919, $"P7B posture/sweep scope changed: expected 919 cases, got {pass + fail}; reconcile the manifest and plan.");
         if (sets != null || p2 || sa)
         {
             return;

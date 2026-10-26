@@ -73,7 +73,24 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         env:
           XSL3_XSLT30_PROFILE: sandp
-        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability
+          XSL3_XSLT30_ASSESSMENTS: ${{ github.workspace }}/artifacts/test-results/streamability-assessments.jsonl
+        run: |
+          mkdir -p artifacts/test-results
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p test_streamability_audit.py
+          python3 eng/audit-streamability.py --suite external/xslt30-test --assessments "$XSL3_XSLT30_ASSESSMENTS" --output artifacts/test-results/streamability-audit.json
+
+      # An exact-code audit, separate from the ordinary runner's permissive error accounting.
+      # Its two raw-suite expectation conflicts stay visible; matching a baseline is not S2 completion.
+      - name: Static streamability diagnostics (S2)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: s2
+        run: |
+          s2_exit=0
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streamability-static || s2_exit=$?
+          cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-static-streamability.* artifacts/test-results/
+          exit "$s2_exit"
 
       - name: Streaming development baseline (UNSTREAMED)
         if: matrix.os == 'ubuntu-latest'

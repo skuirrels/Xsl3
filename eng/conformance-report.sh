@@ -27,6 +27,7 @@ section() { # title, report file: the report without its failure list, its headi
   section "P7 streaming development (unstreamed execution)" xslt30-run-strm.md
   section "P7 streaming development (strict forward inputs; incomplete)" xslt30-run-strm-strict.md
   section "P7 posture and sweep analysis" xslt30-run-sandp.md
+  section "P7 exact static streamability diagnostics" xslt30-static-streamability.md
   section "XPath 3.1 evaluation (QT3)" qt3-run.md
   section "XPath 3.1 parsing (QT3)" qt3-parse.md
 } > "$OUT"
