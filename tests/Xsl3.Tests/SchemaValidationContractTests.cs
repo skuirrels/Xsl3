@@ -211,9 +211,12 @@ public class SchemaValidationContractTests
 
     private sealed class ReaderResolver(XmlReader reader) : XmlResolver
     {
+        public override bool SupportsType(Uri absoluteUri, Type? type) => type == null || type == typeof(XmlReader);
+
         public override object GetEntity(Uri absoluteUri, string? role, Type? ofObjectToReturn)
         {
             Assert.Equal("urn:p7d:source", absoluteUri.AbsoluteUri);
+            Assert.True(ofObjectToReturn == null || ofObjectToReturn == typeof(XmlReader));
             return reader;
         }
     }

@@ -2,7 +2,7 @@
 
 **Scope frozen on 2026-10-27. Branch: `feature/p7d-validation-contracts`.**
 Base: release `v1.1.2` (`e98cc9fb9b49cb456b197253b4537382c2fb86ea`).
-Implementation scope is closed. All local gates below have evidence; the phase pull request's
+Implementation scope is closed. All local gates below have evidence; [PR #20's hosted checks](https://github.com/skuirrels/Xsl3/pull/20/checks)
 Linux, Windows, NativeAOT and performance checks must also be green before merge or release.
 The patch candidate is 1.1.3; publication remains separate. P7C remains closed.
 
@@ -107,7 +107,7 @@ Evidence is retained in `artifacts/p7d-validation/`: independent baseline source
 red/green logs, original-fixture outcomes in both configurations, full functional/profile checks,
 fresh saved consumers, retained P7C consumers, native publications, and the six paired performance rounds.
 The [result snapshot](p7d-results.json) records the source hashes and gates. Hosted checks are tracked on
-the phase pull request; they do not replace the local saved-style and original-fixture evidence.
+[PR #20](https://github.com/skuirrels/Xsl3/pull/20/checks); they do not replace the local saved-style and original-fixture evidence.
 
 ## Deferred findings
 
