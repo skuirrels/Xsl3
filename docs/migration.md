@@ -47,6 +47,18 @@ content, including otherwise motionless instructions. Strict analysis reports `X
 claim or explicitly select Fallback for tree execution, or update the instruction's version when the 2.0/3.0 semantics
 are appropriate. See [1.1.1 release notes](releases/1.1.1.md). Ordinary non-streamable compatibility behavior is retained.
 
+## 1.1.2: positioned source-reader boundaries
+
+Version 1.1.2 fixes experimental `xsl:source-document` execution when a resolver returns an `XmlReader`
+positioned on an element: only that subtree is visible, and the borrowed reader remains open at its boundary.
+Following siblings are no longer included. Positioned source and initial readers also retain inherited
+namespace bindings used by QName values, while preserving validation and annotation policies.
+
+No public API or saved-assembly format changes are introduced. Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
+together and regenerate saved stylesheets with matching compiler/runtime versions. Runtime compilation
+still requires dynamic code; NativeAOT uses saved stylesheets. Streaming remains unsupported and
+`supports-streaming` remains `no`. See the [1.1.2 release notes](releases/1.1.2.md).
+
 ## Moving stylesheets to XSLT 3.0
 
 Change `version="1.0"` to `version="3.0"` and the stylesheet runs on the XSLT 3.0 processor. Things to know:

@@ -6,11 +6,12 @@ based on release `v1.1.1` (`11d77dfd0527af588ab88af5c2c01576ff7057aa`).
 It closes the input boundary and ownership contract for reader-backed experimental
 `xsl:source-document` execution. It does not complete full P7 or enable streaming support.
 
-**P7C implementation closed locally on 2026-10-27.** All five completion criteria below
-have local evidence. Implementation scope stops here. PR review and hosted Linux/Windows/native
-CI are the integration gates; package publication requires a separately authorized release.
-The fixes are unreleased. This document records the local checkpoint; hosted results are tracked
-by the P7C pull request checks.
+**P7C complete for release 1.1.2 on 2026-10-27.** All five completion criteria below have evidence.
+Implementation scope stops here. [PR #18](https://github.com/skuirrels/Xsl3/pull/18) merged as
+`f3c2cef8ab402597aab65617d2a6832583189a5e` after Linux, Windows, NativeAOT and performance
+[CI passed](https://github.com/skuirrels/Xsl3/actions/runs/40522313206).
+[Main CI](https://github.com/skuirrels/Xsl3/actions/runs/40526576014) also passed. The owner authorized
+NuGet and GitHub publication of 1.1.2; see the [release notes](../releases/1.1.2.md).
 
 ## Reproduced defect
 
@@ -58,7 +59,7 @@ Hosted CI and publication remain separate release steps.
 
 Normal execution remains tree-based; `supports-streaming` stays `no`. The
 [original P7 targets](p7-streaming.md) and experimental CI gates remain unchanged.
-P7C completion prepares a reviewable release candidate; it does not itself publish a release.
+P7C completion does not complete full P7. Version 1.1.2 packages the bounded changes separately.
 
 ## Implementation and review
 
@@ -114,8 +115,9 @@ the saved-package deployment path; runtime compilation is not attempted in Nativ
 failures are retained separately from the successful verification. No trim/AOT warning is waived.
 
 The API inventories, official suite checkout, existing baselines and protected streaming benchmarks
-are unchanged. Hosted Linux/Windows CI and hosted native smoke are tracked separately in the
-pull request checks; local macOS evidence does not establish their results.
+are unchanged. Hosted Linux/Windows regression CI, native smoke and the ordinary performance gate
+passed on the reviewed implementation. The hosted timing GM is 1.010; the local measurements above
+retain their separate provenance.
 
 The [result snapshot](p7c-results.json) records the exact local gates and implementation hashes.
 The ordinary performance gate is an aggregate pass: JSON/1 MiB, maps/1 MiB and sorting compilation

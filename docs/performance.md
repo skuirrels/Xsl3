@@ -7,6 +7,8 @@ The 2026-10-27 [P7C local close-out](plan/p7c-runtime-correctness.md) passes the
 ordinary gate against `v1.1.1`: timing geometric mean **0.995962** over 39 rows, maximum allocation
 ratio **1.000156**. Individual timing outliers remain recorded in the close-out and result snapshot.
 This input-boundary correction makes no new streaming-memory or throughput claim.
+The [P7C hosted gate](https://github.com/skuirrels/Xsl3/actions/runs/40522313206) also passes,
+with rounded timing GM **1.010** against the base branch. The two measurements retain their separate provenance.
 
 Phase 4's 1.0 exit criterion (SPEC §19.6): Xsl3 at least 1.2× stock `XslCompiledTransform` on the XSLT 1.0
 benchmark corpus and never slower, with 1.5× as the target.
