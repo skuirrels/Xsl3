@@ -1,0 +1,20 @@
+# P7C entry inventory, retained unchanged by the positioned-reader correction.
+# Experimental strict-forward execution; supports-streaming remains no.
+# Dispositions: docs/plan/p7c-runtime-deferred.csv. This is a regression baseline,
+# not acceptance of the outstanding full-P7 runtime or performance obligations.
+merge/merge-073
+merge/merge-081
+merge/merge-082
+merge/merge-084
+sf-reverse/sf-reverse-001
+si-fork/si-fork-953
+si-merge/si-merge-004ns
+si-result-document/si-result-document-024
+source-document/non-stream-013
+source-document/stream-013
+streamable/streamable-021
+streamable/streamable-042
+streamable/streamable-043
+streamable/streamable-147
+sx-UnionExpr/sx-union-202
+system-property/system-property-012

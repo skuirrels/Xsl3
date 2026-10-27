@@ -13,6 +13,20 @@ namespace Xsl3.Runtime;
 /// <summary>The shared document-reference and shorthand-ID policy for retrieval and forward source entry points.</summary>
 internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUri, string? Id)
 {
+    internal static XmlReader ScopePositionedReader(XmlReader input, bool ownsInput)
+    {
+        // Xsl3 (P7C): XmlReader.ReadSubtree alone can omit inherited namespace bindings
+        // unused in element/attribute names (including prefixes used by QName values).
+        // Use the existing selected-source view to retain that context and ownership.
+        XmlReader namespaceSource = input;
+        while (namespaceSource is XmlWrappingReader wrapping && namespaceSource is not IXmlNamespaceResolver)
+            namespaceSource = wrapping.InnerReader;
+        var namespaces = (namespaceSource as IXmlNamespaceResolver)?.GetNamespacesInScope(XmlNamespaceScope.All);
+        return new SelectedReader(input.ReadSubtree(), input, ownsInput, input.BaseURI, input.BaseURI, input.BaseURI,
+            namespaces, IdDeclarations(input) ?? new Dictionary<(string, string), (string, string)>(),
+            IdrefDeclarations(input) ?? new HashSet<(string, string, string, string)>());
+    }
+
     internal static IEqualityComparer<Uri> Comparer { get; } = new DocumentComparer();
     private sealed class DocumentComparer : IEqualityComparer<Uri>
     {

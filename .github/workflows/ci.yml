@@ -160,6 +160,14 @@ jobs:
           cp tests/Xsl3.W3C/bin/Debug/net10.0/w3c-reports/xslt30-static-streamability-reviewed.md artifacts/test-results/xslt30-static-streamability-reviewed-debug.md
           exit "$debug_exit"
 
+      # P7C retains the complete pre-change failure inventory; it does not claim streaming support.
+      - name: Streaming runtime regression baseline (STRICT FORWARD INPUTS)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_XSLT30_PROFILE: strm
+          XSL3_STREAM_STRICT: "1"
+        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-strict
+
       - name: Streaming development baseline (UNSTREAMED)
         if: matrix.os == 'ubuntu-latest'
         env:

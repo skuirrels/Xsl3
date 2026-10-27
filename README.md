@@ -24,6 +24,10 @@ normal execution remains tree-based. Full-P7 runtime, memory and throughput acce
 See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.1.md) and
 [P7B close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion).
 
+On the development branch, [P7C](docs/plan/p7c-runtime-correctness.md) is locally complete for positioned
+source-reader boundaries, namespace context and ownership. Its fixes are unreleased; full streaming
+runtime, memory and throughput acceptance remain deferred.
+
 ## What works
 
 Conformance verified by [P7B CI](https://github.com/skuirrels/Xsl3/actions/runs/40423301988) on the merged implementation
@@ -117,7 +121,7 @@ See [P7B evidence](docs/plan/p7b-analysis-closeout.md#p7b-completion) for raw/re
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
-  (P7) is paused after the P7A foundations and P7B analysis phases, with expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
+  (P7) has completed P7A foundations and P7B analysis, with a bounded [P7C input-boundary follow-up](docs/plan/p7c-runtime-correctness.md). It has expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
   ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Normal execution still builds
   trees; a development switch enables forward source-document inputs, including schema validation, streamable
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
@@ -338,6 +342,7 @@ From [SPEC.md §22](SPEC.md):
 | P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
 | P7A | Streaming foundations | Complete for 1.1.0 ([close-out](docs/plan/p7a-closeout.md)); streaming remains experimental |
 | P7B | Bounded analysis close-out | Complete for 1.1.1: reviewed S1 1,000/1,000 and S2 155/155; original results preserved ([close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion)) |
+| P7C | Positioned source-reader correctness | Locally complete, unreleased; hosted CI/release pending ([close-out and criteria](docs/plan/p7c-runtime-correctness.md)); no streaming support claim |
 | P7 remainder | Supported streaming | Deferred: general runtime bounds, 20 MiB memory and throughput acceptance ([original plan](docs/plan/p7-streaming.md)); reviewed analysis completion does not claim full streaming conformance |
 
 ## Licence

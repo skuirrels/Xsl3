@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- P7C: restrict positioned resolver readers to the selected element during experimental
+  `xsl:source-document` execution. Following siblings are excluded; borrowed readers stay open
+  at the selected boundary after success, early exit or a body error.
+- Preserve inherited namespace bindings, including prefixes used only in QName values,
+  when scoping positioned source and initial readers. Keep validation and annotation policies.
+- Add normal/debug, two-API and saved-style regression coverage and retain the complete
+  strict-forward failure inventory in CI. Streaming remains unsupported; no public API or
+  saved-format change. See the [bounded P7C plan](docs/plan/p7c-runtime-correctness.md).
+
 ## [1.1.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.1) — 2026-10-27
 
 P7B closes the approved analysis phase. Normal execution remains tree-based and `supports-streaming` remains `no`.
