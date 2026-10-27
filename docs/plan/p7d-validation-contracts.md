@@ -3,7 +3,7 @@
 **Scope frozen on 2026-10-27. Branch: `feature/p7d-validation-contracts`.**
 Base: release `v1.1.2` (`e98cc9fb9b49cb456b197253b4537382c2fb86ea`).
 Implementation scope is closed. All local gates below have evidence; [PR #20's hosted checks](https://github.com/skuirrels/Xsl3/pull/20/checks)
-Linux, Windows, NativeAOT and performance checks must also be green before merge or release.
+(Linux, Windows, NativeAOT and performance) must also be green before merge or release.
 The patch candidate is 1.1.3; publication remains separate. P7C remains closed.
 
 ## Fixed scope
