@@ -1,7 +1,9 @@
 # Conformance
 
-The [1.1.1 P7B close-out](plan/p7b-analysis-closeout.md#p7b-completion) records the current analysis gates and retained
-raw-suite results. The merged implementation passed [main CI](https://github.com/skuirrels/Xsl3/actions/runs/40423301988).
+The [1.1.2 P7C close-out](plan/p7c-runtime-correctness.md) records the current input-boundary and strict-forward
+regression gates. [PR CI](https://github.com/skuirrels/Xsl3/actions/runs/40522313206) and
+[main CI](https://github.com/skuirrels/Xsl3/actions/runs/40526576014) passed for the merged implementation.
+The [1.1.1 P7B close-out](plan/p7b-analysis-closeout.md#p7b-completion) retains the raw/reviewed analysis results.
 Ordinary XSLT 3.0 is 8,850 passed / 18 failed / 41 not run; QT3 is 21,884 / 0 / 99.
 The [1.1.0 P7A close-out](plan/p7a-closeout.md#exit-evidence) and historical tables below retain their measurement dates.
 The upstream gate runs 1,654 applicable tests per framework, with seven platform-specific/known upstream cases filtered.
@@ -164,8 +166,9 @@ source-reader isolation, namespace context and ownership. Its entry strict-forwa
 retain those failures; they are not a streaming conformance acceptance or a change to upstream fixtures.
 Local P7C exit results retain those same counts and failure IDs. Release/Debug units pass
 3,634 on .NET 10 and 3,481 on .NET 8, with 50/48 new input-boundary cases. Saved normal/debug
-styles pass 52 checks each on .NET 8, .NET 10 and macOS ARM64 NativeAOT. Hosted results are tracked in
-the P7C pull request checks. The strict gate also requires all 2,712 cases, its one collection skip,
+styles pass 52 checks each on .NET 8, .NET 10 and macOS ARM64 NativeAOT. Hosted Linux, Windows,
+NativeAOT and performance checks passed in [PR #18](https://github.com/skuirrels/Xsl3/pull/18).
+The strict gate also requires all 2,712 cases, its one collection skip,
 and zero unmatched codes, with five harness regression tests for those coverage rules.
 
 **P7B completed under the owner's explicit suite revision:** reviewed S1 passes **1,000/0/0** and reviewed

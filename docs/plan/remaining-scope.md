@@ -1,15 +1,16 @@
 # Remaining scope: everything after P5
 
-> **2026-10-27 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1.
+> **2026-10-27 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1;
+> P7C closes positioned source-reader correctness for 1.1.2.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
-> Use the [P7B close-out](p7b-analysis-closeout.md#p7b-completion) for current scope and evidence; historical progress
-> entries below do not expand this release. Release version: 1.1.1.
+> Use the [P7C close-out](p7c-runtime-correctness.md) for current scope and evidence; historical progress
+> entries below do not expand this release. Release version: 1.1.2.
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
 >
-> **P7C follow-up:** the owner authorized the bounded [positioned source-reader phase](p7c-runtime-correctness.md)
-> on a new branch. Its runtime corrections are unreleased and its completion criteria are explicit.
+> **P7C completion:** the bounded [positioned source-reader phase](p7c-runtime-correctness.md) is merged,
+> with Linux, Windows, NativeAOT and performance CI passing. Release 1.1.2 contains its runtime corrections.
 > This does not resume the full P7 memory/throughput scope.
 
 This is the brief for whoever carries Xsl3 from here: what is left of the SPEC.md roadmap once Phase 5

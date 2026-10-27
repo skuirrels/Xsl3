@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## [1.1.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.2) — 2026-10-27
+
+P7C closes the bounded positioned source-reader correctness phase. Normal execution remains tree-based
+and `supports-streaming` remains `no`.
 
 - P7C: restrict positioned resolver readers to the selected element during experimental
   `xsl:source-document` execution. Following siblings are excluded; borrowed readers stay open
@@ -11,6 +14,9 @@
   strict-forward failure inventory in CI. The gate also rejects lost cases, changed skips and
   unmatched expected-error codes. Streaming remains unsupported; no public API or
   saved-format change. See the [bounded P7C plan](docs/plan/p7c-runtime-correctness.md).
+
+Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together to 1.1.2 and regenerate saved stylesheets with matching
+compiler/runtime packages. See the [release notes](docs/releases/1.1.2.md).
 
 ## [1.1.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.1) — 2026-10-27
 

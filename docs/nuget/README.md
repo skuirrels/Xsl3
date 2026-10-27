@@ -4,22 +4,21 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.1: P7B analysis close-out.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.2: P7C input-boundary correctness.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
 claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-P7B completes the approved reviewed analysis gates (1,000 posture/sweep cases and 155 static-diagnostic/result cases),
-while retaining the original upstream results. Full runtime, memory and throughput acceptance remain deferred.
-See the [1.1.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.1/docs/releases/1.1.1.md).
-
-The development branch's bounded P7C follow-up corrects positioned source-reader boundaries and
-inherited namespaces. Those fixes are unreleased; they do not change the supported streaming feature claim.
+P7C corrects positioned source-reader boundaries, inherited namespace context and ownership. Experimental
+source documents exclude following siblings; borrowed readers stay open at the selected boundary.
+The P7B reviewed 1,000-case analysis and 155-case static-diagnostic/result gates retain the original upstream
+results separately. Full runtime, memory and throughput acceptance remain deferred.
+See the [1.1.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.2/docs/releases/1.1.2.md).
 
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.1 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.2 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

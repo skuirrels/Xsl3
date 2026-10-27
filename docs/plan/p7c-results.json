@@ -1,7 +1,7 @@
 {
   "phase": "P7C",
   "scope": "Positioned source-reader boundaries, inherited namespace context and ownership",
-  "status": "implementation complete; hosted results tracked separately in PR checks; unreleased",
+  "status": "P7C complete for release 1.1.2; full streaming remains deferred",
   "branch": "feature/p7c-runtime-correctness",
   "date": "2026-10-27",
   "base_release": "v1.1.1",
@@ -136,14 +136,22 @@
     "protected_benchmarks_unchanged": true
   },
   "supports_streaming": "no",
-  "hosted_ci": "tracked separately in the P7C pull request checks",
-  "published": false,
-  "remaining_release_steps": [
-    "PR review",
-    "Linux and Windows hosted regression CI",
-    "hosted NativeAOT smoke",
-    "separately authorized tag and NuGet/GitHub release"
-  ],
+  "hosted_ci": {
+    "pr": 18,
+    "head": "5a0ae913a6da7196dfb1b339dc5edcfa05477da8",
+    "run": 40522313206,
+    "conclusion": "success",
+    "jobs": [
+      "Linux",
+      "Windows",
+      "NativeAOT",
+      "performance"
+    ],
+    "merge_commit": "f3c2cef8ab402597aab65617d2a6832583189a5e",
+    "main_run": 40526576014,
+    "main_conclusion": "success",
+    "hosted_performance_time_geometric_mean_rounded": 1.01
+  },
   "evidence_bundle": "artifacts/p7c-runtime/",
   "review_checks": {
     "finding": "Failure-ID baselines alone cannot detect lost passing cases, new skips or unmatched expected-error codes.",
@@ -152,5 +160,11 @@
     "release": "passed",
     "debug": "passed",
     "runtime_implementation_unchanged_by_review": true
+  },
+  "release": {
+    "version": "1.1.2",
+    "notes": "docs/releases/1.1.2.md",
+    "publication_evidence": "GitHub v1.1.2 release and tag-triggered Release workflow; NuGet package records",
+    "owner_authorized": true
   }
 }
