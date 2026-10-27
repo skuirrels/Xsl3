@@ -89,14 +89,7 @@ public sealed partial class XmlQueryContext
                 reader = selected.Select(reader, ownsReader, XmlQueryRuntime.Cancellation);
                 ownsReader = true;
             }
-            if (reader.ReadState == ReadState.Interactive && reader.NodeType == XmlNodeType.Element)
-            {
-                // Restrict a positioned caller reader to that element, leaving it on the end tag.
-                XmlReader subtree = reader.ReadSubtree();
-                if (ownsReader) subtree = new OwnedSubtreeReader(subtree, reader);
-                reader = subtree;
-                ownsReader = true;
-            }
+            reader = ScopePositionedReader(reader, ref ownsReader);
             XmlReader filtered = WhitespaceRuleReader.CreateReader(reader, _wsRules, Tree.CompactDocument.StripInputAnnotations);
             if (_runtime.StreamedInitialMode)
             {
@@ -135,13 +128,14 @@ public sealed partial class XmlQueryContext
         }
     }
 
-    private sealed class OwnedSubtreeReader(XmlReader subtree, XmlReader owner) : XmlWrappingReader(subtree)
+    private static XmlReader ScopePositionedReader(XmlReader reader, ref bool ownsReader)
     {
-        public override void Close()
-        {
-            try { base.Close(); }
-            finally { owner.Close(); }
-        }
+        if (reader.ReadState != ReadState.Interactive || reader.NodeType != XmlNodeType.Element) return reader;
+        // Xsl3 (P7C): both entry paths expose only the selected subtree. Disposing its view
+        // leaves a borrowed reader at the boundary, and also closes an owned reader.
+        XmlReader subtree = DocumentFragment.ScopePositionedReader(reader, ownsReader);
+        ownsReader = true;
+        return subtree;
     }
 
     // Accumulator applicability follows the initial selection, not an independently supplied global context.

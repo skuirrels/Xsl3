@@ -14,6 +14,9 @@ P7B completes the approved reviewed analysis gates (1,000 posture/sweep cases an
 while retaining the original upstream results. Full runtime, memory and throughput acceptance remain deferred.
 See the [1.1.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.1/docs/releases/1.1.1.md).
 
+The development branch's bounded P7C follow-up corrects positioned source-reader boundaries and
+inherited namespaces. Those fixes are unreleased; they do not change the supported streaming feature claim.
+
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
 Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.1 and regenerate saved stylesheets with matching packages.

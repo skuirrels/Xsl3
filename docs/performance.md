@@ -3,6 +3,11 @@
 The 2026-10-26 [P7A close-out](plan/p7a-closeout.md) freezes the foundations release. The ordinary performance
 gate passes; full streaming memory/throughput acceptance remains deferred and keeps its original targets.
 
+The 2026-10-27 [P7C local close-out](plan/p7c-runtime-correctness.md) passes the unchanged three-round
+ordinary gate against `v1.1.1`: timing geometric mean **0.995962** over 39 rows, maximum allocation
+ratio **1.000156**. Individual timing outliers remain recorded in the close-out and result snapshot.
+This input-boundary correction makes no new streaming-memory or throughput claim.
+
 Phase 4's 1.0 exit criterion (SPEC §19.6): Xsl3 at least 1.2× stock `XslCompiledTransform` on the XSLT 1.0
 benchmark corpus and never slower, with 1.5× as the target.
 

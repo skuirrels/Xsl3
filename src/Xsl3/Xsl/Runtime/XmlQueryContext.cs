@@ -270,6 +270,9 @@ namespace Xsl3.Runtime
                     ownsReader = true; // the selected view owns its subtree reader, even for borrowed input
                 }
 
+                // Xsl3 (P7C): resolver readers have the same positioned-input boundary as initial readers,
+                // including sources that do not request schema validation.
+                reader = ScopePositionedReader(reader, ref ownsReader);
                 XmlReader validating = validation?.Wrap(reader, ownsReader) ?? reader;
                 var chain = new Streaming.StreamedInputReader(WhitespaceRuleReader.CreateReader(validating, _wsRules, stripAnnotations), ownsReader || validation != null, XmlQueryRuntime.Cancellation, stripAnnotations);
                 var document = new Streaming.StreamedDocument(chain, ownsReader: true, cancellation: XmlQueryRuntime.Cancellation, completeValidation: validation != null);

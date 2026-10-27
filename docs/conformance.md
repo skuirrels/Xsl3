@@ -157,6 +157,17 @@ in docs/divergences.md) and the xhtml default method on the direct result path (
 
 ## P7 development: static streamability analysis
 
+The 2026-10-27 [P7C runtime phase](plan/p7c-runtime-correctness.md) is bounded to positioned
+source-reader isolation, namespace context and ownership. Its entry strict-forward profile is
+**2,695 passed / 16 failed / 1 not run**, with zero unmatched error codes. The complete
+[deferred inventory](plan/p7c-runtime-deferred.csv) and separate strict-forward regression baseline
+retain those failures; they are not a streaming conformance acceptance or a change to upstream fixtures.
+Local P7C exit results retain those same counts and failure IDs. Release/Debug units pass
+3,634 on .NET 10 and 3,481 on .NET 8, with 50/48 new input-boundary cases. Saved normal/debug
+styles pass 52 checks each on .NET 8, .NET 10 and macOS ARM64 NativeAOT. Hosted results are tracked in
+the P7C pull request checks. The strict gate also requires all 2,712 cases, its one collection skip,
+and zero unmatched codes, with five harness regression tests for those coverage rules.
+
 **P7B completed under the owner's explicit suite revision:** reviewed S1 passes **1,000/0/0** and reviewed
 S2 passes **155/0/0** (152 exact static codes and three checked positive results). All 66,643 original XPath
 expressions retain their case/part mappings; eight empty generator outputs remain negative-source checks.

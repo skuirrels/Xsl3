@@ -155,6 +155,8 @@ public partial class Xslt30RunTests
         if (strictExecution && !strm) report += "-strict";
         WriteReport(report + ".md", summary, perSet, perFeature, failures, notRunReasons);
         Assert.True(perSet.Count > 0, "No test cases selected; check the profile, set filter and suite checkout.");
+        if (streamedSources && sets == null)
+            CheckStrictStreamingCoverage(pass + fail + notRun, wrongErrorCode, notRunReasons);
         if (sandp) Assert.True(notRun == 0, $"Posture-and-sweep coverage regressed: {notRun} cases were not run.");
         if (sandp && sets == null)
             Assert.True(pass + fail == (reviewed ? 1000 : 919), $"P7B posture/sweep scope changed: got {pass + fail}; reconcile the manifest and plan.");
@@ -173,6 +175,17 @@ public partial class Xslt30RunTests
 
     internal static bool Requires(Xslt30.TestCase test, string type, string value) => test.EffectiveDependencies
         .Any(d => d.Satisfied && d.Type == type && d.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(value, StringComparer.Ordinal));
+
+    internal static void CheckStrictStreamingCoverage(int selected, int unmatchedCodes, IReadOnlyDictionary<string, int> notRunReasons)
+    {
+        // P7C freezes the complete pinned-suite population, including its one unsupported collection
+        // (docs/plan/p7c-results.json: 2695 passed + 16 failed + 1 not run).
+        // A failure-ID baseline alone cannot detect lost passing cases, new skips or wrong-code passes.
+        Assert.True(selected == 2712, $"Strict-forward population changed: {selected}; reconcile the P7C inventory.");
+        Assert.True(unmatchedCodes == 0, $"Strict-forward expected errors lost their exact codes: {unmatchedCodes}.");
+        Assert.True(notRunReasons.Count == 1 && notRunReasons.TryGetValue("environment: collection", out int count) && count == 1,
+            "Strict-forward not-run coverage changed: " + string.Join("; ", notRunReasons.Select(reason => $"{reason.Key} ({reason.Value})")));
+    }
 
     private static void WriteReport(string file, string summary, SortedDictionary<string, int[]> perSet, SortedDictionary<string, int[]> perFeature,
         Dictionary<string, string> failures, SortedDictionary<string, int> notRunReasons)

@@ -7,6 +7,10 @@
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
+>
+> **P7C follow-up:** the owner authorized the bounded [positioned source-reader phase](p7c-runtime-correctness.md)
+> on a new branch. Its runtime corrections are unreleased and its completion criteria are explicit.
+> This does not resume the full P7 memory/throughput scope.
 
 This is the brief for whoever carries Xsl3 from here: what is left of the SPEC.md roadmap once Phase 5
 (`xsl:evaluate` and serialization completion, merged in skuirrels/Xsl3#1) is done. It covers:
