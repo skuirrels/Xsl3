@@ -306,7 +306,7 @@ is retained under `artifacts/p7b-implementation/`; validation results are record
 | Ordinary three-pair performance/allocation gate against `main` | Pass; 39 rows, time geometric mean 0.976 head/base; original thresholds unchanged |
 | Source preservation | Original W3C suite and seven protected streaming benchmark files unchanged |
 
-These are local validation results; hosted CI has been configured but has not been run for this branch.
+These are the historical local checkpoint results. Subsequent hosted verification is recorded below.
 The raw profile guards require the pinned 919/155 case populations, and S2 requires diagnostic source
 location/reason as well as the exact primary code. Report capture retains S2 failures without changing the
 test process's exit status. No streaming-memory or throughput acceptance claim is made by the ordinary gate.
@@ -385,7 +385,12 @@ static error path; it does not introduce number execution support or a new runti
 CI checks the raw 919-case baseline, the reviewed 1,000-case gate, raw/reviewed S2 results, the complete
 expression mapping and fixture-integrity tests. Debug reviewed gates and the targeted declaration regressions
 also run, so the diagnostic-masking defect remains covered. Raw and reviewed failures retain the test process's
-nonzero exit status. Hosted CI is configured; the validation recorded here was performed locally.
+nonzero exit status. The table below records the local validation; subsequent hosted verification passed on
+the [P7B PR](https://github.com/skuirrels/Xsl3/actions/runs/40420399916) and
+[merged main commit](https://github.com/skuirrels/Xsl3/actions/runs/40423301988),
+`e5b4294d094e0b550aa6adb20c6af0f14a87d0c0`. The PR's Linux, Windows, NativeAOT and performance jobs all passed.
+The hosted artifacts also conserve all 66,643 expression/type/posture/sweep/rule assessments across the mapping.
+P7B is included in [release 1.1.1](../releases/1.1.1.md); full P7 remains deferred.
 
 The pre-merge review also made the approved S2 balance an explicit gate: 152 exact static codes and three
 positive XML results must remain covered. Debug S1 and S2 run in separate steps after a successful harness

@@ -76,12 +76,25 @@
       "time_geomean": 0.9982528805100525,
       "max_allocation_ratio": 1.0007178237991559
     },
-    "hosted_ci": "configured; not run for this local close-out",
+    "hosted_ci": {
+      "implementation_commit": "e5b4294d094e0b550aa6adb20c6af0f14a87d0c0",
+      "pull_request_run": "https://github.com/skuirrels/Xsl3/actions/runs/40420399916",
+      "main_run": "https://github.com/skuirrels/Xsl3/actions/runs/40423301988",
+      "status": "passed",
+      "pr_jobs": [
+        "Linux",
+        "Windows",
+        "NativeAOT",
+        "performance"
+      ],
+      "conserved_assessments": 66643
+    },
     "unstreamed_development": {
       "passed": 2693,
       "failed": 18,
       "not_run": 1,
       "unmatched_error_codes": 1
     }
-  }
+  },
+  "release": "1.1.1"
 }

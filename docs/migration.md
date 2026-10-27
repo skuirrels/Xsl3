@@ -40,6 +40,13 @@ by default. Rejected declarations can raise `XTSE3430`. To permit ordinary tree 
 establish streamability, explicitly select `XsltStreamabilityMode.Fallback`. This setting controls analysis;
 normal execution remains tree-based and streaming remains unsupported. See [release notes](releases/1.1.0.md).
 
+## 1.1.1: backwards-compatible instructions in streamable content
+
+Version 1.1.1 additionally applies §3.9.1 to instructions processed with XSLT 1.0 behavior inside declared-streamable
+content, including otherwise motionless instructions. Strict analysis reports `XTSE3430`; remove the streamability
+claim or explicitly select Fallback for tree execution, or update the instruction's version when the 2.0/3.0 semantics
+are appropriate. See [1.1.1 release notes](releases/1.1.1.md). Ordinary non-streamable compatibility behavior is retained.
+
 ## Moving stylesheets to XSLT 3.0
 
 Change `version="1.0"` to `version="3.0"` and the stylesheet runs on the XSLT 3.0 processor. Things to know:
