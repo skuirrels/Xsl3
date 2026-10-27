@@ -1,7 +1,7 @@
 {
   "phase": "P7C",
   "scope": "Positioned source-reader boundaries, inherited namespace context and ownership",
-  "status": "implementation closed locally; hosted CI and release pending",
+  "status": "implementation complete; hosted results tracked separately in PR checks; unreleased",
   "branch": "feature/p7c-runtime-correctness",
   "date": "2026-10-27",
   "base_release": "v1.1.1",
@@ -10,7 +10,9 @@
     "src/Xsl3/Xsl/Runtime/DocumentFragment.cs": "ca63e5674da11456b6f880b7cae90434cbf7843753b4aa98197bfc8fce28a850",
     "src/Xsl3/Xsl/Runtime/XmlQueryContext.InitialSource.cs": "5ffa61b09d5c236fee9da3f29a232217911bb8b04eece51e2b1a45348267c181",
     "src/Xsl3/Xsl/Runtime/XmlQueryContext.cs": "c6c11e7e910a8d3e03ebf451d776c0cc7028fa9cca06d786ca199ae7e7653f7d",
-    "tests/Xsl3.Tests/StreamedSourceBoundaryTests.cs": "0732d3e52f9569a14d706e16802373dbce9f4302a85d391f6d21a8ede5ca66ba"
+    "tests/Xsl3.Tests/StreamedSourceBoundaryTests.cs": "0732d3e52f9569a14d706e16802373dbce9f4302a85d391f6d21a8ede5ca66ba",
+    "tests/Xsl3.W3C/Xslt30RunTests.cs": "d6d50dd9ce30a94bd30474ac30837e4fea80f4cc93292cedf09346012fe2661c",
+    "tests/Xsl3.W3C/StrictStreamingCoverageTests.cs": "b3750ddfc6eead9bb323972c95b875b00c38d90796941293cffc5e46bb504db1"
   },
   "unit_tests": {
     "release": {
@@ -28,7 +30,7 @@
   },
   "upstream_per_framework": 1654,
   "differential_per_framework": 394,
-  "w3c_harness_with_saved_round_trips": 66,
+  "w3c_harness_with_saved_round_trips": 71,
   "ordinary_xslt30": {
     "passed": 8850,
     "failed": 18,
@@ -48,7 +50,14 @@
     "not_run_reason": "environment: collection",
     "unmatched_error_codes": 0,
     "failure_ids_unchanged": true,
-    "deferred_inventory": "docs/plan/p7c-runtime-deferred.csv"
+    "deferred_inventory": "docs/plan/p7c-runtime-deferred.csv",
+    "coverage_gate": {
+      "selected": 2712,
+      "not_run": 1,
+      "not_run_reason": "environment: collection",
+      "unmatched_expected_error_codes": 0,
+      "passing_and_failing_counts_not_frozen": true
+    }
   },
   "unstreamed": {
     "passed": 2693,
@@ -127,7 +136,7 @@
     "protected_benchmarks_unchanged": true
   },
   "supports_streaming": "no",
-  "hosted_ci": "not run for this branch",
+  "hosted_ci": "tracked separately in the P7C pull request checks",
   "published": false,
   "remaining_release_steps": [
     "PR review",
@@ -135,5 +144,13 @@
     "hosted NativeAOT smoke",
     "separately authorized tag and NuGet/GitHub release"
   ],
-  "evidence_bundle": "artifacts/p7c-runtime/"
+  "evidence_bundle": "artifacts/p7c-runtime/",
+  "review_checks": {
+    "finding": "Failure-ID baselines alone cannot detect lost passing cases, new skips or unmatched expected-error codes.",
+    "fix": "Assert the complete strict-forward population, single existing collection skip and zero unmatched codes.",
+    "new_harness_tests": 5,
+    "release": "passed",
+    "debug": "passed",
+    "runtime_implementation_unchanged_by_review": true
+  }
 }

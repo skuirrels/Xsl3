@@ -342,7 +342,7 @@ From [SPEC.md §22](SPEC.md):
 | P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
 | P7A | Streaming foundations | Complete for 1.1.0 ([close-out](docs/plan/p7a-closeout.md)); streaming remains experimental |
 | P7B | Bounded analysis close-out | Complete for 1.1.1: reviewed S1 1,000/1,000 and S2 155/155; original results preserved ([close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion)) |
-| P7C | Positioned source-reader correctness | Locally complete, unreleased; hosted CI/release pending ([close-out and criteria](docs/plan/p7c-runtime-correctness.md)); no streaming support claim |
+| P7C | Positioned source-reader correctness | Implementation complete, unreleased; hosted CI tracked in PR checks ([close-out and criteria](docs/plan/p7c-runtime-correctness.md)); no streaming support claim |
 | P7 remainder | Supported streaming | Deferred: general runtime bounds, 20 MiB memory and throughput acceptance ([original plan](docs/plan/p7-streaming.md)); reviewed analysis completion does not claim full streaming conformance |
 
 ## Licence

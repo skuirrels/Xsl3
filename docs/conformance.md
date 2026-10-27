@@ -164,7 +164,9 @@ source-reader isolation, namespace context and ownership. Its entry strict-forwa
 retain those failures; they are not a streaming conformance acceptance or a change to upstream fixtures.
 Local P7C exit results retain those same counts and failure IDs. Release/Debug units pass
 3,634 on .NET 10 and 3,481 on .NET 8, with 50/48 new input-boundary cases. Saved normal/debug
-styles pass 52 checks each on .NET 8, .NET 10 and macOS ARM64 NativeAOT. Hosted CI remains pending.
+styles pass 52 checks each on .NET 8, .NET 10 and macOS ARM64 NativeAOT. Hosted results are tracked in
+the P7C pull request checks. The strict gate also requires all 2,712 cases, its one collection skip,
+and zero unmatched codes, with five harness regression tests for those coverage rules.
 
 **P7B completed under the owner's explicit suite revision:** reviewed S1 passes **1,000/0/0** and reviewed
 S2 passes **155/0/0** (152 exact static codes and three checked positive results). All 66,643 original XPath

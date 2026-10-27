@@ -8,7 +8,8 @@
 - Preserve inherited namespace bindings, including prefixes used only in QName values,
   when scoping positioned source and initial readers. Keep validation and annotation policies.
 - Add normal/debug, two-API and saved-style regression coverage and retain the complete
-  strict-forward failure inventory in CI. Streaming remains unsupported; no public API or
+  strict-forward failure inventory in CI. The gate also rejects lost cases, changed skips and
+  unmatched expected-error codes. Streaming remains unsupported; no public API or
   saved-format change. See the [bounded P7C plan](docs/plan/p7c-runtime-correctness.md).
 
 ## [1.1.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.1) — 2026-10-27

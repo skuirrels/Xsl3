@@ -7,8 +7,10 @@ It closes the input boundary and ownership contract for reader-backed experiment
 `xsl:source-document` execution. It does not complete full P7 or enable streaming support.
 
 **P7C implementation closed locally on 2026-10-27.** All five completion criteria below
-have local evidence. Stop implementation here; the remaining steps are PR review, hosted
-Linux/Windows/native CI, then a separately authorized release. The fixes are unreleased.
+have local evidence. Implementation scope stops here. PR review and hosted Linux/Windows/native
+CI are the integration gates; package publication requires a separately authorized release.
+The fixes are unreleased. This document records the local checkpoint; hosted results are tracked
+by the P7C pull request checks.
 
 ## Reproduced defect
 
@@ -82,7 +84,7 @@ demonstrated the lost inherited-prefix error before the selected-source view was
 |---|---|
 | Release and Debug managed units | 3,634 .NET 10 / 3,481 .NET 8 in each configuration |
 | Upstream regression / byte-for-byte differential | 1,654 / 394 per framework |
-| Full W3C harness, with saved round trips | 66 harness tests pass |
+| Full W3C harness, with saved round trips | 71 harness tests, including five review guard regressions |
 | Ordinary XSLT 3.0 / QT3 | 8,850/18/41 and 21,884/0/99; failure IDs unchanged |
 | Full strict-forward streaming development | 2,695/16/1, zero unmatched codes; all 16 entry failures retained |
 | Unstreamed streaming development | 2,693/18/1, one existing unmatched dynamic code; unchanged |
@@ -94,6 +96,10 @@ demonstrated the lost inherited-prefix error before the selected-source view was
 
 The strict-forward baseline added to CI is exactly the complete pre-change 16-case inventory.
 It detects additions and stale failures; it does not turn those failed W3C cases into passes.
+Review found that a failure-ID comparison alone could miss lost passing cases, new not-run cases
+and wrong-code passes. The completed gate therefore also checks all **2,712** selected cases,
+the single existing collection skip and zero unmatched expected-error codes. Five Release/Debug
+harness regressions exercise those coverage conditions without freezing the number of failures.
 The one not-run case and all fixture conflicts remain visible in the raw report. P7B's original
 919-case results and reviewed 1,000-case results retain their existing independent gates.
 
@@ -108,8 +114,8 @@ the saved-package deployment path; runtime compilation is not attempted in Nativ
 failures are retained separately from the successful verification. No trim/AOT warning is waived.
 
 The API inventories, official suite checkout, existing baselines and protected streaming benchmarks
-are unchanged. Hosted Linux/Windows CI and hosted native smoke remain release checks; local macOS
-evidence is not a claim that those jobs ran for this branch.
+are unchanged. Hosted Linux/Windows CI and hosted native smoke are tracked separately in the
+pull request checks; local macOS evidence does not establish their results.
 
 The [result snapshot](p7c-results.json) records the exact local gates and implementation hashes.
 The ordinary performance gate is an aggregate pass: JSON/1 MiB, maps/1 MiB and sorting compilation
