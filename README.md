@@ -10,24 +10,25 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.1.0: streaming foundations.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **1.1.1: P7B analysis close-out.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
 > behind `XsltSettings.SchemaAware`. Packages are available on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
 > [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
 
-**1.1.0 closes P7A**, the implemented streaming foundations and related correctness work.
-Streaming remains experimental; the remaining full-P7 analysis, memory and throughput targets are deferred.
-See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.0.md) and [phase close-out](docs/plan/p7a-closeout.md).
-The unreleased [P7B analysis close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion) completes the
-approved 1,000-case reviewed analysis suite and 155-case static-diagnostic gate, while retaining the original
-919-case results. Full streaming remains unsupported.
+**1.1.1 closes P7B**, the bounded analysis follow-up to the 1.1.0 streaming foundations.
+The approved reviewed suite passes all 1,000 posture/sweep cases and 155 static-diagnostic/result cases,
+while retaining the original 919-case results. Streaming remains experimental and unsupported;
+normal execution remains tree-based. Full-P7 runtime, memory and throughput acceptance remain deferred.
+See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.1.md) and
+[P7B close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion).
 
 ## What works
 
-Conformance rechecked on 2026-10-26 (Release, .NET 10); performance rows retain their dated measurements in
-[docs/performance.md](docs/performance.md). See [phase evidence](docs/plan/p7a-closeout.md) for error-code accounting.
+Conformance verified by [P7B CI](https://github.com/skuirrels/Xsl3/actions/runs/40423301988) on the merged implementation
+(Release, .NET 10); performance rows retain their dated measurements in [docs/performance.md](docs/performance.md).
+See [P7B evidence](docs/plan/p7b-analysis-closeout.md#p7b-completion) for raw/reviewed results and error-code accounting.
 
 | Gate | Result |
 |---|---|
@@ -35,7 +36,8 @@ Conformance rechecked on 2026-10-26 (Release, .NET 10); performance rows retain 
 | Differential: byte-for-byte against stock `System.Xml.Xsl` over the 1.0 corpus | 394 / 394 on .NET 8 and .NET 10 |
 | W3C QT3 (XPath 3.1 / F&O 3.1, higher-order functions claimed) | 21,884 passed, 0 failed (100%) |
 | W3C xslt30-test, XSLT 2.0 profile (P2 exit: ≥ 95%) | 4,590 passed, 8 failed, 10 not run (99.8%) |
-| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,849 passed, 19 failed, 41 not run (99.8%) |
+| W3C xslt30-test, XSLT 3.0 profile (P3 exit: ≥ 95%; Hardening: ≥ 99%), schema-aware since P6 | 8,850 passed, 18 failed, 41 not run (99.8%) |
+| P7B reviewed posture/sweep and static-diagnostic/result gates (analysis only) | 1,000 / 1,000 and 155 / 155, Release and Debug; original upstream results retained separately |
 | xslt30-test sets for `xsl:evaluate` and serialization (P5 exit: ≥ 98%) | 454 of 457 (99.3%): `evaluate` 42 / 42, `output` 218 / 221, `character-map` 29 / 29, `result-document` 140 / 140, `disable-output-escaping` 25 / 25 |
 | XSLT 1.0 speed against stock (P4 exit: ≥ 1.2×, never slower) | 1.38× geometric mean, 1.11× to 2.2× per benchmark, html-report 206× ([docs/performance.md](docs/performance.md)) |
 | XSLT 3.0 rewrites of the 1.0 benchmarks against the 1.0 originals on stock (target ≤ 1×) | 0.71× to 0.96× ([docs/performance.md](docs/performance.md)) |
@@ -115,13 +117,13 @@ Conformance rechecked on 2026-10-26 (Release, .NET 10); performance rows retain 
   from a validating reader, and validation of constructed nodes (docs/plan/p6-schema.md). XSD 1.0, through
   System.Xml.Schema.
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
-  (P7) is paused after the P7A foundations phase, with expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
+  (P7) is paused after the P7A foundations and P7B analysis phases, with expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
   ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Normal execution still builds
   trees; a development switch enables forward source-document inputs, including schema validation, streamable
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.1.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.1.1. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
@@ -335,7 +337,8 @@ From [SPEC.md §22](SPEC.md):
 | P5 | `xsl:evaluate`, JSON and adaptive serialization, character maps, the remaining serialization parameters | Exit met ([plan](docs/plan/p5-evaluate.md)): the five matching xslt30-test sets at 99.3% (454 / 457; `evaluate` 42 / 42); merged |
 | P6 | Schema-awareness | In progress ([plan](docs/plan/p6-schema.md)): schema-aware tests 842 passed, 2 failed (99.8%), behind `XsltSettings.SchemaAware` (off by default); XSD 1.0 only, XSD 1.1 a 1.x to-do; left: validation-0201 and -0202 (Saxon's XHTML serialization), and schemas per package (1.x) |
 | P7A | Streaming foundations | Complete for 1.1.0 ([close-out](docs/plan/p7a-closeout.md)); streaming remains experimental |
-| P7 remainder | Supported streaming | Deferred: exact analysis conformance, general runtime bounds, 20 MiB memory and throughput acceptance ([original plan](docs/plan/p7-streaming.md)) |
+| P7B | Bounded analysis close-out | Complete for 1.1.1: reviewed S1 1,000/1,000 and S2 155/155; original results preserved ([close-out](docs/plan/p7b-analysis-closeout.md#p7b-completion)) |
+| P7 remainder | Supported streaming | Deferred: general runtime bounds, 20 MiB memory and throughput acceptance ([original plan](docs/plan/p7-streaming.md)); reviewed analysis completion does not claim full streaming conformance |
 
 ## Licence
 

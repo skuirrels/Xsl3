@@ -1,7 +1,9 @@
 # Conformance
 
-The 2026-10-26 [P7A close-out](plan/p7a-closeout.md#exit-evidence) records the frozen release candidate's
-current counts and expected-error code mismatches. Historical tables below retain their measurement dates.
+The [1.1.1 P7B close-out](plan/p7b-analysis-closeout.md#p7b-completion) records the current analysis gates and retained
+raw-suite results. The merged implementation passed [main CI](https://github.com/skuirrels/Xsl3/actions/runs/40423301988).
+Ordinary XSLT 3.0 is 8,850 passed / 18 failed / 41 not run; QT3 is 21,884 / 0 / 99.
+The [1.1.0 P7A close-out](plan/p7a-closeout.md#exit-evidence) and historical tables below retain their measurement dates.
 The upstream gate runs 1,654 applicable tests per framework, with seven platform-specific/known upstream cases filtered.
 
 Pass rates per suite and test set (SPEC §20), measured with the W3C harness (`tests/Xsl3.W3C`) on Release builds

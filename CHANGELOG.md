@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## [1.1.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.1) — 2026-10-27
+
+P7B closes the approved analysis phase. Normal execution remains tree-based and `supports-streaming` remains `no`.
 
 - Reject instructions processed with XSLT 1.0 behavior in declared-streamable content with `XTSE3430`,
   as required by §3.9.1. Explicit `Fallback` and ordinary non-streamable compatibility processing remain available.
@@ -8,7 +10,15 @@
   static-diagnostic/result cases, preserving original case/part mappings and unmodified suite results.
   Expected outputs come from specification rules and canonical fixture data; streaming remains unsupported.
 - Preserve recorded streamability diagnostics before lowering rejected units, including Debug `xsl:number`
-  cases and Explain recompilation.
+  cases and Explain recompilation. Developer `qil`/`qilopt` commands retain the diagnostics and exit cleanly
+  when a rejected compilation produces no QIL.
+- Add independent fixture preparation, complete expression mapping and integrity checks, exact-code diagnostics,
+  and separate Release/Debug CI gates and reports. The original upstream 919-case results and raw S2 discrepancies remain visible.
+
+No public API or saved-assembly format changes. Update all three packages together to 1.1.1 and regenerate saved
+stylesheets with matching compiler/runtime packages. Backwards-compatible instructions in declared-streamable
+content can now raise `XTSE3430` under Strict analysis; explicit Fallback permits ordinary tree execution.
+See the [release notes](docs/releases/1.1.1.md).
 
 ## [1.1.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.0) — 2026-10-26
 

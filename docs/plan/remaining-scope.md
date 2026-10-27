@@ -1,9 +1,9 @@
 # Remaining scope: everything after P5
 
-> **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
+> **2026-10-27 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
-> Use the [phase close-out](p7a-closeout.md) for current scope, evidence and release steps; historical progress
-> entries below do not expand this release. Release version: 1.1.0.
+> Use the [P7B close-out](p7b-analysis-closeout.md#p7b-completion) for current scope and evidence; historical progress
+> entries below do not expand this release. Release version: 1.1.1.
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
