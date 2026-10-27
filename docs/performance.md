@@ -1,5 +1,11 @@
 # Performance
 
+The bounded [P7D validation-contract phase](plan/p7d-validation-contracts.md) passes the unchanged
+three-round ordinary gate against `v1.1.2`: timing GM **1.008822** over 39 rows, maximum allocation
+ratio **1.001578**. Keys compilation has an individual median time ratio of **1.511849**; its paired
+rounds remain recorded and causal investigation is deferred. This aggregate pass makes no streaming
+memory/throughput or per-row performance claim.
+
 The 2026-10-26 [P7A close-out](plan/p7a-closeout.md) freezes the foundations release. The ordinary performance
 gate passes; full streaming memory/throughput acceptance remains deferred and keeps its original targets.
 

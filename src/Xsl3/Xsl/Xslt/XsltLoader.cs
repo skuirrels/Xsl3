@@ -3791,6 +3791,12 @@ namespace Xsl3.Xslt
                 {
                     return value; // Xsl3 (P6)
                 }
+                if (V2 && (value is "strip" or "preserve" || !defVal && value == "lax"))
+                {
+                    // Xsl3 (P7D): basic processing treats lax/preserve validation as strip (XSLT 3.0 §27.1).
+                    // Retain the explicit strip policy for reader-backed source documents as well.
+                    return "strip";
+                }
                 if (value == "strip" || V2 && value == "preserve")
                 {
                     // no error: a basic XSLT 3.0 processor has no type annotations to preserve

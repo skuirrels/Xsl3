@@ -47,6 +47,24 @@ content, including otherwise motionless instructions. Strict analysis reports `X
 claim or explicitly select Fallback for tree execution, or update the instruction's version when the 2.0/3.0 semantics
 are appropriate. See [1.1.1 release notes](releases/1.1.1.md). Ordinary non-streamable compatibility behavior is retained.
 
+## Next patch (P7D): basic validation and schema availability
+
+With `SchemaAware=false`, `validation="lax"` now compiles and strips annotations, as basic XSLT
+processing requires. Explicit `strip` and basic `preserve` also strip annotations from source documents
+in grounded and experimental forward execution, including inputs from validating readers.
+Strict validation still requires schema-aware processing (`XTSE1660` otherwise).
+
+With schema-awareness enabled, lax validation without declarations retains `xs:anyType` annotations;
+it does not behave like the basic processor's strip policy. `XsltSettings.Schemas` remains the catalog
+for `xsl:import-schema`; supplying a validating reader does not implicitly import declarations for a
+separate strict-validation request. Existing supplied annotations can be preserved without an import.
+Import the required schema before requesting explicit strict validation, or select preserve when the
+caller intends to retain its provider's existing annotations.
+
+Regenerate affected saved stylesheets to compile the corrected grounded strip path. Use matching
+compiler/runtime packages; no public API or saved-format change is introduced. See the
+[P7D close-out](plan/p7d-validation-contracts.md) and [draft release notes](releases/1.1.3.md).
+
 ## 1.1.2: positioned source-reader boundaries
 
 Version 1.1.2 fixes experimental `xsl:source-document` execution when a resolver returns an `XmlReader`

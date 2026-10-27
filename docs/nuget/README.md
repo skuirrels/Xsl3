@@ -16,6 +16,10 @@ The P7B reviewed 1,000-case analysis and 155-case static-diagnostic/result gates
 results separately. Full runtime, memory and throughput acceptance remain deferred.
 See the [1.1.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.2/docs/releases/1.1.2.md).
 
+The development branch's next patch also corrects basic (`SchemaAware=false`) `validation="lax"`
+processing and applies annotation stripping consistently to grounded source documents. Schema-aware
+lax validation and explicit schema-import requirements retain their existing contracts.
+
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
 Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.2 and regenerate saved stylesheets with matching packages.

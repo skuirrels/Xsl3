@@ -103,7 +103,7 @@ namespace Xsl3.Runtime
 
         /// <summary>
         /// Xsl3 (P6): the nodes an instruction with a validation or type attribute constructs or copies, validated
-        /// (XSLT 3.0 §25.4): <paramref name="validation"/> "strict" or "lax", or else against the type
+        /// (XSLT 3.0 §25.4): <paramref name="validation"/> "strict", "lax" or "strip", or else against the type
         /// <paramref name="type"/> (an EQName). Each element, attribute and document node becomes its validated copy.
         /// </summary>
         public IList<XPathItem> X31Validate(IList<XPathItem> items, double schemasId, string validation, string type)
@@ -141,7 +141,12 @@ namespace Xsl3.Runtime
                 // (Atomic values, as xsl:copy-of copies them, aren't validated.)
                 try
                 {
-                    result[i] = items[i] is XPathNavigator node ? NodeValidator.Validate(node, schemas, validation == "strict", schemaType) : items[i];
+                    // Xsl3 (P7D): source-document stripping reuses the existing node-copy policy,
+                    // retaining source metadata instead of assessing unknown nodes laxly as anyType.
+                    result[i] = items[i] is XPathNavigator node
+                        ? validation == "strip" ? NodeValidator.Preserve(node, copyNamespaces: true, keepTypes: false)
+                            : NodeValidator.Validate(node, schemas, validation == "strict", schemaType)
+                        : items[i];
                 }
                 catch (XdmException e) when (validation == "copy" && e.Code == "XTTE1540" && items[i] is XPathNavigator { NodeType: XPathNodeType.Attribute })
                 {

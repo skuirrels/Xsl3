@@ -1,5 +1,11 @@
 # Conformance
 
+The bounded [P7D validation-contract close-out](plan/p7d-validation-contracts.md) adds basic-processing
+lax/strip/preserve and schema-availability regressions. The three original lax fixtures pass when run
+as a basic processor; the standard schema-aware profile retains its original results. All six selected
+cases have [explicit dispositions](plan/p7d-validation-cases.csv). No upstream fixture, expectation or
+existing conformance baseline changes; strict-forward remains 2,695/16/1 with zero unmatched codes.
+
 The [1.1.2 P7C close-out](plan/p7c-runtime-correctness.md) records the current input-boundary and strict-forward
 regression gates. [PR CI](https://github.com/skuirrels/Xsl3/actions/runs/40522313206) and
 [main CI](https://github.com/skuirrels/Xsl3/actions/runs/40526576014) passed for the merged implementation.
