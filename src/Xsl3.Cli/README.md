@@ -2,6 +2,10 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
+Version **1.1.1** includes the P7B analysis close-out and stricter backwards-compatible instruction checks.
+Keep the CLI and runtime/build packages at the same version. Streaming remains unsupported; see the
+[1.1.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.1/docs/releases/1.1.1.md).
+
 ```
 dotnet tool install --global Xsl3.Cli
 ```

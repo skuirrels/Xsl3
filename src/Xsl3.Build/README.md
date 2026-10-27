@@ -3,6 +3,10 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
+Version **1.1.1** includes the P7B analysis close-out. Update this package with `Xsl3` and `Xsl3.Cli`, and regenerate
+saved stylesheets using matching packages. Streaming remains unsupported; see the
+[1.1.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.1/docs/releases/1.1.1.md).
+
 ```xml
 <ItemGroup>
   <PackageReference Include="Xsl3" Version="..." />

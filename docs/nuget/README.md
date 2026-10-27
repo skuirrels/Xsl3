@@ -4,13 +4,19 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.0: streaming foundations.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.1: P7B analysis close-out.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
-claimed as a supported package feature. The P7A foundations are documented in the
-[1.1.0 release notes](https://github.com/skuirrels/Xsl3/blob/main/docs/releases/1.1.0.md).
+claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
+P7B completes the approved reviewed analysis gates (1,000 posture/sweep cases and 155 static-diagnostic/result cases),
+while retaining the original upstream results. Full runtime, memory and throughput acceptance remain deferred.
+See the [1.1.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.1/docs/releases/1.1.1.md).
+
+Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
+motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.1 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 
