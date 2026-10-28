@@ -2,7 +2,8 @@
 
 **Scope frozen on 2026-10-28. Branch: `feature/p7e-memory-budget-diagnosis`.**
 Baseline: release `v1.1.3` (`7bf3dd67a71fe0d77dc2fca1f0264ff8b343c4bf`).
-P7D is closed. This phase does not resume full P7 or claim supported streaming.
+P7E is closed as a diagnostic audit. No runtime correction or 1.1.4 release is proposed.
+P7D remains closed. This phase does not resume full P7 or claim supported streaming.
 
 ## Fixed scope
 
@@ -56,3 +57,17 @@ A fresh unchanged experimental workflow was dispatched on the immutable release 
 [40774600310](https://github.com/skuirrels/Xsl3/actions/runs/40774600310). Its two memory jobs provide
 hosted Linux x64 baseline evidence. The workflow's separate throughput job does not expand P7E scope.
 Local evidence is retained under `artifacts/p7e-memory/`; it is not automatically published.
+
+## Close-out
+
+All four source-frozen baseline matrices and both platforms' repeated identity cohorts are complete.
+The [diagnostic report](../p7e-memory-diagnosis-2026-10-28.md) and [result snapshot](p7e-results.json)
+record exact results, the excluded first Linux diagnostic cohort, measurement limitations and deferred
+work. Runtime/packaging source, canonical fixtures/controllers, public APIs and saved formats remain
+identical to 1.1.3. The only code changes are diagnostic tooling and its tests, plus an explicitly
+selected manual workflow mode. Scheduled/default acceptance jobs retain their original definitions.
+
+The 20 MiB target remains unmet on Linux and for three macOS workloads. The larger gate passes on both
+platforms. Identity shows a small retained heap and a much larger process footprint; these observations
+neither prove an irreducible platform floor nor establish general streaming support. No generally correct,
+limited runtime fix was demonstrated, so the agreed audit-only stopping rule applies.

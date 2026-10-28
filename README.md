@@ -28,6 +28,10 @@ See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.3.md) and
 [P7D close-out](docs/plan/p7d-validation-contracts.md). Update all three packages together and regenerate
 affected saved stylesheets with matching compiler/runtime packages.
 
+**P7E memory diagnosis is closed as an audit.** The 1.1.3 memory matrices and repeated identity
+measurements retain the unmet 20 MiB target; no runtime change or patch release is proposed.
+See the [report and limits](docs/p7e-memory-diagnosis-2026-10-28.md).
+
 ## What works
 
 Conformance verified by [P7D CI](https://github.com/skuirrels/Xsl3/actions/runs/40607670623) and

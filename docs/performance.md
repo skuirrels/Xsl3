@@ -1,5 +1,17 @@
 # Performance
 
+## P7E memory-budget audit, 2026-10-28
+
+The source-frozen 1.1.3 audit reproduces 0/16 Linux x64 and 13/16 macOS ARM64 budget passes at
+200 MiB input / 20 MiB absolute RSS and heap guard. Both platforms pass all 16 workloads at
+2 GiB / 200 MiB. Separate repeated identity diagnostics retain the 20 MiB heap cap and disable the RSS
+guard explicitly; they are not acceptance passes. The corrected control peaks are about 26.0–27.6 MB
+on Linux and 20.1–20.4 MB on macOS across 10 MiB–2 GiB input, with small post-collection managed estimates.
+No runtime optimization or new streaming claim follows. The first Linux diagnostic cohort's launcher
+hashing contaminated peak attribution; it is retained separately and excluded from final comparisons.
+See the [complete report](p7e-memory-diagnosis-2026-10-28.md) and
+[result snapshot](plan/p7e-results.json). Historical timing measurements below retain their own provenance.
+
 The entry to the bounded [P7D validation-contract phase](plan/p7d-validation-contracts.md) passes the unchanged
 three-round ordinary gate against `v1.1.2`: timing GM **1.008822** over 39 rows, maximum allocation
 ratio **1.001578**. Keys compilation has an individual median time ratio of **1.511849**; its paired
