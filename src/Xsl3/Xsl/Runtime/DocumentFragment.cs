@@ -167,6 +167,13 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
     {
         XPathNavigator node = Find(document, cancellation)
             ?? throw new XdmException("FODC0002", $"No element with ID '{Id}' was found in '{ResourceUri}'");
+        return ReadNode(node, DocumentUri.AbsoluteUri, cancellation);
+    }
+
+    // Xsl3 (P7D): rereading a source after annotation stripping must retain the same
+    // namespace and ID/IDREF sidecars as a selected document view.
+    internal static XmlReader ReadNode(XPathNavigator node, string documentUri, CancellationToken cancellation)
+    {
         XPathNavigator parent = node.Clone();
         string inheritedBase = parent.MoveToParent() ? FunctionLibrary.BaseUri(parent) : node.BaseURI;
         var identities = new Dictionary<long, NodeIdentity>();
@@ -208,7 +215,7 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
                 identities.Add(ordinal, new(ids, idrefs, lookups is { Count: > 0 } ? lookups : null));
         }
         XmlReader subtree = node.ReadSubtree();
-        return new SelectedReader(subtree, subtree, ownsSource: false, DocumentUri.AbsoluteUri, node.BaseURI, inheritedBase,
+        return new SelectedReader(subtree, subtree, ownsSource: false, documentUri, node.BaseURI, inheritedBase,
             node.GetNamespacesInScope(XmlNamespaceScope.All), new Dictionary<(string, string), (string, string)>(),
             new HashSet<(string, string, string, string)>(), identities);
     }

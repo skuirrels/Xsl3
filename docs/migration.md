@@ -52,6 +52,8 @@ are appropriate. See [1.1.1 release notes](releases/1.1.1.md). Ordinary non-stre
 With `SchemaAware=false`, `validation="lax"` now compiles and strips annotations, as basic XSLT
 processing requires. Explicit `strip` and basic `preserve` also strip annotations from source documents
 in grounded and experimental forward execution, including inputs from validating readers.
+Whitespace rules apply after stripping annotations, while `xml:space` and source identity metadata
+are retained. Positioned 2.0+ provider readers use the shared scoped view before filtering.
 Strict validation still requires schema-aware processing (`XTSE1660` otherwise).
 
 With schema-awareness enabled, lax validation without declarations retains `xs:anyType` annotations;

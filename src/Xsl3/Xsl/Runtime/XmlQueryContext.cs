@@ -298,6 +298,23 @@ namespace Xsl3.Runtime
             finally { readClaim?.Dispose(); }
         }
 
+        // Xsl3 (P7D): doc() may have retained whitespace because its provider supplied a simple
+        // schema type. Once source-document strips that type, apply the ordinary whitespace rules
+        // to the untyped copy, without modifying the cached provider document.
+        internal XPathNavigator StripSourceAnnotations(XPathNavigator source)
+        {
+            XPathNavigator stripped = Xsl3.Schema.NodeValidator.Preserve(source, copyNamespaces: true, keepTypes: false);
+            if (_wsRules == null) return stripped;
+            using XmlReader reader = DocumentFragment.ReadNode(stripped, stripped.BaseURI, XmlQueryRuntime.Cancellation);
+            XPathNavigator result = BuildTree(WhitespaceRuleReader.CreateReader(reader, _wsRules), typed: true);
+            if (result is Xsl3.Tree.CompactNavigator compact)
+            {
+                compact.Document._constructed = true;
+                compact.Document.NoDocumentUri = stripped is Xsl3.Tree.CompactNavigator { Document.NoDocumentUri: true };
+            }
+            return result;
+        }
+
         /// <summary>
         /// Ensure that "dataSource" is cached as an XPathDocument and return a navigator over the document.
         /// </summary>
@@ -358,7 +375,11 @@ namespace Xsl3.Runtime
             {
                 // Create document from reader
                 // Create WhitespaceRuleReader if whitespace should be stripped
-                using XmlReader? selected = fragment.Id == null ? null : fragment.Select(reader, ownsInput: false, XmlQueryRuntime.Cancellation);
+                // Xsl3 (P7D): a positioned 2.0+ provider needs an initial-state subtree view before
+                // whitespace filtering, which must observe the root header to balance its stack.
+                using XmlReader? selected = fragment.Id != null ? fragment.Select(reader, ownsInput: false, XmlQueryRuntime.Cancellation)
+                    : _runtime.IsXslt2 && reader.ReadState == ReadState.Interactive && reader.NodeType == XmlNodeType.Element
+                        ? DocumentFragment.ScopePositionedReader(reader, ownsInput: false) : null;
                 return BuildTree(WhitespaceRuleReader.CreateReader(selected ?? reader, _wsRules), typed: selected != null);
             }
             else if (dataSource is IXPathNavigable xPathNavigable)

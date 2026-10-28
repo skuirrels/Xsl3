@@ -5,7 +5,9 @@
 - Treat `validation="lax"` as annotation stripping with `SchemaAware=false`, as required for basic
   XSLT processing. Source and result documents now compile through both public APIs.
 - Apply explicit annotation stripping to grounded source documents, including basic lax/preserve
-  normalization, instead of retaining types from a validating reader. Experimental forward execution
+  normalization, instead of retaining types from a validating reader. Apply whitespace rules to the
+  stripped content, respect `xml:space`, and preserve namespaces, IDs/IDREFs and source URI metadata.
+  Positioned 2.0+ readers enter filtering through the shared scoped view. Experimental forward execution
   retains the same policy and borrowed-reader ownership.
 - Close the six-case [P7D contract investigation](docs/plan/p7d-validation-contracts.md) with public-path,
   saved-style and NativeAOT regressions. Preserve the raw fixtures, 16-case strict-forward inventory,

@@ -76,16 +76,39 @@ policy and borrowed-reader ownership. Strict validation in basic mode remains `X
 
 No runtime policy depends on a fixture ID or expected output. No public API, helper signature,
 saved-format, official fixture, old result snapshot, existing baseline or protected benchmark changes.
-The four core files contain only the shared contract correction and its comments.
+The six core files contain only the shared contract correction, reader/copy support and comments.
+
+## Code review corrections
+
+Review reproduced a grounded/forward mismatch: with a validating simple-content reader,
+`validation="strip"` and `xsl:strip-space`, grounded execution retained one whitespace-only text node
+while forward execution removed it. Four of eight API/debug/path combinations failed per framework
+on the pre-review head `5e4a56e12ae75e546b8dd8fe1e317986438f2642`.
+
+Grounded stripping now reapplies the existing whitespace rules to the untyped copy without changing
+the cached source. It reuses the selected-reader namespace and ID/IDREF sidecars and preserves document
+URI metadata. Debug checks also exposed an uninitialized whitespace stack when a provider was already
+positioned on an element. The 2.0+ grounded loader now uses the existing P7C scoped-reader view before
+filtering; the legacy 1.0 path is unchanged. `xml:space="preserve"` remains effective.
+
+Twelve review regression cases extend the two-API normal/debug matrix and metadata controls. Eighteen
+additional normal/debug saved styles cover strip/basic lax, preserve, xml:space and identity metadata:
+36 checks per .NET 8, .NET 10 and NativeAOT consumer across two whitespace inputs. The original P7D
+and P7C saved styles remain unchanged and pass against the reviewed runtime. Review evidence and initial
+failed runs are retained separately in `artifacts/p7d-review/`.
+
+The review's unchanged three-round ordinary gate also passes: timing GM **1.002463** over 39 rows,
+maximum allocation ratio **1.002233** against 1.1.2. The entry measurement below retains its own source
+and paired rounds. All full functional, profile and native gates were rerun after the corrections.
 
 ## Exit evidence
 
 | Gate | Local result |
 |---|---|
 | Fresh independent 1.1.2 baseline | Full strict-forward 2,695/16/1, zero unmatched codes; exact 16 failure IDs retained |
-| Final contract tests on 1.1.2 | 20 failures / 32 passes on .NET 10; 16 failures / 32 passes on .NET 8 |
+| Original P7D contract matrix on 1.1.2 | 20 failures / 32 passes on .NET 10; 16 failures / 32 passes on .NET 8; original evidence retained |
 | Original three lax fixtures, basic mode | Fail with XTSE1660 on 1.1.2; all three pass after correction |
-| Full Release and Debug units | 3,686 .NET 10 / 3,529 .NET 8 in each configuration; 52 / 48 new cases |
+| Full Release and Debug units after review | 3,698 .NET 10 / 3,541 .NET 8 in each configuration; 64 / 60 new cases |
 | Upstream / byte-for-byte differential | 1,654 / 394 per framework |
 | Full W3C harness, saved round trips enabled | 71 passed |
 | Ordinary XSLT 3.0 / QT3 | 8,850/18/41 and 21,884/0/99, existing failure sets retained |
@@ -94,7 +117,9 @@ The four core files contain only the shared contract correction and its comments
 | Reviewed S1 / S2, Release and Debug | 1,000/0/0 and 155/0/0 |
 | Fresh saved normal/debug grounded/forward styles | 28 DLLs, 56 checks per .NET 8 / .NET 10 / macOS ARM64 NativeAOT consumer across two inputs |
 | Retained P7C saved styles | 16 unchanged DLLs, 52 checks per managed/native consumer |
-| Three-round ordinary performance gate vs v1.1.2 | Pass; timing GM 1.008822 over 39 rows, maximum allocation ratio 1.001578 |
+| Review saved whitespace/metadata controls | 18 additional DLLs, 36 checks per managed/native consumer |
+| Entry three-round ordinary gate vs v1.1.2 | Pass; timing GM 1.008822 over 39 rows, maximum allocation ratio 1.001578 |
+| Review three-round ordinary gate vs v1.1.2 | Pass; timing GM 1.002463 over 39 rows, maximum allocation ratio 1.002233 |
 
 Native publication retains globalization and treats AOT, trimming and publish warnings as errors.
 The independent baseline is a `git archive v1.1.2` snapshot with only the final regression test file added;
@@ -112,7 +137,9 @@ The [result snapshot](p7d-results.json) records the source hashes and gates. Hos
 ## Deferred findings
 
 The ordinary gate is an aggregate pass, not a per-row win. Keys compilation has a measured median
-head/base ratio of **1.511849** in this run. Its raw paired rounds are retained; causal performance
+head/base ratio of **1.511849** in the entry run. The review run retains ratios of **1.171825** for sorting
+compilation, **1.130688** for dispatch compilation and **1.090923** for keys compilation. All paired
+rounds are retained; causal performance
 investigation is deferred rather than expanding this correctness phase. No timing threshold is relaxed.
 The remaining P7C inventory, source-schema API policy changes, general retained-model bounds, original
 memory/throughput acceptance and streaming feature claim stay outside P7D.

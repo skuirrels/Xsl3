@@ -143,10 +143,11 @@ namespace Xsl3.Runtime
                 {
                     // Xsl3 (P7D): source-document stripping reuses the existing node-copy policy,
                     // retaining source metadata instead of assessing unknown nodes laxly as anyType.
-                    result[i] = items[i] is XPathNavigator node
-                        ? validation == "strip" ? NodeValidator.Preserve(node, copyNamespaces: true, keepTypes: false)
-                            : NodeValidator.Validate(node, schemas, validation == "strict", schemaType)
-                        : items[i];
+                    if (items[i] is XPathNavigator node)
+                        result[i] = validation == "strip" ? _runtime.ExternalContext.StripSourceAnnotations(node)
+                            : NodeValidator.Validate(node, schemas, validation == "strict", schemaType);
+                    else
+                        result[i] = items[i];
                 }
                 catch (XdmException e) when (validation == "copy" && e.Code == "XTTE1540" && items[i] is XPathNavigator { NodeType: XPathNodeType.Attribute })
                 {

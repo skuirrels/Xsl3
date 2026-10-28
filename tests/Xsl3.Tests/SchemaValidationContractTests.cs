@@ -64,6 +64,59 @@ public class SchemaValidationContractTests
 
     [Theory]
     [MemberData(nameof(Paths))]
+    public void StrippedSourcesApplyWhitespaceRulesToUntypedContent(bool legacy, bool debug, bool forward)
+    {
+        var schemas = new XmlSchemaSet();
+        using (var schema = XmlReader.Create(new StringReader("<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'><xs:element name='doc' type='xs:string'/></xs:schema>")))
+            schemas.Add(null, schema);
+        schemas.Compile();
+        string sheet = Sheet("""
+            <xsl:source-document href="urn:p7d:source" streamable="yes" validation="strip">
+              <xsl:value-of select="count(doc/text())"/>
+            </xsl:source-document>
+            """).Replace("<xsl:output", "<xsl:strip-space elements='*'/><xsl:output", StringComparison.Ordinal);
+        foreach (bool preserveSpace in new[] { false, true })
+        {
+            using var reader = XmlReader.Create(new StringReader(preserveSpace ? "<doc xml:space='preserve'> </doc>" : "<doc> </doc>"),
+                new XmlReaderSettings { ValidationType = ValidationType.Schema, Schemas = schemas,
+                    ValidationFlags = XmlSchemaValidationFlags.ProcessIdentityConstraints | XmlSchemaValidationFlags.AllowXmlAttributes });
+            reader.MoveToContent();
+            Assert.Equal(preserveSpace ? "1" : "0", Run(sheet, Settings(debug, forward, schemaAware: true), reader, legacy));
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GroundedStrippingPreservesSourceIdentityMetadata(bool legacy, bool debug)
+    {
+        var schemas = new XmlSchemaSet();
+        using (var schema = XmlReader.Create(new StringReader("""
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <xs:element name="doc"><xs:complexType><xs:simpleContent><xs:extension base="xs:string">
+                <xs:attribute name="id" type="xs:ID"/><xs:attribute name="ref" type="xs:IDREF"/>
+                <xs:attribute name="q" type="xs:QName"/>
+              </xs:extension></xs:simpleContent></xs:complexType></xs:element>
+            </xs:schema>
+            """))) schemas.Add(null, schema);
+        schemas.Compile();
+        using var reader = XmlReader.Create(new StringReader("<doc xmlns:p='urn:p7d:namespace' id='selected' ref='selected' q='p:item'> </doc>"),
+            new XmlReaderSettings { ValidationType = ValidationType.Schema, Schemas = schemas }, "urn:p7d:source");
+        reader.MoveToContent();
+        string sheet = Sheet("""
+            <xsl:source-document href="urn:p7d:source" validation="strip">
+              <xsl:for-each select="doc">
+                <xsl:value-of select="concat(count(text()), '|', namespace-uri-from-QName(resolve-QName(string(@q), .)), '|', count(id(string(@id))), '|', count(idref(string(@ref))), '|', document-uri(root(.)))"/>
+              </xsl:for-each>
+            </xsl:source-document>
+            """).Replace("<xsl:output", "<xsl:strip-space elements='*'/><xsl:output", StringComparison.Ordinal);
+        Assert.Equal("0|urn:p7d:namespace|1|1|urn:p7d:source", Run(sheet, Settings(debug, forward: false, schemaAware: true), reader, legacy));
+    }
+
+    [Theory]
+    [MemberData(nameof(Paths))]
     public void StrictValidationNeedsDeclarationsImportedFromTheConfiguredCatalog(bool legacy, bool debug, bool forward)
     {
         var settings = Settings(debug, forward, schemaAware: true);
