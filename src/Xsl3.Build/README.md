@@ -3,10 +3,11 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
-Version **1.1.2** includes the bounded P7C source-reader boundary and inherited namespace corrections.
+Version **1.1.3** includes the bounded P7D basic-validation and grounded annotation/whitespace corrections.
+P7C source-reader boundary and inherited namespace fixes remain included.
 Update this package with `Xsl3` and `Xsl3.Cli`, and regenerate
 saved stylesheets using matching packages. Streaming remains unsupported; see the
-[1.1.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.2/docs/releases/1.1.2.md).
+[1.1.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.3/docs/releases/1.1.3.md).
 
 ```xml
 <ItemGroup>

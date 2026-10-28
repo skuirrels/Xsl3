@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — P7D schema-validation contracts
+## [1.1.3](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.3) — 2026-10-28
 
 - Treat `validation="lax"` as annotation stripping with `SchemaAware=false`, as required for basic
   XSLT processing. Source and result documents now compile through both public APIs.
@@ -13,8 +13,8 @@
   saved-style and NativeAOT regressions. Preserve the raw fixtures, 16-case strict-forward inventory,
   schema-aware lax `xs:anyType` behavior and strict missing-import errors. No public API or saved-format change.
 
-The next patch candidate is 1.1.3. Regenerate affected saved stylesheets with matching updated compiler/runtime
-packages. Publication is separate; see the [draft release notes](docs/releases/1.1.3.md).
+Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together to 1.1.3 and regenerate affected saved stylesheets
+with matching compiler/runtime packages. See the [release notes](docs/releases/1.1.3.md).
 
 ## [1.1.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.2) — 2026-10-27
 

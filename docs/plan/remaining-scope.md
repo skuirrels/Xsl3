@@ -1,14 +1,14 @@
 # Remaining scope: everything after P5
 
-> **P7D follow-up:** the bounded [schema-validation contracts phase](p7d-validation-contracts.md)
-> resolves six selected case dispositions and corrects basic lax/strip processing. Its candidate is the
-> next patch after 1.1.2; publication remains separate. No full-P7 scope or streaming feature claim is added.
+> **P7D completion:** the bounded [schema-validation contracts phase](p7d-validation-contracts.md)
+> resolves six selected case dispositions and corrects basic lax/strip processing. Version 1.1.3 contains these
+> corrections. No full-P7 scope or streaming feature claim is added.
 >
-> **2026-10-27 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1;
-> P7C closes positioned source-reader correctness for 1.1.2.
+> **2026-10-28 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1;
+> P7C closes positioned source-reader correctness for 1.1.2; P7D closes schema-validation contracts for 1.1.3.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
-> Use the [P7C close-out](p7c-runtime-correctness.md) for current scope and evidence; historical progress
-> entries below do not expand this release. Release version: 1.1.2.
+> Use the [P7D close-out](p7d-validation-contracts.md) for current scope and evidence; historical progress
+> entries below do not expand this release. Release version: 1.1.3.
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
