@@ -1,18 +1,21 @@
 # Conformance
 
-The bounded [P7D validation-contract close-out](plan/p7d-validation-contracts.md) adds basic-processing
+The 1.1.3 [P7D validation-contract close-out](plan/p7d-validation-contracts.md) adds basic-processing
 lax/strip/preserve and schema-availability regressions. The three original lax fixtures pass when run
 as a basic processor; the standard schema-aware profile retains its original results. All six selected
 cases have [explicit dispositions](plan/p7d-validation-cases.csv). No upstream fixture, expectation or
 existing conformance baseline changes; strict-forward remains 2,695/16/1 with zero unmatched codes.
+[P7D PR CI](https://github.com/skuirrels/Xsl3/actions/runs/40607670623) and
+[merged main CI](https://github.com/skuirrels/Xsl3/actions/runs/40610186497) passed on .NET 8 and .NET 10.
 
-The [1.1.2 P7C close-out](plan/p7c-runtime-correctness.md) records the current input-boundary and strict-forward
+The [1.1.2 P7C close-out](plan/p7c-runtime-correctness.md) records the input-boundary and strict-forward
 regression gates. [PR CI](https://github.com/skuirrels/Xsl3/actions/runs/40522313206) and
 [main CI](https://github.com/skuirrels/Xsl3/actions/runs/40526576014) passed for the merged implementation.
 The [1.1.1 P7B close-out](plan/p7b-analysis-closeout.md#p7b-completion) retains the raw/reviewed analysis results.
 Ordinary XSLT 3.0 is 8,850 passed / 18 failed / 41 not run; QT3 is 21,884 / 0 / 99.
 The [1.1.0 P7A close-out](plan/p7a-closeout.md#exit-evidence) and historical tables below retain their measurement dates.
-The upstream gate runs 1,654 applicable tests per framework, with seven platform-specific/known upstream cases filtered.
+The upstream gate runs 1,654 applicable tests on Linux and 1,661 on Windows per framework, with
+platform-specific/known upstream exclusions applied.
 
 Pass rates per suite and test set (SPEC §20), measured with the W3C harness (`tests/Xsl3.W3C`) on Release builds
 and recorded here by hand at each milestone. Regression baselines are in `tests/Xsl3.W3C/baselines`;

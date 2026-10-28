@@ -2,9 +2,10 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Version **1.1.2** includes the bounded P7C source-reader boundary and inherited namespace corrections.
+Version **1.1.3** includes the bounded P7D basic-validation and grounded annotation/whitespace corrections.
+P7C source-reader boundary and inherited namespace fixes remain included.
 Keep the CLI and runtime/build packages at the same version. Streaming remains unsupported; see the
-[1.1.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.2/docs/releases/1.1.2.md).
+[1.1.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.3/docs/releases/1.1.3.md).
 
 ```
 dotnet tool install --global Xsl3.Cli

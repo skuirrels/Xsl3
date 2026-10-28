@@ -47,7 +47,7 @@ content, including otherwise motionless instructions. Strict analysis reports `X
 claim or explicitly select Fallback for tree execution, or update the instruction's version when the 2.0/3.0 semantics
 are appropriate. See [1.1.1 release notes](releases/1.1.1.md). Ordinary non-streamable compatibility behavior is retained.
 
-## Next patch (P7D): basic validation and schema availability
+## 1.1.3: basic validation and schema availability
 
 With `SchemaAware=false`, `validation="lax"` now compiles and strips annotations, as basic XSLT
 processing requires. Explicit `strip` and basic `preserve` also strip annotations from source documents
@@ -65,7 +65,7 @@ caller intends to retain its provider's existing annotations.
 
 Regenerate affected saved stylesheets to compile the corrected grounded strip path. Use matching
 compiler/runtime packages; no public API or saved-format change is introduced. See the
-[P7D close-out](plan/p7d-validation-contracts.md) and [draft release notes](releases/1.1.3.md).
+[P7D close-out](plan/p7d-validation-contracts.md) and [1.1.3 release notes](releases/1.1.3.md).
 
 ## 1.1.2: positioned source-reader boundaries
 

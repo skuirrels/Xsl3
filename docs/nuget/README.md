@@ -4,25 +4,23 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.2: P7C input-boundary correctness.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.3: P7D schema-validation contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
 claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-P7C corrects positioned source-reader boundaries, inherited namespace context and ownership. Experimental
-source documents exclude following siblings; borrowed readers stay open at the selected boundary.
-The P7B reviewed 1,000-case analysis and 155-case static-diagnostic/result gates retain the original upstream
-results separately. Full runtime, memory and throughput acceptance remain deferred.
-See the [1.1.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.2/docs/releases/1.1.2.md).
-
-The development branch's next patch also corrects basic (`SchemaAware=false`) `validation="lax"`
-processing and applies annotation stripping consistently to grounded source documents. Schema-aware
-lax validation and explicit schema-import requirements retain their existing contracts.
+P7D corrects basic (`SchemaAware=false`) `validation="lax"` processing and applies annotation stripping
+before whitespace rules on grounded source documents. Positioned 2.0+ readers retain namespace,
+ID/IDREF and document-URI metadata, while `xml:space` remains effective. Schema-aware lax validation
+and explicit schema-import requirements retain their existing contracts. P7C boundary corrections
+remain included. The P7B reviewed 1,000-case analysis and 155-case static gates retain the original
+upstream results separately. Full runtime, memory and throughput acceptance remain deferred.
+See the [1.1.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.3/docs/releases/1.1.3.md).
 
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.2 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.3 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 
@@ -67,15 +65,15 @@ XdmValue rows = executable.CreateTransformer().CallTemplate(new QName("rows"));
 Guides: [getting started](https://github.com/skuirrels/Xsl3/blob/main/docs/getting-started.md) and
 [moving from System.Xml.Xsl](https://github.com/skuirrels/Xsl3/blob/main/docs/migration.md).
 
-Conformance checked on 2026-10-26. Performance figures below retain their original benchmark dates.
+Conformance checked on 2026-10-28; Linux and Windows CI passed on .NET 8 and .NET 10. Performance figures below retain their original benchmark dates.
 
 ## What's supported
 
 | | |
 |---|---|
-| XSLT 1.0 | Passes all 1,654 applicable dotnet/runtime `XslCompiledTransform` tests on each target framework and matches stock output byte for byte |
+| XSLT 1.0 | Passes 1,654 applicable dotnet/runtime `XslCompiledTransform` tests on Linux and 1,661 on Windows per target framework and matches stock output byte for byte |
 | XPath 3.1 | 21,884 W3C QT3 cases pass, none fail, 99 are not run |
-| XSLT 3.0 | 8,849 W3C xslt30-test cases pass, 19 known failures, 41 not run (99.8% of those run) |
+| XSLT 3.0 | 8,850 W3C xslt30-test cases pass, 18 known failures, 41 not run (99.8% of those run) |
 | Speed on XSLT 1.0 | 1.38× stock `XslCompiledTransform` (geometric mean, never slower); 1.49× on transforms from text with `UseCompactTree` |
 
 XSLT 3.0 features include `xsl:try`, `xsl:iterate`, `xsl:merge`, accumulators, maps and arrays, text value

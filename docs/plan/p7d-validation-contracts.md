@@ -2,9 +2,10 @@
 
 **Scope frozen on 2026-10-27. Branch: `feature/p7d-validation-contracts`.**
 Base: release `v1.1.2` (`e98cc9fb9b49cb456b197253b4537382c2fb86ea`).
-Implementation scope is closed. All local gates below have evidence; [PR #20's hosted checks](https://github.com/skuirrels/Xsl3/pull/20/checks)
-(Linux, Windows, NativeAOT and performance) must also be green before merge or release.
-The patch candidate is 1.1.3; publication remains separate. P7C remains closed.
+P7D is closed and [PR #20](https://github.com/skuirrels/Xsl3/pull/20) is merged.
+All local gates below passed, as did the [Linux, Windows, NativeAOT and performance checks](https://github.com/skuirrels/Xsl3/actions/runs/40607670623)
+and [main CI](https://github.com/skuirrels/Xsl3/actions/runs/40610186497).
+Release 1.1.3 contains the corrections; see the [release notes](../releases/1.1.3.md). P7C remains closed.
 
 ## Fixed scope
 
@@ -161,5 +162,5 @@ Use the unchanged [P7B reproduction commands](p7b-analysis-closeout.md#reproduce
 and reviewed gates. The retained phase producer emits saved styles from the actual contract fixtures;
 its consumers load compiled types through the public API and do not compile stylesheets under NativeAOT.
 
-Implementation stops here. Merge and release require green hosted checks; publishing 1.1.3 to NuGet
-and GitHub requires separate owner authorization and public-feed consumer verification.
+Implementation stops here. Hosted checks passed before merge. The owner authorized the 1.1.3 release;
+publication must retain matching NuGet/GitHub artifacts and public-feed consumer verification.
