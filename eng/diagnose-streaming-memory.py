@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import resource
 import shutil
 import signal
 import subprocess
@@ -48,6 +49,16 @@ def write_json(path, value):
     temporary.replace(path)
 
 
+def sha256_file(path):
+    # Linux can carry the launcher's pre-exec high-water mark into child rusage.
+    # Do not inflate it by reading the complete NativeAOT image into memory.
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(64 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def replace_once(text, before, after):
     if text.count(before) != 1:
         raise ValueError('Source anchor is missing or ambiguous: ' + before)
@@ -62,7 +73,7 @@ def prepare(args):
     output.mkdir(parents=True, exist_ok=False)
     copy = output / 'source'
     shutil.copytree(source, copy, ignore=shutil.ignore_patterns('bin', 'obj', 'artifacts', '.git', '__pycache__'))
-    hashes = {str(p.relative_to(copy)): hashlib.sha256(p.read_bytes()).hexdigest()
+    hashes = {str(p.relative_to(copy)): sha256_file(p)
               for p in sorted(copy.rglob('*')) if p.is_file()}
     write_json(output / 'source-sha256.json', hashes)
     probe = copy / 'tests/Xsl3.Tests/StreamingProbe.cs'
@@ -127,8 +138,9 @@ def measure(args):
     spec.loader.exec_module(gate)
     report = dict(acceptance=False, complete=False, interpretation='Identity diagnostics, RSS guard disabled; heap cap retained. Never a budget pass.',
         host=platform.platform(), executable=str(args.native.resolve()),
-        executable_sha256=hashlib.sha256(args.native.read_bytes()).hexdigest(),
+        executable_sha256=sha256_file(args.native),
         instrumented=args.instrumented, heap_limit=args.heap_limit, runs=[], failures=[])
+    report['launcher_peak_bytes_before_first_child'] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
     write_json(directory / 'report.json', report)
     for size in args.sizes:
         for round_number in range(1, args.rounds + 1):
@@ -143,20 +155,25 @@ def measure(args):
             with stem.with_suffix('.stdout').open('w') as stdout, stem.with_suffix('.stderr').open('w') as stderr:
                 child = subprocess.Popen(command, stdout=stdout, stderr=stderr, env=env)
                 deadline = time.monotonic() + args.timeout_seconds
-                while True:
-                    pid, status, usage = os.wait4(child.pid, os.WNOHANG)
-                    if pid:
-                        break
-                    if time.monotonic() >= deadline:
-                        timed_out = True
-                        try:
-                            os.kill(child.pid, signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
-                        _, status, usage = os.wait4(child.pid, 0)
-                        break
-                    time.sleep(0.1)
-                child.returncode = os.waitstatus_to_exitcode(status)
+                try:
+                    while True:
+                        pid, status, usage = os.wait4(child.pid, os.WNOHANG)
+                        if pid:
+                            break
+                        if time.monotonic() >= deadline:
+                            timed_out = True
+                            try:
+                                os.kill(child.pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass
+                            _, status, usage = os.wait4(child.pid, 0)
+                            break
+                        time.sleep(0.1)
+                    child.returncode = os.waitstatus_to_exitcode(status)
+                finally:
+                    if child.returncode is None:
+                        child.kill()
+                        child.wait()
             outer = usage.ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
             item = dict(input_bytes=size, round=round_number, command=command, exit_code=child.returncode,
                         outer_peak_bytes=outer, timed_out=timed_out, valid=False)
@@ -197,8 +214,10 @@ def main():
     args = parser.parse_args()
     if args.command == 'prepare':
         prepare(args);return 0
-    if args.rounds <= 0 or args.heap_limit <= 0 or not math.isfinite(args.timeout_seconds) or args.timeout_seconds <= 0 or any(s <= 0 for s in args.sizes) or not args.native.is_file():
-        parser.error('positive sizes/rounds/limits/timeouts and an existing native executable are required')
+    if (args.rounds <= 0 or args.heap_limit <= 0 or not math.isfinite(args.timeout_seconds)
+            or args.timeout_seconds <= 0 or any(s <= 0 for s in args.sizes)
+            or len(set(args.sizes)) != len(args.sizes) or not args.native.is_file()):
+        parser.error('unique positive sizes, positive rounds/limits, a finite positive timeout and an existing native executable are required')
     return measure(args)
 
 

@@ -1,7 +1,13 @@
 """Diagnostic evidence must reject incomplete or inconsistent phase snapshots."""
 import importlib.util
+import hashlib
+import io
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
+from unittest.mock import Mock
 
 PATH = Path(__file__).resolve().parents[1] / 'diagnose-streaming-memory.py'
 SPEC = importlib.util.spec_from_file_location('memory_diagnosis', PATH)
@@ -10,6 +16,17 @@ SPEC.loader.exec_module(DIAG)
 
 
 class MemoryDiagnosisTests(unittest.TestCase):
+    def test_executable_fingerprint_does_not_allocate_the_entire_image(self):
+        data = bytes(range(256)) * 8193
+        class BoundedReader(io.BytesIO):
+            def read(self, size=-1):
+                if size < 0 or size > 1024 * 1024:
+                    raise AssertionError('Unbounded executable hashing contaminates launcher RSS')
+                return super().read(size)
+        path = Mock()
+        path.open.return_value = BoundedReader(data)
+        self.assertEqual(hashlib.sha256(data).hexdigest(), DIAG.sha256_file(path))
+
     def points(self):
         return [dict(Phase=name, PeakBytes=100+i, AllocatedBytes=1000+i,
                      LiveBytes=10, CommittedBytes=20, HeapSizeBytes=15,
@@ -44,6 +61,19 @@ class MemoryDiagnosisTests(unittest.TestCase):
         for text in ('ab', 'accb'):
             with self.assertRaises(ValueError):
                 DIAG.replace_once(text, 'c', 'x')
+
+    def test_duplicate_sizes_and_nonfinite_timeouts_cannot_overwrite_or_hang_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            child = root / 'must-not-run'
+            child.touch()
+            for sizes, timeout in [('1024 1024', '1'), ('1024', 'nan'), ('1024', 'inf')]:
+                output = root / 'report'
+                result = subprocess.run([sys.executable, str(PATH), 'measure', '--native', str(child),
+                    '--output', str(output), '--sizes', *sizes.split(), '--rounds', '1',
+                    '--heap-limit', '1024', '--timeout-seconds', timeout], capture_output=True, timeout=10)
+                self.assertEqual(2, result.returncode)
+                self.assertFalse(output.exists())
 
 
 if __name__ == '__main__':
