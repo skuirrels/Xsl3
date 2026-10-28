@@ -1,5 +1,9 @@
 # Remaining scope: everything after P5
 
+> **P7E in progress:** the bounded [memory-budget diagnosis](p7e-memory-budget-diagnosis.md) reproduces
+> the 1.1.3 memory matrices and investigates identity only. At most one confirmed shared cause may be
+> corrected; other P7 work remains deferred. This phase can close as an audit without a patch release.
+
 > **P7D completion:** the bounded [schema-validation contracts phase](p7d-validation-contracts.md)
 > resolves six selected case dispositions and corrects basic lax/strip processing. Version 1.1.3 contains these
 > corrections. No full-P7 scope or streaming feature claim is added.
