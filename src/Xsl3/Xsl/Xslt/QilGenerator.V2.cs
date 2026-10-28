@@ -387,7 +387,7 @@ namespace Xsl3.Xslt
             }
             if (name.NamespaceUri == SourceDocuments.Namespace && name.LocalName == "validate" && args is [_, XPath31.StringLiteral mode, XPath31.StringLiteral type])
             {
-                // Xsl3 (P6): xsl:source-document validation="strict|lax" or type="T": the document, validated.
+                // Xsl3 (P7D): source-document applies strict/lax validation or annotation stripping.
                 return X31(nameof(XsltLibrary.X31Validate), T.ItemS, Box(compile(args[0])), _f.Double(SchemasId31()), _f.String(mode.Value), _f.String(type.Value));
             }
             if (name.NamespaceUri == SourceDocuments.Namespace && args is [_, XPath31.StringLiteral accumulators])

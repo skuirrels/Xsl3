@@ -614,9 +614,10 @@ namespace Xsl3.Xslt
             {
                 ReportError(SR.Xml_UserException, "XTSE1505: xsl:source-document can't have both a validation and a type attribute");
             }
-            else if (validation is "strict" or "lax" || type != null)
+            else if (validation is "strict" or "lax" or "strip" || type != null)
             {
-                // Xsl3 (P6): the document, validated.
+                // Xsl3 (P7D): grounded sources must also apply an explicit strip policy,
+                // including the lax-to-strip normalization required for basic processing.
                 documents = $"Q{{{Runtime.SourceDocuments.Namespace}}}validate({documents}, '{validation ?? ""}', '{(type == null ? "" : $"Q{{{type.Namespace}}}{type.Name}")}')";
             }
             _input.CanHaveApplyImports = false;

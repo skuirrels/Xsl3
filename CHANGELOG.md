@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — P7D schema-validation contracts
+
+- Treat `validation="lax"` as annotation stripping with `SchemaAware=false`, as required for basic
+  XSLT processing. Source and result documents now compile through both public APIs.
+- Apply explicit annotation stripping to grounded source documents, including basic lax/preserve
+  normalization, instead of retaining types from a validating reader. Apply whitespace rules to the
+  stripped content, respect `xml:space`, and preserve namespaces, IDs/IDREFs and source URI metadata.
+  Positioned 2.0+ readers enter filtering through the shared scoped view. Experimental forward execution
+  retains the same policy and borrowed-reader ownership.
+- Close the six-case [P7D contract investigation](docs/plan/p7d-validation-contracts.md) with public-path,
+  saved-style and NativeAOT regressions. Preserve the raw fixtures, 16-case strict-forward inventory,
+  schema-aware lax `xs:anyType` behavior and strict missing-import errors. No public API or saved-format change.
+
+The next patch candidate is 1.1.3. Regenerate affected saved stylesheets with matching updated compiler/runtime
+packages. Publication is separate; see the [draft release notes](docs/releases/1.1.3.md).
+
 ## [1.1.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.2) — 2026-10-27
 
 P7C closes the bounded positioned source-reader correctness phase. Normal execution remains tree-based

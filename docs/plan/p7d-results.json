@@ -1,0 +1,189 @@
+{
+  "phase": "P7D",
+  "status": "Implementation scope closed; required hosted checks tracked on phase PR; release separate",
+  "branch": "feature/p7d-validation-contracts",
+  "base_release": "v1.1.2",
+  "base_commit": "e98cc9fb9b49cb456b197253b4537382c2fb86ea",
+  "case_inventory": "docs/plan/p7d-validation-cases.csv",
+  "selected_cases": 6,
+  "source_sha256": {
+    "src/Xsl3/Xsl/Xslt/XsltLoader.cs": "5ef25e9267346435cd92c49da8e8b32b2c54973f0835220389df7f76d372dd32",
+    "src/Xsl3/Xsl/Xslt/XsltLoader.V2.cs": "2fae3bfe1ba21a74a194b747397e3e39050171307c8bb33483298ded4870edc1",
+    "src/Xsl3/Xsl/Xslt/QilGenerator.V2.cs": "6ce4f185316d7557e586d26a2c424924bbc24dbe1673bb4aea4a47b15e61c64f",
+    "src/Xsl3/Xsl/Runtime/XsltLibrary.Schema.cs": "0cf031b611031fc4bfc98725f210592d3fcfc839fa949b1fbe0c1fad4c222230",
+    "tests/Xsl3.Tests/SchemaValidationContractTests.cs": "cb74bbfc578834819fb306a3f7a1c7425fe1f70c4c55f7eda8131fe66c3917f2",
+    "src/Xsl3/Xsl/Runtime/DocumentFragment.cs": "7d9e4d38bf9ce14056d61d3c12cc78f0967809d9d3b27848e3c2edb844aa8ed3",
+    "src/Xsl3/Xsl/Runtime/XmlQueryContext.cs": "a8346a99dbfcc6029a3f2b3f29ba103c4b9ea790b03a93a57f795a294f976077"
+  },
+  "unit_tests_each_configuration": {
+    "net10.0": 3698,
+    "net8.0": 3541,
+    "new_net10.0": 64,
+    "new_net8.0": 60
+  },
+  "original_basic_lax_fixtures": {
+    "baseline_failed": 3,
+    "corrected_passed": 3,
+    "baseline_code": "XTSE1660"
+  },
+  "strict_forward": {
+    "passed": 2695,
+    "failed": 16,
+    "not_run": 1,
+    "selected": 2712,
+    "unmatched_codes": 0,
+    "failure_ids_unchanged": true
+  },
+  "unstreamed": {
+    "passed": 2693,
+    "failed": 18,
+    "not_run": 1,
+    "unmatched_codes": 1
+  },
+  "ordinary_xslt30": [
+    8850,
+    18,
+    41
+  ],
+  "qt3": [
+    21884,
+    0,
+    99
+  ],
+  "upstream_per_framework": 1654,
+  "differential_per_framework": 394,
+  "w3c_harness": 71,
+  "raw_s1": [
+    790,
+    129,
+    0
+  ],
+  "raw_s2": [
+    153,
+    2,
+    0
+  ],
+  "reviewed_release_debug": {
+    "s1": [
+      1000,
+      0,
+      0
+    ],
+    "s2": [
+      155,
+      0,
+      0
+    ]
+  },
+  "saved": {
+    "fresh_dlls": 28,
+    "fresh_checks_each_consumer": 56,
+    "retained_p7c_dlls": 16,
+    "retained_checks_each_consumer": 52,
+    "consumers": [
+      "net8.0",
+      "net10.0",
+      "NativeAOT osx-arm64"
+    ],
+    "globalization_enabled": true,
+    "warnings_as_errors": true
+  },
+  "ordinary_performance": {
+    "base_ref": "v1.1.2",
+    "rounds": 3,
+    "timed_rows": 39,
+    "time_geometric_mean": 1.0088218404205058,
+    "maximum_allocation_ratio": 1.0015781167806417,
+    "individual_time_ratios_above_1_05": [
+      {
+        "name": "keys",
+        "size": "compile",
+        "time_ratio": 1.5118491610448017,
+        "allocation_ratio": 1.0001300689365364
+      }
+    ],
+    "exit_code": 0
+  },
+  "preservation": {
+    "official_fixtures_and_194_recorded_hashes": true,
+    "original_deferred_inventory": true,
+    "existing_baselines": true,
+    "public_api": true,
+    "helper_signatures": true,
+    "saved_formats": true,
+    "protected_benchmarks": true
+  },
+  "supports_streaming": "no",
+  "evidence_bundle": "artifacts/p7d-validation/",
+  "hosted_ci": {
+    "required": [
+      "Linux",
+      "Windows",
+      "NativeAOT",
+      "ordinary performance"
+    ],
+    "evidence": "phase pull request checks",
+    "pull_request": 20,
+    "checks_url": "https://github.com/skuirrels/Xsl3/pull/20/checks"
+  },
+  "release_candidate": "1.1.3",
+  "published": false,
+  "entry_baseline_contract_tests": {
+    "net10.0": {
+      "passed": 32,
+      "failed": 20
+    },
+    "net8.0": {
+      "passed": 32,
+      "failed": 16
+    },
+    "note": "Original 52/48-case P7D matrix on 1.1.2; later review regressions retained separately."
+  },
+  "review": {
+    "base_head": "5e4a56e12ae75e546b8dd8fe1e317986438f2642",
+    "findings": [
+      "Grounded stripping applied whitespace rules before removing simple-content annotations.",
+      "Positioned 2.0+ provider readers bypassed root initialization of the whitespace filter."
+    ],
+    "fix": "Reuse the scoped reader before filtering, then reapply existing whitespace rules to an untyped copy with namespace and ID/IDREF sidecars.",
+    "new_managed_cases_per_framework": 12,
+    "red_whitespace_per_framework": {
+      "passed": 4,
+      "failed": 4
+    },
+    "fresh_saved_dlls": 18,
+    "fresh_saved_checks_per_consumer": 36,
+    "retained_p7d_and_p7c_unchanged": true,
+    "globalization_enabled": true,
+    "native_warnings_as_errors": true,
+    "evidence_bundle": "artifacts/p7d-review/",
+    "ordinary_performance": {
+      "base_ref": "v1.1.2",
+      "rounds": 3,
+      "timed_rows": 39,
+      "time_geometric_mean": 1.0024631293586488,
+      "maximum_allocation_ratio": 1.0022327927126693,
+      "individual_time_ratios_above_1_05": [
+        {
+          "name": "sorting",
+          "size": "compile",
+          "time_ratio": 1.171824777298191,
+          "allocation_ratio": 1.0000160578940607
+        },
+        {
+          "name": "keys",
+          "size": "compile",
+          "time_ratio": 1.0909227306826708,
+          "allocation_ratio": 0.9999849939225386
+        },
+        {
+          "name": "dispatch",
+          "size": "compile",
+          "time_ratio": 1.1306880232981433,
+          "allocation_ratio": 1.0000002428441126
+        }
+      ],
+      "exit_code": 0
+    }
+  }
+}
