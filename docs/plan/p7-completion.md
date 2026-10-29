@@ -149,5 +149,27 @@ error-code counts remain visible in its reports; these results do not claim ever
 Candidate provenance and the complete memory matrix are retained under
 `artifacts/p7-completion/native-atomic-final/`. The native image SHA-256 is
 `4e92c09eff713591748c18163799262f52e0cbd1c3c232fb6d33fcdd079c2df8`.
-The full seven-workload, three-round 100 MB throughput comparison follows, before selecting the next
-runtime optimization. Full P7 remains active; no streaming claim, merge or release is justified yet.
+The full seven-workload, three-round 100 MB throughput comparison finishes **42/42 valid observations**.
+The original no-slowdown target still fails: four workloads pass, while identity, fork and source-document
+remain slower in streaming mode. The 5% reporting band is not used to waive this target.
+
+| Canonical workload | Tree median ms | Stream median ms | Stream / tree | Original throughput target |
+|---|---:|---:|---:|---|
+| identity | 2,075.723 | 2,369.340 | 1.141 | Fail |
+| adjacent | 1,421.103 | 707.839 | 0.498 | Pass |
+| accumulator | 5,428.640 | 2,903.167 | 0.535 | Pass |
+| iterate | 1,051.580 | 668.476 | 0.636 | Pass |
+| merge | 12,408.936 | 2,466.330 | 0.199 | Pass |
+| fork | 1,051.102 | 5,047.329 | 4.802 | Fail |
+| source-document | 2,057.626 | 2,271.455 | 1.104 | Fail |
+
+These are local observations for the recorded candidate, not hosted qualification or a before/after
+throughput claim. Raw trials, outputs, configuration and artifact/controller hashes are in
+`artifacts/p7-completion/native-atomic-final/throughput-100mb/`. All task-owned functional runs had finished
+before this performance run. The 1 MB/1 GB latency observations, current-source nightly and hosted memory
+matrices, ordinary performance gate and final delivery checks remain open.
+
+Next implementation work targets fork's allocation/synchronization cost and the forward copying paths,
+while preserving merge's remaining absolute memory failure. Any optimization must retain source identity,
+private prong name tables, cancellation/error ordering and the original fixtures, oracles and limits.
+Full P7 remains active; no streaming claim, merge or release is justified yet.
