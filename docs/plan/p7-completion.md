@@ -247,3 +247,54 @@ limit. The complete 42-observation throughput cohort validates every output but 
 original target: identity, fork and source-document have stream/tree ratios **1.158**, **4.143**
 and **1.147** respectively. Fork's stream median is **4,122.852 ms**, versus **995.041 ms** for tree.
 The local results do not qualify streaming support or replace current-source nightly/hosted gates.
+
+### Fork culture capture
+
+An isolated copy of `fdba07e` adds checkpoints around fork setup without changing its inputs,
+results or culture selection. The first `CurrentCulture` read moves the recorded peak from
+**16,596,992 to 18,563,072 bytes**, an interval of **1,966,080 bytes**, while allocated managed bytes
+increase by **1,392**. This locates a startup cost; it does not decompose the final process peak or
+count as a memory-budget pass. The diagnostic controller explicitly disables the RSS guard and
+retains the 20 MiB managed-heap cap. Its output, source patch and hashes are retained under
+`fork-startup-diagnostic` and `fork-startup-diagnostic-provenance` in the P7 artifacts directory.
+
+The runtime now retains the captured execution context instead of eagerly reading platform-default
+cultures. When the worker has that same context, culture is already inherited and no assignment is
+needed. A different worker context extracts only the captured cultures and restores them explicitly;
+it preserves unrelated worker `AsyncLocal` values. Suppressed flow retains immediate explicit
+culture capture because it supplies no context to retain. The implementation uses the normal
+[capture](https://learn.microsoft.com/en-us/dotnet/api/system.threading.executioncontext.capture?view=net-10.0)
+and [run/restore](https://learn.microsoft.com/en-us/dotnet/api/system.threading.executioncontext.run?view=net-10.0)
+contracts; it does not force an invariant culture or disable globalization.
+
+Review exposed a lifetime issue in the first candidate: a completed prong could retain unrelated
+host objects through the captured context. A regression failed on both frameworks before cleanup.
+The prong now releases its culture/context snapshot in its `finally` block, before source cleanup;
+the regression passes while keeping the completed runtime alive. Culture inheritance/restoration,
+suppressed flow, unrelated ambient state, success and failure have explicit coverage.
+The full final Release and Debug unit suites pass **4,380** checks on .NET 10 and **4,027** on .NET 8,
+per configuration, without the nullable warning from the intermediate candidate. The earlier
+failed retention test and intermediate runs remain retained.
+
+The new canonical native candidate is `native-fork-culture`. Its original budget and throughput
+results must be recorded independently; diagnostic checkpoint savings are never substituted for them.
+
+Its complete push matrix finishes all 48 children with correct outputs and **15/16 budget passes**.
+Fork passes at **20,643,840 bytes**; overlap-values is the sole failure at **21,037,056 bytes**,
+**65,536 bytes** over the original limit. The complete 42-observation throughput run has no invalid
+outputs but still fails the target for identity (**1.176**), fork (**4.453**) and source-document
+(**1.155**). Fork's stream median is **4,602.018 ms**, against **1,033.533 ms** for tree. These cohorts
+are retained observations; they do not establish a controlled before/after throughput effect.
+The image SHA-256 is `c99688cfade71e33e42dd1135589b4b53e570a731aa5e540147b877fb37c9fbf`.
+
+Final strict Debug and Release legacy/saved-sampling runs retain **2,695/16/1** and zero unmatched
+expected error codes, with both full frozen-inventory audits passing. Upstream, differential and
+ordinary W3C results in the preceding section are from the direct-atomization source, before the
+culture change; final full compatibility qualification remains required before delivery.
+
+The remaining push failure's actual saved assembly still contains `X31Call2` and reports
+`UsesBuiltinFunctionIds=True`. Its canonical stylesheet uses `string-join` over overlapping
+descendants with a literal separator. The next memory investigation should trace that generic
+built-in path and its initialization cost, preserving atomization of overlapping values, list types,
+argument cardinality and diagnostics. The identity/source-document copying and fork coordination
+throughput failures remain separate implementation work. No gate or streaming-support claim changes.

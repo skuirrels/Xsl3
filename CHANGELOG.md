@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Preserve direct streamed emptiness tests when optimizing side-effecting expressions, fixing a
+  Debug preservation-verifier failure in nested predicates.
+- Use the existing type-code path for broad atomic checks, with correct exclusion of maps,
+  arrays, functions and internal control items.
+- Project normalized fork events directly into independent prong views and skip unselected
+  buffered subtrees in batches while retaining bounded buffering, source ownership and error ordering.
+- Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
+  Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
+  older saved formats retain their compatibility checks.
+- Avoid initializing default cultures when fork workers already inherit the captured execution
+  context. Preserve explicit cultures, suppressed-flow behavior and worker state, and release
+  captured ambient objects when a prong finishes.
+- Full [Phase 7 qualification](docs/plan/p7-completion.md) remains in progress. Streaming support
+  is not yet claimed; original memory, throughput and release gates remain required.
+
 ## [1.1.6](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.6) — 2026-10-29
 
 - Give bare XPath 3.1 variable references separate instruction source locations. Repeated
