@@ -1,6 +1,6 @@
 # Conformance
 
-The [P7F attribute-copy candidate](p7f-identity-allocation-2026-10-29.md) passes managed Release/Debug,
+The [1.1.4 P7F attribute-copy change](p7f-identity-allocation-2026-10-29.md) passes managed Release/Debug,
 upstream/differential, ordinary conformance, raw/reviewed S1/S2, strict/unstreamed, saved-style and
 NativeAOT regression gates. Existing fixtures, baselines and feature claims are unchanged; strict-forward
 remains 2,695/16/1 with zero unmatched expected errors. The report distinguishes passing functional

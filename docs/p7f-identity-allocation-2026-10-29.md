@@ -5,8 +5,9 @@ attribute copies now use a minimal compact fragment instead of allocating a gene
 unused child buffers. The original annotation/identity-sensitive policy remains in the builder.
 No public API, saved format, canonical fixture, input, oracle, globalization setting or budget changes.
 
-This is a **1.1.4 candidate**, pending PR review and separately authorized publication. Version **1.1.3**
-remains published. Streaming remains unsupported and `supports-streaming` remains `no`.
+[PR #23](https://github.com/skuirrels/Xsl3/pull/23) is merged after [final CI](https://github.com/skuirrels/Xsl3/actions/runs/40848151334) passed.
+Release **1.1.4** contains the correction; see the [release notes](releases/1.1.4.md). Streaming remains
+unsupported and `supports-streaming` remains `no`.
 
 ## Cause and scope
 

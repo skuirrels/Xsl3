@@ -4,23 +4,27 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.3: P7D schema-validation contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.4: P7F attribute-copy allocation reduction.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
 claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-P7D corrects basic (`SchemaAware=false`) `validation="lax"` processing and applies annotation stripping
+P7F reduces allocation for ordinary untyped native attribute copies while preserving independent parentless
+node identity and existing typed/identity-sensitive policies. The measured identity workload allocates **23.55% less**
+on Linux/macOS at 10 MiB, 200 MiB and 2 GiB, with separate median timings **4.53–7.21% faster**.
+These results apply to that workload; the strict 20 MiB memory target remains unmet.
+P7D's earlier corrections remain included: basic (`SchemaAware=false`) `validation="lax"` processing and annotation stripping
 before whitespace rules on grounded source documents. Positioned 2.0+ readers retain namespace,
 ID/IDREF and document-URI metadata, while `xml:space` remains effective. Schema-aware lax validation
 and explicit schema-import requirements retain their existing contracts. P7C boundary corrections
 remain included. The P7B reviewed 1,000-case analysis and 155-case static gates retain the original
 upstream results separately. Full runtime, memory and throughput acceptance remain deferred.
-See the [1.1.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.3/docs/releases/1.1.3.md).
+See the [1.1.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.4/docs/releases/1.1.4.md).
 
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.3 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.4 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 
@@ -65,7 +69,7 @@ XdmValue rows = executable.CreateTransformer().CallTemplate(new QName("rows"));
 Guides: [getting started](https://github.com/skuirrels/Xsl3/blob/main/docs/getting-started.md) and
 [moving from System.Xml.Xsl](https://github.com/skuirrels/Xsl3/blob/main/docs/migration.md).
 
-Conformance checked on 2026-10-28; Linux and Windows CI passed on .NET 8 and .NET 10. Performance figures below retain their original benchmark dates.
+Conformance checked on 2026-10-29; Linux and Windows CI passed on .NET 8 and .NET 10. Performance figures below retain their original benchmark dates.
 
 ## What's supported
 

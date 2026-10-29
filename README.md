@@ -10,40 +10,33 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.1.3: P7D schema-validation contracts.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **1.1.4: P7F attribute-copy allocation reduction.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
 > behind `XsltSettings.SchemaAware`. Packages are available on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
 > [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
 
-**1.1.3 closes P7D**, the bounded six-case schema-validation contracts phase. Basic
-`validation="lax"` processing now strips annotations, and grounded source documents apply the requested
-strip policy before whitespace rules. Positioned 2.0+ readers use the shared scoped view; namespace
-bindings, IDs/IDREFs, document URIs and `xml:space` are retained. P7C input-boundary corrections remain included.
-Streaming remains unsupported; normal execution remains tree-based. Full-P7 runtime, memory and
-throughput acceptance remain deferred. The P7B reviewed 1,000-case analysis and 155-case static gates
-retain their original upstream results separately.
-See the [changelog](CHANGELOG.md), [release notes](docs/releases/1.1.3.md) and
-[P7D close-out](docs/plan/p7d-validation-contracts.md). Update all three packages together and regenerate
-affected saved stylesheets with matching compiler/runtime packages.
+**1.1.4 closes P7F**, the bounded attribute-copy allocation phase. Ordinary untyped native attributes
+use smaller temporary fragments while retaining independent parentless copy identity. The measured identity
+workload allocates **23.55% less** across 10 MiB, 200 MiB and 2 GiB on Linux/macOS; separate median timings
+improve **4.53–7.21%**. These figures describe that workload, not every stylesheet or retained memory.
+Typed, DTD identity-sensitive and `xml:id` copies retain their existing policies. P7D validation contracts
+and P7C reader-boundary corrections remain included. No public API or saved-format change.
 
-**P7E memory diagnosis is closed as an audit.** The 1.1.3 memory matrices and repeated identity
-measurements retain the unmet 20 MiB target; no runtime change or patch release is proposed.
-See the [report and limits](docs/p7e-memory-diagnosis-2026-10-28.md).
-
-**P7F development candidate:** ordinary untyped attribute copies allocate smaller temporary fragments.
-The bounded identity measurements show **23.55% lower allocation** on Linux/macOS across 10 MiB–2 GiB,
-with faster measured execution and unchanged copy semantics. See the [close-out and limits](docs/p7f-identity-allocation-2026-10-29.md).
-The published release remains **1.1.3**; the 20 MiB memory target remains unmet and streaming remains unsupported.
+Streaming remains unsupported; normal execution remains tree-based and `supports-streaming` remains `no`.
+Both complete 2 GiB / 200 MiB memory matrices pass, while the original 20 MiB target remains unmet.
+The [P7E audit](docs/p7e-memory-diagnosis-2026-10-28.md) and all original failed cohorts remain retained.
+See the [changelog](CHANGELOG.md), [1.1.4 release notes](docs/releases/1.1.4.md) and
+[P7F close-out](docs/p7f-identity-allocation-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
+together and regenerate saved stylesheets with matching compiler/runtime packages.
 
 ## What works
 
-Conformance verified by [P7D CI](https://github.com/skuirrels/Xsl3/actions/runs/40607670623) and
-[main CI](https://github.com/skuirrels/Xsl3/actions/runs/40610186497) on the merged implementation
-(Release, .NET 8 and .NET 10); performance rows retain their dated measurements in [docs/performance.md](docs/performance.md).
-See [P7D evidence](docs/plan/p7d-validation-contracts.md),
-[P7C evidence](docs/plan/p7c-runtime-correctness.md) and
+Conformance verified by [P7F CI](https://github.com/skuirrels/Xsl3/actions/runs/40848151334)
+on the merged implementation (Release, .NET 8 and .NET 10); performance rows retain their dated measurements
+in [docs/performance.md](docs/performance.md). See the [P7F evidence](docs/p7f-identity-allocation-2026-10-29.md),
+[P7D contracts](docs/plan/p7d-validation-contracts.md), [P7C evidence](docs/plan/p7c-runtime-correctness.md) and
 [P7B evidence](docs/plan/p7b-analysis-closeout.md#p7b-completion) for raw/reviewed results and error-code accounting.
 
 | Gate | Result |

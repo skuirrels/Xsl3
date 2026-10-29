@@ -3,7 +3,7 @@
 > **P7F complete:** the bounded [identity allocation phase](p7f-identity-allocation.md) reduces allocation
 > 23.55% across all three original input sizes on Linux/macOS, with passing throughput and regression
 > checks. Full memory failures remain visible in the [close-out](../p7f-identity-allocation-2026-10-29.md).
-> PR #23 is a 1.1.4 candidate; 1.1.3 remains published. Full P7 and supported streaming remain deferred.
+> [PR #23](https://github.com/skuirrels/Xsl3/pull/23) is merged; release 1.1.4 contains P7F. Full P7 and supported streaming remain deferred.
 
 > **P7E closed as an audit:** the bounded [memory-budget diagnosis](p7e-memory-budget-diagnosis.md)
 > reproduces all four 1.1.3 memory matrices and repeated identity cohorts. Linux remains 0/16 and macOS
@@ -14,11 +14,12 @@
 > resolves six selected case dispositions and corrects basic lax/strip processing. Version 1.1.3 contains these
 > corrections. No full-P7 scope or streaming feature claim is added.
 >
-> **2026-10-28 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1;
-> P7C closes positioned source-reader correctness for 1.1.2; P7D closes schema-validation contracts for 1.1.3.
+> **2026-10-29 release boundary:** P7A closes the implemented foundations for 1.1.0; P7B closes bounded analysis for 1.1.1;
+> P7C closes positioned source-reader correctness for 1.1.2; P7D closes schema-validation contracts for 1.1.3;
+> P7E closes the diagnostic audit; P7F closes attribute-copy allocation reduction for 1.1.4.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
-> Use the [P7D close-out](p7d-validation-contracts.md) for current scope and evidence; historical progress
-> entries below do not expand this release. Release version: 1.1.3.
+> Use the [P7F close-out](../p7f-identity-allocation-2026-10-29.md) for current scope and evidence; historical progress
+> entries below do not expand this release. Release version: 1.1.4.
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.
