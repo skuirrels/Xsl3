@@ -51,9 +51,17 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         while (true)
         {
             if (input is SelectedReader selected) return selected.Ids;
-            if (input is not XmlWrappingReader wrapping) return null;
+            if (input is not XmlWrappingReader wrapping) break;
             input = wrapping.InnerReader;
         }
+        // Before ReadSubtree hides the parser, capture the declarations it already read.
+        // ATTLIST-only declarations are authoritative even without an ELEMENT declaration.
+        var declarations = DtdInfoBridge.GetIdAttributes(input, includeUndeclared: true);
+        if (declarations.Count == 0) return null;
+        var result = new Dictionary<(string, string), (string, string)>();
+        foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in declarations)
+            result[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
+        return result;
     }
 
     internal static IReadOnlySet<(string, string, string, string)>? IdrefDeclarations(XmlReader input)
@@ -61,9 +69,11 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         while (true)
         {
             if (input is SelectedReader selected) return selected.Idrefs;
-            if (input is not XmlWrappingReader wrapping) return null;
+            if (input is not XmlWrappingReader wrapping) break;
             input = wrapping.InnerReader;
         }
+        var declarations = DtdInfoBridge.GetIdrefAttributes(input, includeUndeclared: true);
+        return declarations.Count == 0 ? null : new HashSet<(string, string, string, string)>(declarations);
     }
     // Check the supplied URI before System.Uri or a provider can normalize path separators.
     // A literal backslash is not a URI-reference character; its encoded form remains valid.

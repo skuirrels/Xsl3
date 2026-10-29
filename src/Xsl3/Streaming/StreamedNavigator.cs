@@ -28,8 +28,8 @@ internal sealed class StreamedNavigator : XPathNavigator
         if (index < -1 || index >= _node.Attributes.Length) throw new ArgumentOutOfRangeException(nameof(index));
         return new(_document, _node) { _attribute = index };
     }
-    internal bool IsIdAttribute => _attribute >= 0 && _namespace < 0 && _document.IsFragmentId(_node, _attribute);
-    internal bool IsIdrefAttribute => _attribute >= 0 && _namespace < 0 && _document.IsFragmentIdref(_node, _attribute);
+    internal bool IsIdAttribute => _attribute >= 0 && _namespace < 0 && _document.IsIdAttribute(_node, _attribute);
+    internal bool IsIdrefAttribute => _attribute >= 0 && _namespace < 0 && _document.IsIdrefAttribute(_node, _attribute);
     internal bool Replayable => StreamedDocument.CanReplay(_node);
     internal bool CanFork => Content && _document.CanFork(_node);
     internal StreamedNavigator BufferForFork() => BufferSubtree();

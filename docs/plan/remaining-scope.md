@@ -1,5 +1,9 @@
 # Remaining scope: everything after P5
 
+> **P7G in verification:** the bounded [copied-attribute identity phase](p7g-attribute-identity-contracts.md)
+> covers exactly DTD ID/IDREF/IDREFS × preserve/strip, with source, detached-copy and reconstructed-document
+> controls. It is a 1.1.5 candidate; [unrelated findings](p7g-deferred.md) remain deferred. Published release: 1.1.4.
+
 > **P7F complete:** the bounded [identity allocation phase](p7f-identity-allocation.md) reduces allocation
 > 23.55% across all three original input sizes on Linux/macOS, with passing throughput and regression
 > checks. Full memory failures remain visible in the [close-out](../p7f-identity-allocation-2026-10-29.md).

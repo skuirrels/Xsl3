@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — 1.1.5 candidate (P7G)
+
+- Preserve DTD `ID`, `IDREF` and `IDREFS` identity when XDM/XSLT 2.0+ input has ATTLIST-only
+  declarations or the supplied reader has already passed its DOCTYPE. Carry the declarations into
+  experimental forward execution and scoped/grounded reader views.
+- Preserve IDREF/IDREFS metadata on parentless attributes, including copies made with
+  `validation="strip"`. Reinserting copies into a document retains `id()`/`idref()` behavior under
+  both preserve and strip construction policies. Names, values, independent node identity, `xml:id`
+  normalization and borrowed-reader ownership remain covered.
+- Add six bounded contracts, both public source APIs, normal/debug saved styles, .NET 8/10 and
+  NativeAOT regressions. XSLT 1.0 compatibility, public APIs, saved formats and the P7F ordinary
+  attribute optimization are retained. Unrelated compiler-debug work remains [deferred](docs/plan/p7g-deferred.md).
+
+See the [candidate release notes](docs/releases/1.1.5.md). This entry does not publish a release.
+
 ## [1.1.4](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.4) — 2026-10-29
 
 - Reduce allocation for ordinary untyped native attribute copies by constructing a minimal compact

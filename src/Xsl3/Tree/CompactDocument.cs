@@ -67,7 +67,7 @@ namespace Xsl3.Tree
         internal Dictionary<string, int>? _ids;        // DTD ID value -> element
         // Imported lookups whose provider exposes the element but no ID attribute property.
         internal Dictionary<int, List<string>>? _lookupIds;
-        internal List<int>? _idrefAttributes;           // Xsl3: the attributes the DTD declares IDREF or IDREFS, in order
+        internal List<int>? _idrefAttributes;           // Attributes with is-idrefs, in order; includes parentless copies.
         internal string _xmlPrefix = null!, _xmlUri = null!;
 
         /// <summary>Built from writer events (a temporary tree): elements and PIs have an empty base URI, as there.</summary>
@@ -133,11 +133,11 @@ namespace Xsl3.Tree
         public static CompactDocument Load(XmlReader reader, XmlSpace space = XmlSpace.Default) => Load(reader, space, typed: false);
 
         /// <summary>Xsl3 (P6): <paramref name="typed"/>: the reader reads a typed tree, whose annotations the new tree keeps.</summary>
-        internal static CompactDocument Load(XmlReader reader, XmlSpace space, bool typed)
+        internal static CompactDocument Load(XmlReader reader, XmlSpace space, bool typed, bool completeDtdIdentity = false)
         {
             ArgumentNullException.ThrowIfNull(reader);
             var builder = new Builder(reader.NameTable, reader.BaseURI);
-            builder.Read(reader, space, typed: typed);
+            builder.Read(reader, space, typed: typed, completeDtdIdentity: completeDtdIdentity);
             return builder.Finish();
         }
 

@@ -31,6 +31,11 @@ See the [changelog](CHANGELOG.md), [1.1.4 release notes](docs/releases/1.1.4.md)
 [P7F close-out](docs/p7f-identity-allocation-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
 
+The next patch candidate is **P7G: copied-attribute identity contracts**. It preserves DTD `ID`,
+`IDREF` and `IDREFS` metadata through source loading, detached attribute copies and insertion into
+new documents under both `preserve` and `strip`. XSLT 1.0 loading keeps its stock compatibility policy.
+See the [bounded plan](docs/plan/p7g-attribute-identity-contracts.md); 1.1.4 remains the published release.
+
 ## What works
 
 Conformance verified by [P7F CI](https://github.com/skuirrels/Xsl3/actions/runs/40848151334)

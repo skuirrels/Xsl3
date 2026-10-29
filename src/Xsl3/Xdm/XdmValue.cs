@@ -196,7 +196,7 @@ namespace Xsl3.Xdm
         public static XdmNode Load(XmlReader reader)
         {
             ArgumentNullException.ThrowIfNull(reader);
-            return new XdmNode(Tree.CompactDocument.Load(reader, XmlSpace.Preserve).CreateNavigator());
+            return new XdmNode(Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed: false, completeDtdIdentity: true).CreateNavigator());
         }
 
         /// <summary>Parses a document from a stream; <paramref name="baseUri"/> is its base URI, if it has one.</summary>

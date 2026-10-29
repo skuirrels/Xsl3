@@ -197,7 +197,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       # No trim or AOT analysis warnings allowed (IL2xxx, IL3xxx).
       - name: Publish the NativeAOT sample
@@ -230,6 +232,9 @@ jobs:
       - name: NativeAOT streaming probe smoke
         run: python3 eng/streaming-gate.py --native artifacts/streaming-probe/bin/Xsl3.StreamingProbe.Native --bytes 2097152 --baseline-bytes 65536 --limit 0 --output artifacts/streaming-probe-smoke
 
+      - name: Saved copied-attribute identity contracts (.NET 8/10 and NativeAOT)
+        run: bash eng/verify-attribute-identity.sh linux-x64 artifacts/attribute-identity
+
       # Full P7 RSS/throughput acceptance is tracked in streaming-development.yml.
       # P7A ships foundations with streaming unsupported (docs/plan/p7a-closeout.md).
 
@@ -241,6 +246,7 @@ jobs:
             artifacts/streaming-probe-publish.log
             artifacts/streaming-probe-jit-guard.*
             artifacts/streaming-probe-smoke
+            artifacts/attribute-identity
 
   # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
   # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric
