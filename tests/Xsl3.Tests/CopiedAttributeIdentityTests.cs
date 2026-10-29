@@ -147,6 +147,18 @@ public class CopiedAttributeIdentityTests
 
     [Theory]
     [MemberData(nameof(Paths))]
+    public void BareVariableSequencesKeepIdentity(string declaration, string validation, bool declared,
+        bool legacy, bool debug, bool forward, bool positioned)
+    {
+        using var reader = CopiedAttributeIdentityFixtures.Reader(declaration, declared, positioned);
+        Assert.Equal(CopiedAttributeIdentityFixtures.Expected(declaration),
+            Run(CopiedAttributeIdentityFixtures.RoundTripSheet(validation, bareVariable: true), reader,
+                legacy, debug, forward));
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    [Theory]
+    [MemberData(nameof(Paths))]
     public void RoundTripsKeepIdentityAcrossBothConstructionPolicies(string declaration, string validation, bool declared,
         bool legacy, bool debug, bool forward, bool positioned)
     {
@@ -181,6 +193,18 @@ public class CopiedAttributeIdentityTests
     }
 
 #if NET10_0_OR_GREATER
+    [Theory]
+    [MemberData(nameof(SavedPaths))]
+    public void SavedBareVariableSequencesKeepIdentity(string declaration, string validation, bool declared,
+        bool legacy, bool debug, bool forward, bool positioned)
+    {
+        using var reader = CopiedAttributeIdentityFixtures.Reader(declaration, declared, positioned);
+        Assert.Equal(CopiedAttributeIdentityFixtures.Expected(declaration),
+            Run(CopiedAttributeIdentityFixtures.RoundTripSheet(validation, bareVariable: true), reader,
+                legacy, debug, forward, saved: true));
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
     [Theory]
     [MemberData(nameof(SavedPaths))]
     public void SavedRoundTripsKeepIdentity(string declaration, string validation, bool declared,

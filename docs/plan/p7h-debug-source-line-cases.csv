@@ -1,0 +1,7 @@
+contract,declaration,copy_validation,baseline_version,baseline_net10_debug_passed,baseline_net10_debug_failed,baseline_net10_release_passed,baseline_net10_release_failed,expected_outcome,candidate_net10_release_passed,candidate_net10_release_failed,candidate_net10_debug_passed,candidate_net10_debug_failed,candidate_net8_release_passed,candidate_net8_release_failed,candidate_net8_debug_passed,candidate_net8_debug_failed
+ID-preserve,ID,preserve,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0
+ID-strip,ID,strip,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0
+IDREF-preserve,IDREF,preserve,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0
+IDREF-strip,IDREF,strip,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0
+IDREFS-preserve,IDREFS,preserve,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0
+IDREFS-strip,IDREFS,strip,1.1.5,24,24,48,0,compile without assertion; unchanged P7G identity expectations,48,0,48,0,32,0,32,0

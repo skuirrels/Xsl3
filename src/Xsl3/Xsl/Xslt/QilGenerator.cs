@@ -1103,6 +1103,9 @@ namespace Xsl3.Xslt
                 // Do not create sequence points for literal attributes and use-attribute-sets
                 if (nodeType != XslNodeType.LiteralAttribute && nodeType != XslNodeType.UseAttributeSet)
                 {
+                    // A bare variable is a shared declaration node. Give this instruction its own
+                    // sequence point, without changing references used as expression populations.
+                    if (result is QilIterator) result = _f.Nop(result);
                     SetLineInfoCheck(result, node.SourceLine);
                 }
 

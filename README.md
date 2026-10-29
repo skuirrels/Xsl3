@@ -27,11 +27,16 @@ The P7F ordinary-attribute optimization remains included: its measured workload 
 at 10 MiB, 200 MiB and 2 GiB on Linux/macOS. P7G's separate macOS ARM64 allocation regression check
 retains that gain. These workload-specific measurements do not establish general memory bounds.
 Streaming remains unsupported; normal execution remains tree-based and `supports-streaming` remains `no`.
-The 20 MiB target and the unrelated Debug compiler finding remain deferred.
+The 20 MiB target remains deferred. The Debug compiler finding is addressed by the unreleased P7H candidate below.
 
 See the [changelog](CHANGELOG.md), [1.1.5 release notes](docs/releases/1.1.5.md) and
 [P7G close-out](docs/p7g-attribute-identity-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
+
+The unreleased [P7H candidate](docs/plan/p7h-debug-source-line-contracts.md) resolves the deferred
+Debug compiler assertion for repeated bare-variable sequences. It keeps variable bindings shared
+and gives each instruction its own source location. All local completion gates pass; see the
+[close-out](docs/p7h-debug-source-lines-2026-10-29.md). The latest published version remains 1.1.5.
 
 ## What works
 

@@ -1,0 +1,719 @@
+{
+  "phase": "P7H",
+  "status": "bounded implementation and local close-out complete; required hosted CI gates merging",
+  "branch": "feature/p7h-debug-source-line-contracts",
+  "baseline_version": "1.1.5",
+  "baseline_commit": "54df5c5ba8b34fc382dc3e7f6850fe3a6f4e8ac6",
+  "candidate_version": "1.1.6",
+  "published": false,
+  "production_change": "Wrap shared instruction references at the source-location boundary; preserve the binding, assertion and population expressions.",
+  "source_sha256": {
+    "src/Xsl3/Xsl/Xslt/QilGenerator.cs": "62bf7e1d9ec74a481d5e56778f3021ed01864a0e1f81420f4955d7275c0cab8f",
+    "tests/Xsl3.Tests/CopiedAttributeIdentityFixtures.cs": "4c4549362910173842152505c187575aa6afc615fffc92357bbd286a7cc2050f",
+    "tests/Xsl3.Tests/CopiedAttributeIdentityTests.cs": "3aa32c4a8d7e55ef7b2662828840f5bba2d26e26d7e83b7cab0cd93676670c0e",
+    "tests/Xsl3.Tests/DebugSourceLineTests.cs": "04904295f9d766c4d6d925a85d6ce8f5949c390a34f67a5cb181768394380f3c",
+    "tests/Xsl3.AttributeIdentityProbe.Generator/Program.cs": "fcb1a90e260cee4fecb6abfd070bae12336b5d92771c8bda98097c2027d957a4",
+    "eng/verify-attribute-identity.sh": "cd4503ed0548f2601e5049e40ca4662e90ebf25be6c1979edbf6a15f09d80a5a",
+    ".github/workflows/ci.yml": "5502484409721a174ebed706837a4295e2c375dbc947459838a9647a3eca3527"
+  },
+  "case_inventory": {
+    "path": "docs/plan/p7h-debug-source-line-cases.csv",
+    "sha256": "b49bbbfc2f91fb6a8369844db09aad6e7517a4b80c875ad10ec0fc1c558fae3f",
+    "contracts": 6
+  },
+  "baseline_net10": {
+    "Debug": {
+      "passed": 144,
+      "failed": 144,
+      "failures_all_target_assertion": true
+    },
+    "Release": {
+      "passed": 288,
+      "failed": 0
+    }
+  },
+  "candidate_new_contract_rows": {
+    "Release": {
+      "net10.0": 288,
+      "net8.0": 192
+    },
+    "Debug": {
+      "net10.0": 288,
+      "net8.0": 192
+    }
+  },
+  "additional_metadata_rows_per_framework": 10,
+  "full_units": {
+    "Release": {
+      "net10.0": 4342,
+      "net8.0": 3989
+    },
+    "Debug": {
+      "net10.0": 4342,
+      "net8.0": 3989
+    }
+  },
+  "upstream_per_framework": 1654,
+  "differential_per_framework": 394,
+  "saved": [
+    {
+      "cohort": "saved-p7g",
+      "images": 24,
+      "checks": 576,
+      "compiler_configuration": "Release",
+      "bare_variable": false,
+      "native_globalization": "full",
+      "native_sha256": "75e9d2d03360a4fb1df83b3eaaf21ad33bf05667721136e28ced51e0220d0335"
+    },
+    {
+      "cohort": "saved-bare-release",
+      "images": 24,
+      "checks": 576,
+      "compiler_configuration": "Release",
+      "bare_variable": true,
+      "native_globalization": "full",
+      "native_sha256": "05f76956ac44c091990437e335501c787b93d4e4df78a63742beaf13165b4b1f"
+    },
+    {
+      "cohort": "saved-bare-debug",
+      "images": 24,
+      "checks": 576,
+      "compiler_configuration": "Debug",
+      "bare_variable": true,
+      "native_globalization": "full",
+      "native_sha256": "b57185c1f5c083468474569cf0ce00ea11065067bfcbd49c57ababa67b2d8ec9"
+    }
+  ],
+  "saved_total_checks": 1728,
+  "saved_manifest": {
+    "path": "artifacts/p7h-debug-lines/saved-manifest.json",
+    "sha256": "de8b6d3c08d7e6a04400bc363c9fac655c180db30c0412f3c7cdacfd286149ec"
+  },
+  "profiles": [
+    {
+      "file": "artifacts/p7h-debug-lines/gates/w3c-ordinary-Release-reports/xslt30-run.md",
+      "summary": "# xslt30-test (XSLT 3.0 profile): 8850 passed, 18 failed, 41 not run; 99.8% of those run (34 expected errors passed without a matching code)",
+      "failure_ids": [
+        "base-uri/base-uri-046",
+        "base-uri/base-uri-052",
+        "copy/copy-1221",
+        "docbook/docbook-001",
+        "document/document-2401",
+        "document/document-2402",
+        "import/import-1201",
+        "merge/merge-097",
+        "namespace-alias/namespace-alias-1903",
+        "namespace/namespace-2001",
+        "namespace/namespace-2614",
+        "namespace/namespace-2615",
+        "static/static-013c",
+        "try/try-034",
+        "unparsed-entity-uri/unparsed-entity-50",
+        "use-package/use-package-108",
+        "use-package/use-package-108b",
+        "validation/validation-0201"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "8406ae63eb5c797120ae08d0431d9ba74be1a72eb50a7270e3383ba72b0aad05"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/w3c-ordinary-Release-reports/qt3-run.md",
+      "summary": "# QT3 (XPath 3.1): 21884 passed, 0 failed, 99 not run; 100.0% of those run (25 passes raised a different error code)",
+      "failure_ids": [],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "85d0ff1f31388e21570da40e7884a34e2dfceb5a8f7bc1c2d90087c734e3d178"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/w3c-ordinary-Release-reports/xslt30-run-2.0.md",
+      "summary": "# xslt30-test (XSLT 2.0 profile): 4590 passed, 8 failed, 10 not run; 99.8% of those run (7 expected errors passed without a matching code)",
+      "failure_ids": [
+        "base-uri/base-uri-046",
+        "docbook/docbook-001",
+        "import/import-1201",
+        "namespace-alias/namespace-alias-1903",
+        "namespace/namespace-2001",
+        "namespace/namespace-2614",
+        "namespace/namespace-2615",
+        "unparsed-entity-uri/unparsed-entity-50"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "640c54b6760e53890c5ef0a3b179f84daf79a698f716f1d052e4b7bf119780f8"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-sandp-Release-reports/xslt30-run-sandp.md",
+      "summary": "# xslt30-test (XSLT 3.0 posture and sweep profile): 790 passed, 129 failed, 0 not run; 86.0% of those run (0 expected errors passed without a matching code)",
+      "failure_ids": [
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA001",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA002",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA003",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA004",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA005",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA006",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA007",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA008",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA009",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA010",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA011",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA012",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA013",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA014",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA015",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA016",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA017",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA018",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA019",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA020",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA021",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA022",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA023",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA024",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA025",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA026",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA027",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA028",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA029",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA030",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA031",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA032",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA033",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA034",
+        "xp-striding-climbing-consumingA/xp-striding-climbing-consumingA035",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB001",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB002",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB003",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB004",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB005",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB006",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB007",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB008",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB009",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB010",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB011",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB012",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB013",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB014",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB015",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB016",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB017",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB018",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB019",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB020",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB021",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB022",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB023",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB024",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB025",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB026",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB027",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB028",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB029",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB030",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB031",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB032",
+        "xp-striding-climbing-motionlessB/xp-striding-climbing-motionlessB033",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC001",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC002",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC003",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC004",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC005",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC006",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC007",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC008",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC009",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC010",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC011",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC012",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC013",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC014",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC015",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC016",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC017",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC018",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC019",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC020",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC021",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC022",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC023",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC024",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC025",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC026",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC027",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC028",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC029",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC030",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC031",
+        "xp-striding-climbing-motionlessC/xp-striding-climbing-motionlessC032",
+        "xp-striding-grounded-consumingB/xp-striding-grounded-consumingB017",
+        "xp-striding-grounded-consumingB/xp-striding-grounded-consumingB018",
+        "xp-striding-grounded-consumingB/xp-striding-grounded-consumingB034",
+        "xp-striding-grounded-consumingB/xp-striding-grounded-consumingB047",
+        "xp-striding-grounded-motionlessC/xp-striding-grounded-motionlessC008",
+        "xp-striding-grounded-motionlessG/xp-striding-grounded-motionlessG008",
+        "xp-striding-grounded-motionlessH/xp-striding-grounded-motionlessH008",
+        "xp-striding-grounded-motionlessH/xp-striding-grounded-motionlessH027",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC001",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC002",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC003",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC004",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC005",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC006",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC007",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC010",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC011",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC012",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC013",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC014",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC015",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC016",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC019",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC020",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC021",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC022",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC023",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC024",
+        "xp-striding-roaming-free-rangingC/xp-striding-roaming-free-rangingC025"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "2cab4e75e560e36726e6a22abe10745a3c567d0aecb926b559c19a82c6dbacd6"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-s2-Release-reports/xslt30-static-streamability.md",
+      "summary": "# XSLT 3.0 exact static streamability: 153 passed, 2 failed (including 0 not run); 152 matching static codes, 1 allowed results",
+      "failure_ids": [
+        "si-fork/si-fork-953",
+        "sx-UnionExpr/sx-union-202"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "4e47f4c0b40289612c7abc24805e1df276e7571ada20aaa35b291f4838294344"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-sandp-reviewed-Release-reports/xslt30-run-sandp-reviewed.md",
+      "summary": "# xslt30-test (XSLT 3.0 posture and sweep, P7B REVIEWED profile): 1000 passed, 0 failed, 0 not run; 100.0% of those run (0 expected errors passed without a matching code)",
+      "failure_ids": [],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "63aa3e7553c719c0c5b3252a0e266c4e933b32424720f9efd9fa96fa8cdea439"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-s2-reviewed-Release-reports/xslt30-static-streamability-reviewed.md",
+      "summary": "# XSLT 3.0 exact static streamability: 155 passed, 0 failed (including 0 not run); 152 matching static codes, 3 allowed results; P7B REVIEWED",
+      "failure_ids": [],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "10873ea0a1962516e9ac3951f7bb8307463d27526e4339a2626bc4075f3e6642"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-strm-strict-Release-reports/xslt30-run-strm-strict.md",
+      "summary": "# xslt30-test (XSLT 3.0 streaming development, STRICT FORWARD INPUTS profile): 2695 passed, 16 failed, 1 not run; 99.4% of those run (0 expected errors passed without a matching code)",
+      "failure_ids": [
+        "merge/merge-073",
+        "merge/merge-081",
+        "merge/merge-082",
+        "merge/merge-084",
+        "sf-reverse/sf-reverse-001",
+        "si-fork/si-fork-953",
+        "si-merge/si-merge-004ns",
+        "si-result-document/si-result-document-024",
+        "source-document/non-stream-013",
+        "source-document/stream-013",
+        "streamable/streamable-021",
+        "streamable/streamable-042",
+        "streamable/streamable-043",
+        "streamable/streamable-147",
+        "sx-UnionExpr/sx-union-202",
+        "system-property/system-property-012"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "cf663476cba4254c2e65c53a16bf52f134ce9c3a388853dfe462a5f1a75cfc64"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-release-strm-unstreamed-Release-reports/xslt30-run-strm.md",
+      "summary": "# xslt30-test (XSLT 3.0 streaming development, UNSTREAMED profile): 2693 passed, 18 failed, 1 not run; 99.3% of those run (1 expected errors passed without a matching code)",
+      "failure_ids": [
+        "accumulator/accumulator-061",
+        "merge/merge-073",
+        "merge/merge-081",
+        "merge/merge-082",
+        "merge/merge-084",
+        "sf-reverse/sf-reverse-001",
+        "si-fork/si-fork-953",
+        "si-merge/si-merge-004ns",
+        "si-result-document/si-result-document-024",
+        "source-document/non-stream-013",
+        "source-document/stream-013",
+        "streamable/streamable-021",
+        "streamable/streamable-042",
+        "streamable/streamable-043",
+        "streamable/streamable-116",
+        "streamable/streamable-147",
+        "sx-UnionExpr/sx-union-202",
+        "system-property/system-property-012"
+      ],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "13a3e49ac277516a7a70b5ef479b81fd1727eec69ef8ee853d00c7d0f76efac2"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-debug-sandp-reviewed-Debug-reports/xslt30-run-sandp-reviewed.md",
+      "summary": "# xslt30-test (XSLT 3.0 posture and sweep, P7B REVIEWED profile): 1000 passed, 0 failed, 0 not run; 100.0% of those run (0 expected errors passed without a matching code)",
+      "failure_ids": [],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "63aa3e7553c719c0c5b3252a0e266c4e933b32424720f9efd9fa96fa8cdea439"
+    },
+    {
+      "file": "artifacts/p7h-debug-lines/gates/profile-debug-s2-reviewed-Debug-reports/xslt30-static-streamability-reviewed.md",
+      "summary": "# XSLT 3.0 exact static streamability: 155 passed, 0 failed (including 0 not run); 152 matching static codes, 3 allowed results; P7B REVIEWED",
+      "failure_ids": [],
+      "same_summary_and_failure_ids_as_p7g_review": true,
+      "sha256": "10873ea0a1962516e9ac3951f7bb8307463d27526e4339a2626bc4075f3e6642"
+    }
+  ],
+  "performance": {
+    "baseline_tag": "v1.1.5",
+    "rounds": 3,
+    "gated_rows": 39,
+    "reported_rows": 40,
+    "cold_excluded_from_gate": true,
+    "time_geometric_mean": 1.0001076768470651,
+    "maximum_allocation_ratio": 1.0008147349476706,
+    "gate_exit_code": 0,
+    "raw_reports": {
+      "base-1.json": "01f35595e6dc08b7a9c970594f69a7f339100cdf68cd3127bb75f1fa8a09ff95",
+      "base-2.json": "cff37ffe42cc0c622306d454438cedf3fb9a165371a6f01ed714ce4f1a6a0845",
+      "base-3.json": "70a9ac375a15e2940239ec1f4040ca255d73fed4c1f5d0ccb535066a44251850",
+      "head-1.json": "df0b908bd6b035fa66d6c8c761072771092d3569bac6ce31ee45fc2ee97cc354",
+      "head-2.json": "f367eaf3acae8dddc1f77d7282245896c97c53f5526ef330e8f1e7f95a8a90c2",
+      "head-3.json": "9cba608e67baf7425818330af244b870a5571eebe2c5d88f3494ff1d97841a85"
+    }
+  },
+  "functional_checks": [
+    {
+      "name": "solution-release",
+      "command": [
+        "dotnet",
+        "build",
+        "Xsl3.slnx",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:UseSharedCompilation=false"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "units-release",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Tests",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/units-Release",
+        "--no-build"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "units-debug",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Tests",
+        "-c",
+        "Debug",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/units-Debug"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "Xsl3.Upstream.Tests",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Upstream.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Xsl3.Upstream.Tests",
+        "--filter",
+        "category!=failing"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "Xsl3.Differential",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Differential",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Xsl3.Differential"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "w3c-ordinary",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/w3c-ordinary"
+      ],
+      "environment": {
+        "XSL3_W3C_SAVED": "10"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "reviewed-fixtures",
+      "command": [
+        "python3",
+        "eng/prepare-streamability-suite.py",
+        "--suite",
+        "external/xslt30-test",
+        "--output",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/reviewed"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-sandp",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-sandp"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-sandp-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-s2",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-s2"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-sandp-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-sandp-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/reviewed",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-sandp-reviewed-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-s2-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-s2-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/reviewed"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-strm-strict",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-strm-strict"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "strm",
+        "XSL3_STREAM_STRICT": "1"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-strm-unstreamed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Release-strm-unstreamed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "strm"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "w3c-debug-build",
+      "command": [
+        "dotnet",
+        "build",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "-m:1",
+        "-p:UseSharedCompilation=false"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "profile-debug-sandp-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Debug-sandp-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/reviewed",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Debug-sandp-reviewed-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-debug-s2-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/gates/Debug-s2-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7h-debug-lines/reviewed"
+      },
+      "exit_code": 0
+    }
+  ],
+  "boundaries": {
+    "public_api_changed": false,
+    "saved_format_changed": false,
+    "original_p7g_fixture_outputs_changed": false,
+    "original_p7g_inventory_changed": false,
+    "assertion_changed": false,
+    "benchmark_or_threshold_changed": false,
+    "supports_streaming": "no"
+  },
+  "deferred": [
+    "docs/plan/p7h-deferred.md D1: stylesheet reader reserialization shifts diagnostic lines"
+  ],
+  "evidence_root": "artifacts/p7h-debug-lines",
+  "hosted_ci": {
+    "required_before_merge": true,
+    "required_jobs": [
+      "build-and-test (ubuntu-latest)",
+      "build-and-test (windows-latest)",
+      "native-aot",
+      "perf"
+    ]
+  }
+}
