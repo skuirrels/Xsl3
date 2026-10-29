@@ -3289,6 +3289,8 @@ namespace Xsl3.IlGen
             else if ((object)typBase == (object)TypeFactory.String) codeBase = XmlTypeCode.String;
             else if ((object)typBase == (object)TypeFactory.Boolean) codeBase = XmlTypeCode.Boolean;
             else if ((object)typBase == (object)TypeFactory.Node) codeBase = XmlTypeCode.Node;
+            // An unconstrained atomic test needs only the item kind, not a saved schema/type descriptor.
+            else if ((object)typBase == (object)TypeFactory.AnyAtomicType) codeBase = XmlTypeCode.AnyAtomicType;
             else codeBase = XmlTypeCode.None;
 
             if (codeBase != XmlTypeCode.None)

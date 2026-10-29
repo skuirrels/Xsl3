@@ -119,3 +119,35 @@ The existing isolated diagnostic tool now accepts a canonical `--workload` (iden
 to locate phase-specific costs in those failing paths. Diagnostic RSS guards remain disabled explicitly;
 diagnostic results cannot satisfy either original memory gate. The current-source candidate, hosted
 platforms, nightly matrix and throughput/latency qualification are still required.
+
+### Atomic type-code check
+
+Additional checkpoints in an isolated diagnostic copy located iterate's extra saved-load cost in the
+query-type table. Its only entry was the unconstrained `xs:anyAtomicType` check; reading that entry
+initialized the compiler's full query-type machinery. The instrumented interval added **2,605,056 peak
+bytes**. Instrumented counters are diagnostic evidence and are not substituted for canonical budget results.
+
+The IL generator now uses the existing type-code matching path for that exact broad atomic test.
+Specific schema/type tests continue through their existing descriptors. The code-based checker now
+distinguishes atomic values from functions, maps, arrays and internal control items; the old code-based
+implementation incorrectly accepted every non-node. Regression tests compare it with the general
+checker, cover empty/singleton/multiple sequences and nodes, and check emitted metadata.
+
+The canonical iterate saved assembly now contains no query-type entries. All **32 fixture stylesheets**
+are byte-for-byte unchanged. No saved-data version, compatibility check, budget, oracle or input changed.
+The complete fresh push matrix finishes all **48 children** with correct outputs and improves from
+**13/16 to 14/16** budget passes on local macOS ARM64. Iterate falls from **23,347,200 to 20,676,608 bytes**
+and passes the original **20,971,520-byte** limit. Merge (**21,053,440**) and fork (**23,494,656**) still fail.
+
+Current-source full units pass Release and Debug on .NET 10 (**4,349**) and .NET 8 (**3,996**).
+All **74 ordinary W3C harness checks** pass with the retained raw results unchanged:
+QT3 **21,884/0/99**, XSLT 3.0 **8,850/18/41**, XSLT 2.0 **4,590/8/10**.
+Complete strict Debug and Release legacy/saved-sampling runs both retain **2,695/16/1** and zero
+unmatched expected error codes, with the frozen inventory validated. Ordinary W3C's retained permissive
+error-code counts remain visible in its reports; these results do not claim every ordinary diagnostic is exact.
+
+Candidate provenance and the complete memory matrix are retained under
+`artifacts/p7-completion/native-atomic-final/`. The native image SHA-256 is
+`4e92c09eff713591748c18163799262f52e0cbd1c3c232fb6d33fcdd079c2df8`.
+The full seven-workload, three-round 100 MB throughput comparison follows, before selecting the next
+runtime optimization. Full P7 remains active; no streaming claim, merge or release is justified yet.

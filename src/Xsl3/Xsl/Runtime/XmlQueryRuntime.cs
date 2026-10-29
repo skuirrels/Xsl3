@@ -1214,7 +1214,9 @@ namespace Xsl3.Runtime
             // Handle node code and AnyAtomicType
             switch (code)
             {
-                case XmlTypeCode.AnyAtomicType: return !item.IsNode;
+                // Native atomic values need no schema lookup. Other non-node items must have
+                // an atomic annotation: functions, maps, arrays and control items have none.
+                case XmlTypeCode.AnyAtomicType: return item is Xsl3.Xdm.AtomicValue || !item.IsNode && item.XmlType != null;
                 case XmlTypeCode.Node: return item.IsNode;
                 case XmlTypeCode.Item: return true;
                 default:
