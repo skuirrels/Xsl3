@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""P7E identity diagnostics. These runs never satisfy a streaming acceptance gate."""
+"""Streaming process diagnostics. These runs never satisfy an acceptance gate.
+
+Identity remains the default used by the retained P7E/P7F evidence; --workload
+can inspect another canonical workload without changing its fixture or oracle.
+"""
 import argparse
 import hashlib
 import importlib.util
@@ -127,16 +131,22 @@ def validate_points(points, heap_limit):
             and all(p.get('LinuxRollup') is None or isinstance(p['LinuxRollup'], str) for p in points))
 
 
+def load_gate():
+    controller = Path(__file__).with_name('streaming-gate.py')
+    spec = importlib.util.spec_from_file_location('streaming_gate', controller)
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    return gate
+
+
 def measure(args):
     if sys.platform not in ('darwin', 'linux') or not hasattr(os, 'wait4'):
         raise RuntimeError('Diagnostics require Linux/macOS wait4')
     directory = args.output.resolve()
     directory.mkdir(parents=True, exist_ok=False)
-    controller = Path(__file__).with_name('streaming-gate.py')
-    spec = importlib.util.spec_from_file_location('streaming_gate', controller)
-    gate = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(gate)
-    report = dict(acceptance=False, complete=False, interpretation='Identity diagnostics, RSS guard disabled; heap cap retained. Never a budget pass.',
+    gate = load_gate()
+    report = dict(acceptance=False, complete=False, interpretation='Diagnostics, RSS guard disabled; heap cap retained. Never a budget pass.',
+        workload=args.workload,
         host=platform.platform(), executable=str(args.native.resolve()),
         executable_sha256=sha256_file(args.native),
         instrumented=args.instrumented, heap_limit=args.heap_limit, runs=[], failures=[])
@@ -149,8 +159,8 @@ def measure(args):
                 if key.startswith(('DOTNET_GCHeapHardLimit', 'COMPlus_GCHeapHardLimit')):
                     del env[key]
             env['DOTNET_GCHeapHardLimit'] = f'{args.heap_limit:X}'
-            command = [str(args.native.resolve()), 'stream-probe', 'identity', 'stream', str(size), '0']
-            stem = directory / f'identity-{size}-{round_number}'
+            command = [str(args.native.resolve()), 'stream-probe', args.workload, 'stream', str(size), '0']
+            stem = directory / f'{args.workload}-{size}-{round_number}'
             timed_out = False
             with stem.with_suffix('.stdout').open('w') as stdout, stem.with_suffix('.stderr').open('w') as stderr:
                 child = subprocess.Popen(command, stdout=stdout, stderr=stderr, env=env)
@@ -181,7 +191,7 @@ def measure(args):
                 result = json.loads(stem.with_suffix('.stdout').read_text())
                 item['result'] = result
                 valid = (not timed_out and child.returncode == 0 and outer > 0
-                         and gate.valid_measurement(result, 'identity', 'stream', size, 0, True)
+                         and gate.valid_measurement(result, args.workload, 'stream', size, 0, True)
                          and result['AvailableManagedBytes'] <= args.heap_limit)
                 if args.instrumented:
                     lines = [line[len(MARKER):] for line in stem.with_suffix('.stderr').read_text().splitlines() if line.startswith(MARKER)]
@@ -208,6 +218,7 @@ def main():
     prep.add_argument('--saved', type=Path, required=True);prep.add_argument('--output', type=Path, required=True)
     prep.add_argument('--rid', required=True)
     run = sub.add_parser('measure');run.add_argument('--native', type=Path, required=True)
+    run.add_argument('--workload', choices=load_gate().WORKLOADS, default='identity')
     run.add_argument('--output', type=Path, required=True);run.add_argument('--sizes', type=int, nargs='+', required=True)
     run.add_argument('--rounds', type=int, required=True);run.add_argument('--heap-limit', type=int, required=True)
     run.add_argument('--timeout-seconds', type=float, default=900);run.add_argument('--instrumented', action='store_true')
