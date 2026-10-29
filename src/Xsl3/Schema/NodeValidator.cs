@@ -472,11 +472,7 @@ namespace Xsl3.Schema
 
         private static void CopyAttributeIdentity(CompactDocument.Builder builder, XPathNavigator attribute, XmlSchemaType? copiedType)
         {
-            XmlSchemaType? originalType = SchemaTypes.TypeOf(attribute);
-            bool id = attribute is CompactNavigator { IsIdAttribute: true } or Streaming.StreamedNavigator { IsIdAttribute: true }
-                || originalType != null && SchemaTypes.IsId(originalType);
-            bool idref = attribute is CompactNavigator { IsIdrefAttribute: true } or Streaming.StreamedNavigator { IsIdrefAttribute: true }
-                || originalType != null && SchemaTypes.IsIdref(originalType);
+            var (id, idref) = SchemaTypes.AttributeIdentity(attribute);
             // Stripping annotations leaves these identity properties unchanged (§25.4.1.1). An annotated
             // ID/IDREF already marked itself in the builder; avoid adding its IDREF index twice.
             if (id && (copiedType == null || !SchemaTypes.IsId(copiedType))) builder.MarkAttributeId(attribute.Value);

@@ -388,6 +388,7 @@ namespace Xsl3.IlGen
         public static readonly MethodInfo EndPI = typeof(XmlQueryOutput).GetMethod("WriteEndProcessingInstruction")!;
         public static readonly MethodInfo WriteItem = typeof(XmlQueryOutput).GetMethod("WriteItem")!;
         public static readonly MethodInfo CopyOf = typeof(XmlQueryOutput).GetMethod("XsltCopyOf")!;
+        public static readonly MethodInfo CopyOfStrippedAttribute = typeof(XmlQueryOutput).GetMethod("XsltCopyOfStrippedAttribute")!;
         public static readonly MethodInfo StartCopy = typeof(XmlQueryOutput).GetMethod("StartCopy")!;
         public static readonly MethodInfo EndCopy = typeof(XmlQueryOutput).GetMethod("EndCopy")!;
 

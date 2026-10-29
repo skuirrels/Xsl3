@@ -3911,7 +3911,8 @@ namespace Xsl3.IlGen
 
             // XmlQueryOutput.XsltCopyOf(navigator);
             NestedVisitEnsureStack(ndCopyOf.Child);
-            _helper.Call(XmlILMethods.CopyOf);
+            _helper.Call(OptimizerPatterns.Read(ndCopyOf).MatchesPattern(OptimizerPatternName.StripAttributeCopy)
+                ? XmlILMethods.CopyOfStrippedAttribute : XmlILMethods.CopyOf);
 
             _iterCurr.Storage = StorageDescriptor.None();
             return ndCopyOf;

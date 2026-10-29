@@ -340,6 +340,59 @@ The original throughput target remains unmet:
 | source-document | 2,000.400 | 2,319.278 | 1.159 |
 
 Raw memory children, measurements, output fingerprints and artifact/controller provenance are retained
-under `artifacts/p7-completion/native-direct-join/`. The original full nightly matrix is being
-reverified separately. Current-source hosted memory, multi-size first-output evidence, full final
-compatibility/review and the three throughput failures remain open. Full P7 is not complete.
+under `artifacts/p7-completion/native-direct-join/`. Its full local nightly matrix also completes
+all **48 children** with correct outputs and **16/16 budget passes**, using the original
+**2,147,483,648-byte input / 209,715,200-byte absolute limit**. Its maximum observed workload
+peak is **26,214,400 bytes** (merge and type-inspection). This remains local macOS evidence.
+
+### Hosted Linux qualification at a25acbb
+
+[Ordinary CI](https://github.com/skuirrels/Xsl3/actions/runs/40963890105) passes Linux and Windows
+build/test, NativeAOT and the ordinary performance check for
+`a25acbbde59017f9aa9aed1e39d9fedf5f2240ee`. The separate original
+[streaming acceptance run](https://github.com/skuirrels/Xsl3/actions/runs/40964357256) fails the
+Linux push matrix: all **48 children** finish but **0/16 measured workloads** pass the unchanged
+**20,971,520-byte** limit. Fifteen measured transformations consume the full input and validate
+output; merge is rejected before measurement and is not counted as a valid transformation.
+
+Linux's maximum of child/external peak ranges from **22,339,584 to 25,690,112 bytes**. Every
+measured child's own peak also exceeds the limit; the failures are not solely an external-counter
+discrepancy. The complete artifact is retained under
+`artifacts/p7-completion/linux-a25acbb-push/streaming-probe-push/`. The low post-collection managed
+estimates do not decompose those historical peaks. No runtime cause has yet been established.
+The existing isolated diagnostic run
+[40966348676](https://github.com/skuirrels/Xsl3/actions/runs/40966348676) targets the same immutable
+source. Diagnostic RSS guards remain disabled, so its observations cannot satisfy acceptance.
+
+Current-source hosted nightly memory, multi-size first-output evidence, full final compatibility/review
+and the three throughput failures remain open. Full P7 is not complete.
+
+### Direct stripped attribute construction
+
+The local CPU profile identifies temporary compact attribute trees in `XsltLibrary.Copies` before
+insertion into constructed content. The candidate compiler lowers statically attribute-only streamed
+`xsl:copy-of` with `validation="strip"` through the output construction path. Insertion retains
+namespace fixup, `xml:id` normalization and ID/IDREF metadata without retaining schema annotations.
+Explicit validation and preservation continue through their canonical paths. This follows the
+existing [copy/construction contracts](https://www.w3.org/TR/xslt-30/#constructing-complex-content),
+including the errors for attributes in document content or after child content.
+
+The first candidate failed the existing returned-attribute P7G tests because a raw destination can
+use an unannotated result writer. The corrected implementation keeps canonical compact copies for
+raw sequences, preserving fresh identity, parentlessness and metadata. All existing attribute-copy
+and P7G focused tests pass (**634 .NET 10 / 438 .NET 8**). Added tests cover typed identity, QName
+stripping under preserve defaults, namespace conflicts, duplicate names, construction errors and
+normal/debug saved execution; emitted metadata confirms the direct entry point.
+
+Earlier failing test evidence is retained. The new schema fixture initially referenced an undeclared
+ID and was corrected to a valid repeated reference; that failure is not attributed to the runtime.
+Full final compatibility and native qualification for this candidate remain in progress. Neither a
+Linux memory improvement nor a throughput improvement is claimed before measurement.
+
+Full Release and Debug units pass **4,413 checks on .NET 10 / 4,056 on .NET 8**, per configuration.
+Complete strict Debug and Release legacy/saved-sampling runs retain **2,695/16/1** and zero unmatched
+expected codes, with both full frozen-inventory audits passing. All **74** ordinary W3C checks pass.
+The CI-defined upstream gate (`category!=failing`) passes **1,654 checks per framework**. An earlier
+unfiltered invocation included excluded platform/active-issue cases and failed; it is retained rather
+than attributed to the candidate. Differential tests pass **394 checks per framework**.
+Final saved/native and performance qualification remain separate.

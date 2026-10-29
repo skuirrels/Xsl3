@@ -33,6 +33,7 @@ namespace Xsl3.IlGen
         LoopGate,                           // Filter's external predicate is checked before fetching each input item
         PullSequence,                       // Repeat a one-item runtime pull operation until it returns the empty sequence
         StreamedSimpleContent,              // A simple-content call can emit its input directly when constructing text
+        StripAttributeCopy,                 // XsltCopyOf of a statically known attribute strips its type annotation
         IsReferenced,                       // True if the annotated global iterator is referenced at least once
     }
 

@@ -1653,6 +1653,16 @@ namespace Xsl3.Xslt
             XslNodeV2? options = node.V2;
             string validation = options?.Validation ?? _compiler.DefaultValidation ?? "strip";
             bool validating = validation is "strict" or "lax" || options?.ValidationType != null;
+            if (StreamedCompilation31 && !validating && validation == "strip" && select.XmlType!.IsSubtypeOf(T.AttributeS))
+            {
+                // Construction can insert an attribute directly. When a sequence is needed, the
+                // same construction machinery supplies a fresh, parentless attribute instead.
+                // Namespace and accumulator copy options have no effect on attribute nodes.
+                QilIterator attribute = _f.For(select);
+                QilNode copy = _f.XsltCopyOf(attribute);
+                IlGen.OptimizerPatterns.Write(copy).AddPattern(IlGen.OptimizerPatternName.StripAttributeCopy);
+                return _f.Loop(attribute, copy);
+            }
             if (StreamedCompilation31 || options?.CopyAccumulators == true || options?.CopyNamespaces == TriState.False || options?.Validation is "strip" or "preserve" || validating)
             {
                 return CopyEach31(select, item =>

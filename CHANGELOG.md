@@ -13,6 +13,8 @@
   older saved formats retain their compatibility checks.
 - Use a direct streamed `string-join` path when its separator is a known string, sharing lexical
   conversion with the ordinary function while preserving overlapping values and schema atomization.
+- Write streamed stripped attribute copies directly into constructed content. Raw sequences keep
+  fresh parentless copies; schema stripping, ID/IDREF properties and namespace fixup are preserved.
 - Avoid initializing default cultures when fork workers already inherit the captured execution
   context. Preserve explicit cultures, suppressed-flow behavior and worker state, and release
   captured ambient objects when a prong finishes.
