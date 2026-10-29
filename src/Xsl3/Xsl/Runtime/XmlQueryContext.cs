@@ -327,16 +327,17 @@ namespace Xsl3.Runtime
         {
             bool compact = Xsl3.Tree.CompactDocument.Override ?? (_runtime.IsXslt2 || _runtime.UseCompactTree);
             var namespaces = DocumentFragment.RootNamespaces(reader);
-            var ids = DocumentFragment.IdDeclarations(reader);
-            var idrefs = DocumentFragment.IdrefDeclarations(reader);
+            var ids = _runtime.IsXslt2 ? DocumentFragment.IdDeclarations(reader) : null;
+            var idrefs = _runtime.IsXslt2 ? DocumentFragment.IdrefDeclarations(reader) : null;
             if ((compact || typed) && (namespaces != null || ids != null))
             {
                 var builder = new Xsl3.Tree.CompactDocument.Builder(reader.NameTable, reader.BaseURI);
-                builder.Read(reader, XmlSpace.Preserve, typed: typed, rootNamespaces: namespaces, idDeclarations: ids, idrefDeclarations: idrefs);
+                builder.Read(reader, XmlSpace.Preserve, typed: typed, rootNamespaces: namespaces, idDeclarations: ids,
+                    idrefDeclarations: idrefs, completeDtdIdentity: _runtime.IsXslt2);
                 return builder.Finish().CreateNavigator();
             }
             return compact || typed
-                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed).CreateNavigator()
+                ? Xsl3.Tree.CompactDocument.Load(reader, XmlSpace.Preserve, typed, completeDtdIdentity: _runtime.IsXslt2).CreateNavigator()
                 : new InternalXPathDocument(reader, XmlSpace.Preserve).CreateNavigator();
         }
 

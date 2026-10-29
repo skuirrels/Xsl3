@@ -47,8 +47,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private readonly XmlSpace _space;
     private readonly CancellationToken _cancellation;
     private readonly bool _completeValidation;
-    private readonly IReadOnlyDictionary<(string, string), (string, string)>? _fragmentIds;
-    private readonly IReadOnlySet<(string, string, string, string)>? _fragmentIdrefs;
+    private IReadOnlyDictionary<(string, string), (string, string)>? _idDeclarations;
+    private IReadOnlySet<(string, string, string, string)>? _idrefDeclarations;
     private readonly List<Node> _open = new();
     private Node _current;
     private bool _ready, _disposed;
@@ -75,8 +75,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         _space = space;
         _cancellation = cancellation;
         _completeValidation = completeValidation;
-        _fragmentIds = Runtime.DocumentFragment.IdDeclarations(reader);
-        _fragmentIdrefs = Runtime.DocumentFragment.IdrefDeclarations(reader);
+        _idDeclarations = Runtime.DocumentFragment.IdDeclarations(reader);
+        _idrefDeclarations = Runtime.DocumentFragment.IdrefDeclarations(reader);
         NameTable = reader.NameTable ?? new NameTable();
         Root = _current = new(0, XPathNodeType.Root, null) { BaseUri = reader.BaseURI };
         _open.Add(Root);
@@ -85,12 +85,18 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
 
     public XPathNavigator CreateNavigator() => new StreamedNavigator(this, Root);
 
-    internal bool IsFragmentId(Node node, int attribute) => Identity._fragmentIds != null
-        && Identity._fragmentIds.TryGetValue((node.LocalName, node.Prefix), out var declared)
+    internal bool IsIdAttribute(Node node, int attribute) => Identity._idDeclarations != null
+        && Identity._idDeclarations.TryGetValue((node.LocalName, node.Prefix), out var declared)
         && node.Attributes[attribute].LocalName == declared.Item1 && node.Attributes[attribute].Prefix == declared.Item2;
 
-    internal bool IsFragmentIdref(Node node, int attribute) => Identity._fragmentIdrefs?.Contains(
+    internal bool IsIdrefAttribute(Node node, int attribute) => Identity._idrefDeclarations?.Contains(
         (node.LocalName, node.Prefix, node.Attributes[attribute].LocalName, node.Attributes[attribute].Prefix)) == true;
+
+    private void ReadDtdIdentity()
+    {
+        _idDeclarations = Runtime.DocumentFragment.IdDeclarations(_reader) ?? _idDeclarations;
+        _idrefDeclarations = Runtime.DocumentFragment.IdrefDeclarations(_reader) ?? _idrefDeclarations;
+    }
 
     internal void CompleteValidation()
     {
@@ -305,8 +311,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
             var navigator = new StreamedNavigator(this, node);
             using XmlReader subtree = navigator.ReadSubtree();
             builder.Read(subtree, _space, typed: _reader is ForkEventReader || node.Schema != null || _reader.SchemaInfo != null,
-                rootNamespaces: navigator.GetNamespacesInScope(XmlNamespaceScope.All), idDeclarations: Identity._fragmentIds,
-                idrefDeclarations: Identity._fragmentIdrefs);
+                rootNamespaces: navigator.GetNamespacesInScope(XmlNamespaceScope.All), idDeclarations: Identity._idDeclarations,
+                idrefDeclarations: Identity._idrefDeclarations);
         }
         if (!replaying)
         {
@@ -353,6 +359,9 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
             }
             switch (_reader.NodeType)
             {
+                case XmlNodeType.DocumentType:
+                    ReadDtdIdentity();
+                    break;
                 case XmlNodeType.Element:
                 {
                     Node node = Child(XPathNodeType.Element);

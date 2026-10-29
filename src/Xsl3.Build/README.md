@@ -3,13 +3,13 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
-Version **1.1.4** includes the bounded P7F attribute-copy allocation reduction. Ordinary untyped native
-attribute copies use smaller fragments while preserving independent node identity and existing copy policies.
-The measured identity workload allocates 23.55% less across all three sizes on Linux/macOS.
-P7D validation and P7C reader-boundary corrections remain included.
+Version **1.1.5** includes the bounded P7G copied-attribute identity corrections. DTD ID/IDREF/IDREFS
+properties survive source loading and parentless copies with preserve/strip policies. Intermediate
+reader views retain identity metadata, and overlapping descriptions register each reference once.
+P7F allocation and P7D/P7C correctness fixes remain included.
 Update this package with `Xsl3` and `Xsl3.Cli`, and regenerate
 saved stylesheets using matching packages. Streaming remains unsupported; see the
-[1.1.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.4/docs/releases/1.1.4.md).
+[1.1.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.5/docs/releases/1.1.5.md).
 
 ```xml
 <ItemGroup>

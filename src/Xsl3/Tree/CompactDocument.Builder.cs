@@ -126,10 +126,12 @@ namespace Xsl3.Tree
             internal bool InElement => _open[_depth - 1] != None && _doc.Kind(_open[_depth - 1]) == (int)XPathNodeType.Element;
 
             /// <param name="typed">Xsl3 (P6): keep the reader's type annotations even if it has none before it is read (a copy of a typed tree).</param>
+            /// <param name="completeDtdIdentity">XDM/XSLT 2.0+ identity, including ATTLIST-only declarations and positioned readers; false retains stock XPathDocument loading policy.</param>
             public void Read(XmlReader reader, XmlSpace space, bool keepTopLevelWhitespace = false, bool typed = false,
                 IEnumerable<KeyValuePair<string, string>>? rootNamespaces = null,
                 IReadOnlyDictionary<(string, string), (string, string)>? idDeclarations = null,
-                IEnumerable<(string, string, string, string)>? idrefDeclarations = null)
+                IEnumerable<(string, string, string, string)>? idrefDeclarations = null,
+                bool completeDtdIdentity = false)
             {
                 if (idDeclarations is { Count: > 0 })
                 {
@@ -147,6 +149,9 @@ namespace Xsl3.Tree
                 string? xmlnsUri = _nameTable.Get(XmlReservedNs.NsXmlNs);
                 Xsl3.Schema.INodeIdentityReader? identities = Xsl3.Schema.NodeIdentity.Reader(reader);
                 bool topLevelReader = reader.ReadState == ReadState.Initial;
+                // A caller may already have read past the DOCTYPE. Its declarations still
+                // belong to the reader, independently of the current event or schema types.
+                if (!topLevelReader && completeDtdIdentity) ReadDtdIdentity(reader, includeUndeclared: true);
                 // Xsl3: the elements the DTD declares with element-only content, and whether each open one is such.
                 HashSet<(string, string)>? elementOnly = null;
                 bool[] inElementOnly = System.Array.Empty<bool>();
@@ -283,23 +288,24 @@ namespace Xsl3.Tree
                                 elementOnly = declared;
                                 inElementOnly = new bool[16];
                             }
-                            foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdAttributes(reader))
-                            {
-                                (_idAttributes ??= new())[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
-                            }
-                            foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdrefAttributes(reader))
-                            {
-                                _idrefAttributes ??= new();
-                                if (!_idrefAttributes.TryGetValue((elementLocal, elementPrefix), out var list))
-                                {
-                                    _idrefAttributes[(elementLocal, elementPrefix)] = list = new();
-                                }
-                                list.Add((attributeLocal, attributePrefix));
-                            }
+                            ReadDtdIdentity(reader, includeUndeclared: completeDtdIdentity);
                             break;
                     }
                 }
                 while (reader.Read());
+            }
+
+            private void ReadDtdIdentity(XmlReader reader, bool includeUndeclared)
+            {
+                foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdAttributes(reader, includeUndeclared))
+                    (_idAttributes ??= new())[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
+                foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in DtdInfoBridge.GetIdrefAttributes(reader, includeUndeclared))
+                {
+                    _idrefAttributes ??= new();
+                    if (!_idrefAttributes.TryGetValue((elementLocal, elementPrefix), out var list))
+                        _idrefAttributes[(elementLocal, elementPrefix)] = list = new();
+                    if (!list.Contains((attributeLocal, attributePrefix))) list.Add((attributeLocal, attributePrefix));
+                }
             }
 
             public CompactDocument Finish()
@@ -526,7 +532,7 @@ namespace Xsl3.Tree
                 d._attrCount = i + 1;
                 if (_idrefs != null && element != None && _idrefs.Contains((local, prefix)))
                 {
-                    (d._idrefAttributes ??= new List<int>()).Add(i);
+                    MarkAttributeIdref();
                 }
                 if (_idAttribute is { } id && local == id.Local && prefix == id.Prefix)
                 {
@@ -567,9 +573,9 @@ namespace Xsl3.Tree
             {
                 int attribute = _doc._attrCount - 1;
                 (_doc._attrTypes ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[attribute] = type;
-                if (_doc._attrOwner[attribute] != None && Xsl3.Schema.SchemaTypes.IsIdref(type))
+                if (Xsl3.Schema.SchemaTypes.IsIdref(type))
                 {
-                    (_doc._idrefAttributes ??= new List<int>()).Add(attribute);
+                    MarkAttributeIdref();
                 }
                 if (Xsl3.Schema.SchemaTypes.IsId(type))
                 {
@@ -582,13 +588,14 @@ namespace Xsl3.Tree
                 }
             }
 
-            /// <summary>Xsl3 (P6): the attribute just added is an IDREF or IDREFS (fn:idref finds it), though untyped.</summary>
+            /// <summary>The attribute just added has is-idrefs, even while parentless or untyped.</summary>
             internal void MarkAttributeIdref()
             {
-                if (_doc._attrOwner[_doc._attrCount - 1] != None)
-                {
-                    (_doc._idrefAttributes ??= new List<int>()).Add(_doc._attrCount - 1);
-                }
+                int attribute = _doc._attrCount - 1;
+                var references = _doc._idrefAttributes ??= new List<int>();
+                // DTD declarations, type annotations and reader sidecars can describe
+                // the same current attribute. Its identity property is registered once.
+                if (references.Count == 0 || references[^1] != attribute) references.Add(attribute);
             }
 
             /// <summary>Xsl3 (P6): the attribute just added is an ID (its element can be found by its value), though untyped.</summary>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+  <Target Name="CheckIdentityInputs" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(IdentityStylesheetDirectory)/SavedIdentity.g.cs')" Text="Generate saved identity entry points with eng/verify-attribute-identity.sh first." />
+  </Target>
+  <ItemGroup>
+    <!-- Build the library normally; final linking/AOT analyzes the reachable saved runtime.
+         The compiler's unused dynamic-code paths are not standalone trimmed components. -->
+    <ProjectReference Include="../../src/Xsl3/Xsl3.csproj" GlobalPropertiesToRemove="PublishAot;PublishTrimmed" />
+    <Reference Include="$(IdentityStylesheetDirectory)/*.dll" />
+    <Compile Include="$(IdentityStylesheetDirectory)/SavedIdentity.g.cs" Link="SavedIdentity.g.cs" />
+    <Compile Include="../Xsl3.Tests/CopiedAttributeIdentityFixtures.cs" Link="CopiedAttributeIdentityFixtures.cs" />
+  </ItemGroup>
+</Project>

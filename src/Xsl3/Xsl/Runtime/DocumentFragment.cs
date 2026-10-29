@@ -51,9 +51,17 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         while (true)
         {
             if (input is SelectedReader selected) return selected.Ids;
-            if (input is not XmlWrappingReader wrapping) return null;
+            if (input is not XmlWrappingReader wrapping) break;
             input = wrapping.InnerReader;
         }
+        // Before ReadSubtree hides the parser, capture the declarations it already read.
+        // ATTLIST-only declarations are authoritative even without an ELEMENT declaration.
+        var declarations = DtdInfoBridge.GetIdAttributes(input, includeUndeclared: true);
+        if (declarations.Count == 0) return null;
+        var result = new Dictionary<(string, string), (string, string)>();
+        foreach (var (elementLocal, elementPrefix, attributeLocal, attributePrefix) in declarations)
+            result[(elementLocal, elementPrefix)] = (attributeLocal, attributePrefix);
+        return result;
     }
 
     internal static IReadOnlySet<(string, string, string, string)>? IdrefDeclarations(XmlReader input)
@@ -61,9 +69,11 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         while (true)
         {
             if (input is SelectedReader selected) return selected.Idrefs;
-            if (input is not XmlWrappingReader wrapping) return null;
+            if (input is not XmlWrappingReader wrapping) break;
             input = wrapping.InnerReader;
         }
+        var declarations = DtdInfoBridge.GetIdrefAttributes(input, includeUndeclared: true);
+        return declarations.Count == 0 ? null : new HashSet<(string, string, string, string)>(declarations);
     }
     // Check the supplied URI before System.Uri or a provider can normalize path separators.
     // A literal backslash is not a URI-reference character; its encoded form remains valid.
@@ -201,9 +211,9 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
                         (knownValues ??= new(StringComparer.Ordinal)).Add(Xdm.Lexical.Collapse(attribute.Value));
                     // Known attribute properties stay local to this element. A lookup by value
                     // does not reveal which attribute, if any, supplied that value to the provider.
-                    if (attribute is Tree.CompactNavigator { IsIdAttribute: true } && !typedId)
+                    if (typedId || attribute is Tree.CompactNavigator { IsIdAttribute: true })
                         (ids ??= new()).Add(name);
-                    if (attribute is Tree.CompactNavigator { IsIdrefAttribute: true } && (type == null || !SchemaTypes.IsIdref(type)))
+                    if (attribute is Tree.CompactNavigator { IsIdrefAttribute: true } || type != null && SchemaTypes.IsIdref(type))
                         (idrefs ??= new()).Add(name);
                     if (element is not Tree.CompactNavigator && probe.MoveToId(attribute.Value) && probe.IsSamePosition(element))
                         (lookups ??= new(StringComparer.Ordinal)).Add(attribute.Value);
@@ -231,7 +241,9 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         internal IDictionary<string, string>? Namespaces => _namespaces;
         internal IReadOnlyDictionary<(string, string), (string, string)> Ids => ids;
         internal IReadOnlySet<(string, string, string, string)> Idrefs => idrefs;
-        public NodeIdentity? CurrentIdentity => identities != null && identities.TryGetValue(_element, out var identity) ? identity : null;
+        public NodeIdentity? CurrentIdentity => identities != null
+            ? identities.GetValueOrDefault(_element)
+            : NodeIdentity.Reader(source)?.CurrentIdentity;
         public override bool Read()
         {
             bool result = base.Read();

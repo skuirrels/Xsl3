@@ -1,0 +1,7 @@
+case,declaration,copy_validation,baseline_net10_passed,baseline_net10_failed,candidate_net10_passed,candidate_net10_failed,disposition,id_count,idref_count,oracle
+ID-preserve,ID,preserve,9,46,55,0,confirmed runtime identity loss; corrected,1,0,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
+ID-strip,ID,strip,9,46,55,0,confirmed runtime identity loss; corrected,1,0,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
+IDREF-preserve,IDREF,preserve,1,54,55,0,confirmed runtime identity loss; corrected,0,1,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
+IDREF-strip,IDREF,strip,1,54,55,0,confirmed runtime identity loss; corrected,0,1,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
+IDREFS-preserve,IDREFS,preserve,1,54,55,0,confirmed runtime identity loss; corrected,0,1,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
+IDREFS-strip,IDREFS,strip,1,54,55,0,confirmed runtime identity loss; corrected,0,1,"XSLT 3.0 sections 4.5, 5.7.1, 25.4.1.1"
