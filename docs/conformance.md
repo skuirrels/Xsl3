@@ -1,5 +1,11 @@
 # Conformance
 
+The [P7F attribute-copy candidate](p7f-identity-allocation-2026-10-29.md) passes managed Release/Debug,
+upstream/differential, ordinary conformance, raw/reviewed S1/S2, strict/unstreamed, saved-style and
+NativeAOT regression gates. Existing fixtures, baselines and feature claims are unchanged; strict-forward
+remains 2,695/16/1 with zero unmatched expected errors. The report distinguishes passing functional
+checks from unmet memory targets and retains the unrelated DTD identity finding for later investigation.
+
 The [P7E memory-budget audit](p7e-memory-diagnosis-2026-10-28.md) closes without runtime, fixture,
 baseline or feature-claim changes. Its separate diagnostic job validates measurements; the original
 20 MiB acceptance failures remain visible. Version 1.1.3 conformance evidence below is unchanged.

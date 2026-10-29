@@ -1,5 +1,17 @@
 # Performance
 
+## P7F identity allocation reduction, 2026-10-29
+
+The [bounded P7F candidate](p7f-identity-allocation-2026-10-29.md) reduces allocation for ordinary
+untyped native attribute copies. Paired NativeAOT identity runs show **23.55% lower allocation** at
+10 MiB, 200 MiB and 2 GiB on both Linux x64 and macOS ARM64. Separate uninstrumented median timings
+improve **4.53–7.21%**. All 72 comparison outputs validate; those diagnostics disable RSS rejection
+explicitly and do not satisfy a memory gate. Full 2 GiB / 200 MiB matrices pass 16/16 on both platforms.
+The 200 MiB / 20 MiB matrix remains 0/16 on Linux and records 12/16 on macOS, including an additional
+accumulator outer-RSS failure retained alongside passing paired repeats. Original P7E results remain below.
+The ordinary performance gate and regression checks pass; see the report for exact medians, failed gates,
+source/image hashes and scope limits. Version 1.1.3 remains published until a separately authorized release.
+
 ## P7E memory-budget audit, 2026-10-28
 
 The source-frozen 1.1.3 audit reproduces 0/16 Linux x64 and 13/16 macOS ARM64 budget passes at

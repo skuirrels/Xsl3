@@ -327,6 +327,14 @@ namespace Xsl3.Schema
                     {
                         throw new XdmException("XTTE0950", $"The attribute {node.Name} has namespace-sensitive content, so it can't be copied with validation=\"preserve\" without its element");
                     }
+                    // Ordinary native attributes have no annotation or identity policy to
+                    // apply. Keep a distinct parentless copy without building child buffers.
+                    // xml:id still goes through the builder's normalization policy.
+                    if (node is CompactNavigator { SchemaInfo: null, IsIdAttribute: false, IsIdrefAttribute: false }
+                            or Streaming.StreamedNavigator { SchemaInfo: null, IsIdAttribute: false, IsIdrefAttribute: false }
+                        && !(node.LocalName == "id" && node.NamespaceURI == QName.Ns.Xml))
+                        return Constructed(CompactDocument.UntypedAttribute(node.NameTable, node.Prefix,
+                            node.LocalName, node.NamespaceURI, node.Value), node);
                     var builder = new CompactDocument.Builder(node.NameTable, node.BaseURI, fragment: true, small: true);
                     builder.Attribute(node.Prefix, node.LocalName, node.NamespaceURI, node.Value);
                     if (type != null)

@@ -32,6 +32,11 @@ affected saved stylesheets with matching compiler/runtime packages.
 measurements retain the unmet 20 MiB target; no runtime change or patch release is proposed.
 See the [report and limits](docs/p7e-memory-diagnosis-2026-10-28.md).
 
+**P7F development candidate:** ordinary untyped attribute copies allocate smaller temporary fragments.
+The bounded identity measurements show **23.55% lower allocation** on Linux/macOS across 10 MiB–2 GiB,
+with faster measured execution and unchanged copy semantics. See the [close-out and limits](docs/p7f-identity-allocation-2026-10-29.md).
+The published release remains **1.1.3**; the 20 MiB memory target remains unmet and streaming remains unsupported.
+
 ## What works
 
 Conformance verified by [P7D CI](https://github.com/skuirrels/Xsl3/actions/runs/40607670623) and
