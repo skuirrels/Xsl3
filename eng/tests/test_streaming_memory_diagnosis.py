@@ -2,6 +2,7 @@
 import importlib.util
 import hashlib
 import io
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -32,6 +33,42 @@ class MemoryDiagnosisTests(unittest.TestCase):
                      LiveBytes=10, CommittedBytes=20, HeapSizeBytes=15,
                      FragmentedBytes=1, AvailableBytes=1024, LinuxRollup=None)
                 for i, name in enumerate(DIAG.PHASES)]
+
+    def test_mapping_snapshots_preserve_raw_evidence_without_overwriting_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'proc' / '42' / 'smaps'
+            source.parent.mkdir(parents=True)
+            data = b'Rss: 4 kB\n' * 10000
+            source.write_bytes(data)
+            output = root / 'snapshot.txt'
+            DIAG.snapshot_mappings(42, output, root / 'proc')
+            self.assertEqual(data, output.read_bytes())
+            # Exclusive output preserves evidence even if a caller accidentally reuses a name.
+            with self.assertRaises(FileExistsError):
+                DIAG.snapshot_mappings(42, output, root / 'proc')
+            self.assertEqual(data, output.read_bytes())
+
+    def test_exited_process_or_empty_mappings_cannot_leave_a_valid_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / 'snapshot.txt'
+            with self.assertRaises(FileNotFoundError):
+                DIAG.snapshot_mappings(42, output, root / 'proc')
+            self.assertFalse(output.exists())
+            source = root / 'proc' / '42' / 'smaps'
+            source.parent.mkdir(parents=True)
+            source.touch()
+            with self.assertRaises(OSError):
+                DIAG.snapshot_mappings(42, output, root / 'proc')
+            self.assertFalse(output.exists())
+
+    @unittest.skipUnless(sys.platform == 'linux', 'requires Linux procfs')
+    def test_live_linux_process_provides_mapping_rss(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'self-smaps.txt'
+            DIAG.snapshot_mappings(os.getpid(), output)
+            self.assertIn('Rss:', output.read_text())
 
     def test_complete_controlled_phases_are_valid(self):
         self.assertTrue(DIAG.validate_points(self.points(), 1024))

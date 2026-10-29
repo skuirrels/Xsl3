@@ -396,3 +396,12 @@ The CI-defined upstream gate (`category!=failing`) passes **1,654 checks per fra
 unfiltered invocation included excluded platform/active-issue cases and failed; it is retained rather
 than attributed to the candidate. Differential tests pass **394 checks per framework**.
 Final saved/native and performance qualification remain separate.
+
+Linux diagnosis now has an optional `--mapping-snapshots` mode. The external controller retains
+bounded-buffer copies of a live child's `/proc/<pid>/smaps`, with elapsed times and fingerprints.
+The selected diagnostic workflow enables this for its unchanged canonical controls; neither the
+native control image nor either original acceptance controller changes. The snapshots can attribute
+instantaneous resident mappings, not decompose a historical peak. Missing/empty snapshots remain
+visible, and a requested cohort without any successful snapshot cannot pass diagnostic validation.
+Local controller regressions pass **38 tests**, with the live Linux procfs test explicitly skipped
+on macOS; hosted verification of that test and actual mapping evidence remain required.

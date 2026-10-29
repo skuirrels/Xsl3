@@ -63,6 +63,22 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def snapshot_mappings(pid, destination, proc_root=Path('/proc')):
+    # Read from outside the native process; don't retain the mappings in either
+    # its managed heap or the launcher's pre-exec high-water mark for later runs.
+    created = False
+    try:
+        with (proc_root / str(pid) / 'smaps').open('rb') as source, destination.open('xb') as output:
+            created = True
+            shutil.copyfileobj(source, output, length=64 * 1024)
+        if destination.stat().st_size == 0:
+            raise OSError('Process mappings are empty; the child may have exited')
+    except OSError:
+        if created:
+            destination.unlink(missing_ok=True)
+        raise
+
+
 def replace_once(text, before, after):
     if text.count(before) != 1:
         raise ValueError('Source anchor is missing or ambiguous: ' + before)
@@ -149,7 +165,8 @@ def measure(args):
         workload=args.workload,
         host=platform.platform(), executable=str(args.native.resolve()),
         executable_sha256=sha256_file(args.native),
-        instrumented=args.instrumented, heap_limit=args.heap_limit, runs=[], failures=[])
+        instrumented=args.instrumented, heap_limit=args.heap_limit,
+        mapping_snapshots_requested=args.mapping_snapshots, runs=[], failures=[])
     report['launcher_peak_bytes_before_first_child'] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
     write_json(directory / 'report.json', report)
     for size in args.sizes:
@@ -162,14 +179,28 @@ def measure(args):
             command = [str(args.native.resolve()), 'stream-probe', args.workload, 'stream', str(size), '0']
             stem = directory / f'{args.workload}-{size}-{round_number}'
             timed_out = False
+            snapshots = []
+            next_snapshot = 0
+            snapshot_times = (0.0, 0.25, 1.0, 5.0)
             with stem.with_suffix('.stdout').open('w') as stdout, stem.with_suffix('.stderr').open('w') as stderr:
                 child = subprocess.Popen(command, stdout=stdout, stderr=stderr, env=env)
-                deadline = time.monotonic() + args.timeout_seconds
+                started = time.monotonic()
+                deadline = started + args.timeout_seconds
                 try:
                     while True:
                         pid, status, usage = os.wait4(child.pid, os.WNOHANG)
                         if pid:
                             break
+                        if args.mapping_snapshots and next_snapshot < len(snapshot_times) and time.monotonic() - started >= snapshot_times[next_snapshot]:
+                            path = stem.with_name(stem.name + f'-mappings-{next_snapshot + 1}.txt')
+                            snapshot = dict(elapsed_seconds=time.monotonic() - started, file=path.name)
+                            try:
+                                snapshot_mappings(child.pid, path)
+                                snapshot['sha256'] = sha256_file(path)
+                            except OSError as error:
+                                snapshot['error'] = str(error)
+                            snapshots.append(snapshot)
+                            next_snapshot += 1
                         if time.monotonic() >= deadline:
                             timed_out = True
                             try:
@@ -187,12 +218,16 @@ def measure(args):
             outer = usage.ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
             item = dict(input_bytes=size, round=round_number, command=command, exit_code=child.returncode,
                         outer_peak_bytes=outer, timed_out=timed_out, valid=False)
+            if args.mapping_snapshots:
+                item['mapping_snapshots'] = snapshots
             try:
                 result = json.loads(stem.with_suffix('.stdout').read_text())
                 item['result'] = result
                 valid = (not timed_out and child.returncode == 0 and outer > 0
                          and gate.valid_measurement(result, args.workload, 'stream', size, 0, True)
                          and result['AvailableManagedBytes'] <= args.heap_limit)
+                if args.mapping_snapshots:
+                    valid = valid and any('sha256' in snapshot for snapshot in snapshots)
                 if args.instrumented:
                     lines = [line[len(MARKER):] for line in stem.with_suffix('.stderr').read_text().splitlines() if line.startswith(MARKER)]
                     points = json.loads(lines[0]) if len(lines) == 1 else None
@@ -222,9 +257,12 @@ def main():
     run.add_argument('--output', type=Path, required=True);run.add_argument('--sizes', type=int, nargs='+', required=True)
     run.add_argument('--rounds', type=int, required=True);run.add_argument('--heap-limit', type=int, required=True)
     run.add_argument('--timeout-seconds', type=float, default=900);run.add_argument('--instrumented', action='store_true')
+    run.add_argument('--mapping-snapshots', action='store_true', help='Linux only: retain external instantaneous smaps snapshots, never a decomposition of the historical peak')
     args = parser.parse_args()
     if args.command == 'prepare':
         prepare(args);return 0
+    if args.mapping_snapshots and sys.platform != 'linux':
+        parser.error('mapping snapshots require Linux /proc')
     if (args.rounds <= 0 or args.heap_limit <= 0 or not math.isfinite(args.timeout_seconds)
             or args.timeout_seconds <= 0 or any(s <= 0 for s in args.sizes)
             or len(set(args.sizes)) != len(args.sizes) or not args.native.is_file()):
