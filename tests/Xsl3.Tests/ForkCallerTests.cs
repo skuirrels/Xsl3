@@ -16,6 +16,100 @@ public class ForkCallerTests
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
 
     [Fact]
+    public void ProductionRequestsBetweenTheSourceCheckAndWaitAreNotLost()
+    {
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var caller = new ForkCaller(cancellation.Token);
+        using var checkedSource = new ManualResetEventSlim();
+        using var notified = new ManualResetEventSlim();
+        using var delivered = new ManualResetEventSlim();
+        Exception? failure = null;
+        bool checkedOnce = false;
+        int requested = 0;
+        caller.Start(1);
+        var worker = new Thread(() => {
+            try
+            {
+                checkedSource.Wait(cancellation.Token);
+                Interlocked.Exchange(ref requested, 1);
+                caller.NotifyProduction();
+                notified.Set();
+                delivered.Wait(cancellation.Token);
+            }
+            catch (Exception error) { failure = error; }
+            finally { caller.WorkerDone(); }
+        }) { IsBackground = true };
+        worker.Start();
+        try
+        {
+            caller.Pump(() => {
+                if (!checkedOnce)
+                {
+                    checkedOnce = true;
+                    checkedSource.Set();
+                    notified.Wait(cancellation.Token);
+                    // The source check completed before demand arrived. The pump must
+                    // recheck instead of waiting for a notification already delivered.
+                    return false;
+                }
+                if (Interlocked.Exchange(ref requested, 0) == 0) return false;
+                delivered.Set();
+                return true;
+            });
+            Assert.True(delivered.IsSet);
+        }
+        finally { cancellation.Cancel(); Assert.True(worker.Join(Deadline)); }
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void AnInvokingThreadCallbackCanReadItsOwnForkInput()
+    {
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var caller = new ForkCaller(cancellation.Token);
+        int thread = Environment.CurrentManagedThreadId, reads = 0;
+        var values = new List<int>();
+        ForkProngs.Run(() => {
+            Assert.Equal(thread, Environment.CurrentManagedThreadId);
+            return ++reads <= 100 ? new Item(reads) : null;
+        }, new Action<StreamTee<Item>.Reader, CancellationToken>[] {
+            (reader, token) => {
+                while (caller.Invoke(reader.Read, token) is { } item) values.Add(item.Number);
+            },
+        }, 1, cancellation.Token, caller);
+        Assert.Equal(Enumerable.Range(1, 100), values);
+    }
+
+    [Fact]
+    public void OutputCallbacksCanRunWhileTheInputRingIsFull()
+    {
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var caller = new ForkCaller(cancellation.Token);
+        using var firstRead = new ManualResetEventSlim();
+        int reads = 0, count = 0;
+        bool callbackRan = false;
+        ForkProngs.Run(() => ++reads <= 100 ? new Item(reads) : null,
+            new Action<StreamTee<Item>.Reader, CancellationToken>[] {
+                (reader, _) => {
+                    Assert.Equal(1, reader.Read()!.Number);
+                    count++;
+                    firstRead.Set();
+                    while (reader.Read() != null) count++;
+                },
+                (reader, token) => {
+                    firstRead.Wait(token);
+                    caller.Invoke(() => {
+                        Assert.Equal(1, reads);
+                        callbackRan = true;
+                    }, token);
+                    while (reader.Read() != null) { }
+                },
+            }, 1, cancellation.Token, caller);
+        Assert.True(callbackRan);
+        Assert.Equal(100, count);
+    }
+
+    [Fact]
     public void InputAndOutputRequestsRunOnTheInvokingThread()
     {
         using var cancellation = new CancellationTokenSource(Deadline);

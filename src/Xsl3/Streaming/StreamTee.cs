@@ -9,12 +9,14 @@ namespace Xsl3.Streaming;
 /// <summary>
 /// Shares immutable source events among independently advancing prongs. The ring owns at most
 /// the configured capacity of events; each reader may additionally retain its current event.
-/// The requesting prongs take turns reading the source, so no producer thread is required.
+/// Requesting prongs take turns producing, or signal the invoking thread when caller-owned
+/// production is configured. Neither mode requires an additional producer thread.
 /// </summary>
 internal sealed class StreamTee<T> : IDisposable where T : class
 {
     private readonly object _gate = new();
     private readonly Func<Memory<T?>, Batch> _readSource;
+    private readonly ForkCaller? _productionCaller;
     private readonly T?[] _staging;
     private readonly CancellationToken _cancellation;
     private readonly CancellationTokenRegistration _registration;
@@ -24,7 +26,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly Reader[] _readers;
     private int _active, _highWaterMark, _waiting, _producerThread;
     private long _first, _next;
-    private bool _producing, _complete, _disposed;
+    private bool _producing, _productionRequested, _complete, _disposed;
     private ExceptionDispatchInfo? _fault;
 
     internal readonly record struct Batch(int Count, bool Complete, ExceptionDispatchInfo? Fault = null);
@@ -44,12 +46,14 @@ internal sealed class StreamTee<T> : IDisposable where T : class
 
     // A batch can fill only space reserved from this same ring. Staged payloads plus
     // published payloads never exceed capacity; staging adds only a reference array.
-    internal StreamTee(Func<Memory<T?>, Batch> readSource, int readers, int capacity, CancellationToken cancellation = default)
+    internal StreamTee(Func<Memory<T?>, Batch> readSource, int readers, int capacity, CancellationToken cancellation = default,
+        ForkCaller? productionCaller = null)
     {
         ArgumentNullException.ThrowIfNull(readSource);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(readers);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         _readSource = readSource;
+        _productionCaller = productionCaller;
         _cancellation = cancellation;
         _events = new T?[capacity];
         _staging = new T?[capacity];
@@ -110,18 +114,27 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         // Skipped events release backpressure before requesting more
                         // source data, including when a predicate or cancellation fails.
                         ReleaseHead();
+                        NotifyProduction();
                         Monitor.PulseAll(_gate);
                     }
                 }
                 _fault?.Throw();
                 if (_complete) return null;
+                if (_producing && _producerThread == Environment.CurrentManagedThreadId)
+                    throw new InvalidOperationException("A stream tee source cannot recursively request its own input");
+                if (_productionCaller != null && !_productionCaller.IsCurrentThread)
+                {
+                    if (!_productionRequested)
+                    {
+                        _productionRequested = true;
+                        _productionCaller.NotifyProduction();
+                    }
+                    WaitForPublication();
+                    continue;
+                }
                 if (_producing || _next - _first == _events.Length)
                 {
-                    if (_producing && _producerThread == Environment.CurrentManagedThreadId)
-                        throw new InvalidOperationException("A stream tee source cannot recursively request its own input");
-                    _waiting++;
-                    try { Monitor.Wait(_gate); }
-                    finally { _waiting--; }
+                    WaitForPublication();
                     continue;
                 }
                 available = _events.Length - (int)(_next - _first);
@@ -129,47 +142,86 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                 _producerThread = Environment.CurrentManagedThreadId;
             }
 
-            // Source I/O cannot hold the ring lock: slower readers must be able to consume
-            // buffered events or detach while another prong is waiting for source data.
-            Batch batch = default;
-            ExceptionDispatchInfo? fault = null;
-            try
+            Produce(available);
+        }
+    }
+
+    private void WaitForPublication()
+    {
+        _waiting++;
+        try { Monitor.Wait(_gate); }
+        finally { _waiting--; }
+    }
+
+    // Called by the invoking thread's pump, without its queue lock. Consumers only
+    // signal demand; a refill needs no queued closure or blocked callback request.
+    internal bool ProduceRequested()
+    {
+        if (_productionCaller == null || !_productionCaller.IsCurrentThread)
+            throw new InvalidOperationException("A caller-owned tee must produce on its invoking thread");
+        int available;
+        lock (_gate)
+        {
+            if (!_productionRequested || _producing || _complete || _disposed || _active == 0
+                || _cancellation.IsCancellationRequested || _next - _first == _events.Length) return false;
+            available = _events.Length - (int)(_next - _first);
+            _producing = true;
+            _producerThread = Environment.CurrentManagedThreadId;
+        }
+        Produce(available);
+        return true;
+    }
+
+    // Only the pump's own synchronization signal runs here, never I/O or a prong callback.
+    private void NotifyProduction()
+    {
+        if (_productionRequested && !_producing && _next - _first < _events.Length)
+            _productionCaller?.NotifyProduction();
+    }
+
+    private void Produce(int available)
+    {
+        // Source I/O cannot hold the ring lock: slower readers must be able to consume
+        // buffered events or detach while another prong is waiting for source data.
+        Batch batch = default;
+        ExceptionDispatchInfo? fault = null;
+        try
+        {
+            batch = _readSource(_staging.AsMemory(0, available));
+            if (batch.Count < 0 || batch.Count > available || batch.Count == 0 && !batch.Complete && batch.Fault == null)
+                throw new InvalidOperationException("A stream tee source batch must fit its reserved space and make progress");
+            for (int i = 0; i < batch.Count; i++)
+                if (_staging[i] == null) throw new InvalidOperationException("A stream tee source batch cannot contain null events");
+        }
+        catch (Exception error)
+        { fault = ExceptionDispatchInfo.Capture(error); }
+        finally
+        {
+            lock (_gate)
             {
-                batch = _readSource(_staging.AsMemory(0, available));
-                if (batch.Count < 0 || batch.Count > available || batch.Count == 0 && !batch.Complete && batch.Fault == null)
-                    throw new InvalidOperationException("A stream tee source batch must fit its reserved space and make progress");
-                for (int i = 0; i < batch.Count; i++)
-                    if (_staging[i] == null) throw new InvalidOperationException("A stream tee source batch cannot contain null events");
-            }
-            catch (Exception error)
-            { fault = ExceptionDispatchInfo.Capture(error); }
-            finally
-            {
-                lock (_gate)
+                _producing = false;
+                _productionRequested = false;
+                _producerThread = 0;
+                if (!_disposed)
                 {
-                    _producing = false;
-                    _producerThread = 0;
-                    if (!_disposed)
+                    if (fault != null) { _fault = fault; _complete = true; }
+                    else if (_active == 0) _complete = true;
+                    else
                     {
-                        if (fault != null) { _fault = fault; _complete = true; }
-                        else if (_active == 0) _complete = true;
-                        else
+                        for (int i = 0; i < batch.Count; i++)
                         {
-                            for (int i = 0; i < batch.Count; i++)
-                            {
-                                int slot = (int)(_next % _events.Length);
-                                _events[slot] = _staging[i];
-                                _remaining[slot] = _active;
-                                _next++;
-                            }
-                            _highWaterMark = Math.Max(_highWaterMark, (int)(_next - _first));
-                            _fault = batch.Fault;
-                            _complete = batch.Complete || batch.Fault != null;
+                            int slot = (int)(_next % _events.Length);
+                            _events[slot] = _staging[i];
+                            _remaining[slot] = _active;
+                            _next++;
                         }
+                        _highWaterMark = Math.Max(_highWaterMark, (int)(_next - _first));
+                        _fault = batch.Fault;
+                        _complete = batch.Complete || batch.Fault != null;
                     }
-                    Array.Clear(_staging);
-                    Monitor.PulseAll(_gate);
                 }
+                Array.Clear(_staging);
+                Monitor.PulseAll(_gate);
             }
         }
     }
@@ -195,6 +247,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             _active--;
             for (; position < _next; position++) _remaining[(int)(position % _events.Length)]--;
             ReleaseHead();
+            NotifyProduction();
             Monitor.PulseAll(_gate);
         }
     }

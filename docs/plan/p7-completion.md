@@ -526,3 +526,31 @@ I/O/output ownership, declaration-order faults and cancellation/lifetime contrac
 
 Original Linux push/throughput gates, the failed 1 GB paired comparisons, actual-forwarding evidence,
 remaining runtime/integration requirements, final review, merge and release remain open. P7 is active.
+
+### Caller-owned fork production
+
+Fork consumers now signal input demand to the invoking thread's existing callback pump. The pump
+refills the tee directly outside both synchronization gates, avoiding a synchronous queued closure
+and worker acknowledgement for every source batch. A wake generation prevents requests arriving
+between the source check and `Monitor.Wait` from being lost. Standalone tees retain their original
+self-producing behavior. The configured 64-event capacity, source/output ownership, accepted-prefix
+faults, declaration-order error selection and cancellation/lifetime rules are unchanged.
+
+Five additional checks cover the missed-wakeup interval, an invoking-thread callback reading fork
+input, callback service while the ring is full, and caller-owned accepted-prefix faults at capacities
+one and seven. The focused suites pass **47 checks on each framework**. Complete Release and Debug
+units pass **4,418 on .NET 10 / 4,061 on .NET 8**, per configuration. Full strict Debug and Release
+legacy/saved-sampling exports retain **2,695/16/1**, zero unmatched error codes and passing frozen
+inventory audits. Evidence is under `artifacts/p7-completion/caller-pump-*`.
+
+The fresh native image is
+`5a3f784403333eb49028109875fc57b58bbca38b750c4dd88e23e5a96f4e6238`; all 32 generated stylesheets
+match the retained attribute candidate byte-for-byte. A serial, alternating-image 100 MB fork
+comparison validates all twelve output fingerprints under the same 4 GiB heap guard. The retained
+image's stream median is **9,405.116 ms** (range 8,216.923–9,497.366); the candidate is **7,641.989 ms**
+(7,253.895–7,781.896), an observed **18.75% reduction**. Tree medians are respectively 1,313.767 and
+1,151.393 ms. Other host work was active; these observations require confirmation and are not an
+isolated-machine speedup claim. The candidate's **6.637 stream/tree ratio still fails** the original
+no-slowdown target. Raw trials and both executable hashes are retained in
+`artifacts/p7-completion/caller-pump-paired-100mb/`. Complete current-source memory, seven-workload
+throughput and hosted qualification remain required; this optimization does not complete P7.

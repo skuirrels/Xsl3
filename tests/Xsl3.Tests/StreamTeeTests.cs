@@ -348,6 +348,47 @@ public class StreamTeeTests
         Assert.Equal(1, calls); Assert.Equal(0, tee.BufferedCount);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    public void CallerOwnedProductionWaitsForDemandAndPublishesThePrefixBeforeFailure(int capacity)
+    {
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var caller = new ForkCaller(cancellation.Token);
+        int owner = Environment.CurrentManagedThreadId, next = 0;
+        var failure = new IOException("caller-owned input failure");
+        using var tee = new StreamTee<Event>(destination => {
+            Assert.Equal(owner, Environment.CurrentManagedThreadId);
+            int count = Math.Min(destination.Length, 3 - next);
+            for (int i = 0; i < count; i++) destination.Span[i] = new(++next);
+            return new(count, next == 3, next == 3 ? ExceptionDispatchInfo.Capture(failure) : null);
+        }, 2, capacity, cancellation.Token, productionCaller: caller);
+        Assert.False(tee.ProduceRequested());
+        Assert.Equal(0, next);
+        caller.Start(2);
+        var errors = new ConcurrentQueue<Exception>();
+        Thread Read(int index) => Start(() => {
+            try
+            {
+                using var reader = tee.GetReader(index);
+                for (int i = 1; i <= 3; i++) Assert.Equal(i, reader.Read()!.Number);
+                Assert.Same(failure, Assert.Throws<IOException>(() => reader.Read()));
+            }
+            finally { caller.WorkerDone(); }
+        }, errors);
+        Thread first = Read(0), second = Read(1);
+        try
+        {
+            caller.Pump(tee.ProduceRequested);
+            Join(first); Join(second);
+            Assert.Empty(errors);
+            Assert.Equal(3, next);
+            Assert.InRange(tee.HighWaterMark, 1, capacity);
+            Assert.Equal(0, tee.BufferedCount);
+        }
+        finally { cancellation.Cancel(); tee.Dispose(); Join(first); Join(second); }
+    }
+
     [Fact]
     public void SkippingBufferedEventsPreservesTheOtherReadersInputAndStopsAtTheMatch()
     {
