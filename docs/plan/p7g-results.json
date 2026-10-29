@@ -1,0 +1,768 @@
+{
+  "phase": "P7G",
+  "status": "complete: bounded implementation and local validation; candidate awaiting PR merge and release",
+  "branch": "feature/p7g-attribute-identity-contracts",
+  "baseline_version": "1.1.4",
+  "baseline_commit": "09af4ab84766dffc058a2c20c58c2d26795db843",
+  "branch_base": "0fa19cdc3a4e048b7664effe15ba987f57687ad5",
+  "implementation_commit": "816e6f564d26c2b558a0454816223e55881a9dc7",
+  "pull_request": "https://github.com/skuirrels/Xsl3/pull/25",
+  "runtime_sha256": {
+    "src/Xsl3/Streaming/StreamedDocument.cs": "4d043f188d5b44ba329a2ec8ae3384d2c46ca19104d2942e899704334a307c77",
+    "src/Xsl3/Streaming/StreamedNavigator.cs": "3419f91516be3052bd41dba3b9605c6b64d4273e0f7e9b78b454c6181771a1e4",
+    "src/Xsl3/Tree/CompactDocument.Builder.cs": "5925749f55b38fb9db9ba33d0d77a81412f188307de5a1ec9866bda5ca0fb8c7",
+    "src/Xsl3/Tree/CompactDocument.cs": "2c26d8d2cf2cdb5bec80c1bb5be1ebed4a40cf7a19defe9743056ce66093dac2",
+    "src/Xsl3/Xdm/XdmValue.cs": "f697e733567ae405ed8bb9f67be36f943b46abee062a40eb297b538fa5cf0dda",
+    "src/Xsl3/Xsl/Runtime/DocumentFragment.cs": "b8d459587a88b24c1189030e5811945448bc45f02ec853343410ec67e5e44135",
+    "src/Xsl3/Xsl/Runtime/XmlQueryContext.cs": "491b9b72110cc69b9ec536c79f5c27cbb2199d63aacba9fdf7699210bb7e017c"
+  },
+  "contracts": {
+    "case_inventory": {
+      "path": "docs/plan/p7g-identity-cases.csv",
+      "sha256": "0b9ebf38911741496db57822d831c40730d3c6fe5133ce7ae3d143d282b954bb"
+    },
+    "baseline_net10": {
+      "IDREFS-preserve": {
+        "passed": 1,
+        "failed": 54
+      },
+      "IDREFS-strip": {
+        "passed": 1,
+        "failed": 54
+      },
+      "ID-strip": {
+        "passed": 9,
+        "failed": 46
+      },
+      "IDREF-preserve": {
+        "passed": 1,
+        "failed": 54
+      },
+      "ID-preserve": {
+        "passed": 9,
+        "failed": 46
+      },
+      "IDREF-strip": {
+        "passed": 1,
+        "failed": 54
+      }
+    },
+    "candidate_net10": {
+      "IDREFS-preserve": {
+        "passed": 55,
+        "failed": 0
+      },
+      "IDREF-strip": {
+        "passed": 55,
+        "failed": 0
+      },
+      "IDREF-preserve": {
+        "passed": 55,
+        "failed": 0
+      },
+      "ID-strip": {
+        "passed": 55,
+        "failed": 0
+      },
+      "IDREFS-strip": {
+        "passed": 55,
+        "failed": 0
+      },
+      "ID-preserve": {
+        "passed": 55,
+        "failed": 0
+      }
+    },
+    "net10_total": 330,
+    "net8_total": 234,
+    "baseline_net10_failed": 308,
+    "baseline_net8_failed": 216
+  },
+  "full_units": {
+    "Release": {
+      "net10.0": 4040,
+      "net8.0": 3783
+    },
+    "Debug": {
+      "net10.0": 4040,
+      "net8.0": 3783
+    }
+  },
+  "conformance": {
+    "ordinary": {
+      "summary": "# xslt30-test (XSLT 3.0 profile): 8850 passed, 18 failed, 41 not run; 99.8% of those run (34 expected errors passed without a matching code)",
+      "path": "artifacts/p7g-identity/gates/w3c-ordinary-Release-reports/xslt30-run.md",
+      "sha256": "8406ae63eb5c797120ae08d0431d9ba74be1a72eb50a7270e3383ba72b0aad05"
+    },
+    "qt3": {
+      "summary": "# QT3 (XPath 3.1): 21884 passed, 0 failed, 99 not run; 100.0% of those run (25 passes raised a different error code)",
+      "path": "artifacts/p7g-identity/gates/w3c-ordinary-Release-reports/qt3-run.md",
+      "sha256": "85d0ff1f31388e21570da40e7884a34e2dfceb5a8f7bc1c2d90087c734e3d178"
+    },
+    "xslt20": {
+      "summary": "# xslt30-test (XSLT 2.0 profile): 4590 passed, 8 failed, 10 not run; 99.8% of those run (7 expected errors passed without a matching code)",
+      "path": "artifacts/p7g-identity/gates/w3c-ordinary-Release-reports/xslt30-run-2.0.md",
+      "sha256": "640c54b6760e53890c5ef0a3b179f84daf79a698f716f1d052e4b7bf119780f8"
+    },
+    "strict": {
+      "summary": "# xslt30-test (XSLT 3.0 streaming development, STRICT FORWARD INPUTS profile): 2695 passed, 16 failed, 1 not run; 99.4% of those run (0 expected errors passed without a matching code)",
+      "path": "artifacts/p7g-identity/gates-final-profiles/profile-release-strm-strict-Release-reports/xslt30-run-strm-strict.md",
+      "sha256": "cf663476cba4254c2e65c53a16bf52f134ce9c3a388853dfe462a5f1a75cfc64"
+    },
+    "unstreamed": {
+      "summary": "# xslt30-test (XSLT 3.0 streaming development, UNSTREAMED profile): 2693 passed, 18 failed, 1 not run; 99.3% of those run (1 expected errors passed without a matching code)",
+      "path": "artifacts/p7g-identity/gates-final-profiles/profile-release-strm-unstreamed-Release-reports/xslt30-run-strm.md",
+      "sha256": "13a3e49ac277516a7a70b5ef479b81fd1727eec69ef8ee853d00c7d0f76efac2"
+    }
+  },
+  "profile_gates": [
+    {
+      "name": "solution-release",
+      "command": [
+        "dotnet",
+        "build",
+        "Xsl3.slnx",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:UseSharedCompilation=false"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "units-release",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Tests",
+        "-c",
+        "Release",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates/units-Release",
+        "--no-build"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "units-debug",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Tests",
+        "-c",
+        "Debug",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates/units-Debug"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "Xsl3.Upstream.Tests",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Upstream.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates/Xsl3.Upstream.Tests",
+        "--filter",
+        "category!=failing"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "Xsl3.Differential",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.Differential",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates/Xsl3.Differential"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "w3c-ordinary",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates/w3c-ordinary"
+      ],
+      "environment": {
+        "XSL3_W3C_SAVED": "10"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "reviewed-fixtures",
+      "command": [
+        "python3",
+        "eng/prepare-streamability-suite.py",
+        "--suite",
+        "external/xslt30-test",
+        "--output",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/reviewed-final"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-sandp",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-sandp"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-sandp-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-s2",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-s2"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-sandp-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-sandp-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/reviewed-final",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-sandp-reviewed-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-s2-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-s2-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/reviewed-final"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-strm-strict",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-strm-strict"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "strm",
+        "XSL3_STREAM_STRICT": "1"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-release-strm-unstreamed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Release",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Release-strm-unstreamed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "strm"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "w3c-debug-build",
+      "command": [
+        "dotnet",
+        "build",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "-m:1",
+        "-p:UseSharedCompilation=false"
+      ],
+      "environment": {},
+      "exit_code": 0
+    },
+    {
+      "name": "profile-debug-sandp-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Debug-sandp-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "sandp-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/reviewed-final",
+        "XSL3_XSLT30_ASSESSMENTS": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Debug-sandp-reviewed-assessments.jsonl"
+      },
+      "exit_code": 0
+    },
+    {
+      "name": "profile-debug-s2-reviewed",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/Xsl3.W3C",
+        "-c",
+        "Debug",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~Xslt30Conformance",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/gates-final-profiles/Debug-s2-reviewed"
+      ],
+      "environment": {
+        "XSL3_XSLT30_PROFILE": "s2-reviewed",
+        "XSL3_XSLT30_REVIEWED": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/reviewed-final"
+      },
+      "exit_code": 0
+    }
+  ],
+  "allocation": {
+    "report": {
+      "path": "artifacts/p7g-identity/allocation-final/regression.json",
+      "sha256": "a68a11d2a1b933d85dc600d1e0a087b0701cdce74a5a588c358b85bfe7c0404d"
+    },
+    "driver": {
+      "path": "artifacts/p7g-identity/check-allocation-final.py",
+      "sha256": "9d589252692735df27dec685ca4eeb3d6bc205e63b6eba816f3695e12c8739cd"
+    },
+    "baseline_image": {
+      "path": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/baseline-diagnostic/bin/Xsl3.StreamingProbe.Native",
+      "sha256": "7aa92b1fa8da2fc18a1bdcdfb193644b1db5a3040784c6bf625c24253d442489"
+    },
+    "candidate_image": {
+      "path": "/Users/tyomidi/Source/Xsl3/artifacts/p7g-identity/candidate-diagnostic-final/bin/Xsl3.StreamingProbe.Native",
+      "sha256": "0909264a55c4e359dc4b3cc2d7f0e38c1b22014481b5a819b8b5bb93578afb57"
+    },
+    "comparison": [
+      {
+        "input_bytes": 10485760,
+        "median_allocated_bytes": {
+          "baseline": 568261800,
+          "candidate": 568261864
+        },
+        "ratio": 1.0000001126241462,
+        "passed": true
+      },
+      {
+        "input_bytes": 209715200,
+        "median_allocated_bytes": {
+          "baseline": 11364765208,
+          "candidate": 11364765608
+        },
+        "ratio": 1.0000000351965037,
+        "passed": true
+      },
+      {
+        "input_bytes": 2147483648,
+        "median_allocated_bytes": {
+          "baseline": 116374962760,
+          "candidate": 116374962824
+        },
+        "ratio": 1.0000000005499465,
+        "passed": true
+      }
+    ],
+    "all_processes_valid": true,
+    "memory_acceptance": false,
+    "heap_limit": 20971520,
+    "maximum_growth": 0.05
+  },
+  "ordinary_performance": {
+    "baseline": "v1.1.4",
+    "rounds": 3,
+    "rows": 40,
+    "time_geometric_mean": 0.96951536712744,
+    "maximum_allocation_ratio": 1.0011391251518833,
+    "passed": true,
+    "rows_slower_than_5_percent": [],
+    "report": {
+      "path": "artifacts/p7g-identity/performance-result.json",
+      "sha256": "f73601fc08bba9ecca6897a6267853974e008cc491dd3f304a2268932867c54c"
+    },
+    "rounds_sha256": {
+      "base-1.json": "a7df29780bd5281e50b36f9348fc47ff8ae4361cb03745138871512a6f434963",
+      "base-2.json": "3e755cd5c2ec84cba8922b33ea1d1123a1588ac7008c709413978dee10cb15ba",
+      "base-3.json": "824eaeae5dafbb095a56bf024bc80553a425991ac0866dd142240063baf1bca2",
+      "base-4.json": "add431b6b146bc0be24190dbd72968dd6715babc9e4f9851bbedf375d7650061",
+      "base-5.json": "44ed339469bad8810b6a2fb6ad7b0d9b9a2d47b530982aaa851cce17c1da38f1",
+      "head-1.json": "7db8c7ba7a9c11aff6a4b0e067716066f0bc9592fc781a306db7435eaf28669f",
+      "head-2.json": "e58cf179654ce8a32bf71c0f19854e37381802db423e0636e06c274219d98a16",
+      "head-3.json": "7186ee47043c1eb1ed37a76fff9ec1400c969b16f3bf834b4537af41556034e7",
+      "head-4.json": "7354b3b1b35757c4bc97b1d699131ecee01814a16eb3e818d8239a9a21dec880",
+      "head-5.json": "c801cf7b5dff1fcf2bcf2ebe14096ce003e24f7f8fd35acf284087a52f8f1cf0"
+    }
+  },
+  "saved": {
+    "styles": 24,
+    "checks_per_consumer": 192,
+    "consumers": [
+      "net8.0",
+      "net10.0",
+      "macos-arm64-nativeaot"
+    ],
+    "mode_verification": "XmlQueryStaticData decoder verifies each actual serialized initial-mode flag",
+    "manifest": {
+      "path": "artifacts/p7g-identity/saved-mode-checked/manifest.json",
+      "sha256": "0d176d16069407177b3ff743f61a717f279b08ae23fabdc1886388b88f62fef0"
+    },
+    "missing_case_control": {
+      "path": "artifacts/p7g-identity/missing-case/result.json",
+      "sha256": "29f65415ba6013e5188971d85c07901a231d685174260b92b8f74b3c7ea876ea"
+    },
+    "publish_log": {
+      "path": "artifacts/p7g-identity/saved-mode-checked/native-publish.log",
+      "sha256": "9c4128385a51878c46ec98a5d18fef1f19b0850e4e152956abe4987aafe7507a"
+    },
+    "native_image": {
+      "path": "artifacts/p7g-identity/saved-mode-checked/native/Xsl3.AttributeIdentityProbe",
+      "sha256": "de376d92e4d60592bb4313fc85b6bdf1c5a96ace64d7d500eced212c1a7ed529"
+    }
+  },
+  "preservation": {
+    "protected_sha256": {
+      "eng/streaming-gate.py": "edbc9382a0c304999f810bd53f1a5493dbac2357e3e01b0020170acfcca166b4",
+      "eng/streaming-benchmark.py": "104d46f91bf083e8dca587cc3dbd56d46534b194450eb47e3d0ea67383d8e5ac",
+      "tests/Xsl3.Tests/StreamingProbe.cs": "802963726a01d1896ed9b856e8bd5ad58dd93b57cae1b1ca779b90fae29cdd6c",
+      "tests/Xsl3.Tests/StreamingProbe.Memory.cs": "20aa690077f61243249fcfb6950f8b86520837f2c732b8a5bf472ca56fe3e507",
+      "tests/Xsl3.Tests/StreamingProbe.Stylesheets.cs": "faafb9f46bd50b43ac35be46406f200803c566e946d2c38c05f038215da7729f",
+      "tests/Xsl3.Tests/StreamingProbe.Engine.cs": "444b03c971cba31d7e90b6c6f4141e02814917fa4a21e9c4aaf9dfa86128330a",
+      "tests/Xsl3.StreamingProbe.Native/Xsl3.StreamingProbe.Native.csproj": "c23bef2d9b6ac4361b9fe94f02ddd1b104f95acff125f4d38d801048dd1cd34a",
+      "tests/Xsl3.StreamingProbe.Generator/Program.cs": "1ea76c7461583fa53cf7737cb718c1205a3643a5dc0504fda115fe92b0a2013a",
+      "docs/plan/p7c-runtime-deferred.csv": "48002849dc64cda01f67b109ea38ad20304731904aebe3f0217da2d0999a2997",
+      "external/xslt30-test/tests/attr/streamable/_streamable-test-set.xml": "3a1aeb521bc56e1010031098e34168b7fab13e6fdcff4a9d246c96f7f157a023",
+      "external/xslt30-test/tests/attr/streamable/bad-loans.xml": "38bdb2d999ca73d9eddb59c5e8ee61cabc0b05dbd3af2fd51edc2f8cc0019373",
+      "external/xslt30-test/tests/attr/streamable/big-transaction-file.xml": "84979c9dad6e2d54444dbd07a46e08d0356ac32385fd8110ea97a2e981443c71",
+      "external/xslt30-test/tests/attr/streamable/grouped-transactions-e.xml": "60b34335cc8e7f0a22def208afe78146e31978af63b8e5f817e53d7298082afe",
+      "external/xslt30-test/tests/attr/streamable/grouped-transactions-e.xsd": "9173e3292ed949430e32eeaaa528398b44dca260ca9868b321307ecbc61d49ef",
+      "external/xslt30-test/tests/attr/streamable/grouped-transactions.xml": "14cfd3478bd156df4c96926406b522f335a9ca1cd2d8b9cfde27419c9abc5484",
+      "external/xslt30-test/tests/attr/streamable/grouped-transactions.xsd": "f889a1e69a11c5c0cae214facabdcc4c59d22980b3ee4d940314f96b2bb8b0b9",
+      "external/xslt30-test/tests/attr/streamable/loans.xml": "c0bc4f2ded0896660b272537acf985f843d3746c0fa6d84a7921a31e40f3775f",
+      "external/xslt30-test/tests/attr/streamable/loans.xsd": "c243c140b1cbb27e9091b3ac7399db928d9e424652f5b0216de0191d0cb61e7a",
+      "external/xslt30-test/tests/attr/streamable/mixed.xml": "1d218412ec5b520fc0c583fce5d8876a163b3958e725b4f06ce3f9c8b2bfdb86",
+      "external/xslt30-test/tests/attr/streamable/ot.xml": "2bfb4a4457381965f47c6f0afaf12451e9efeb63a2057803bbd575ac4c0e35a7",
+      "external/xslt30-test/tests/attr/streamable/ot2.xml": "6434caaba38f7097e714773433ab7e1eefe541ce6a1995017f51ac97c1e921cf",
+      "external/xslt30-test/tests/attr/streamable/overlapping.xml": "9068fd163964f02951c7c734566b0027942e2c1337b012dec36d4a11f767539c",
+      "external/xslt30-test/tests/attr/streamable/sections.xml": "32534b904ee880c0a4f18377e2a871726c27aa7c72365762d59eec3be964f2cd",
+      "external/xslt30-test/tests/attr/streamable/streamable-001.xsl": "09b02590001864e94a868042d32d2a893233aeccbc63ada50bf85c7a7bcfbe4e",
+      "external/xslt30-test/tests/attr/streamable/streamable-002.xsl": "a61799c99edcfe93c0c6dab361cfc847ba795e1b94ad2a9a1ee17d342d961d37",
+      "external/xslt30-test/tests/attr/streamable/streamable-003.xsl": "be07c76f263900b926709a1078b58811ffd6c39030d67b9c0b2d435e781517bc",
+      "external/xslt30-test/tests/attr/streamable/streamable-004.xsl": "ab829e88038d3f7f6f27a7813526da4cb74436576574cf87add54a898c33ffd6",
+      "external/xslt30-test/tests/attr/streamable/streamable-005.xsl": "2aab4bf3450ba6e3a09b1dc2fd668cd2f98d39e264efdceb055705e5e9029ac8",
+      "external/xslt30-test/tests/attr/streamable/streamable-006.xsl": "de4c9690e352fcc711b3a7936cc9d2216f8c57ea7f292410a040bb448d35364a",
+      "external/xslt30-test/tests/attr/streamable/streamable-007.xsl": "b3b986cc870ff5d14921ed6e943da0a5fa8a2d1adcf40153621c479eadc42caa",
+      "external/xslt30-test/tests/attr/streamable/streamable-008.xsl": "e2da9f8c5b71fabc3b64d58814831516c0f70e5e4a4d4feadc9b58c9d2ff245d",
+      "external/xslt30-test/tests/attr/streamable/streamable-009.xsl": "c2de4ffc008607e0e1c5c88109d50344476b0ae4d9f20976448dff971952d1f9",
+      "external/xslt30-test/tests/attr/streamable/streamable-010.xsl": "f8b87139eeb1676ee7198036ba31edd8430b03cc4d3afe12f92a877fcbb55be8",
+      "external/xslt30-test/tests/attr/streamable/streamable-011.xsl": "4de04c31dd43ed16ceb675d2d74dba4a272674d997cc6c5efcbda9586a2a598a",
+      "external/xslt30-test/tests/attr/streamable/streamable-012.xsl": "24903efe492654e71af5aea70a5c005e8f96845968d06e64dc44a8a7f65c07ce",
+      "external/xslt30-test/tests/attr/streamable/streamable-013.xsl": "eea1382bb8151e5a504f077779936ac9ec00bb1c0f4999b5e4f85912e2f931af",
+      "external/xslt30-test/tests/attr/streamable/streamable-014.xsl": "e0106b2037b18acdf015ebf5f6c1532672ec2d015fdaf0ff0f0331736c80580d",
+      "external/xslt30-test/tests/attr/streamable/streamable-015.xsl": "0eeef816c9bb29e8f50b075b955ab39c890dffaf2a6683654fc9af310422ea7e",
+      "external/xslt30-test/tests/attr/streamable/streamable-016.xsl": "e34b6e8230f5821106b971017c157903d037ff6fd3dca1a6ce8af5b61e1af010",
+      "external/xslt30-test/tests/attr/streamable/streamable-017.xsl": "b4415cd83dd1ff2600abbf0c8afd14bcce9fdc67bf9d9fe65b0b12dbc1b5d24c",
+      "external/xslt30-test/tests/attr/streamable/streamable-018.xsl": "9da2174afb423267a1715cdd81fd3771bf3f6d228169d08927dcc45c782b61db",
+      "external/xslt30-test/tests/attr/streamable/streamable-019.xsl": "c018d6cb9a8144cce9f236696817fd12bab4a5a06874cc5859739eb324cb2068",
+      "external/xslt30-test/tests/attr/streamable/streamable-020.xsl": "e2183bba79211ce75f85d1503d9ca3c3c5cd20a498835395612443064e5acfc5",
+      "external/xslt30-test/tests/attr/streamable/streamable-021.xsl": "aabf6758baa25aa9293116fa034fcb9cc7af8f21e4e9d756e2b83a4eec5caa25",
+      "external/xslt30-test/tests/attr/streamable/streamable-022.xsl": "42beadb2b6aac6f4b5517258329118d186aa9a40bb1dc9c17ba025ca96439548",
+      "external/xslt30-test/tests/attr/streamable/streamable-023.xsl": "fa803a86c6b8ffa5575bb863aeea115afbace8541f47297b8efaeed0708f4e0a",
+      "external/xslt30-test/tests/attr/streamable/streamable-024.xsl": "b552258474f91b8de71fcb7cd144fc2f118fdd96d45465962a1ed1ffdd61cd64",
+      "external/xslt30-test/tests/attr/streamable/streamable-025.xsl": "b27a677c9a476ce9502b898f5b47ef98a894aec7263f58496e8ea37791568be9",
+      "external/xslt30-test/tests/attr/streamable/streamable-026.xsl": "a7907bbef5a802e1b0a89543ea4bf3b119880dab99807e27224e9c6d67f4c559",
+      "external/xslt30-test/tests/attr/streamable/streamable-027.xsl": "53cefe89e28cb94d22bf42e70b72a37b73f0a261ab43aa711895b0d8312b3361",
+      "external/xslt30-test/tests/attr/streamable/streamable-028.xsl": "1793d76c6a8d7be9029a527985dbbc364f7c41dbff1ee158694dbc974e9754a0",
+      "external/xslt30-test/tests/attr/streamable/streamable-029.xsl": "825c568eee9a3077e3a4e1cb913cf3dacf09d0bc1d70440b9fcf4adb98632ffd",
+      "external/xslt30-test/tests/attr/streamable/streamable-030.xsl": "cc54d3fdbebb67483444da4a027a145dc5624b45593accc912f51f78049b6066",
+      "external/xslt30-test/tests/attr/streamable/streamable-031.xsl": "fb6e5c2c93d11f2ff08983b9131bfedbff19c5c22948c34c4416caa770325c4b",
+      "external/xslt30-test/tests/attr/streamable/streamable-032.xsl": "4f059d117ebe97ef4d42bf45e657d0c2de4f99c57482ea903486e6bc5610ef4f",
+      "external/xslt30-test/tests/attr/streamable/streamable-033.xsl": "950135b9ed28a348c97570332da83d5e3906e05f916cf55f3270b872427e7142",
+      "external/xslt30-test/tests/attr/streamable/streamable-034.xsl": "67917b92bcd6494d7b7b72f5b4d072852043ad7f67919e814e110b04d29710ae",
+      "external/xslt30-test/tests/attr/streamable/streamable-035.xsl": "2a6444729f47d9bf33ae3990796a0107ba273649f7d29fc58457696d146d99e7",
+      "external/xslt30-test/tests/attr/streamable/streamable-036.xsl": "7b83bd17f2a211699d37d03eb6c509a48be56c8c8c9c9fbaa07bcf474313f4fb",
+      "external/xslt30-test/tests/attr/streamable/streamable-037.xsl": "9deb5dd7db45e98fa59c97c636cf32b36e298c15d74049d68ff51e6223cf1fb0",
+      "external/xslt30-test/tests/attr/streamable/streamable-038.xsl": "0892f8577e611c9bb5172c910d8bfb161962a36c681fbfceb8c42873bfa3e4d8",
+      "external/xslt30-test/tests/attr/streamable/streamable-039.xsl": "32bd03831f42d972a3e895d82d1fd8df8552932f4f868173eb122e49cc9472d3",
+      "external/xslt30-test/tests/attr/streamable/streamable-040.xsl": "016297bb94c43506b956eccb9c12bb83a470c424a873af9e697f368a0a4a3eb7",
+      "external/xslt30-test/tests/attr/streamable/streamable-041.xsl": "49c0ba8762572db81cf2dc3fbcf886ff1b881b30dbc17a48f2e02a1fc7ca192d",
+      "external/xslt30-test/tests/attr/streamable/streamable-042.xsl": "fa170f349e70ee71809aec1f0854133a538fa62eec4ac0499f5879ad630d8f3e",
+      "external/xslt30-test/tests/attr/streamable/streamable-043.xsl": "bb449d66ba532dc107d73d67be374a04d87ad9d84abdb3aec32ded0eaf23e607",
+      "external/xslt30-test/tests/attr/streamable/streamable-044.xsl": "3d69b8d09fd4a0a364725311dda4ad6cab89b74f2f4bda5e90bb98947288dbc0",
+      "external/xslt30-test/tests/attr/streamable/streamable-045.xsl": "94aee474aaa4433ab17a6e19a025d48f7381b328228eb8221473f9976d8dd841",
+      "external/xslt30-test/tests/attr/streamable/streamable-046.xsl": "edad65239df0af88d2655ac6d78f6856b214694407ec1b9c001db42d4aa63585",
+      "external/xslt30-test/tests/attr/streamable/streamable-047.xsl": "9dbd1ff3367cc426230bff6987086e98a472bf525d5bbfd1ea8def00b613ce28",
+      "external/xslt30-test/tests/attr/streamable/streamable-048.xsl": "7ff771b0f87f577bc861c96c1533cbd36c795829d57c03914837b11433173cc2",
+      "external/xslt30-test/tests/attr/streamable/streamable-049.xsl": "1ac924919af3884bc2dff0a3de62922135936ef118bb5cc96a9124370b82fae6",
+      "external/xslt30-test/tests/attr/streamable/streamable-050.xsl": "f73874d3044cf4be6a7cea64021179dd4a956a3e2e2076672b8b5c2508c48a22",
+      "external/xslt30-test/tests/attr/streamable/streamable-051.xsl": "7698625180c1d52aa4fb0fbdb95c75cdc028d1565192b3bd12dbbc450cb32d8b",
+      "external/xslt30-test/tests/attr/streamable/streamable-052.xsl": "fb2d63ab3792166261145e67f5d8199867e14aa95910c1424887bf941cfa5f1e",
+      "external/xslt30-test/tests/attr/streamable/streamable-053.xsl": "3a0d715af2af986583e6156216329d6895e75c23884e77d79ceaf57919b28560",
+      "external/xslt30-test/tests/attr/streamable/streamable-054.xsl": "491a8a5d4078de83cd5be8250cc212cbba8f0f5d3b909fbeac40c6819efcacde",
+      "external/xslt30-test/tests/attr/streamable/streamable-055.xsl": "28893f61e3725c494f91761af263c6495ad062af7f6997da7e7bd6bd3f0a7504",
+      "external/xslt30-test/tests/attr/streamable/streamable-056.xsl": "e2f9c73bc03811a441bf74e7544a7c0a555c70917be42aedc1eaeb7dc1b517d9",
+      "external/xslt30-test/tests/attr/streamable/streamable-057.xsl": "e39cc8e0cff65de3b060b295a8812d047c13885c68989f7dd0e03730a72d12f3",
+      "external/xslt30-test/tests/attr/streamable/streamable-058.xsl": "39f7922f1d4f6cf3b2405b2d68a7f13f6ad392804d527635e16289a2df07b8fc",
+      "external/xslt30-test/tests/attr/streamable/streamable-059.xsl": "fd6fb3b5a69ca77700ee8cb32aede025ec795c7c2e9b12b40cf04d56a086ca9a",
+      "external/xslt30-test/tests/attr/streamable/streamable-060.xsl": "e0c878d9b0183e0b353e24bbb4725024c9813dc661629f3d7646389bd3b0fb26",
+      "external/xslt30-test/tests/attr/streamable/streamable-061.xsl": "ab19a342579135858f3404d07e66575a3370019c88154e4514e3a67c2d67e0e5",
+      "external/xslt30-test/tests/attr/streamable/streamable-062.xsl": "cea4a1265aea38d71ec26808cfeadec4c5e5cc8bdc1e5a1fe87b33c96e393e42",
+      "external/xslt30-test/tests/attr/streamable/streamable-063.xsl": "8f98624852985bab656fc86c5daad0cad9c9f790cd8928fc8634aa939f351da6",
+      "external/xslt30-test/tests/attr/streamable/streamable-064.xsl": "14e022e6d21f655fc76ead614e112b9dc12c2915aaf419e82fb5f177f6d9beff",
+      "external/xslt30-test/tests/attr/streamable/streamable-065.xsl": "732e613214a72a819ad70c8c051371b3439ffedc71791afd81081f8a442bf020",
+      "external/xslt30-test/tests/attr/streamable/streamable-066.xsl": "116e0360076b83963a96aba12bdf4d4fbcc405314091c2064abe09b971643e48",
+      "external/xslt30-test/tests/attr/streamable/streamable-071.xsl": "a069a5d69572f5f7d176914dadee1f140086c54a4f2ae066414b9f99576dd6f6",
+      "external/xslt30-test/tests/attr/streamable/streamable-072.xsl": "c7dc3823cb995e086b31462c8d77ac552159f27d353b9fcf53eaf627ee76dc04",
+      "external/xslt30-test/tests/attr/streamable/streamable-073.xsl": "dbfbfe3b7c65a33b394a0a5324c190ca1b62b8ec6feb6feca7ba96e4c75edfa6",
+      "external/xslt30-test/tests/attr/streamable/streamable-074.xsl": "e37caa24fb2b8cd331e4a2ad570a48679d14912c7c5114b15b6eb26d1fa68053",
+      "external/xslt30-test/tests/attr/streamable/streamable-075.xsl": "c2b5acf0222bacb05eb0e7e17905f4ac43e2f75eb9a374791fa6e8257306e3e2",
+      "external/xslt30-test/tests/attr/streamable/streamable-076.xsl": "80322645c2265dfb56346942f0ebe698c8d0f1569caa634bd4231f141956b160",
+      "external/xslt30-test/tests/attr/streamable/streamable-077.xsl": "626e530fe09b4418ce4c755fa83fb2cdf589b2e1b5cad363113c7b745f2a58d2",
+      "external/xslt30-test/tests/attr/streamable/streamable-078.xsl": "3c2dd8988d4e245eed005d7b3a81970a1f9b55f63c8cb83e42a576a31aa9cb36",
+      "external/xslt30-test/tests/attr/streamable/streamable-079.xsl": "bade5efcf083da36bb291a8c63e4a7b49c91ae750052b9909bbee65d149b50d1",
+      "external/xslt30-test/tests/attr/streamable/streamable-080.xsl": "bcbae9065404b59859ca77dc1db0146f3f4bc9e7444de0009c12872791f712d6",
+      "external/xslt30-test/tests/attr/streamable/streamable-081.xsl": "dc73f0b0a71f2baa34217d16277dbc3812d8684387d1a2ba369bf59fcd9402b8",
+      "external/xslt30-test/tests/attr/streamable/streamable-082.xsl": "5271970289515427f0b0ff7daee8e0c2a833ebecfb363318a736e8188e948910",
+      "external/xslt30-test/tests/attr/streamable/streamable-083.xsl": "0760d6b0c5d9dd4d494b8bf3c5cf6b55169e61c75d45f1e7e721c1e204c5a1e1",
+      "external/xslt30-test/tests/attr/streamable/streamable-084.xsl": "4f8758330d3c15927be76a489b75f624d85db0394dee6af013e1350cf8a830aa",
+      "external/xslt30-test/tests/attr/streamable/streamable-085.xsl": "5d68687271d738f6c2ab1e3e73a52ac9d64f7f2862f8c95f63a663477908a985",
+      "external/xslt30-test/tests/attr/streamable/streamable-086.xsl": "0f6ddda2475b454b51a50d26302eb45533f48d8f9f0d20322d5bc43a69ffc424",
+      "external/xslt30-test/tests/attr/streamable/streamable-087.xsl": "ee6497fac3e638df6821c891db113bdec9130380db8e30d75fa741fbc3f3b8b8",
+      "external/xslt30-test/tests/attr/streamable/streamable-088.xsl": "9b42c99ae5ea805f044679bbae6456cf9dd7c054d4f583cc99a6b23cc48b074e",
+      "external/xslt30-test/tests/attr/streamable/streamable-089.xsl": "0698d29b7ef84700290239e6c3f1255eaa31ed5202d2fec463948a9285c1622e",
+      "external/xslt30-test/tests/attr/streamable/streamable-090.xsl": "1210e5a6185bca8662ca50cb571e9b17111bd35bbe63b37f55c1174893222b5f",
+      "external/xslt30-test/tests/attr/streamable/streamable-091.xsl": "1f884cbb0302c88521287cf5d8d34cd63abc0817ab9345affeec0a593998b4cb",
+      "external/xslt30-test/tests/attr/streamable/streamable-092.xsl": "b86fc54b43283c1b4eaebf1f1322db70bda08e841f1ac53f4783f283f9792d8d",
+      "external/xslt30-test/tests/attr/streamable/streamable-093.xsl": "de5e1a752c5f29a367304984158459c23ed9335b618411cec5186aac85de26d8",
+      "external/xslt30-test/tests/attr/streamable/streamable-094.xsl": "5c75d8d51978a4b2a8fdea0682c6b190fa2a4134ad755012abf19c14d69c896f",
+      "external/xslt30-test/tests/attr/streamable/streamable-097.xsl": "bb8bb0dabfd51b212c6af2a3505016d670e1a3fee30ce073ebb6bb040fa996e2",
+      "external/xslt30-test/tests/attr/streamable/streamable-098.xsl": "bcc4bf8df305c8d2a03e218021625cd92a1f0d340fb4a20a879e04ebcab8fefc",
+      "external/xslt30-test/tests/attr/streamable/streamable-099.xsl": "e9ed64ff8d61a7234b48d91da3d6b06c484e3ce9003e7e357d637d2610cc2418",
+      "external/xslt30-test/tests/attr/streamable/streamable-100.xsl": "f7dcee02539301bdaf7f7993b191250fc72784e200d0af631fb17be3835dff88",
+      "external/xslt30-test/tests/attr/streamable/streamable-101.xsl": "32beb47f7fd5f0fcfdf751ba2b90f20e3491f65cece85771de63abbd03faca90",
+      "external/xslt30-test/tests/attr/streamable/streamable-102.xsl": "3be48a4109d6ce78eac7d0f2095a251c9a9b09d3e234c98bdd613493da029ae2",
+      "external/xslt30-test/tests/attr/streamable/streamable-103.xsl": "ed062c65fc74737497ee9510c433a22defea785bac3a41c069824e25d4504bf6",
+      "external/xslt30-test/tests/attr/streamable/streamable-104.xsl": "d060f15c619bdaa5728d930dba7dd10ae7d319e2045b776ec85138d052ffa0bb",
+      "external/xslt30-test/tests/attr/streamable/streamable-105.xsl": "9a1439d5b5b89a422db7da9a8a6341c0ceb9d1b1f1be3dcd0af7f726f55ad60c",
+      "external/xslt30-test/tests/attr/streamable/streamable-106.xsl": "2674667b33328b87ce6056b149eaa1a7ef066c3060ae748224d2b425ecc0c7e5",
+      "external/xslt30-test/tests/attr/streamable/streamable-107.xsl": "87ffa0cddd8b8f53126813d21f25ec5443ad7be8c3e72af375d9ce12f04c4ff3",
+      "external/xslt30-test/tests/attr/streamable/streamable-109.xsl": "393e2f1ccfb2532c7e640478ce45d40c2a34f061c3610f79d727f9ee2f2a8977",
+      "external/xslt30-test/tests/attr/streamable/streamable-110.xsl": "923dd92d40251c13d7391340c3febb34b9358ce4b5009eb8fac0765588ca214b",
+      "external/xslt30-test/tests/attr/streamable/streamable-112.xsl": "6a8362ed5456803baa10a6efaa91900eedaee48bd79d46ea7e3a5ec84fdec31b",
+      "external/xslt30-test/tests/attr/streamable/streamable-113.xsl": "d33bbf604dda030ce46437d9ad341d96584a687b6799f7802257a54cdfa7c0ba",
+      "external/xslt30-test/tests/attr/streamable/streamable-114.xsl": "3ebd8d5e3d9eaf7052c8141685164f577ac5530552d670d5f7acdedd52d4f8ec",
+      "external/xslt30-test/tests/attr/streamable/streamable-115.xsl": "d323b6f68e14d9e1c742ce676d11b4d7da406ac56c801d622bd0dc2b6709e1f1",
+      "external/xslt30-test/tests/attr/streamable/streamable-116.xsl": "bf853652ed2995770716bcc4d5aaafee88b627e2b7a2b6fa5003fc3e6b50cdcf",
+      "external/xslt30-test/tests/attr/streamable/streamable-117.xsl": "95bf681017d7a8293a725cae88b798d3c881b32b68faf9423f357aaf780142a9",
+      "external/xslt30-test/tests/attr/streamable/streamable-118.xsl": "8348b59dd862567e98126ec1fa388bf6ac897102984c65fb5826d4c4b3ecdfc1",
+      "external/xslt30-test/tests/attr/streamable/streamable-119.xsl": "ae6986398f71e86208a027916ffb7bde3c32926d308d6c158075c76d2696b00b",
+      "external/xslt30-test/tests/attr/streamable/streamable-120.xsl": "78a5f6dde6e6eb2a78aa5ecf40a57a257b9359e6fb0b17a013a027e4d3f9558c",
+      "external/xslt30-test/tests/attr/streamable/streamable-121.xsl": "128773dd384116681ce588e4dacf1cacb2fd383b5bf2a58abd7fe11133e85484",
+      "external/xslt30-test/tests/attr/streamable/streamable-122.xsl": "e4d041894342500f3d0473836e7f77dcb86d3ea4305fe905351d6f59d5fc80f3",
+      "external/xslt30-test/tests/attr/streamable/streamable-123.xsl": "999c5b4435b979b1d7f56f0683acd92543e80a0f8e19ae4d9bc94897589c4008",
+      "external/xslt30-test/tests/attr/streamable/streamable-124.xsl": "b810de4994681ed148e2ccffbf9d4b631dfe537bec199487c3dd3162d0e4203f",
+      "external/xslt30-test/tests/attr/streamable/streamable-125.xsl": "282217b82085b07507be689d1ba84dfed2001b8012ec1cbb86f446f6125140ec",
+      "external/xslt30-test/tests/attr/streamable/streamable-126.xsl": "e2a044b219b5fc8b524888a1fa95efacc3af0fa6a44730975e754d2f72685aa7",
+      "external/xslt30-test/tests/attr/streamable/streamable-127.xsl": "08e8d7db5f7cd98b80ad3d5c6ff4cfc8bdf191b9525b670a4125e3d00bf98564",
+      "external/xslt30-test/tests/attr/streamable/streamable-128.xsl": "22168ed552868bf808e9e4d04c871aa67cef916cfee857ec9e02ffe6948a48e5",
+      "external/xslt30-test/tests/attr/streamable/streamable-129.xsl": "6a54f321b1fe3a8e2b7d95e2ab59183bef42e4e0f006cfc0e0582622f88ce5f7",
+      "external/xslt30-test/tests/attr/streamable/streamable-130.xsl": "0b8d6e75f610f2d58f83e3ee8a8736444607d1fad9e005e0e9a685b74359d080",
+      "external/xslt30-test/tests/attr/streamable/streamable-134.xsl": "41882a0dac58bdc146796199f140abf393d736e1e4b930b16e44cfdec2329da9",
+      "external/xslt30-test/tests/attr/streamable/streamable-135.xsl": "71bed0923b9adf1d1f7d60ff50d3df501c12679ba1c75d862bdba69a76024064",
+      "external/xslt30-test/tests/attr/streamable/streamable-136.xsl": "7de9a3e109063d0c00a1454e31e3c13c79cf4e523c91ae73db0fbb722c48435f",
+      "external/xslt30-test/tests/attr/streamable/streamable-137.xml": "39bd137b41e65e13934e9253f88b19e63556e6dee625205043cf3d7de333449f",
+      "external/xslt30-test/tests/attr/streamable/streamable-137.xsl": "6d77ee28a8b4f9c097e4aa24ab7a2733e8070e795e6e4f65a03c1f50e79a1236",
+      "external/xslt30-test/tests/attr/streamable/streamable-138.xsl": "84d1357a1e6a8481d773a799b0537f6658919f42da2d41948ce42486f64fee77",
+      "external/xslt30-test/tests/attr/streamable/streamable-139.xsl": "5f999047257986c412b80a7386c7dedaceb9b418505d7050b8bbb367f82ba943",
+      "external/xslt30-test/tests/attr/streamable/streamable-140.xml": "dbd0288b67783ea45e4973fbcdcb2ea8924213b1f7d993f7d40e6f505db32531",
+      "external/xslt30-test/tests/attr/streamable/streamable-140.xsl": "2f157450d6f343c33147c7fbc8814879a451b029752c0a629b0b3d9da8d146cf",
+      "external/xslt30-test/tests/attr/streamable/streamable-141.xsl": "0e99f72b8a195594e24c634f3a4d51201dedbdcf0690486237601d75b5ddae5b",
+      "external/xslt30-test/tests/attr/streamable/streamable-142.xsl": "71eddd3548d332566a3f77f83c9103a04327a0dca4ed797d4ed9fc07a0782fb1",
+      "external/xslt30-test/tests/attr/streamable/streamable-143.xsl": "2053121c7c678e4f74cbe52ae5a250e004b6d899535dea4f1109764e128e389d",
+      "external/xslt30-test/tests/attr/streamable/streamable-144.xsl": "104c5027a83e8bb16e29e583e631592101030303a23421712aad65dcaa78bb4b",
+      "external/xslt30-test/tests/attr/streamable/streamable-145.xml": "424a93e670380e5493c64c01b21fce55b3e557445ae4715cfc31fe8079f4ec7a",
+      "external/xslt30-test/tests/attr/streamable/streamable-145.xsl": "e07474c29a2da661c5d3b9d3b901c3cb23df596e98c78e682e71d021c3361066",
+      "external/xslt30-test/tests/attr/streamable/streamable-146.xml": "794431ffccec2c46844dd6fa6070aeaf159273ff99d58940e4dbcae5d2bb2d73",
+      "external/xslt30-test/tests/attr/streamable/streamable-146.xsl": "f253cf534003b540be8293645cc7189c8e716980e15f8a64f333d7f4bd8b86ed",
+      "external/xslt30-test/tests/attr/streamable/streamable-147.xsl": "c3f62633b997db288b1437879f8c04d0ee7a69556f2abe8529bb42a03350c055",
+      "external/xslt30-test/tests/attr/streamable/streamable-148.xsl": "3364c5eddbd1bd258c2a52756837fc06506efc5a1416850978fd21cd205b7791",
+      "external/xslt30-test/tests/attr/streamable/streamable-149.xsl": "4e3b7ff3e30664ca5705ba888d958b8d40ee8bfff25b44f444aa1aa0f7478426",
+      "external/xslt30-test/tests/attr/streamable/strmode061a.xml": "0cb3ac815dc89836b49eb3db682508e2e46174dad03718beb47ccf220247edbc",
+      "external/xslt30-test/tests/attr/streamable/transactions.xml": "031594ee1e46ff8560911d88f8c2646248d9d1ad2f4adfdd406f5622ebc68be5",
+      "external/xslt30-test/tests/attr/streamable/xmark1.xml": "9d30601d37caab007b6b2bf3a7af04d784869099aa2df360a8531848911fad18",
+      "external/xslt30-test/tests/insn/source-document/Psalm100.xml": "97d0476a2e1464d29eb5d363e6d7628e36ddee43360cd977162108771eef6b23",
+      "external/xslt30-test/tests/insn/source-document/_source-document-test-set.xml": "e715ff0fd0bb7d022d829ca86c816d0087d93a890420dfb3b28a8771a5a9850a",
+      "external/xslt30-test/tests/insn/source-document/books-invalid.xml": "797781a1ab35a6155b92b52c8daaf9046c3a4d0efdebdb636cc40e2e84fcdba7",
+      "external/xslt30-test/tests/insn/source-document/books.xml": "119da8e200fb0130c0c733d67ae96a5f2d6d6d6d1c28ab039ee9a0809201b654",
+      "external/xslt30-test/tests/insn/source-document/books.xsd": "13ba8ec6fcc36c6208fce90637ac18af2d21a2b793f33f8f190aa7deb7a1376e",
+      "external/xslt30-test/tests/insn/source-document/non-stream-200.xsl": "40604a1ddb64c4b084473f9ecaee0c219923211d2663d690353d21a89cf8b26f",
+      "external/xslt30-test/tests/insn/source-document/non-stream-201.xsl": "1851ea202daeb54f132146a1c88904d9bc95b693eb50359f43c413c5b055598a",
+      "external/xslt30-test/tests/insn/source-document/stream-200.xsl": "0347a7b23579594df99448ba2724cb652c724648fa46901ba77d361f9ef07a53",
+      "external/xslt30-test/tests/insn/source-document/stream-201.xsl": "d023327c897d07d717a91108607fc82df82627ac8741776edc4ee693b5cb2449",
+      "external/xslt30-test/tests/insn/source-document/stream-202.xsl": "203fc7f59a1b831405df421da649c180663a4310add76a9690baf8515a71b8c6",
+      "external/xslt30-test/tests/insn/source-document/stream-203.xsl": "4e311031735f9094788251ad316ef7aaa269e238669664756706f996b3f20efa",
+      "external/xslt30-test/tests/insn/source-document/stream-204.xsl": "46cb0f6347dd58013b48b52d486690cfbb08497588fccb62afac648dd108781b",
+      "external/xslt30-test/tests/insn/source-document/stream-205.xml": "9571f1b589218b00c012e11ccbb184b2388b94b5e5ded71314a5e914bfe7983c",
+      "external/xslt30-test/tests/insn/source-document/stream-205.xsl": "2402d48596f75f3f0cb57f49916f152840409e07e4159bf9b240f7543bbe6a7a",
+      "external/xslt30-test/tests/insn/source-document/stream-206.xsl": "6a81f5c7702209295575381bba5e668f09544c20da46e17af756cb9b1e993e6a",
+      "external/xslt30-test/tests/insn/source-document/stream-207.xsl": "14b578ef01d89d3974dcf50b376f22d69490711b0c1394b6745b7ff7a274ee9c",
+      "external/xslt30-test/tests/insn/source-document/stream-208.xsl": "0b122b97caaeb63339e5b1ed3aea4080e2f1d62b8927c145e5d144c360d316e4",
+      "external/xslt30-test/tests/insn/source-document/stream-210.xml": "c20fbd5a22465cd4194f7e01ac7240491643c7e6d5e167bf0546cd5e08274a32",
+      "external/xslt30-test/tests/insn/source-document/stream-210.xsl": "93dc568d56d1cce66e92d40c07a86083e45397287f228ce5c316e65930d223f1",
+      "external/xslt30-test/tests/insn/source-document/stream-211.xsl": "2b08e078052d5935cfa848a7954627199ea4aeab75325a0b2a1ab19c4b60adfe",
+      "external/xslt30-test/tests/insn/source-document/stream-211a.xml": "8127333318ec994b5f09d63a668961048b196e4698679d1fff4de0ddd23b0ede",
+      "external/xslt30-test/tests/insn/source-document/stream-211b.xml": "352536a2ad316faf7f21ac3cac679acffc4b78ba67dcd18374354179b2d98052",
+      "external/xslt30-test/tests/insn/source-document/stream-500.xml": "c7d933a09a0ba12e84843228a88cdd557f1d623da4705f2148585374b996dfd9",
+      "external/xslt30-test/tests/insn/source-document/stream-500.xsl": "44f747a0fbcc53e318f292e993678b8fc1f1de49bf24ef137727a629764d4087",
+      "external/xslt30-test/tests/insn/source-document/stream-A.xsl": "1e5ac70829555c33e96d5f69cc92e18d0993091f21efaf4c8298d226a00358e7",
+      "external/xslt30-test/tests/insn/source-document/stream-B.xsl": "27b5ce4dadaaf98c6991c9fe6ccfec9092ac602656381d448e373ef70b4456f0",
+      "external/xslt30-test/tests/strm/si-result-document/_si-result-document-test-set.xml": "ef69aa1376d62186a95d21deb2aa8e19b418d5b30a74a84ef949056d45f2c8a7",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-301.xsl": "f09809f8dd5349d4399bcfbae6cb62d3e8c3b1e936fbf9be0ec5ec6efa35747e",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-302.xml": "5becbe91175bdce6943de3670211610fa0a3d27533e6863d34cb677ffff8cbf1",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-302.xsl": "d2eaf38422f7a1311d3d044a8bb0083a6d1d7591b74e43d78b64c2066882e2dd",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-303.xsl": "cbac3ea2338828494babf4d3037b0d3bc1f0179717b417dc917b7523bb3e4fb4",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-304.xsl": "d18927bed9b9e84c8739d5b96b766b20f2d41ef012ecebd212a7450afdca7f42",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-A.xsl": "5d31352ac0a142ab408355de824a5ec318ad3d5e9cbde8441e2af7afc926f496",
+      "external/xslt30-test/tests/strm/si-result-document/si-result-document-B.xsl": "3068d59131f60704d9bd7f872efdbd13ec259a5fdf8a74413bcb165a5897265c"
+    },
+    "public_api_changed": false,
+    "saved_format_changed": false,
+    "benchmark_or_budget_changed": false,
+    "supports_streaming": "no"
+  },
+  "deferred": [
+    "docs/plan/p7g-deferred.md D1: pre-existing Debug compiler source-line assertion"
+  ],
+  "candidate_version": "1.1.5",
+  "published": false,
+  "hosted_ci": {
+    "required_pr_checks": "https://github.com/skuirrels/Xsl3/pull/25/checks",
+    "required_jobs": [
+      "build-and-test (ubuntu-latest)",
+      "build-and-test (windows-latest)",
+      "native-aot",
+      "perf"
+    ],
+    "all_required_before_merge": true,
+    "implementation_run_id": 40890713498,
+    "implementation_run_url": "https://github.com/skuirrels/Xsl3/actions/runs/40890713498",
+    "implementation_jobs_verified_passed": [
+      "native-aot",
+      "perf"
+    ],
+    "closeout_only_changes_do_not_change_runtime": true
+  },
+  "notes": [
+    "Original raw S1/S2, strict/unstreamed failures and expected-error accounting retained.",
+    "Initial failing/invalid harness attempts and initial allocation cohort retained separately; successful checks select the final completed cohorts.",
+    "Full scope remains six contracts; startup footprint, 20 MiB target, new constructs and broad schema work deferred."
+  ]
+}

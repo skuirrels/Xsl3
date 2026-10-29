@@ -2,6 +2,11 @@
 
 ## D1: investigate DTD identity through parentless attribute copies
 
+**Resolved by the bounded P7G implementation**, a 1.1.5 candidate on
+[PR #25](https://github.com/skuirrels/Xsl3/pull/25). The [six-case close-out](../p7g-attribute-identity-2026-10-29.md)
+establishes the contract and corrects source/declaration transfer and detached IDREF metadata.
+The original P7F observations and evidence below remain unchanged; 1.1.4 still contains the defect.
+
 On both unchanged 1.1.3 runtime and the P7F candidate, copy a DTD-declared ID attribute and IDREF
 attribute into an `attribute()*` variable, insert them into a new document, then call `id()` and
 `idref()` on that document. Both counts are zero; the initial test expected one. Reproduced in

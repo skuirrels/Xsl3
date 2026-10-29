@@ -34,7 +34,9 @@ together and regenerate saved stylesheets with matching compiler/runtime package
 The next patch candidate is **P7G: copied-attribute identity contracts**. It preserves DTD `ID`,
 `IDREF` and `IDREFS` metadata through source loading, detached attribute copies and insertion into
 new documents under both `preserve` and `strip`. XSLT 1.0 loading keeps its stock compatibility policy.
-See the [bounded plan](docs/plan/p7g-attribute-identity-contracts.md); 1.1.4 remains the published release.
+All six contracts and local regression/allocation gates pass; see the
+[P7G close-out](docs/p7g-attribute-identity-2026-10-29.md) and [PR #25](https://github.com/skuirrels/Xsl3/pull/25).
+Version 1.1.4 remains the published release.
 
 ## What works
 
