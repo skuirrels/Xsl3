@@ -19,7 +19,7 @@
   "contracts": {
     "case_inventory": {
       "path": "docs/plan/p7g-identity-cases.csv",
-      "sha256": "0b9ebf38911741496db57822d831c40730d3c6fe5133ce7ae3d143d282b954bb"
+      "sha256": "e7a7f99cf0bb7aeaf1dbdc4c3970a98bbd31f026ac9cc3b5207bf2b8182e2b29"
     },
     "baseline_net10": {
       "IDREFS-preserve": {
