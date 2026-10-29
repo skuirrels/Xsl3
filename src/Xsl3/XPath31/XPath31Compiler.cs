@@ -1242,6 +1242,11 @@ namespace Xsl3.XPath31
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
                     case ("data", 1) when _sc.ForwardOnly:
                         return AtomizeEach(built[0]);
+                    case ("string-join", 1) when _sc.ForwardOnly:
+                        // F&O 3.1 §5.4.2 defines the omitted separator as "".
+                        return ForwardStringJoin(built[0], _f.String(""));
+                    case ("string-join", 2) when _sc.ForwardOnly && !built[1].XmlType!.IsNode && NativeString(built[1]) is QilNode separator:
+                        return ForwardStringJoin(built[0], separator);
                     case ("string", 1) when _sc.ForwardOnly && !AtomicItems(built[0]):
                         return CallLibrary(call, name, new List<QilNode> { StringArguments(built[0]) });
                     case ("avg" or "min" or "max", 1) when _sc.ForwardOnly && UntypedNumericNodes(built[0])
@@ -1270,6 +1275,10 @@ namespace Xsl3.XPath31
 
         private bool UntypedNumericNodes(QilNode nodes) => _sc.Schemas == null && nodes.XmlType!.IsSubtypeOf(T.NodeNotRtfS)
             && (nodes.XmlType.NodeKinds & (XmlNodeKindFlags.Comment | XmlNodeKindFlags.PI | XmlNodeKindFlags.Namespace)) == 0;
+
+        private QilNode ForwardStringJoin(QilNode values, QilNode separator) =>
+            Call(nameof(XsltLibrary.X31StringJoin), T.StringX,
+                AtomicItems(values) ? Items(values) : AtomizeEach(values), separator);
 
         private QilNode UntypedDoubles(QilNode nodes)
         {

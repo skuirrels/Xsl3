@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml.XPath;
 
 namespace Xsl3.Xdm
@@ -11,6 +12,14 @@ namespace Xsl3.Xdm
         public static readonly IList<XPathItem> Empty = System.Array.Empty<XPathItem>();
 
         public static IList<XPathItem> One(XPathItem item) => new XPathItem[] { item };
+
+        // The caller applies function conversion/atomization before joining. Share
+        // lexical conversion with the registry implementation, including exact integers.
+        internal static string JoinAtomicValues(IList<XPathItem> items, string separator)
+        {
+            var values = items.Select(item => ((AtomicValue)item).Value);
+            return separator.Length == 0 ? string.Concat(values) : string.Join(separator, values);
+        }
 
         /// <summary>The typed value of an item (XPath 3.1 §2.5.2), for untyped trees.</summary>
         public static AtomicValue Atomize(XPathItem item)

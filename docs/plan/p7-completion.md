@@ -298,3 +298,48 @@ descendants with a literal separator. The next memory investigation should trace
 built-in path and its initialization cost, preserving atomization of overlapping values, list types,
 argument cardinality and diagnostics. The identity/source-document copying and fork coordination
 throughput failures remain separate implementation work. No gate or streaming-support claim changes.
+
+### Direct streamed string joining
+
+The compiler now emits `X31StringJoin` for streamed joins with a proven string separator and for
+the one-argument form. The omitted separator is the empty string specified by
+[F&O 3.1 §5.4.2](https://www.w3.org/TR/xpath-functions-31/#func-string-join). Node-valued or otherwise
+unproven separators keep the existing function-conversion and cardinality checks. The runtime and
+ordinary function registry share lexical joining; registry names, arities and fingerprint are unchanged.
+Forward arguments still atomize before advancing beyond overlapping selected nodes. Arrays, schema
+lists, nilled elements, non-simple typed content, map errors, cancellation and saved execution have
+explicit regressions. The new runtime ABI is recorded in the unshipped public inventory.
+
+The actual saved overlap-values stream style now reports `UsesBuiltinFunctionIds=False` and its
+static data decreases from **523 to 246 bytes**. All 32 generated stylesheets are unchanged. This
+is a general expression lowering, with no workload name or expected-output branch in the runtime.
+Full Release/Debug units pass **4,399** checks on .NET 10 and **4,044** on .NET 8 per configuration.
+Strict Debug and legacy/saved-sampling reports retain **2,695/16/1**, zero unmatched expected codes
+and passing complete-inventory audits. All **74** ordinary W3C harness checks pass with unchanged
+raw counts and permissive-code notes: QT3 **21,884/0/99** (25 notes), XSLT 3.0 **8,850/18/41**
+(34 notes), XSLT 2.0 **4,590/8/10** (7 notes).
+
+The fresh `native-direct-join` image has SHA-256
+`cae7ea038bff690ea9fdcf6ebe9f4bf7006eeb4612cfb0c995eca91e9f2a692e`.
+The complete canonical push matrix finishes all **48 children**, validates every output and passes
+**16/16 workloads** under the original **209,715,200-byte input / 20,971,520-byte absolute limit**.
+Overlap-values passes at **20,545,536 bytes**; the maximum observed workload peak is fork at
+**20,692,992 bytes**. This is local macOS ARM64 evidence, not hosted qualification.
+
+The complete seven-workload 100 MB comparison has **42 valid observations** and zero invalid outputs.
+The original throughput target remains unmet:
+
+| Workload | Tree median ms | Stream median ms | Stream / tree |
+|---|---:|---:|---:|
+| identity | 1,991.534 | 2,335.402 | 1.173 |
+| adjacent | 1,350.852 | 624.667 | 0.462 |
+| accumulator | 5,074.338 | 2,937.377 | 0.579 |
+| iterate | 1,000.117 | 624.076 | 0.624 |
+| merge | 12,868.277 | 2,468.882 | 0.192 |
+| fork | 998.342 | 4,293.469 | 4.301 |
+| source-document | 2,000.400 | 2,319.278 | 1.159 |
+
+Raw memory children, measurements, output fingerprints and artifact/controller provenance are retained
+under `artifacts/p7-completion/native-direct-join/`. The original full nightly matrix is being
+reverified separately. Current-source hosted memory, multi-size first-output evidence, full final
+compatibility/review and the three throughput failures remain open. Full P7 is not complete.

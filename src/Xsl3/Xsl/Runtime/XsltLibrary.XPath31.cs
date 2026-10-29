@@ -41,6 +41,12 @@ namespace Xsl3.Runtime
             return Unshared(Sequences.Atomize(value), value);
         }
 
+        public string X31StringJoin(IList<XPathItem> values, string separator)
+        {
+            XmlQueryRuntime.CheckCancellation();
+            return Sequences.JoinAtomicValues(Sequences.Atomize(values), separator);
+        }
+
         private FunctionContext? _x31Context;
         private Dictionary<int, FunctionContext>? _x31Contexts;
 
