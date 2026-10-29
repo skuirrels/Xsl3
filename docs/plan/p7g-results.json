@@ -480,8 +480,8 @@
   "ordinary_performance": {
     "baseline": "v1.1.4",
     "rounds": 3,
-    "rows": 40,
-    "time_geometric_mean": 0.96951536712744,
+    "rows": 39,
+    "time_geometric_mean": 0.9696975001670172,
     "maximum_allocation_ratio": 1.0011391251518833,
     "passed": true,
     "rows_slower_than_5_percent": [],
@@ -500,7 +500,8 @@
       "head-3.json": "7186ee47043c1eb1ed37a76fff9ec1400c969b16f3bf834b4537af41556034e7",
       "head-4.json": "7354b3b1b35757c4bc97b1d699131ecee01814a16eb3e818d8239a9a21dec880",
       "head-5.json": "c801cf7b5dff1fcf2bcf2ebe14096ce003e24f7f8fd35acf284087a52f8f1cf0"
-    }
+    },
+    "cold_start_reported_not_gated": true
   },
   "saved": {
     "styles": 24,
