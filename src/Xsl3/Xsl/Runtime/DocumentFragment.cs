@@ -211,9 +211,9 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
                         (knownValues ??= new(StringComparer.Ordinal)).Add(Xdm.Lexical.Collapse(attribute.Value));
                     // Known attribute properties stay local to this element. A lookup by value
                     // does not reveal which attribute, if any, supplied that value to the provider.
-                    if (attribute is Tree.CompactNavigator { IsIdAttribute: true } && !typedId)
+                    if (typedId || attribute is Tree.CompactNavigator { IsIdAttribute: true })
                         (ids ??= new()).Add(name);
-                    if (attribute is Tree.CompactNavigator { IsIdrefAttribute: true } && (type == null || !SchemaTypes.IsIdref(type)))
+                    if (attribute is Tree.CompactNavigator { IsIdrefAttribute: true } || type != null && SchemaTypes.IsIdref(type))
                         (idrefs ??= new()).Add(name);
                     if (element is not Tree.CompactNavigator && probe.MoveToId(attribute.Value) && probe.IsSamePosition(element))
                         (lookups ??= new(StringComparer.Ordinal)).Add(attribute.Value);
@@ -241,7 +241,9 @@ internal readonly record struct DocumentFragment(Uri DocumentUri, Uri ResourceUr
         internal IDictionary<string, string>? Namespaces => _namespaces;
         internal IReadOnlyDictionary<(string, string), (string, string)> Ids => ids;
         internal IReadOnlySet<(string, string, string, string)> Idrefs => idrefs;
-        public NodeIdentity? CurrentIdentity => identities != null && identities.TryGetValue(_element, out var identity) ? identity : null;
+        public NodeIdentity? CurrentIdentity => identities != null
+            ? identities.GetValueOrDefault(_element)
+            : NodeIdentity.Reader(source)?.CurrentIdentity;
         public override bool Read()
         {
             bool result = base.Read();

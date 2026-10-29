@@ -56,7 +56,7 @@ matching and deduplication. Ordinary CDATA values do not acquire identity merely
 
 ## Validation
 
-- Full Release/Debug units: **4,040 / 3,783** on .NET 10 / .NET 8. Upstream **1,654** applicable
+- Full Release/Debug units: **4,044 / 3,787** on .NET 10 / .NET 8. Upstream **1,654** applicable
   tests and differential **394/394** pass on both frameworks. The W3C harness passes all **71** tests.
 - QT3 remains **21,884/0/99**; ordinary XSLT 2.0 **4,590/8/10**, XSLT 3.0 **8,850/18/41**.
   Existing permissive expected-error accounting remains visible (25, 7 and 34 mismatched-code passes).
@@ -106,6 +106,16 @@ separately and corrected; they are not consumer fixes or successful gate results
 
 Startup footprint, the 20 MiB target, other performance hotspots, new streaming constructs and broad
 schema work remain deferred. Streaming remains unsupported and `supports-streaming` remains `no`.
+
+## Release review
+
+Review exposed loss of typed IDREF/IDREFS identity through the shared intermediate-reader view:
+all four public API/debug combinations returned zero instead of the one supplied reference.
+The corrected view carries identity facts independently of schema annotations and forwards them through
+positioned scopes. The builder registers an attribute once when DTD, schema and reader channels overlap.
+Four new regression rows per framework cover both IDREF declarations, both APIs/debug modes and initial/
+positioned transport. The original six-case inventory and 330/234 rows remain unchanged.
+Review evidence is retained in `artifacts/p7g-review/`. The unrelated Debug compiler finding stays deferred.
 
 ## Provenance and reproduction
 

@@ -765,5 +765,27 @@
     "Original raw S1/S2, strict/unstreamed failures and expected-error accounting retained.",
     "Initial failing/invalid harness attempts and initial allocation cohort retained separately; successful checks select the final completed cohorts.",
     "Full scope remains six contracts; startup footprint, 20 MiB target, new constructs and broad schema work deferred."
-  ]
+  ],
+  "review": {
+    "status": "runtime correction verified by focused tests; final CI required before merge",
+    "finding": "Typed source identity facts were omitted from intermediate-reader sidecars and could disappear through positioned views.",
+    "correction": "Carry identity independently of annotations, forward through nested selected-reader scopes, and register overlapping facts once.",
+    "new_regression_rows_per_framework": 4,
+    "original_contract_inventory_unchanged": true,
+    "runtime_sha256": {
+      "src/Xsl3/Streaming/StreamedDocument.cs": "4d043f188d5b44ba329a2ec8ae3384d2c46ca19104d2942e899704334a307c77",
+      "src/Xsl3/Streaming/StreamedNavigator.cs": "3419f91516be3052bd41dba3b9605c6b64d4273e0f7e9b78b454c6181771a1e4",
+      "src/Xsl3/Tree/CompactDocument.Builder.cs": "ee241f78565e2488ddb0a5b19d8b69f66e7d52ca38d642f3052500088b7b8089",
+      "src/Xsl3/Tree/CompactDocument.cs": "2c26d8d2cf2cdb5bec80c1bb5be1ebed4a40cf7a19defe9743056ce66093dac2",
+      "src/Xsl3/Xdm/XdmValue.cs": "f697e733567ae405ed8bb9f67be36f943b46abee062a40eb297b538fa5cf0dda",
+      "src/Xsl3/Xsl/Runtime/DocumentFragment.cs": "8e3df7111d7eb4ad2b2b96b8b0e320b5d7e7b40ccd4fbd702b4e460ddf33181f",
+      "src/Xsl3/Xsl/Runtime/XmlQueryContext.cs": "491b9b72110cc69b9ec536c79f5c27cbb2199d63aacba9fdf7699210bb7e017c"
+    },
+    "full_units_expected": {
+      "net10.0": 4044,
+      "net8.0": 3787
+    },
+    "evidence": "artifacts/p7g-review/",
+    "deferred": "Existing Debug compiler source-line issue remains outside P7G."
+  }
 }

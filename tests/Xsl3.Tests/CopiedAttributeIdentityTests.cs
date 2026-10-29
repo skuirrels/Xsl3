@@ -46,6 +46,50 @@ public class CopiedAttributeIdentityTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void DtdAndSchemaIdentityDescribeOneAttribute(bool legacy, bool debug)
+    {
+        foreach (string declaration in new[] { "IDREF", "IDREFS" })
+        {
+            var schemas = new XmlSchemaSet();
+            using (var schema = XmlReader.Create(new StringReader($$"""
+                <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+                  <xs:element name="doc"><xs:complexType>
+                    <xs:attribute name="id" type="xs:ID"/>
+                    <xs:attribute name="ref" type="xs:{{declaration}}"/>
+                  </xs:complexType></xs:element>
+                </xs:schema>
+                """))) schemas.Add(null, schema);
+            string xml = $$"""
+                <!DOCTYPE doc [<!ATTLIST doc id ID #IMPLIED ref {{declaration}} #IMPLIED>]>
+                <doc id="target" ref="target"/>
+                """;
+            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, ValidationType = ValidationType.Schema, Schemas = schemas };
+            using var reader = XmlReader.Create(new StringReader(xml), settings);
+            const string sheet = """
+                <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+                  <xsl:output method="text"/><xsl:template match="/">
+                    <xsl:value-of select="concat(count(id('target', .)), '|', count(idref('target', .)))"/>
+                  </xsl:template>
+                </xsl:stylesheet>
+                """;
+            // There is one reference attribute, even when two providers describe its identity.
+            Assert.Equal("1|1", Run(sheet, reader, legacy, debug, forward: false));
+            foreach (bool positioned in new[] { false, true })
+            {
+                using var originalReader = XmlReader.Create(new StringReader(xml), settings);
+                XdmNode original = XdmNode.Load(originalReader);
+                using var transported = Runtime.DocumentFragment.ReadNode(original.Navigator, "urn:p7g:typed-copy", default);
+                if (positioned) transported.MoveToContent();
+                Assert.Equal("1|1", Run(sheet, transported, legacy, debug, forward: false));
+            }
+        }
+    }
+
+    [Theory]
     [MemberData(nameof(Sources))]
     public void SourceLookupsRecognizeDtdDeclarations(string declaration, string validation, bool declared)
     {

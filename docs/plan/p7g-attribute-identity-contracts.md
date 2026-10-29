@@ -8,7 +8,7 @@ Branch base: `0fa19cdc3a4e048b7664effe15ba987f57687ad5` (README erratum only).
 dispositions and the full functional, saved/native and performance checks pass. See the
 [close-out](../p7g-attribute-identity-2026-10-29.md), [case inventory](p7g-identity-cases.csv) and
 [result snapshot](p7g-results.json). [PR #25](https://github.com/skuirrels/Xsl3/pull/25) carries the
-1.1.5 candidate; its [required CI checks](https://github.com/skuirrels/Xsl3/pull/25/checks) gate merging.
+1.1.5 release; its [required CI checks](https://github.com/skuirrels/Xsl3/pull/25/checks) gate merging.
 Stop implementation here. Release tagging/publication remain separate.
 
 ## Six contracts

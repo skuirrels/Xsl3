@@ -532,7 +532,7 @@ namespace Xsl3.Tree
                 d._attrCount = i + 1;
                 if (_idrefs != null && element != None && _idrefs.Contains((local, prefix)))
                 {
-                    (d._idrefAttributes ??= new List<int>()).Add(i);
+                    MarkAttributeIdref();
                 }
                 if (_idAttribute is { } id && local == id.Local && prefix == id.Prefix)
                 {
@@ -575,7 +575,7 @@ namespace Xsl3.Tree
                 (_doc._attrTypes ??= new Dictionary<int, System.Xml.Schema.XmlSchemaType>())[attribute] = type;
                 if (Xsl3.Schema.SchemaTypes.IsIdref(type))
                 {
-                    (_doc._idrefAttributes ??= new List<int>()).Add(attribute);
+                    MarkAttributeIdref();
                 }
                 if (Xsl3.Schema.SchemaTypes.IsId(type))
                 {
@@ -591,7 +591,11 @@ namespace Xsl3.Tree
             /// <summary>The attribute just added has is-idrefs, even while parentless or untyped.</summary>
             internal void MarkAttributeIdref()
             {
-                (_doc._idrefAttributes ??= new List<int>()).Add(_doc._attrCount - 1);
+                int attribute = _doc._attrCount - 1;
+                var references = _doc._idrefAttributes ??= new List<int>();
+                // DTD declarations, type annotations and reader sidecars can describe
+                // the same current attribute. Its identity property is registered once.
+                if (references.Count == 0 || references[^1] != attribute) references.Add(attribute);
             }
 
             /// <summary>Xsl3 (P6): the attribute just added is an ID (its element can be found by its value), though untyped.</summary>

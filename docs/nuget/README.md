@@ -4,27 +4,23 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.4: P7F attribute-copy allocation reduction.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.5: P7G copied-attribute identity contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
 claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-P7F reduces allocation for ordinary untyped native attribute copies while preserving independent parentless
-node identity and existing typed/identity-sensitive policies. The measured identity workload allocates **23.55% less**
-on Linux/macOS at 10 MiB, 200 MiB and 2 GiB, with separate median timings **4.53–7.21% faster**.
-These results apply to that workload; the strict 20 MiB memory target remains unmet.
-P7D's earlier corrections remain included: basic (`SchemaAware=false`) `validation="lax"` processing and annotation stripping
-before whitespace rules on grounded source documents. Positioned 2.0+ readers retain namespace,
-ID/IDREF and document-URI metadata, while `xml:space` remains effective. Schema-aware lax validation
-and explicit schema-import requirements retain their existing contracts. P7C boundary corrections
-remain included. The P7B reviewed 1,000-case analysis and 155-case static gates retain the original
-upstream results separately. Full runtime, memory and throughput acceptance remain deferred.
-See the [1.1.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.4/docs/releases/1.1.4.md).
+Version **1.1.5** preserves DTD ID/IDREF/IDREFS metadata through source loading, parentless attribute
+copies and construction with preserve/strip policies. Positioned and intermediate reader views retain
+identity facts independently of type annotations; overlapping metadata registers a reference once.
+XSLT 1.0 keeps its stock compatibility policy. P7F's ordinary-attribute allocation optimization and
+P7D/P7C correctness fixes remain included. The strict 20 MiB target remains unmet.
+No public API or saved-format change is introduced.
+See the [1.1.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.5/docs/releases/1.1.5.md).
 
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.4 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.5 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

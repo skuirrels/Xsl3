@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 1.1.5 candidate (P7G)
+## [1.1.5](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.5) — 2026-10-29
 
 - Preserve DTD `ID`, `IDREF` and `IDREFS` identity when XDM/XSLT 2.0+ input has ATTLIST-only
   declarations or the supplied reader has already passed its DOCTYPE. Carry the declarations into
@@ -12,8 +12,9 @@
 - Add six bounded contracts, both public source APIs, normal/debug saved styles, .NET 8/10 and
   NativeAOT regressions. XSLT 1.0 compatibility, public APIs, saved formats and the P7F ordinary
   attribute optimization are retained. Unrelated compiler-debug work remains [deferred](docs/plan/p7g-deferred.md).
+- Review: carry typed identity facts independently of annotations through intermediate/positioned reader views; register overlapping identity metadata once.
 
-See the [candidate release notes](docs/releases/1.1.5.md). This entry does not publish a release.
+Update all three packages together. See the [release notes](docs/releases/1.1.5.md).
 
 ## [1.1.4](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.4) — 2026-10-29
 
