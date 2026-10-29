@@ -70,6 +70,9 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     internal sealed class Reader(StreamTee<T> owner, int index) : IDisposable
     {
         internal T? Read() => owner.Read(index);
+        // The predicate inspects immutable headers while the ring is locked. It must
+        // not perform I/O, request another event or call back into a prong.
+        internal T? ReadUntil(Predicate<T> stop) => owner.Read(index, stop);
         public void Dispose() => owner.Detach(index);
     }
 
@@ -78,7 +81,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         lock (_gate) Monitor.PulseAll(_gate);
     }
 
-    private T? Read(int reader)
+    private T? Read(int reader, Predicate<T>? stop = null)
     {
         while (true)
         {
@@ -90,13 +93,25 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                 long position = _positions[reader];
                 if (position < _next)
                 {
-                    int slot = (int)(position % _events.Length);
-                    T result = _events[slot]!;
-                    _positions[reader]++;
-                    _remaining[slot]--;
-                    ReleaseHead();
-                    Monitor.PulseAll(_gate);
-                    return result;
+                    try
+                    {
+                        do
+                        {
+                            int slot = (int)(position % _events.Length);
+                            T result = _events[slot]!;
+                            _positions[reader] = ++position;
+                            _remaining[slot]--;
+                            if (stop == null || stop(result)) return result;
+                            _cancellation.ThrowIfCancellationRequested();
+                        } while (position < _next);
+                    }
+                    finally
+                    {
+                        // Skipped events release backpressure before requesting more
+                        // source data, including when a predicate or cancellation fails.
+                        ReleaseHead();
+                        Monitor.PulseAll(_gate);
+                    }
                 }
                 _fault?.Throw();
                 if (_complete) return null;

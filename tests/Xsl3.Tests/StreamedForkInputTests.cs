@@ -33,6 +33,36 @@ public class StreamedForkInputTests
         return result.OuterXml;
     }
 
+    [Fact]
+    public void LogicalEventsKeepCoalescedTextAndPreservedWhitespace()
+    {
+        const string xml = "<doc xml:space='preserve'> a<![CDATA[b]]>c<!--note--><?pi value?><n/> \t</doc>";
+        using var baselineInput = XmlReader.Create(new StringReader(xml));
+        using var baseline = new StreamedDocument(baselineInput);
+        string[] expected = Trace(baseline.CreateNavigator());
+        Assert.Equal("Text: abc", expected[0]);
+        Assert.Contains("SignificantWhitespace: \t", expected);
+        using var input = XmlReader.Create(new StringReader(xml));
+        using var document = new StreamedDocument(input);
+        Run((StreamedNavigator)document.CreateNavigator(),
+            view => Assert.Equal(expected, Trace(view)), view => Assert.Equal(expected, Trace(view)));
+
+        static string[] Trace(XPathNavigator view)
+        {
+            Assert.True(view.MoveToFirstChild());
+            Assert.Same(view.NameTable.Get("doc"), view.LocalName);
+            Assert.True(view.MoveToFirstChild());
+            var result = new List<string>();
+            do
+            {
+                if (view.NodeType == XPathNodeType.Element)
+                    Assert.Same(view.NameTable.Get(view.LocalName), view.LocalName);
+                result.Add(view.NodeType + ":" + (view.NodeType == XPathNodeType.Element ? view.LocalName : view.Value));
+            } while (view.MoveToNext());
+            return result.ToArray();
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -51,6 +81,34 @@ public class StreamedForkInputTests
         Assert.Contains("<?pi q?>", first);
         Assert.Equal("onetwothree", text);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(64)]
+    public void SkippingNestedContentKeepsTheFollowingSiblingAndOtherProng(int capacity)
+    {
+        const string xml = "<doc><row id='1'><value>one<nested>two</nested>three</value><!--c--></row>"
+            + "<row id='2'/><row id='3'><value/></row></doc>";
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var input = XmlReader.Create(new StringReader(xml));
+        using var document = new StreamedDocument(input);
+        using var fork = document.Fork((StreamedNavigator)document.CreateNavigator());
+        var ids = new List<string>();
+        string? copy = null;
+        fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, _) => {
+                Assert.True(view.MoveToFirstChild());
+                Assert.True(view.MoveToFirstChild());
+                do { ids.Add(view.GetAttribute("id", "")); } while (view.MoveToNext());
+                Assert.False(view.MoveToNext());
+            },
+            (view, _) => copy = ReadXml(view),
+        }, capacity, cancellation.Token);
+        Assert.Equal(new[] { "1", "2", "3" }, ids);
+        var expected = new XmlDocument(); expected.LoadXml(xml);
+        Assert.Equal(expected.OuterXml, copy);
     }
 
     [Fact]

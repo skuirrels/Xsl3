@@ -347,6 +347,11 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         Check();
         if (Root.Ended) throw PositionError();
         if (_open.Count > 1 && _open[^1].Ended) _open.RemoveAt(_open.Count - 1);
+        if (_reader is ForkEventReader fork)
+        {
+            ReadForkEvent(fork);
+            return;
+        }
         while (true)
         {
             bool read = _ready || _reader.Read();

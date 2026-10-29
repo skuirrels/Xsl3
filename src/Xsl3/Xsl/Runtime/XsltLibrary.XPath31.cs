@@ -27,12 +27,18 @@ namespace Xsl3.Runtime
         {
             foreach (IList<XPathItem> arg in args)
             {
-                if (ReferenceEquals(result, arg) && result is XmlQuerySequence<XPathItem>)
-                {
-                    return new List<XPathItem>(result);
-                }
+                if (ReferenceEquals(result, arg)) return Unshared(result, arg);
             }
             return result;
+        }
+
+        internal static IList<XPathItem> Unshared(IList<XPathItem> result, IList<XPathItem> arg) =>
+            ReferenceEquals(result, arg) && result is XmlQuerySequence<XPathItem> ? new List<XPathItem>(result) : result;
+
+        public IList<XPathItem> X31Data(IList<XPathItem> value)
+        {
+            XmlQueryRuntime.CheckCancellation();
+            return Unshared(Sequences.Atomize(value), value);
         }
 
         private FunctionContext? _x31Context;

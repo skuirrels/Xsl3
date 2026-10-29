@@ -348,6 +348,60 @@ public class StreamTeeTests
         Assert.Equal(1, calls); Assert.Equal(0, tee.BufferedCount);
     }
 
+    [Fact]
+    public void SkippingBufferedEventsPreservesTheOtherReadersInputAndStopsAtTheMatch()
+    {
+        int next = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++next);
+            return new(destination.Length, false);
+        }, 2, 4);
+        Assert.Equal(3, tee.GetReader(0).ReadUntil(item => item.Number == 3)!.Number);
+        var expected = new[] { 1, 2, 3, 4 };
+        foreach (int number in expected) Assert.Equal(number, tee.GetReader(1).Read()!.Number);
+        Assert.Equal(1, tee.BufferedCount);
+        Assert.Equal(4, tee.GetReader(0).Read()!.Number);
+        Assert.Equal(0, tee.BufferedCount);
+        Assert.Equal(4, next);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SkippingReleasesAcceptedEventsBeforeEofOrTheSourceFailure(bool fail)
+    {
+        var failure = new IOException("skip input failure");
+        int calls = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            calls++;
+            destination.Span[0] = new(1); destination.Span[1] = new(2);
+            return new(2, true, fail ? ExceptionDispatchInfo.Capture(failure) : null);
+        }, 2, 4);
+        if (fail) Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(0).ReadUntil(_ => false)));
+        else Assert.Null(tee.GetReader(0).ReadUntil(_ => false));
+        Assert.Equal(1, tee.GetReader(1).Read()!.Number);
+        Assert.Equal(2, tee.GetReader(1).Read()!.Number);
+        if (fail) Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(1).Read()));
+        else Assert.Null(tee.GetReader(1).Read());
+        Assert.Equal(1, calls); Assert.Equal(0, tee.BufferedCount);
+    }
+
+    [Fact]
+    public void CancellationDuringSkippingReleasesConsumedEvents()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var tee = new StreamTee<Event>(destination => {
+            destination.Span[0] = new(1); destination.Span[1] = new(2);
+            return new(2, true);
+        }, 1, 4, cancellation.Token);
+        Assert.Throws<OperationCanceledException>(() => tee.GetReader(0).ReadUntil(_ => {
+            cancellation.Cancel(); return false;
+        }));
+        Assert.Equal(1, tee.BufferedCount);
+        tee.GetReader(0).Dispose();
+        Assert.Equal(0, tee.BufferedCount);
+    }
+
     [Theory]
     [InlineData(-1, false)]
     [InlineData(5, false)]

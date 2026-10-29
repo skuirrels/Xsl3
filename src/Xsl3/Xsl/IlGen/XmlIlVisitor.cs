@@ -3697,6 +3697,10 @@ namespace Xsl3.IlGen
         {
             if (ndInvoke.ClrMethod.DeclaringType == typeof(XsltLibrary))
             {
+                if (ndInvoke.ClrMethod.Name is nameof(XsltLibrary.X31Call0) or nameof(XsltLibrary.X31Call1)
+                    or nameof(XsltLibrary.X31Call2) or nameof(XsltLibrary.X31Call3)
+                    or nameof(XsltLibrary.X31Call4) or nameof(XsltLibrary.X31Call5))
+                    _helper.StaticData.UsesBuiltinFunctionIds = true;
                 if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31ForkPush))
                 {
                     _helper.InitializeCurrentOutput();

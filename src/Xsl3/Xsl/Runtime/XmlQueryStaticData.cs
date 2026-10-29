@@ -21,7 +21,7 @@ namespace Xsl3.Runtime
 
         // Format version marker to support versioning: (major << 8) | minor
         // Xsl3: minor version 1 adds the 2.0+ static data and constants (Sink B); 2 the stylesheet frames.
-        private const int CurrentFormatVersion = (0 << 8) | 5; // 3: function library fingerprint; 4: streamed initial mode; 5: accumulator streamability
+        private const int CurrentFormatVersion = (0 << 8) | 6; // 3: function library fingerprint; 4: streamed initial mode; 5: accumulator streamability; 6: built-in ID usage
 
         private readonly XmlWriterSettings _defaultWriterSettings;
         private readonly IList<WhitespaceRule>? _whitespaceRules;
@@ -49,6 +49,7 @@ namespace Xsl3.Runtime
             _collations = staticData.Collations;
             _globalNames = staticData.GlobalNames;
             _earlyBound = staticData.EarlyBound;
+            UsesBuiltinFunctionIds = staticData.UsesBuiltinFunctionIds;
 
 #if DEBUG
             // Round-trip check
@@ -86,11 +87,10 @@ namespace Xsl3.Runtime
             if ((formatVersion & ~0xff) > CurrentFormatVersion)
                 throw new NotSupportedException();
 
-            if ((formatVersion & 0xff) >= 3 && dataReader.ReadInt32() != Xsl3.XPath31.Functions.FunctionLibrary.Fingerprint)
-            {
-                // Xsl3: compiled code calls library functions by number, which differ from one Xsl3 to another.
-                throw new NotSupportedException("The stylesheet was compiled by another version of Xsl3, whose function library differs: compile it again with this one.");
-            }
+            int version = formatVersion & 0xff;
+            int fingerprint = version >= 3 ? dataReader.ReadInt32() : 0;
+            // Older formats carry no usage proof, so preserve their unconditional check.
+            if (version is >= 3 and < 6) ValidateFunctionFingerprint(fingerprint);
 
             // XmlWriterSettings defaultWriterSettings;
             _defaultWriterSettings = XmlWriterSettingsInternals.Create(dataReader);
@@ -212,10 +212,22 @@ namespace Xsl3.Runtime
             }
 
             if ((formatVersion & 0xff) >= 4) StreamedInitialMode = dataReader.ReadBoolean();
+            UsesBuiltinFunctionIds = version < 6 || dataReader.ReadBoolean();
+            if (version >= 6 && UsesBuiltinFunctionIds) ValidateFunctionFingerprint(fingerprint);
 
             Debug.Assert(formatVersion != CurrentFormatVersion || dataReader.Read() == -1, "Extra data at the end of the stream");
             dataReader.Dispose();
         }
+
+        private static void ValidateFunctionFingerprint(int fingerprint)
+        {
+            if (fingerprint != Xsl3.XPath31.Functions.FunctionLibrary.Fingerprint)
+                throw new NotSupportedException("The stylesheet was compiled by another version of Xsl3, whose function library differs: compile it again with this one.");
+        }
+
+        // The IL emitter proves absence of numeric references; names resolved at run time
+        // do not depend on a previous engine's registry ordering.
+        public bool UsesBuiltinFunctionIds { get; private set; }
 
         /// <summary>
         /// Serialize XmlQueryStaticData object into a byte array.
@@ -375,6 +387,8 @@ namespace Xsl3.Runtime
                 }
             }
             dataWriter.Write(StreamedInitialMode);
+            // Append-only: older readers retain their conservative fingerprint check.
+            dataWriter.Write(UsesBuiltinFunctionIds);
             dataWriter.Dispose();
             data = dataStream.ToArray();
         }

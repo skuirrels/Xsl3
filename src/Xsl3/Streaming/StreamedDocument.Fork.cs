@@ -72,18 +72,31 @@ internal sealed partial class StreamedDocument
             return node;
         }
 
+        internal Node CreateFresh(Node parent, XmlNameTable names)
+        {
+            // A start event has already been normalized and validated by the source.
+            // Navigation and observer state belong to this view, not the pumping source.
+            Node node = Create(parent, boundary: true, names);
+            node.Consumed = node.Skipped = node.NoNext = false;
+            node.Schema = Schema(SchemaInfo);
+            for (int i = 0; i < node.Attributes.Length; i++)
+                if (node.Attributes[i].Schema is { } info)
+                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
+            return node;
+        }
+
         private static void Atomize(Node node, XmlNameTable names)
         {
             node.LocalName = names.Add(node.LocalName); node.Namespace = names.Add(node.Namespace); node.Prefix = names.Add(node.Prefix);
             Attribute[] attributes = node.Attributes;
-            node.Attributes = new Attribute[attributes.Length];
+            if (attributes.Length != 0) node.Attributes = new Attribute[attributes.Length];
             for (int i = 0; i < attributes.Length; i++)
             {
                 Attribute a = attributes[i];
                 node.Attributes[i] = a with { LocalName = names.Add(a.LocalName), Namespace = names.Add(a.Namespace), Prefix = names.Add(a.Prefix) };
             }
             Namespace[] namespaces = node.Namespaces;
-            node.Namespaces = new Namespace[namespaces.Length];
+            if (namespaces.Length != 0) node.Namespaces = new Namespace[namespaces.Length];
             for (int i = 0; i < namespaces.Length; i++)
             {
                 Namespace ns = namespaces[i];
@@ -207,6 +220,38 @@ internal sealed partial class StreamedDocument
         _forkFirstChild = headers[^1].FirstChild;
     }
 
+    private void ReadForkEvent(ForkEventReader reader)
+    {
+        // Do not reparse logical events through XmlReader's attribute, whitespace and
+        // text-coalescing machinery: the original source has already performed it.
+        bool read = _ready || reader.Read();
+        _ready = false;
+        if (!read)
+        {
+            Root.Ended = Root.ChildrenStarted = true;
+            _current = Root;
+            return;
+        }
+        ForkEvent item = reader.Current!;
+        ForkHeader header = item.Header;
+        if (item.End)
+        {
+            Node current = _open[^1];
+            if (current.Number != header.Original.Number) throw PositionError();
+            current.Schema = Schema(header.SchemaInfo) ?? current.Schema;
+            current.Ended = current.ChildrenStarted = true;
+            _current = current;
+            return;
+        }
+        Node parent = _open[^1];
+        Node node = header.CreateFresh(parent, NameTable);
+        parent.ChildrenStarted = true;
+        if (parent.FirstChild < 0) parent.FirstChild = node.Number;
+        _number = Math.Max(_number, node.Number);
+        if (node.Kind == XPathNodeType.Element) _open.Add(node);
+        _current = node;
+    }
+
     /// <summary>Projects logical events into the existing streamed document parser without serializing XML.</summary>
     private sealed class ForkEventReader(ForkHeader boundary, StreamTee<ForkEvent>.Reader input) : XmlReader
     {
@@ -214,6 +259,8 @@ internal sealed partial class StreamedDocument
         private ReadState _state;
         private int _attribute = -1;
         private bool _attributeValue;
+        private long _skipNumber;
+        private Predicate<ForkEvent>? _skipEnd;
         internal ForkEvent? Current;
         private ForkHeader Header => Current?.Header ?? boundary;
         private bool NamespaceAttribute => _attribute >= Header.Attributes.Length;
@@ -228,19 +275,19 @@ internal sealed partial class StreamedDocument
         public override string XmlLang => Header.Language;
         public override XmlSpace XmlSpace => Header.Kind == XPathNodeType.SignificantWhitespace ? XmlSpace.Preserve : XmlSpace.None;
         public override bool IsEmptyElement => _attribute < 0 && Current is { End: false } && Header.Empty;
-        public override int Depth => Current == null ? 0 : Header.Original.Depth + (_attributeValue ? 2 : _attribute >= 0 ? 1 : 0);
+        public override int Depth => Current is null ? 0 : Header.Original.Depth + (_attributeValue ? 2 : _attribute >= 0 ? 1 : 0);
         public override IXmlSchemaInfo? SchemaInfo => _attribute >= 0 ? NamespaceAttribute ? null : Attribute.Schema : Header.SchemaInfo;
-        public override string LocalName => _attributeValue || Current == null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
+        public override string LocalName => _attributeValue || Current is null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
             ? Namespace.Prefix.Length == 0 ? "xmlns" : Namespace.Prefix : Attribute.LocalName : Header.LocalName);
-        public override string Prefix => _attributeValue || Current == null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
+        public override string Prefix => _attributeValue || Current is null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
             ? Namespace.Prefix.Length == 0 ? "" : "xmlns" : Attribute.Prefix : Header.Prefix);
-        public override string NamespaceURI => _attributeValue || Current == null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
+        public override string NamespaceURI => _attributeValue || Current is null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
             ? "http://www.w3.org/2000/xmlns/" : Attribute.Namespace : Header.Namespace);
         public override string Value => _attribute >= 0 ? NamespaceAttribute ? Namespace.Uri : Attribute.Value : Header.Text;
         public override bool HasValue => NodeType is XmlNodeType.Text or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace
             or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction or XmlNodeType.Attribute;
         public override XmlNodeType NodeType => _attributeValue ? XmlNodeType.Text : _attribute >= 0 ? XmlNodeType.Attribute
-            : Current == null ? XmlNodeType.None : Header.Kind switch
+            : Current is null ? XmlNodeType.None : Header.Kind switch
             {
                 XPathNodeType.Element => Current.End ? XmlNodeType.EndElement : XmlNodeType.Element,
                 XPathNodeType.Text => XmlNodeType.Text,
@@ -256,13 +303,29 @@ internal sealed partial class StreamedDocument
             if (_state is ReadState.Closed or ReadState.EndOfFile) return false;
             _attribute = -1; _attributeValue = false;
             Current = input.Read();
-            if (Current == null || Current.Header.Kind == XPathNodeType.Root)
+            if (Current is null || Current.Header.Kind == XPathNodeType.Root)
             {
                 Current = null; _state = ReadState.EndOfFile;
                 return false;
             }
             _state = ReadState.Interactive;
             return true;
+        }
+
+        public override void Skip()
+        {
+            if (ReadState != ReadState.Interactive) return;
+            if (Current is { End: false, Header.Kind: XPathNodeType.Element, Header.Empty: false })
+            {
+                _skipNumber = Header.Original.Number;
+                Current = input.ReadUntil(_skipEnd ??= item => item.End && item.Header.Original.Number == _skipNumber);
+                if (Current is null)
+                {
+                    _state = ReadState.EndOfFile;
+                    return;
+                }
+            }
+            Read();
         }
 
         public override string? GetAttribute(string name)

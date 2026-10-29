@@ -173,3 +173,77 @@ Next implementation work targets fork's allocation/synchronization cost and the 
 while preserving merge's remaining absolute memory failure. Any optimization must retain source identity,
 private prong name tables, cancellation/error ordering and the original fixtures, oracles and limits.
 Full P7 remains active; no streaming claim, merge or release is justified yet.
+
+### Fork event projection and direct atomization
+
+Fork views now project already normalized, validated logical events directly into their private
+navigation frames. They retain source node numbers, private name tables, independent consumption
+flags and schema snapshots. The source still owns input reads and validation; the threaded prongs,
+caller-thread callbacks, declaration-order errors and configured tee capacity are unchanged.
+Mixed text/CDATA, significant whitespace and nested subtree boundaries have explicit regressions.
+
+An unselected fork subtree can also consume buffered events up to its matching end header under one
+tee lock. Consumed prefixes release backpressure before further source I/O and on cancellation or
+failure. This does not reserve a second payload queue or raise the event capacity. The stopping
+predicate only inspects immutable headers; source I/O and prong callbacks remain outside the lock.
+
+Saved IL inspection then identified `fn:data`, rather than constructor casting, as the numeric
+workloads' generic built-in dependency. The compiler now emits a direct `X31Data` runtime call for
+streamed per-item atomization. It uses the same canonical list-valued atomizer, including arrays,
+schema-list typed values and function/map errors. It preserves cancellation and copies an atomic
+result when QIL would reuse its input sequence. No function registration or numeric ID changes.
+The runtime entry point is recorded in the unshipped public ABI inventory.
+
+Saved static-data minor format 6 appends the emitter's built-in-ID usage flag. The real function
+fingerprint stays in its original header position. Readers keep the unconditional compatibility
+check for formats 3–5 and check it for new stylesheets whenever the emitted IL references a numeric
+built-in ID. Only an explicit absence proof avoids initializing the registry for that check;
+truncated new metadata fails loading. QName-based dynamic lookup retains its normal resolution.
+All six numeric call ABIs, old-format checks and fingerprint mismatches have regression coverage.
+
+The generated identity, iterate, merge and fork stream styles now all report
+`UsesBuiltinFunctionIds=False`; these are inspected saved artifacts, not fixture-name exceptions
+in the compiler. All 32 generated canonical stylesheets remain byte-for-byte unchanged.
+Inspection logs and image/source hashes are under `artifacts/p7-completion/`.
+
+The earlier candidates remain retained independently:
+
+| Native candidate | Complete push children | Original budget passes | Output correctness |
+|---|---:|---:|---|
+| `native-fork-direct` | 48 | 13/16 | All correct |
+| `native-saved-usage` | 48 | 11/16 | All correct |
+| `native-fork-bulk` | 48 | 8/16 | All correct |
+| `native-direct-data` | 48 | 14/16 | All correct |
+
+The bulk-skip cohort's seven-workload throughput run has 42 valid observations and zero output
+failures. Its fork stream median is **4,148.861 ms**, versus **991.565 ms** for tree, a ratio of
+**4.184**. Identity, fork and source-document still miss the original target. Different candidates'
+absolute times are retained observations, not a controlled attribution of their differences.
+Small outer-process RSS overruns count as failures even when the child's internal status is `ok`.
+Earlier active-reader/pulse locking experiments did not establish an improvement and were reverted.
+
+For the direct-atomization source, full Release and Debug units pass on .NET 10 (**4,375**) and
+.NET 8 (**4,022**), per configuration. Upstream passes **1,654** and differential **394** on each
+framework; all **74** ordinary W3C harness checks pass with saved sampling enabled. Complete
+strict Debug and Release legacy/saved-sampling runs retain **2,695/16/1**, zero unmatched expected
+error codes and successful frozen-inventory audits. The first Release sampling invocation used
+the new API because its API environment variable was misspelled; its report is retained separately.
+The subsequent legacy report verifies `Api=False` and `SavedSampling=10` explicitly.
+
+One earlier direct-projection Release run failed the .NET 8 namespace-allocation guard at 5,672
+bytes against its unchanged 4,096-byte threshold. The isolated namespace tests, a full committed
+`8fd76ea` baseline in a temporary source copy, and both current full configurations pass. The
+original failure remains evidence of an intermittent observation, not a proven baseline defect
+or a reason to relax the assertion.
+
+The fresh direct-atomization native image is recorded under `native-direct-data` with SHA-256
+`e2a210052056a8902d38e4d4a30b634b491e2cca4200b6ff06ce783c243a8ea7`.
+Its original memory/throughput qualification is separate from functional verification. Full P7
+and every remaining original acceptance, hosted CI, review, merge and release requirement stay open.
+
+The direct-atomization push matrix finishes all 48 children: merge now passes at **20,578,304 bytes**,
+while fork (**22,642,688**) and overlap-values (**21,037,056**) fail the unchanged **20,971,520-byte**
+limit. The complete 42-observation throughput cohort validates every output but still fails the
+original target: identity, fork and source-document have stream/tree ratios **1.158**, **4.143**
+and **1.147** respectively. Fork's stream median is **4,122.852 ms**, versus **995.041 ms** for tree.
+The local results do not qualify streaming support or replace current-source nightly/hosted gates.

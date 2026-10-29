@@ -1,1 +1,2 @@
 #nullable enable
+Xsl3.Runtime.XsltLibrary.X31Data(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
