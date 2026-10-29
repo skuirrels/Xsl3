@@ -134,7 +134,7 @@ in [docs/performance.md](docs/performance.md). See the [P7F evidence](docs/p7f-i
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.1.3. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.1.4. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
