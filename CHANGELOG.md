@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased — developer diagnostics (P7E audit)
+## Unreleased — P7F allocation reduction
+
+- Reduce allocation for ordinary untyped native attribute copies by constructing a minimal compact
+  fragment. Preserve distinct parentless node identity and existing typed, DTD identity-sensitive and
+  `xml:id` copy policies. No public API or saved-format change.
+- Close [bounded P7F](docs/p7f-identity-allocation-2026-10-29.md): identity allocation falls **23.55%**
+  across the three original sizes on Linux/macOS, with no measured throughput regression. Full memory
+  matrices retain the unmet 20 MiB target; full P7 and supported streaming remain deferred.
+- Add paired allocation/throughput diagnostics and an opt-in manual workflow mode using unchanged
+  canonical memory jobs. Preserve all raw failures and the unrelated deferred DTD contract finding.
+
+### Developer diagnostics (P7E audit)
 
 - Add isolated, explicitly selected identity memory diagnostics with source/artifact provenance,
   bounded launcher hashing and invalid-evidence safeguards. Preserve scheduled/default acceptance jobs.

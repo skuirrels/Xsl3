@@ -4,6 +4,11 @@ Scope frozen on 2026-10-29. Branch: `feature/p7f-identity-allocation`.
 Baseline: merged P7E audit `59a08e925badf116dfd79a7c1520986e16069935`; runtime equals release 1.1.3.
 P7E PR #22 is merged after all four ordinary CI checks passed in run 40781096266.
 
+**P7F is complete.** The [close-out](../p7f-identity-allocation-2026-10-29.md) and
+[result snapshot](p7f-results.json) record the single-hotspot correction, all six passing comparisons,
+full unchanged memory matrices, passing functional/performance gates and remaining limitations.
+PR #23 contains the 1.1.4 candidate; release publication remains separate.
+
 ## Scope and completion criteria
 
 Profile the existing identity workload, attribute transient allocation to a concrete shared runtime

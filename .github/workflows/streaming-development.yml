@@ -51,7 +51,7 @@ jobs:
   # P7 decision 6: exact generated-input size and absolute process/managed limits.
   # A failed or incomplete matrix is a failed job; retained artifacts expose it.
   streaming-memory:
-    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true }}
+    if: ${{ inputs.memory_diagnosis != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -148,6 +148,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Freeze sources and provenance
         run: |
+          if [ "${{ inputs.memory_diagnosis }}" = true ]; then echo "Select only one diagnostic mode" >&2; exit 64; fi
           mkdir -p artifacts/p7f-identity/linux/source-candidate
           git archive HEAD | tar -x -C artifacts/p7f-identity/linux/source-candidate
           git rev-parse HEAD > artifacts/p7f-identity/linux/candidate-revision.txt
@@ -177,37 +178,3 @@ jobs:
             artifacts/p7f-identity/linux/*-diagnostic/preparation.json
             artifacts/p7f-identity/linux/*-diagnostic/source-sha256.json
             artifacts/p7f-identity/linux/*-diagnostic/publish.log
-
-  # Same canonical workloads, inputs, oracles and absolute limits as the original gate.
-  identity-allocation-memory:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: push
-            bytes: 209715200
-            limit: 20971520
-          - name: nightly
-            bytes: 2147483648
-            limit: 209715200
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-      - name: Publish canonical NativeAOT probe
-        run: |
-          mkdir -p artifacts
-          eng/publish-stream-probe.sh linux-x64 artifacts/p7f-native > artifacts/p7f-native-publish.log 2>&1
-      - name: Exact streaming memory gate (${{ matrix.name }})
-        run: python3 eng/streaming-gate.py --native artifacts/p7f-native/bin/Xsl3.StreamingProbe.Native --bytes ${{ matrix.bytes }} --limit ${{ matrix.limit }} --timeout-seconds 900 --output artifacts/p7f-memory-${{ matrix.name }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: p7f-memory-${{ matrix.name }}
-          path: |
-            artifacts/p7f-native-publish.log
-            artifacts/p7f-memory-${{ matrix.name }}

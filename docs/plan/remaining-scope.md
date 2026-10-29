@@ -1,5 +1,10 @@
 # Remaining scope: everything after P5
 
+> **P7F complete:** the bounded [identity allocation phase](p7f-identity-allocation.md) reduces allocation
+> 23.55% across all three original input sizes on Linux/macOS, with passing throughput and regression
+> checks. Full memory failures remain visible in the [close-out](../p7f-identity-allocation-2026-10-29.md).
+> PR #23 is a 1.1.4 candidate; 1.1.3 remains published. Full P7 and supported streaming remain deferred.
+
 > **P7E closed as an audit:** the bounded [memory-budget diagnosis](p7e-memory-budget-diagnosis.md)
 > reproduces all four 1.1.3 memory matrices and repeated identity cohorts. Linux remains 0/16 and macOS
 > 13/16 at 20 MiB; both pass 16/16 at 200 MiB. No runtime change or patch release is proposed.
