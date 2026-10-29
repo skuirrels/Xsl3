@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Compile the six shared contracts once, then run saved styles on .NET 8/10 and NativeAOT.
 set -euo pipefail
-if [[ $# != 2 ]]; then echo "Usage: eng/verify-attribute-identity.sh <runtime-identifier> <new-output-directory>" >&2; exit 64; fi
+if [[ $# -lt 2 || $# -gt 4 ]]; then echo "Usage: eng/verify-attribute-identity.sh <runtime-identifier> <new-output-directory> [--bare-variable [Release|Debug]]" >&2; exit 64; fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RID="$1"
 OUTPUT="$2"
+COMPILER_CONFIGURATION="${4:-Release}"
+if [[ $# -ge 3 ]]; then
+  if [[ "$3" != --bare-variable ]]; then echo "Unknown fixture variant: $3" >&2; exit 64; fi
+fi
+case "$COMPILER_CONFIGURATION" in Release|Debug) ;; *) echo "Unknown compiler configuration: $COMPILER_CONFIGURATION" >&2; exit 64 ;; esac
 if [[ -e "$OUTPUT" || -L "$OUTPUT" ]]; then echo "Output directory must be new: $OUTPUT" >&2; exit 1; fi
 mkdir -- "$OUTPUT"
 OUTPUT="$(cd "$OUTPUT" && pwd)"
-dotnet run --project "$ROOT/tests/Xsl3.AttributeIdentityProbe.Generator" -c Release -- "$OUTPUT/stylesheets" > "$OUTPUT/generator.log" 2>&1
+GENERATOR_ARGS=("$OUTPUT/stylesheets")
+if [[ $# -ge 3 ]]; then GENERATOR_ARGS+=(--bare-variable); fi
+dotnet run --project "$ROOT/tests/Xsl3.AttributeIdentityProbe.Generator" -c "$COMPILER_CONFIGURATION" -- "${GENERATOR_ARGS[@]}" > "$OUTPUT/generator.log" 2>&1
 dotnet build "$ROOT/tests/Xsl3.AttributeIdentityProbe" -c Release -m:1 -p:UseSharedCompilation=false \
   -p:IdentityStylesheetDirectory="$OUTPUT/stylesheets" > "$OUTPUT/managed-build.log" 2>&1
 for framework in net8.0 net10.0; do

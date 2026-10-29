@@ -8,7 +8,12 @@ using System.Xml;
 using Xsl3;
 using Xsl3.Tests;
 
-if (args.Length != 1) { Console.Error.WriteLine("Usage: generator <new-output-directory>"); return 64; }
+if (args.Length is < 1 or > 2 || args.Length == 2 && args[1] != "--bare-variable")
+{
+    Console.Error.WriteLine("Usage: generator <new-output-directory> [--bare-variable]");
+    return 64;
+}
+bool bareVariable = args.Length == 2;
 string directory = Path.GetFullPath(args[0]);
 if (Directory.Exists(directory)) throw new IOException("Output directory must be new: " + directory);
 Directory.CreateDirectory(directory);
@@ -23,7 +28,7 @@ try
     {
         string name = CopiedAttributeIdentityFixtures.StyleName(declaration, validation, forward, debug);
         string type = "Saved." + name;
-        string sheet = CopiedAttributeIdentityFixtures.RoundTripSheet(validation);
+        string sheet = CopiedAttributeIdentityFixtures.RoundTripSheet(validation, bareVariable);
         File.WriteAllText(Path.Combine(directory, name + ".xsl"), sheet);
         using var input = XmlReader.Create(new StringReader(sheet));
         using var output = new MemoryStream();
@@ -48,5 +53,5 @@ try
 finally { Environment.SetEnvironmentVariable("XSL3_STREAM_STRICT", previous); }
 bindings.Append("default: throw new ArgumentException(\"Unknown saved identity contract\", nameof(name));\n}\nreturn transform;\n}\n}\n");
 File.WriteAllText(Path.Combine(directory, "SavedIdentity.g.cs"), bindings.ToString());
-Console.WriteLine($"Generated {index} normal/debug grounded/forward identity styles.");
+Console.WriteLine($"Generated {index} normal/debug grounded/forward identity styles; bare-variable={bareVariable}.");
 return 0;

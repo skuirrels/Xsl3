@@ -37,6 +37,10 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/Xsl3.Tests -c Release --no-build --logger trx --results-directory artifacts/test-results
 
+      # P7H: the original assertion requires a Debug library as well as debug stylesheets.
+      - name: Debug compiler source-line contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --filter "FullyQualifiedName~BareVariableSequencesKeepIdentity|FullyQualifiedName~DebugSourceLineTests" --logger trx --results-directory artifacts/test-results/debug-source-lines
+
       # Functional probe checks only. The approved absolute RSS gates remain separate and unmet.
       - name: Streaming process probe smoke
         if: matrix.os == 'ubuntu-latest'
@@ -235,6 +239,11 @@ jobs:
       - name: Saved copied-attribute identity contracts (.NET 8/10 and NativeAOT)
         run: bash eng/verify-attribute-identity.sh linux-x64 artifacts/attribute-identity
 
+      - name: Saved bare-variable contracts from Release and Debug compilers
+        run: |
+          bash eng/verify-attribute-identity.sh linux-x64 artifacts/debug-source-lines-release --bare-variable Release
+          bash eng/verify-attribute-identity.sh linux-x64 artifacts/debug-source-lines-debug --bare-variable Debug
+
       # Full P7 RSS/throughput acceptance is tracked in streaming-development.yml.
       # P7A ships foundations with streaming unsupported (docs/plan/p7a-closeout.md).
 
@@ -247,6 +256,8 @@ jobs:
             artifacts/streaming-probe-jit-guard.*
             artifacts/streaming-probe-smoke
             artifacts/attribute-identity
+            artifacts/debug-source-lines-release
+            artifacts/debug-source-lines-debug
 
   # The performance and allocation gate (remaining-scope 1.7): the XSLT 3.0 micro suite on this branch against the
   # base branch, in the same job and alternating, so runner noise hits both. Fails on more than 5% slower (geometric

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — P7H (1.1.6 candidate)
+
+- Give bare XPath 3.1 variable references separate instruction source locations. Repeated
+  `xsl:sequence select="$value"` uses retain their shared binding without overwriting its metadata
+  or triggering the Debug compiler's source-line assertion.
+- Cover the original six copied-attribute contracts with bare-variable expressions, declaration/use
+  locations, once-only evaluation and error diagnostics. Generate normal/debug saved styles with
+  Release and Debug compilers for .NET 8/10 and NativeAOT consumers.
+- Retain public APIs, saved formats, identity behavior and all streaming-support boundaries.
+  The stylesheet-reader reserialization finding remains [deferred](docs/plan/p7h-deferred.md).
+
+See the [bounded plan](docs/plan/p7h-debug-source-line-contracts.md). This candidate is not released.
+
 ## [1.1.5](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.5) — 2026-10-29
 
 - Preserve DTD `ID`, `IDREF` and `IDREFS` identity when XDM/XSLT 2.0+ input has ATTLIST-only

@@ -1,5 +1,13 @@
 # Remaining scope: everything after P5
 
+> **P7H bounded implementation and local close-out complete:** the
+> [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original
+> bare-variable expressions for all six P7G contracts, with passing metadata, diagnostic,
+> Release/Debug, saved/native, regression and performance gates. See the
+> [close-out](../p7h-debug-source-lines-2026-10-29.md). Required hosted CI gates merging;
+> 1.1.6 is an unreleased candidate. The latest released version remains 1.1.5;
+> full P7 and streaming support remain deferred.
+
 > **P7G bounded implementation complete:** the [copied-attribute identity phase](p7g-attribute-identity-contracts.md)
 > resolves DTD ID/IDREF/IDREFS × preserve/strip, with source, detached-copy and reconstructed-document
 > controls and passing local regression/allocation gates. See the [close-out](../p7g-attribute-identity-2026-10-29.md).

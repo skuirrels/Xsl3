@@ -48,14 +48,14 @@ internal static class CopiedAttributeIdentityFixtures
         <xsl:value-of select="concat(count(id('target', root(.))), '|', count(idref(('target', 'other'), root(.))), '|', count(id('normalized', root(.))))"/>
         """, streamable: false);
 
-    internal static string RoundTripSheet(string validation) => Wrapper($$"""
+    internal static string RoundTripSheet(string validation, bool bareVariable = false) => Wrapper($$"""
         <xsl:variable name="attributes" as="attribute()*"><xsl:copy-of select="@*" validation="{{validation}}"/></xsl:variable>
         <xsl:variable name="second" as="attribute()*"><xsl:copy-of select="$attributes" validation="{{validation}}"/></xsl:variable>
         <xsl:variable name="preserved" as="document-node()">
-          <xsl:document validation="preserve"><copied xsl:validation="preserve"><xsl:sequence select="$second/self::attribute()"/></copied></xsl:document>
+          <xsl:document validation="preserve"><copied xsl:validation="preserve"><xsl:sequence select="{{(bareVariable ? "$second" : "$second/self::attribute()")}}"/></copied></xsl:document>
         </xsl:variable>
         <xsl:variable name="stripped" as="document-node()">
-          <xsl:document validation="strip"><copied xsl:validation="strip"><xsl:sequence select="$second/self::attribute()"/></copied></xsl:document>
+          <xsl:document validation="strip"><copied xsl:validation="strip"><xsl:sequence select="{{(bareVariable ? "$second" : "$second/self::attribute()")}}"/></copied></xsl:document>
         </xsl:variable>
         <xsl:variable name="target" select="tokenize(string(@p:identity), '\s+')[1]"/>
         <xsl:value-of select="concat(count($attributes/..), '|', $attributes[1] is @p:identity, '|', $attributes[1] is $second[1], '|', name($second[1]), '|', namespace-uri($second[1]), '|', string($second[1]), '|', $second[1] instance of attribute(*, xs:untypedAtomic), ';')"/>
