@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — developer diagnostics (P7E audit)
+
+- Add isolated, explicitly selected identity memory diagnostics with source/artifact provenance,
+  bounded launcher hashing and invalid-evidence safeguards. Preserve scheduled/default acceptance jobs.
+- Close the [P7E audit](docs/p7e-memory-diagnosis-2026-10-28.md) with complete 1.1.3 memory matrices
+  and repeated Linux/macOS NativeAOT identity measurements. No runtime or package change; 1.1.3 remains
+  the current release. Existing memory limits and unsupported-streaming status are unchanged.
+
 ## [1.1.3](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.3) — 2026-10-28
 
 - Treat `validation="lax"` as annotation stripping with `SchemaAware=false`, as required for basic

@@ -1,5 +1,10 @@
 # Remaining scope: everything after P5
 
+> **P7E closed as an audit:** the bounded [memory-budget diagnosis](p7e-memory-budget-diagnosis.md)
+> reproduces all four 1.1.3 memory matrices and repeated identity cohorts. Linux remains 0/16 and macOS
+> 13/16 at 20 MiB; both pass 16/16 at 200 MiB. No runtime change or patch release is proposed.
+> See the [diagnostic report](../p7e-memory-diagnosis-2026-10-28.md). Full P7 remains deferred.
+
 > **P7D completion:** the bounded [schema-validation contracts phase](p7d-validation-contracts.md)
 > resolves six selected case dispositions and corrects basic lax/strip processing. Version 1.1.3 contains these
 > corrections. No full-P7 scope or streaming feature claim is added.

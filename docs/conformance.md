@@ -1,5 +1,9 @@
 # Conformance
 
+The [P7E memory-budget audit](p7e-memory-diagnosis-2026-10-28.md) closes without runtime, fixture,
+baseline or feature-claim changes. Its separate diagnostic job validates measurements; the original
+20 MiB acceptance failures remain visible. Version 1.1.3 conformance evidence below is unchanged.
+
 The 1.1.3 [P7D validation-contract close-out](plan/p7d-validation-contracts.md) adds basic-processing
 lax/strip/preserve and schema-availability regressions. The three original lax fixtures pass when run
 as a basic processor; the standard schema-aware profile retains its original results. All six selected

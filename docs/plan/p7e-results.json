@@ -1,0 +1,1323 @@
+{
+  "phase": "P7E",
+  "baseline_tag": "v1.1.3",
+  "baseline_commit": "7bf3dd67a71fe0d77dc2fca1f0264ff8b343c4bf",
+  "runtime_tree": "5395369d50ed9606a9fc73fa4ed40831bc172bf6",
+  "runtime_changed": false,
+  "canonical_controller_changed": false,
+  "globalization_disabled": false,
+  "new_package_release": false,
+  "canonical_baseline_run": 40774600310,
+  "diagnostic_run": 40778934175,
+  "diagnostic_revision": "b68dc1effa8b711e5f9009eb1259b38720a8d1c3",
+  "protected_sha256": {
+    "eng/streaming-gate.py": "edbc9382a0c304999f810bd53f1a5493dbac2357e3e01b0020170acfcca166b4",
+    "eng/streaming-benchmark.py": "104d46f91bf083e8dca587cc3dbd56d46534b194450eb47e3d0ea67383d8e5ac",
+    "eng/publish-stream-probe.sh": "d2a457337e00560fc0f14e15b184df3407e724f980c8ae839a182d2ee6162840",
+    "tests/Xsl3.Tests/StreamingProbe.cs": "802963726a01d1896ed9b856e8bd5ad58dd93b57cae1b1ca779b90fae29cdd6c",
+    "tests/Xsl3.Tests/StreamingProbe.Memory.cs": "20aa690077f61243249fcfb6950f8b86520837f2c732b8a5bf472ca56fe3e507",
+    "tests/Xsl3.Tests/StreamingProbe.Json.cs": "2764b50b8a17272c9afdb127e17acdd12ccce3f3b17572107bc29b94edbbe7a4",
+    "tests/Xsl3.Tests/StreamingProbe.Stylesheets.cs": "faafb9f46bd50b43ac35be46406f200803c566e946d2c38c05f038215da7729f",
+    "tests/Xsl3.StreamingProbe.Generator/Program.cs": "1ea76c7461583fa53cf7737cb718c1205a3643a5dc0504fda115fe92b0a2013a",
+    "tests/Xsl3.StreamingProbe.Native/Program.cs": "49b984f239a234b669ec400bffc1b2826950b10b499f90c17b099a9790d5761c",
+    "tests/Xsl3.StreamingProbe.Native/Xsl3.StreamingProbe.Native.csproj": "c23bef2d9b6ac4361b9fe94f02ddd1b104f95acff125f4d38d801048dd1cd34a"
+  },
+  "excluded_cohorts": {
+    "linux_diagnostic_40775718775": {
+      "revision": "4729f93dbcced72e7b82ccaa0d854d5362a6e368",
+      "status": "excluded from final peak attribution",
+      "reason": "Whole-image hash allocation inflated pre-exec launcher high-water RSS; child lifetime counters were already about 33.5 MB at entry, above simultaneous live /proc RSS. Functional outputs remain valid.",
+      "replacement_run": 40778934175
+    },
+    "macos_initial_identity": {
+      "status": "retained; superseded for final comparisons",
+      "reason": "Repeat uses the corrected bounded-hash launcher and records launcher peak; canonical matrices remain unchanged."
+    }
+  },
+  "platforms": {
+    "macos-arm64": {
+      "push": {
+        "report_sha256": "737ca7e1f8f25d3ceb8edc0a4a883cc39d22eab75de7f304786d10f37b2772d2",
+        "complete": true,
+        "passes": 13,
+        "cases": 16,
+        "rows": [
+          {
+            "workload": "identity",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20119552,
+            "exit_code": 0
+          },
+          {
+            "workload": "adjacent",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20692992,
+            "exit_code": 0
+          },
+          {
+            "workload": "accumulator",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20889600,
+            "exit_code": 0
+          },
+          {
+            "workload": "iterate",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 23314432,
+            "exit_code": 3
+          },
+          {
+            "workload": "merge",
+            "passed": false,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 21118976,
+            "exit_code": 0
+          },
+          {
+            "workload": "fork",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 23068672,
+            "exit_code": 3
+          },
+          {
+            "workload": "source-document",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20430848,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-union",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20889600,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-intersection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20856832,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-assertion",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20447232,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-inspection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20430848,
+            "exit_code": 0
+          },
+          {
+            "workload": "copy-select",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20398080,
+            "exit_code": 0
+          },
+          {
+            "workload": "conditional-content",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20463616,
+            "exit_code": 0
+          },
+          {
+            "workload": "template-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20824064,
+            "exit_code": 0
+          },
+          {
+            "workload": "function-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20889600,
+            "exit_code": 0
+          },
+          {
+            "workload": "overlap-values",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 20955136,
+            "exit_code": 0
+          }
+        ]
+      },
+      "nightly": {
+        "report_sha256": "987b6431cda0e67658da0d699ef06c785d8a8cc29509a5fdf61a1a19eb92e9eb",
+        "complete": true,
+        "passes": 16,
+        "cases": 16,
+        "rows": [
+          {
+            "workload": "identity",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25640960,
+            "exit_code": 0
+          },
+          {
+            "workload": "adjacent",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25853952,
+            "exit_code": 0
+          },
+          {
+            "workload": "accumulator",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25886720,
+            "exit_code": 0
+          },
+          {
+            "workload": "iterate",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 28459008,
+            "exit_code": 0
+          },
+          {
+            "workload": "merge",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 26361856,
+            "exit_code": 0
+          },
+          {
+            "workload": "fork",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 28426240,
+            "exit_code": 0
+          },
+          {
+            "workload": "source-document",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25739264,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-union",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 26034176,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-intersection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 26034176,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-assertion",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25296896,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-inspection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25444352,
+            "exit_code": 0
+          },
+          {
+            "workload": "copy-select",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25657344,
+            "exit_code": 0
+          },
+          {
+            "workload": "conditional-content",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25608192,
+            "exit_code": 0
+          },
+          {
+            "workload": "template-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25886720,
+            "exit_code": 0
+          },
+          {
+            "workload": "function-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 25952256,
+            "exit_code": 0
+          },
+          {
+            "workload": "overlap-values",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 26132480,
+            "exit_code": 0
+          }
+        ]
+      },
+      "identity_control": {
+        "report_sha256": "3b5008208b56b6773795ba881f39edfdc5451c572428769ce75c4091579e44f0",
+        "executable_sha256": "e76a33b75b96d0250ee3eb01a9982bf16ca96bcb90ca9bc4f15ecffcc3d28391",
+        "launcher_peak_bytes_before_first_child": 23805952,
+        "rounds_per_size": 3,
+        "heap_limit": 20971520,
+        "rss_guard": 0,
+        "acceptance": false,
+        "sizes": [
+          {
+            "input_bytes": 10485760,
+            "median_outer_peak_bytes": 20398080,
+            "min_outer_peak_bytes": 20398080,
+            "max_outer_peak_bytes": 20398080,
+            "full_validated_inputs": 3
+          },
+          {
+            "input_bytes": 209715200,
+            "median_outer_peak_bytes": 20119552,
+            "min_outer_peak_bytes": 20103168,
+            "max_outer_peak_bytes": 20398080,
+            "full_validated_inputs": 3
+          },
+          {
+            "input_bytes": 2147483648,
+            "median_outer_peak_bytes": 20119552,
+            "min_outer_peak_bytes": 20103168,
+            "max_outer_peak_bytes": 20119552,
+            "full_validated_inputs": 3
+          }
+        ]
+      },
+      "identity_instrumented": {
+        "report_sha256": "4739e0e30303ca2805dc0cbf2442f70ea094524167e9083c1ff5a2b0bddef116",
+        "executable_sha256": "05f63b4e61839d29744fbf751d982558732ec80d2b7db06c642e5cad5b3d2ff1",
+        "launcher_peak_bytes_before_first_child": 23838720,
+        "rounds_per_size": 3,
+        "heap_limit": 20971520,
+        "rss_guard": 0,
+        "acceptance": false,
+        "sizes": [
+          {
+            "input_bytes": 10485760,
+            "median_outer_peak_bytes": 20414464,
+            "min_outer_peak_bytes": 20414464,
+            "max_outer_peak_bytes": 20414464,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 13516800,
+                "AllocatedBytes": 179864,
+                "LiveBytes": 181712,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 15482880,
+                "AllocatedBytes": 555232,
+                "LiveBytes": 562792,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 16433152,
+                "AllocatedBytes": 665288,
+                "LiveBytes": 670744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 16826368,
+                "AllocatedBytes": 666232,
+                "LiveBytes": 709416,
+                "CommittedBytes": 1146880,
+                "HeapSizeBytes": 392208,
+                "FragmentedBytes": 4560
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 20135936,
+                "AllocatedBytes": 743993632,
+                "LiveBytes": 1210944,
+                "CommittedBytes": 3997696,
+                "HeapSizeBytes": 555792,
+                "FragmentedBytes": 7728
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 20135936,
+                "AllocatedBytes": 743995784,
+                "LiveBytes": 1210944,
+                "CommittedBytes": 3997696,
+                "HeapSizeBytes": 555792,
+                "FragmentedBytes": 7728
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 20135936,
+                "AllocatedBytes": 743997056,
+                "LiveBytes": 709632,
+                "CommittedBytes": 3653632,
+                "HeapSizeBytes": 390048,
+                "FragmentedBytes": 24
+              }
+            ]
+          },
+          {
+            "input_bytes": 209715200,
+            "median_outer_peak_bytes": 20086784,
+            "min_outer_peak_bytes": 20086784,
+            "max_outer_peak_bytes": 20119552,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 13516800,
+                "AllocatedBytes": 179864,
+                "LiveBytes": 181712,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 15482880,
+                "AllocatedBytes": 555232,
+                "LiveBytes": 562792,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 16433152,
+                "AllocatedBytes": 665288,
+                "LiveBytes": 670744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 16826368,
+                "AllocatedBytes": 666232,
+                "LiveBytes": 709416,
+                "CommittedBytes": 1146880,
+                "HeapSizeBytes": 392208,
+                "FragmentedBytes": 4560
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 20086784,
+                "AllocatedBytes": 14866762976,
+                "LiveBytes": 3619760,
+                "CommittedBytes": 3637248,
+                "HeapSizeBytes": 554952,
+                "FragmentedBytes": 7704
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 20086784,
+                "AllocatedBytes": 14866765128,
+                "LiveBytes": 3619760,
+                "CommittedBytes": 3637248,
+                "HeapSizeBytes": 554952,
+                "FragmentedBytes": 7704
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 20086784,
+                "AllocatedBytes": 14866766736,
+                "LiveBytes": 717856,
+                "CommittedBytes": 3637248,
+                "HeapSizeBytes": 390048,
+                "FragmentedBytes": 24
+              }
+            ]
+          },
+          {
+            "input_bytes": 2147483648,
+            "median_outer_peak_bytes": 20119552,
+            "min_outer_peak_bytes": 20119552,
+            "max_outer_peak_bytes": 20185088,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 13516800,
+                "AllocatedBytes": 179872,
+                "LiveBytes": 181712,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 15482880,
+                "AllocatedBytes": 555240,
+                "LiveBytes": 562792,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 16433152,
+                "AllocatedBytes": 665296,
+                "LiveBytes": 670744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 16826368,
+                "AllocatedBytes": 666240,
+                "LiveBytes": 709432,
+                "CommittedBytes": 1146880,
+                "HeapSizeBytes": 392216,
+                "FragmentedBytes": 4560
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 20119552,
+                "AllocatedBytes": 152229267400,
+                "LiveBytes": 2282040,
+                "CommittedBytes": 3653632,
+                "HeapSizeBytes": 556408,
+                "FragmentedBytes": 7440
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 20119552,
+                "AllocatedBytes": 152229269552,
+                "LiveBytes": 2290264,
+                "CommittedBytes": 3653632,
+                "HeapSizeBytes": 556408,
+                "FragmentedBytes": 7440
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 20119552,
+                "AllocatedBytes": 152229271112,
+                "LiveBytes": 717336,
+                "CommittedBytes": 3653632,
+                "HeapSizeBytes": 390056,
+                "FragmentedBytes": 560
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "linux-x64": {
+      "push": {
+        "report_sha256": "ac752ee11e58e29a04f0cf53bdd921420752f61299d7abbaa9918cf3fb5c725b",
+        "complete": true,
+        "passes": 0,
+        "cases": 16,
+        "rows": [
+          {
+            "workload": "identity",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 22085632,
+            "exit_code": 3
+          },
+          {
+            "workload": "adjacent",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21823488,
+            "exit_code": 3
+          },
+          {
+            "workload": "accumulator",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21753856,
+            "exit_code": 3
+          },
+          {
+            "workload": "iterate",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 22540288,
+            "exit_code": 3
+          },
+          {
+            "workload": "merge",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21671936,
+            "exit_code": 3
+          },
+          {
+            "workload": "fork",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21803008,
+            "exit_code": 3
+          },
+          {
+            "workload": "source-document",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 25632768,
+            "exit_code": 3
+          },
+          {
+            "workload": "climbing-union",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21282816,
+            "exit_code": 3
+          },
+          {
+            "workload": "climbing-intersection",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21573632,
+            "exit_code": 3
+          },
+          {
+            "workload": "type-assertion",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 25620480,
+            "exit_code": 3
+          },
+          {
+            "workload": "type-inspection",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 25808896,
+            "exit_code": 3
+          },
+          {
+            "workload": "copy-select",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 22065152,
+            "exit_code": 3
+          },
+          {
+            "workload": "conditional-content",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 25800704,
+            "exit_code": 3
+          },
+          {
+            "workload": "template-parameter",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 25346048,
+            "exit_code": 3
+          },
+          {
+            "workload": "function-parameter",
+            "passed": false,
+            "status": "budget-exceeded-before-measurement",
+            "input_bytes": 0,
+            "valid_output": false,
+            "peak_bytes": 21630976,
+            "exit_code": 3
+          },
+          {
+            "workload": "overlap-values",
+            "passed": false,
+            "status": "budget-exceeded",
+            "input_bytes": 209715200,
+            "valid_output": true,
+            "peak_bytes": 26238976,
+            "exit_code": 3
+          }
+        ]
+      },
+      "nightly": {
+        "report_sha256": "fdc84c3f4f06161e74cae46cd4ada147887c88cb7909e9153298f6293da61bde",
+        "complete": true,
+        "passes": 16,
+        "cases": 16,
+        "rows": [
+          {
+            "workload": "identity",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39763968,
+            "exit_code": 0
+          },
+          {
+            "workload": "adjacent",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39583744,
+            "exit_code": 0
+          },
+          {
+            "workload": "accumulator",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39845888,
+            "exit_code": 0
+          },
+          {
+            "workload": "iterate",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40529920,
+            "exit_code": 0
+          },
+          {
+            "workload": "merge",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40308736,
+            "exit_code": 0
+          },
+          {
+            "workload": "fork",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40714240,
+            "exit_code": 0
+          },
+          {
+            "workload": "source-document",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39735296,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-union",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40218624,
+            "exit_code": 0
+          },
+          {
+            "workload": "climbing-intersection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39960576,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-assertion",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39276544,
+            "exit_code": 0
+          },
+          {
+            "workload": "type-inspection",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39301120,
+            "exit_code": 0
+          },
+          {
+            "workload": "copy-select",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39714816,
+            "exit_code": 0
+          },
+          {
+            "workload": "conditional-content",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39538688,
+            "exit_code": 0
+          },
+          {
+            "workload": "template-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 39444480,
+            "exit_code": 0
+          },
+          {
+            "workload": "function-parameter",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40112128,
+            "exit_code": 0
+          },
+          {
+            "workload": "overlap-values",
+            "passed": true,
+            "status": "ok",
+            "input_bytes": 2147483648,
+            "valid_output": true,
+            "peak_bytes": 40423424,
+            "exit_code": 0
+          }
+        ]
+      },
+      "identity_control": {
+        "report_sha256": "4f9bd562e5ef0b6e28ecacc0311c4e5245cd32ebfc548943e2c80cd30799590b",
+        "executable_sha256": "9e3b17e2f28f242abad2de3d9576ed8a7557be018d6b1253c4d4f832ad2419c5",
+        "launcher_peak_bytes_before_first_child": 19513344,
+        "rounds_per_size": 3,
+        "heap_limit": 20971520,
+        "rss_guard": 0,
+        "acceptance": false,
+        "sizes": [
+          {
+            "input_bytes": 10485760,
+            "median_outer_peak_bytes": 25989120,
+            "min_outer_peak_bytes": 25694208,
+            "max_outer_peak_bytes": 26103808,
+            "full_validated_inputs": 3
+          },
+          {
+            "input_bytes": 209715200,
+            "median_outer_peak_bytes": 25952256,
+            "min_outer_peak_bytes": 25055232,
+            "max_outer_peak_bytes": 25952256,
+            "full_validated_inputs": 3
+          },
+          {
+            "input_bytes": 2147483648,
+            "median_outer_peak_bytes": 27566080,
+            "min_outer_peak_bytes": 26628096,
+            "max_outer_peak_bytes": 27807744,
+            "full_validated_inputs": 3
+          }
+        ]
+      },
+      "identity_instrumented": {
+        "report_sha256": "8175d4f73ce684e6ac6bc1f7a46fb52edee9e6398b1a86948c8a50016de3bd52",
+        "executable_sha256": "c9e4a3fe18a2ff101800cf01d164da6395f572ec24c39261129d1d46afc7ea46",
+        "launcher_peak_bytes_before_first_child": 19513344,
+        "rounds_per_size": 3,
+        "heap_limit": 20971520,
+        "rss_guard": 0,
+        "acceptance": false,
+        "sizes": [
+          {
+            "input_bytes": 10485760,
+            "median_outer_peak_bytes": 26017792,
+            "min_outer_peak_bytes": 25145344,
+            "max_outer_peak_bytes": 26296320,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 187648,
+                "LiveBytes": 191744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 16384000,
+                  "Pss_Anon": 4091904,
+                  "Pss_File": 6538240,
+                  "Anonymous": 4091904
+                }
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 573384,
+                "LiveBytes": 576736,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 18948096,
+                  "Pss_Anon": 4497408,
+                  "Pss_File": 8709120,
+                  "Anonymous": 4497408
+                }
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 19759104,
+                "AllocatedBytes": 693736,
+                "LiveBytes": 699584,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 19787776,
+                  "Pss_Anon": 4616192,
+                  "Pss_File": 9430016,
+                  "Anonymous": 4616192
+                }
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 21266432,
+                "AllocatedBytes": 706016,
+                "LiveBytes": 412352,
+                "CommittedBytes": 1466368,
+                "HeapSizeBytes": 400512,
+                "FragmentedBytes": 4608,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 21401600,
+                  "Pss_Anon": 4984832,
+                  "Pss_File": 10675200,
+                  "Anonymous": 4984832
+                }
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 25329664,
+                "AllocatedBytes": 744043848,
+                "LiveBytes": 727608,
+                "CommittedBytes": 4677632,
+                "HeapSizeBytes": 562704,
+                "FragmentedBytes": 7800,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25522176,
+                  "Pss_Anon": 8466432,
+                  "Pss_File": 11314176,
+                  "Anonymous": 8466432
+                }
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 25329664,
+                "AllocatedBytes": 744056600,
+                "LiveBytes": 735936,
+                "CommittedBytes": 4677632,
+                "HeapSizeBytes": 562704,
+                "FragmentedBytes": 7800,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25522176,
+                  "Pss_Anon": 8466432,
+                  "Pss_File": 11314176,
+                  "Anonymous": 8466432
+                }
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 25329664,
+                "AllocatedBytes": 744068472,
+                "LiveBytes": 410880,
+                "CommittedBytes": 4677632,
+                "HeapSizeBytes": 402704,
+                "FragmentedBytes": 48,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25522176,
+                  "Pss_Anon": 8466432,
+                  "Pss_File": 11314176,
+                  "Anonymous": 8466432
+                }
+              }
+            ]
+          },
+          {
+            "input_bytes": 209715200,
+            "median_outer_peak_bytes": 26267648,
+            "min_outer_peak_bytes": 25935872,
+            "max_outer_peak_bytes": 26296320,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 187648,
+                "LiveBytes": 191744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 16429056,
+                  "Pss_Anon": 4087808,
+                  "Pss_File": 6579200,
+                  "Anonymous": 4087808
+                }
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 573384,
+                "LiveBytes": 576736,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 19156992,
+                  "Pss_Anon": 4493312,
+                  "Pss_File": 8901632,
+                  "Anonymous": 4493312
+                }
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 19841024,
+                "AllocatedBytes": 693736,
+                "LiveBytes": 699584,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 19869696,
+                  "Pss_Anon": 4612096,
+                  "Pss_File": 9495552,
+                  "Anonymous": 4612096
+                }
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 21217280,
+                "AllocatedBytes": 706016,
+                "LiveBytes": 412352,
+                "CommittedBytes": 1466368,
+                "HeapSizeBytes": 400512,
+                "FragmentedBytes": 4608,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 21417984,
+                  "Pss_Anon": 4980736,
+                  "Pss_File": 10675200,
+                  "Anonymous": 4980736
+                }
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 25497600,
+                "AllocatedBytes": 14866813192,
+                "LiveBytes": 1483992,
+                "CommittedBytes": 4677632,
+                "HeapSizeBytes": 562480,
+                "FragmentedBytes": 7800,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25640960,
+                  "Pss_Anon": 8462336,
+                  "Pss_File": 11416576,
+                  "Anonymous": 8462336
+                }
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 25497600,
+                "AllocatedBytes": 14866825944,
+                "LiveBytes": 1500440,
+                "CommittedBytes": 4677632,
+                "HeapSizeBytes": 562480,
+                "FragmentedBytes": 7800,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25640960,
+                  "Pss_Anon": 8462336,
+                  "Pss_File": 11416576,
+                  "Anonymous": 8462336
+                }
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 25497600,
+                "AllocatedBytes": 14866837816,
+                "LiveBytes": 410880,
+                "CommittedBytes": 4673536,
+                "HeapSizeBytes": 402704,
+                "FragmentedBytes": 48,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 25640960,
+                  "Pss_Anon": 8462336,
+                  "Pss_File": 11416576,
+                  "Anonymous": 8462336
+                }
+              }
+            ]
+          },
+          {
+            "input_bytes": 2147483648,
+            "median_outer_peak_bytes": 27611136,
+            "min_outer_peak_bytes": 27471872,
+            "max_outer_peak_bytes": 27840512,
+            "full_validated_inputs": 3,
+            "phases": [
+              {
+                "phase": "entry",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 187656,
+                "LiveBytes": 191744,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 16449536,
+                  "Pss_Anon": 4091904,
+                  "Pss_File": 6603776,
+                  "Anonymous": 4091904
+                }
+              },
+              {
+                "phase": "loaded",
+                "PeakBytes": 19513344,
+                "AllocatedBytes": 573392,
+                "LiveBytes": 576736,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 19025920,
+                  "Pss_Anon": 4497408,
+                  "Pss_File": 8774656,
+                  "Anonymous": 4497408
+                }
+              },
+              {
+                "phase": "warmup",
+                "PeakBytes": 19841024,
+                "AllocatedBytes": 693744,
+                "LiveBytes": 699584,
+                "CommittedBytes": 0,
+                "HeapSizeBytes": 0,
+                "FragmentedBytes": 0,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 19865600,
+                  "Pss_Anon": 4616192,
+                  "Pss_File": 9495552,
+                  "Anonymous": 4616192
+                }
+              },
+              {
+                "phase": "collected",
+                "PeakBytes": 21172224,
+                "AllocatedBytes": 706024,
+                "LiveBytes": 412360,
+                "CommittedBytes": 1466368,
+                "HeapSizeBytes": 400520,
+                "FragmentedBytes": 4608,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 21372928,
+                  "Pss_Anon": 4984832,
+                  "Pss_File": 10630144,
+                  "Anonymous": 4984832
+                }
+              },
+              {
+                "phase": "transformed",
+                "PeakBytes": 26902528,
+                "AllocatedBytes": 152229317952,
+                "LiveBytes": 1957624,
+                "CommittedBytes": 6180864,
+                "HeapSizeBytes": 587480,
+                "FragmentedBytes": 3600,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 27029504,
+                  "Pss_Anon": 9957376,
+                  "Pss_File": 11326464,
+                  "Anonymous": 9957376
+                }
+              },
+              {
+                "phase": "oracle",
+                "PeakBytes": 26902528,
+                "AllocatedBytes": 152229330704,
+                "LiveBytes": 1974072,
+                "CommittedBytes": 6180864,
+                "HeapSizeBytes": 587480,
+                "FragmentedBytes": 3600,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 27029504,
+                  "Pss_Anon": 9957376,
+                  "Pss_File": 11326464,
+                  "Anonymous": 9957376
+                }
+              },
+              {
+                "phase": "result",
+                "PeakBytes": 26902528,
+                "AllocatedBytes": 152229342576,
+                "LiveBytes": 410352,
+                "CommittedBytes": 6176768,
+                "HeapSizeBytes": 403832,
+                "FragmentedBytes": 1704,
+                "linux_rollup_medians_bytes": {
+                  "Rss": 27029504,
+                  "Pss_Anon": 9957376,
+                  "Pss_File": 11326464,
+                  "Anonymous": 9957376
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "status": "closed: diagnostic audit; no runtime correction or package release",
+  "source_archive_tracked_files": 1455,
+  "diagnostic_controller_tests_local": 20,
+  "diagnostic_tests_linux": 7,
+  "original_acceptance_job_definitions_preserved": true,
+  "artifact_metadata": [
+    {
+      "run_id": 40774600310,
+      "name": "streaming-memory-push",
+      "id": 12853583522,
+      "archive_sha256": "57bc918143d7780756e1256486d5519b3af31ea965d2f1d1fd8ed64ee96ea7f4",
+      "expires_at": "2027-01-26T21:45:44Z"
+    },
+    {
+      "run_id": 40774600310,
+      "name": "streaming-memory-nightly",
+      "id": 12855383890,
+      "archive_sha256": "ab21ec6100e0d3da6ec62fb33f37dc6970bab2e65641ef82f41d602c7e928458",
+      "expires_at": "2027-01-26T21:45:44Z"
+    },
+    {
+      "run_id": 40778934175,
+      "name": "p7e-identity-memory-diagnosis",
+      "id": 12855974616,
+      "archive_sha256": "1406cdf6a4ce412cadf8a40d4284c03256ff68976ac49da235a07f766d66a603",
+      "expires_at": "2027-01-26T22:18:26Z"
+    }
+  ]
+}
