@@ -4,23 +4,23 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.5: P7G copied-attribute identity contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
+> **1.1.6: P7H Debug compiler source-line contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
 > higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
 claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-Version **1.1.5** preserves DTD ID/IDREF/IDREFS metadata through source loading, parentless attribute
-copies and construction with preserve/strip policies. Positioned and intermediate reader views retain
-identity facts independently of type annotations; overlapping metadata registers a reference once.
-XSLT 1.0 keeps its stock compatibility policy. P7F's ordinary-attribute allocation optimization and
-P7D/P7C correctness fixes remain included. The strict 20 MiB target remains unmet.
+Version **1.1.6** fixes the Debug compiler assertion for repeated bare-variable `xsl:sequence`
+instructions. Each use retains its own source location without cloning or re-evaluating the binding.
+Normal/debug source and saved styles retain all six P7G copied-attribute identity contracts.
+P7G identity, P7F allocation and P7D/P7C correctness fixes remain included. XSLT 1.0 keeps its stock
+compatibility policy. The strict 20 MiB target and the separate stylesheet-reader mapping issue remain deferred.
 No public API or saved-format change is introduced.
-See the [1.1.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.5/docs/releases/1.1.5.md).
+See the [1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
 
 Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.5 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.6 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

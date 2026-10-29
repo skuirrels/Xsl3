@@ -1,12 +1,15 @@
 # P7H Debug compiler source-line contracts
 
 Baseline: released 1.1.5, `54df5c5ba8b34fc382dc3e7f6850fe3a6f4e8ac6`.
-Branch: `feature/p7h-debug-source-line-contracts`. Candidate: 1.1.6, unreleased.
+Branch: `feature/p7h-debug-source-line-contracts`. Release version: 1.1.6.
+[PR #26](https://github.com/skuirrels/Xsl3/pull/26) merged as `d297fa57d3ae206287ae6d5bfe62c8fddaaecf6f`.
 The [frozen plan](plan/p7h-debug-source-line-contracts.md) defines the release boundary.
 
 **Bounded implementation and local close-out complete.** See the [result snapshot](plan/p7h-results.json)
-for final source hashes, six-case provenance, selected reports and artifact checksums. Required hosted
-CI gates merging. Stop implementation at this boundary; 1.1.6 is not released.
+for final source hashes, six-case provenance, selected reports and artifact checksums. All four required
+[CI checks](https://github.com/skuirrels/Xsl3/actions/runs/40914625651) passed for reviewed source
+`7eabb156988606f7405df41cc8bbf66f74342220`. Review found no additional in-scope defects.
+Stop implementation at this boundary; final package publication is tracked separately.
 
 ## Reproduction and correction
 

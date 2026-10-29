@@ -2,12 +2,12 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Version **1.1.5** includes the bounded P7G copied-attribute identity corrections. DTD ID/IDREF/IDREFS
-properties survive source loading and parentless copies with preserve/strip policies. Intermediate
-reader views retain identity metadata, and overlapping descriptions register each reference once.
-P7F allocation and P7D/P7C correctness fixes remain included.
+Version **1.1.6** includes the bounded P7H Debug compiler source-line correction. Repeated
+bare-variable sequences retain separate instruction locations and one shared binding, with the
+compiler assertion retained. Normal/debug saved styles preserve the six P7G identity contracts.
+P7G identity, P7F allocation and P7D/P7C correctness fixes remain included.
 Keep the CLI and runtime/build packages at the same version. Streaming remains unsupported; see the
-[1.1.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.5/docs/releases/1.1.5.md).
+[1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
 
 ```
 dotnet tool install --global Xsl3.Cli

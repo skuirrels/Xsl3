@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — P7H (1.1.6 candidate)
+## [1.1.6](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.6) — 2026-10-29
 
 - Give bare XPath 3.1 variable references separate instruction source locations. Repeated
   `xsl:sequence select="$value"` uses retain their shared binding without overwriting its metadata
@@ -11,7 +11,8 @@
 - Retain public APIs, saved formats, identity behavior and all streaming-support boundaries.
   The stylesheet-reader reserialization finding remains [deferred](docs/plan/p7h-deferred.md).
 
-See the [bounded plan](docs/plan/p7h-debug-source-line-contracts.md). This candidate is not released.
+Update all three packages together. See the [release notes](docs/releases/1.1.6.md) and
+[bounded plan](docs/plan/p7h-debug-source-line-contracts.md).
 
 ## [1.1.5](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.5) — 2026-10-29
 

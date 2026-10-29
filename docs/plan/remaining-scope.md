@@ -4,15 +4,15 @@
 > [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original
 > bare-variable expressions for all six P7G contracts, with passing metadata, diagnostic,
 > Release/Debug, saved/native, regression and performance gates. See the
-> [close-out](../p7h-debug-source-lines-2026-10-29.md). Required hosted CI gates merging;
-> 1.1.6 is an unreleased candidate. The latest released version remains 1.1.5;
+> [close-out](../p7h-debug-source-lines-2026-10-29.md). [PR #26](https://github.com/skuirrels/Xsl3/pull/26)
+> is merged with all required CI checks passing. Release version: 1.1.6;
 > full P7 and streaming support remain deferred.
 
 > **P7G bounded implementation complete:** the [copied-attribute identity phase](p7g-attribute-identity-contracts.md)
 > resolves DTD ID/IDREF/IDREFS × preserve/strip, with source, detached-copy and reconstructed-document
 > controls and passing local regression/allocation gates. See the [close-out](../p7g-attribute-identity-2026-10-29.md).
-> [PR #25](https://github.com/skuirrels/Xsl3/pull/25) carries P7G for 1.1.5, with required CI before merging;
-> [unrelated findings](p7g-deferred.md) remain deferred. Release version: 1.1.5.
+> [PR #25](https://github.com/skuirrels/Xsl3/pull/25) merged and P7G shipped in 1.1.5;
+> The [compiler finding](p7g-deferred.md) is resolved by P7H. P7G release: 1.1.5.
 
 > **P7F complete:** the bounded [identity allocation phase](p7f-identity-allocation.md) reduces allocation
 > 23.55% across all three original input sizes on Linux/macOS, with passing throughput and regression
@@ -33,7 +33,7 @@
 > P7E closes the diagnostic audit; P7F closes attribute-copy allocation reduction for 1.1.4.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
 > Use the [P7F close-out](../p7f-identity-allocation-2026-10-29.md) for current scope and evidence; historical progress
-> entries below do not expand this release. Release version: 1.1.5.
+> entries below do not expand this release. Release version: 1.1.6.
 >
 > [P7B analysis is closed](p7b-analysis-closeout.md#p7b-completion) under the owner's explicit reviewed-suite
 > revision. Original raw results are retained; runtime, memory and throughput targets remain unchanged.

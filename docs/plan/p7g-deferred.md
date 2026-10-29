@@ -2,7 +2,7 @@
 
 ## D1: Debug compiler line information for a bare variable sequence
 
-**Resolved by the bounded [P7H candidate](p7h-debug-source-line-contracts.md)** with passing local
+**Resolved by bounded [P7H](p7h-debug-source-line-contracts.md) in 1.1.6** with passing local
 Release/Debug, saved/native and regression gates. See its [close-out](../p7h-debug-source-lines-2026-10-29.md).
 The original report below remains unchanged; released 1.1.5 still contains this compiler defect.
 

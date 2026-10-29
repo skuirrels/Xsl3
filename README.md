@@ -10,39 +10,37 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.1.5: P7G copied-attribute identity contracts.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
+> **1.1.6: P7H Debug compiler source-line contracts.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
 > with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
 > behind `XsltSettings.SchemaAware`. Packages are available on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
 > [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
 > [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
 > [what's outstanding](#whats-outstanding).
 
-**1.1.5 closes P7G**, the bounded copied-attribute identity phase. DTD `ID`, `IDREF` and `IDREFS`
-properties survive XDM/XSLT 2.0+ source loading, detached copies and insertion into new documents with
-both `preserve` and `strip`. Initial and positioned readers retain metadata, including through
-intermediate reader views. Overlapping DTD, schema and reader metadata register each reference once.
-XSLT 1.0 loading keeps its stock policy. No public API or saved-format change is introduced.
+**1.1.6 closes P7H**, the bounded Debug compiler source-line phase. Repeated bare-variable
+`xsl:sequence` instructions receive distinct source locations while retaining one shared binding
+and the declaration's metadata. The Debug compiler assertion is fixed with its check retained.
+The six P7G identity contracts pass with their original bare-variable expressions, alongside
+source-location, once-only evaluation, diagnostic and saved/native consumer controls.
+No public API or saved-format change is introduced.
 
-The P7F ordinary-attribute optimization remains included: its measured workload allocated **23.55% less**
-at 10 MiB, 200 MiB and 2 GiB on Linux/macOS. P7G's separate macOS ARM64 allocation regression check
-retains that gain. These workload-specific measurements do not establish general memory bounds.
+P7G's DTD ID/IDREF/IDREFS identity corrections and P7F's ordinary-attribute optimization remain
+included. The P7F workload measured **23.55% less allocation** at 10 MiB, 200 MiB and 2 GiB on
+Linux/macOS; that historical measurement does not establish general memory bounds. P7H's unchanged
+ordinary performance gate passes separately against 1.1.5.
 Streaming remains unsupported; normal execution remains tree-based and `supports-streaming` remains `no`.
-The 20 MiB target remains deferred. The Debug compiler finding is addressed by the unreleased P7H candidate below.
+The 20 MiB target and the separate stylesheet-reader source-mapping finding remain deferred.
 
-See the [changelog](CHANGELOG.md), [1.1.5 release notes](docs/releases/1.1.5.md) and
-[P7G close-out](docs/p7g-attribute-identity-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
+See the [changelog](CHANGELOG.md), [1.1.6 release notes](docs/releases/1.1.6.md) and
+[P7H close-out](docs/p7h-debug-source-lines-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
-
-The unreleased [P7H candidate](docs/plan/p7h-debug-source-line-contracts.md) resolves the deferred
-Debug compiler assertion for repeated bare-variable sequences. It keeps variable bindings shared
-and gives each instruction its own source location. All local completion gates pass; see the
-[close-out](docs/p7h-debug-source-lines-2026-10-29.md). The latest published version remains 1.1.5.
 
 ## What works
 
-Conformance verified by [P7F CI](https://github.com/skuirrels/Xsl3/actions/runs/40848151334)
+Conformance verified by [P7H CI](https://github.com/skuirrels/Xsl3/actions/runs/40914625651)
 on the merged implementation (Release, .NET 8 and .NET 10); performance rows retain their dated measurements
-in [docs/performance.md](docs/performance.md). See the [P7F evidence](docs/p7f-identity-allocation-2026-10-29.md),
+in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-debug-source-lines-2026-10-29.md),
+[P7F evidence](docs/p7f-identity-allocation-2026-10-29.md),
 [P7D contracts](docs/plan/p7d-validation-contracts.md), [P7C evidence](docs/plan/p7c-runtime-correctness.md) and
 [P7B evidence](docs/plan/p7b-analysis-closeout.md#p7b-completion) for raw/reviewed results and error-code accounting.
 
@@ -141,7 +139,7 @@ in [docs/performance.md](docs/performance.md). See the [P7F evidence](docs/p7f-i
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.1.5. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.1.6. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.

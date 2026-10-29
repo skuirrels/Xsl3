@@ -6,7 +6,8 @@ Baseline: released 1.1.5, `54df5c5ba8b34fc382dc3e7f6850fe3a6f4e8ac6`.
 **Bounded implementation and local close-out are complete.** All six dispositions and local gates
 have evidence in the [close-out](../p7h-debug-source-lines-2026-10-29.md),
 [case inventory](p7h-debug-source-line-cases.csv) and [snapshot](p7h-results.json).
-Stop implementation here. Required hosted CI gates merging; 1.1.6 is an unreleased candidate.
+Stop implementation here. [PR #26](https://github.com/skuirrels/Xsl3/pull/26) is merged after all
+four required CI checks passed. Release version: 1.1.6; see the [release notes](../releases/1.1.6.md).
 
 Resolve [P7G D1](p7g-deferred.md): a bare variable returned by `xsl:sequence`
 must compile with stylesheet debugging enabled when the library is built in Debug.
@@ -40,7 +41,7 @@ the expected identity properties, constructor policies, inputs, or P7G inventori
 
 ## Release boundary
 
-A verified consumer correction can be a 1.1.6 candidate; tagging/publication remain a separate
-authorized release step. If no correction is established, close as an audit. Defer unrelated
-findings. This phase does not resume full P7, the 20 MiB memory target, startup/performance
+The verified correction is included in the 1.1.6 release. The bounded implementation is closed;
+publication and public-package verification remain distinct release evidence. Defer unrelated findings.
+This phase does not resume full P7, the 20 MiB memory target, startup/performance
 optimization, new streaming constructs or broad compiler refactoring. Streaming remains unsupported.
