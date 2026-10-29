@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — P7F allocation reduction
+## [1.1.4](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.4) — 2026-10-29
 
 - Reduce allocation for ordinary untyped native attribute copies by constructing a minimal compact
   fragment. Preserve distinct parentless node identity and existing typed, DTD identity-sensitive and
@@ -16,8 +16,11 @@
 - Add isolated, explicitly selected identity memory diagnostics with source/artifact provenance,
   bounded launcher hashing and invalid-evidence safeguards. Preserve scheduled/default acceptance jobs.
 - Close the [P7E audit](docs/p7e-memory-diagnosis-2026-10-28.md) with complete 1.1.3 memory matrices
-  and repeated Linux/macOS NativeAOT identity measurements. No runtime or package change; 1.1.3 remains
-  the current release. Existing memory limits and unsupported-streaming status are unchanged.
+  and repeated Linux/macOS NativeAOT identity measurements. That audit introduced no runtime correction;
+  its 1.1.3 baseline and original failures remain retained. Memory limits and unsupported-streaming status are unchanged.
+
+Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together to 1.1.4 and regenerate saved stylesheets with matching
+compiler/runtime packages. See the [release notes](docs/releases/1.1.4.md).
 
 ## [1.1.3](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.3) — 2026-10-28
 

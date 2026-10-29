@@ -7,7 +7,8 @@ P7E PR #22 is merged after all four ordinary CI checks passed in run 40781096266
 **P7F is complete.** The [close-out](../p7f-identity-allocation-2026-10-29.md) and
 [result snapshot](p7f-results.json) record the single-hotspot correction, all six passing comparisons,
 full unchanged memory matrices, passing functional/performance gates and remaining limitations.
-PR #23 contains the 1.1.4 candidate; release publication remains separate.
+[PR #23](https://github.com/skuirrels/Xsl3/pull/23) is merged after [final CI](https://github.com/skuirrels/Xsl3/actions/runs/40848151334) passed.
+Release 1.1.4 contains the correction; see the [release notes](../releases/1.1.4.md).
 
 ## Scope and completion criteria
 
