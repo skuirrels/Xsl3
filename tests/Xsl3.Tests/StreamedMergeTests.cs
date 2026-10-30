@@ -24,7 +24,7 @@ public class StreamedMergeTests
     private static string Source(string name, string uris, string select = "rows/row", string key = "xs:integer(@k)", string attributes = "", string keyAttributes = "") =>
         $"<xsl:merge-source name='{name}' streamable='yes' for-each-source=\"{uris}\" select=\"{select}\" {attributes}><xsl:merge-key select=\"{key}\" {keyAttributes}/></xsl:merge-source>";
 
-    private static string Run(string sheet, Sources sources, bool forward = true, bool legacy = false, Action<string>? message = null, bool schemaAware = false, bool debug = false, XsltStreamabilityMode streamability = XsltStreamabilityMode.Strict)
+    private static string Run(string sheet, Sources sources, bool forward = true, bool legacy = false, Action<string>? message = null, bool schemaAware = false, bool debug = false, XsltStreamabilityMode streamability = XsltStreamabilityMode.Strict, bool saved = false)
     {
         using var input = XmlReader.Create(new StringReader("<input/>"));
         using var output = new StringWriter();
@@ -32,7 +32,17 @@ public class StreamedMergeTests
         if (legacy)
         {
             var transform = new XslCompiledTransform(debug);
-            transform.Load(XmlReader.Create(new StringReader(sheet)), settings, null);
+            using var stylesheet = XmlReader.Create(new StringReader(sheet));
+#if NET10_0_OR_GREATER
+            if (saved)
+            {
+                using var assembly = new MemoryStream();
+                transform.CompileToAssembly(stylesheet, settings, null, "MergeFunctionContext" + Guid.NewGuid().ToString("N"), "Saved.MergeFunctionContext", assembly);
+                transform.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.MergeFunctionContext", true)!, settings);
+            }
+            else
+#endif
+                transform.Load(stylesheet, settings, null);
             transform.Transform(input, null, output, sources);
         }
         else
@@ -353,6 +363,32 @@ public class StreamedMergeTests
         string sheet = Sheet(Source("s", "('urn:a','urn:b')"), "<xsl:sequence select='error()'/>");
         Assert.Equal("<out/>", Run(sheet, resolver, forward));
         Assert.All(resolver.Streams, stream => Assert.True(stream.Closed));
+    }
+
+    [Theory]
+    [InlineData("function() { current-merge-group() }()", "XTDE3480")]
+    [InlineData("(current-merge-group#0)()", "XTDE3480")]
+    [InlineData("function() { current-merge-group('s') }()", "XTDE3480")]
+    [InlineData("(current-merge-group#1)('s')", "XTDE3480")]
+    [InlineData("function() { current-merge-key() }()", "XTDE3510")]
+    [InlineData("(current-merge-key#0)()", "XTDE3510")]
+    public void FunctionItemsDoNotCaptureTheImplicitMergeContext(string expression, string code)
+    {
+        string action = $"<xsl:try><xsl:sequence select=\"{expression}\"/><xsl:catch xmlns:err='http://www.w3.org/2005/xqt-errors' exclude-result-prefixes='err' errors='err:{code}'><absent/></xsl:catch></xsl:try>"
+            + "<g k='{current-merge-key()}' n='{count(current-merge-group())}'/>";
+        string sheet = Sheet(Source("s", "'urn:a'"), action);
+        foreach (bool forward in new[] { false, true })
+        foreach (bool debug in new[] { false, true })
+        foreach (bool legacy in new[] { false, true })
+        foreach (bool saved in new[] { false, true })
+        {
+            if (saved && !legacy) continue;
+#if !NET10_0_OR_GREATER
+            if (saved) continue;
+#endif
+            Assert.Equal("<out><absent/><g k=\"1\" n=\"1\"/><absent/><g k=\"2\" n=\"1\"/></out>", Run(sheet,
+                new Sources(new() { ["urn:a"] = "<rows><row k='1'/><row k='2'/></rows>" }), forward, legacy, debug: debug, saved: saved));
+        }
     }
 
     [Theory]

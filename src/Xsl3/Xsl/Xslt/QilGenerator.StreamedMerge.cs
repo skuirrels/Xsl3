@@ -9,6 +9,22 @@ namespace Xsl3.Xslt;
 
 internal sealed partial class QilGenerator
 {
+    System.IDisposable? XPath31.IXPath31Environment.FunctionBody()
+    {
+        if (_currentMerge31 == null) return null;
+        var scope = new MergeFunctionScope(this, _currentMerge31);
+        _currentMerge31 = null;
+        return scope;
+    }
+
+    // XSLT 3.0 15.6: implicit merge context is absent in function values. Explicit
+    // variables are still captured by the XPath compiler through its normal closure ABI.
+    private sealed class MergeFunctionScope(QilGenerator owner,
+        (QilNode Group, QilNode Key, QilNode Sources, List<string?> Names)? saved) : System.IDisposable
+    {
+        public void Dispose() => owner._currentMerge31 = saved;
+    }
+
     private QilNode CompilePullMerge31(List<XslNode> sources, XslNode action, List<string?> names, QilIterator plan)
     {
         QilList inputs = _f.BaseFactory.Sequence();

@@ -2210,3 +2210,70 @@ This unit/documentation change does not dispatch another acceptance run for the 
 
 Original memory/throughput targets, complete runtime applicability/state accounting, public integration,
 full-branch review, final-source hosted CI, merge and release remain open. Full P7 stays active.
+
+
+### Merge retention and function-context isolation, 2026-10-30
+
+The [runtime contract map](p7-runtime-contracts.md#merge-groups-lookahead-and-explicit-retained-values)
+now measures real compiled merge snapshots and keys across two input lengths, three group/payload
+shapes, both APIs, normal/debug stylesheets and supported saved loading. The new suite adds **126
+.NET 10 /84 .NET 8** cases. Its six contract families cover distinct keys, tied groups, payload and
+ancestors, explicitly retained snapshots/closures, termination/ownership, and failure/cancellation.
+
+For 16 and 128 groups, measured snapshot maxima remain **4 /24 /8**, with observed key maxima
+**3 /4 /3**, for the documented shapes. Bounds include current equal-key group size and one lookahead
+per input. Logical character accounting uses actual generated IDs/keys and copied ancestor attributes;
+it is not physical allocation, parser/provenance accounting or process RSS. Explicitly retaining two
+groups adds twelve snapshots; they remain valid after source closure and collect once released.
+
+An isolated copy first matches all **410 C#/project inputs under `src/`**. Retaining completed group
+lists without changing their values fails all **36 /24** measurement cases on .NET 10/8; restoration
+and rebuild passes all of them. Production merge state, canonical inputs/oracles and all limits stay
+unchanged. Initial fixture failures (exception-wrapper assumptions, namespace serialization and a
+recursive test-stream adapter) remain retained with their corrected controls. The eager `head()` over
+a grounded merge-result variable remains recorded without being treated as a streaming guarantee.
+
+The new closure coverage also establishes a compiler defect: directly referring to implicit merge
+group/key context inside an inline or named function value loads an iterator local owned by another
+IL generator. Six reduced forms fail compilation on both frameworks before the fix. The XPath
+compiler now enters an internal host scope while building function bodies; the XSLT host clears only
+the implicit merge context and restores it on scope disposal. Explicit variable captures continue
+through their existing closure ABI. The six forms now report `XTDE3480` / `XTDE3510`, while the outer
+merge action keeps its group/key. Tree, forward, normal/debug, both API and .NET 10 saved paths pass.
+
+Full source-verified unit suites pass Release and Debug on **.NET 10: 4,818 / .NET 8: 4,386** per
+configuration. Each actual test-directory engine/test assembly is rebuilt, frozen and checked against
+**50 runtime /two changed test-source PDB documents** before its full `--no-build` invocation. The
+first Release .NET 8 full run retains one 30-second fork read-boundary timeout (**4,385/4,386**);
+the unchanged isolated read-boundary family passes **48/48**, and the unchanged complete rerun passes
+**4,386/4,386**. Its scheduling/root-cause attribution remains unproven; no timeout is relaxed.
+Raw evidence, deliberate mutation, restored-source comparison and frozen artifacts are retained in
+`artifacts/p7-completion/merge-state-ad659a9`.
+
+The preceding runtime's hosted acceptance **41132108776** is now terminal. Nightly independently
+verifies **16/16 budgets /48 children** at exact 2 GiB inputs and original 200 MiB heap/RSS guards,
+with maximum absolute RSS **38,678,528 bytes**. Push remains **13/16 budgets**, as recorded above.
+The full paired benchmark independently validates all **126 observations**, original outputs, all
+three sizes and actual **4,294,967,296-byte** heap caps, with **50 runtime /six probe** PDB source
+checks. Original 100 MB stream/tree ratios are:
+
+| Workload | Stream /tree median | Original target |
+|---|---:|---|
+| identity | 1.086410 | Fail |
+| adjacent | 0.801045 | Pass |
+| accumulator | 1.183693 | Fail |
+| iterate | 0.830945 | Pass |
+| merge | 0.887267 | Pass |
+| fork | 3.043689 | Fail |
+| source-document | 1.120546 | Fail |
+
+These hosted observations belong to `bd89eae`, not the new compiler change. The seven-workload target
+still fails; comparisons between separate hosted runs are not controlled attribution of improvements.
+Benchmark archive SHA-256: `168c95f5bdc1201beb63e28b6ce1d9872e5fafa905f1169983a3558ce99f6f9b`.
+Evidence: `contracts-linux-{push,nightly,benchmark}-bd89eae`. Broader review of saved compatibility,
+paged tree storage, numeric conversion, schema identity and fork culture ownership establishes no
+additional actionable defect in those reviewed areas; full-branch review remains open.
+
+Current-source hosted CI, remaining applicability/state accounting, original absolute memory and
+throughput targets, public integration, complete review, merge and release remain required. Full P7
+is not complete, and `supports-streaming` stays `no`.

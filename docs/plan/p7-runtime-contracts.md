@@ -46,7 +46,7 @@ The original exact-size NativeAOT matrices and paired benchmarks remain separate
 |---|---|---|
 | Accumulators | `StreamedAccumulatorTests`: start/end values, skipped subtrees, dependency cycles, applicability, copies and saved bindings. `StreamedAccumulatorStorageTests`: independent counter slots, deferred headers, fork consumers and cancellation after output. `StreamedAccumulatorLifetimeTests`: measured scalar and bounded rolling-string state across two generated input sizes | Complete mapping of original S5 requirements, general growing/opaque/node-valued state and explicit copies |
 | Grouping | `StreamedGroupingTests`: consume members before advancing, drain unused members, nested groups, repeatable grounded copies, key cardinality/errors and saved execution | Complete original construct/applicability mapping |
-| Merge | `StreamedMergeTests`: sorted inputs, stable groups, raw key values, context-size rules, XTDE errors, ownership, retained snapshots and saved execution | Complete original construct/applicability mapping |
+| Merge | `StreamedMergeTests`: sorted inputs, stable groups, raw key values, context-size rules, XTDE errors, ownership, retained snapshots and saved execution. `StreamedMergeLifetimeTests`: measured snapshot/key retention, explicit compiled closures, source/action failures, cancellation and resource ownership through both APIs and supported saved loading | Complete original construct/applicability mapping and original absolute process-memory qualification |
 | Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases. `StreamTeePayloadTests`: measured live payload bytes with explicit payload assumptions and an isolated retention mutation | Complete full S6 acceptance mapping and original process-memory qualification |
 | Fork callers | `ForkCallerTests`: input/output ownership, lost-wakeup protection, full-ring output progress, partial-ring refill and active callback lifetime. `ForkProngsTests`: declaration-order failures, cancellation and joining | Original absolute RSS and throughput targets still fail |
 | Nested fork frames | `StreamedForkInputTests.NestedEventsDoNotRetainConsumedProngFrameState`: after the source advances past an intermediate prong frame, a slow nested reader may retain its published event without retaining that frame's private runtime state | A focused lifetime contract; complete variable-payload, ancestor and replay accounting remains required |
@@ -128,6 +128,59 @@ Evidence: `artifacts/p7-completion/state-bounds-final-{release,debug}` TRX files
 The isolated mutation/control and source hashes are in `artifacts/p7-completion/tee-payload-f8915f6`.
 Rolling-window measurements, the initial shared-empty-sequence accounting failure, the retained-state
 mutation/control and frozen engines are in `artifacts/p7-completion/window-state-bd89eae`.
+
+### Merge groups, lookahead and explicit retained values
+
+`StreamedMergeLifetimeTests` observes the actual compact snapshots and atomic keys through a function
+parameter called by compiled merge-key and merge-action expressions. Execution capture verifies that
+each external merge input actually uses a forward source. Every program runs through both APIs, with
+normal/debug stylesheet compilation and, on .NET 10, saved assembly loading. The input fixtures and
+weak-reference recorders are test instrumentation; these tests make no process-RSS claim.
+
+Let `N` be the number of active inputs, `W` the rows contributed by each input to an equal-key group,
+and `G = N * W`. At sampled action checkpoints without explicitly retained earlier results, live snapshot
+documents stay within `G + N`: the current group and at most one lookahead per input. At most `N + 1`
+observed atomic key values remain live. Row text/attribute characters and copied ancestor-attribute
+characters are counted separately, bounded by the permitted snapshot count times the largest observed
+per-snapshot character count. Names, namespaces, object/array overhead, parser buffers, source provenance
+and the test fixture's own storage are not included in that logical-character measurement.
+
+| Inputs `N` | Rows per input/group `W` | Row text characters | Ancestor depth | Maximum live snapshots | Maximum live observed keys |
+|---:|---:|---:|---:|---:|---:|
+| 2 | 1 | 32 | 1 | 4 | 3 |
+| 3 | 7 | 256 | 1 | 24 | 4 |
+| 2 | 3 | 8,192 | 8 | 8 | 3 |
+
+Each shape runs for 16 and 128 groups, with two and sixteen collection checkpoints respectively.
+Snapshot/key maxima remain unchanged between those input lengths. Logical character maxima can differ
+because generated IDs and keys acquire another decimal digit; the bound uses the actual observed
+values, not a fixed expected payload. Source order, within-source order, row contents and each copied
+ancestor are checked against the generator's explicit inputs.
+
+Another program retains the first two groups as explicit node sequences and compiled closures over
+an explicit `$nodes` variable. Its bound includes those additional snapshots. All twelve retained
+snapshot documents survive source closure, preserve identity/content when the closures run later,
+and collect after their owner releases both sequences and closures. No implicit merge context is
+captured: XSLT 3.0 [15.6.1](https://www.w3.org/TR/xslt-30/#func-current-merge-group) and
+[15.6.2](https://www.w3.org/TR/xslt-30/#func-current-merge-key) require function values to have absent
+current merge group/key. Six inline/named-reference regression forms check the specified
+`XTDE3480` / `XTDE3510` errors and restoration of the surrounding merge action's context.
+
+Cleanup cases cover full completion, explicit terminating messages, action and key failures, input
+read failures, and cancellation during key/action processing. Merge-owned non-seekable streams close;
+lent readers and the principal input stay open. Cancellation preserves the original token. Lent-reader
+read failures follow the existing `FODC0002` projection; unwrapped stream failures retain their original
+exception. All unretained observed snapshots and keys collect after execution returns.
+
+A source-verified isolated mutation that retains completed groups, without changing their contents,
+fails all 36 .NET 10 and 24 .NET 8 measurement cases. Restoring and rebuilding passes them all.
+Raw measurements, controls, initial fixture failures, source restoration checks and tested-engine
+checksums are retained in `artifacts/p7-completion/merge-state-ad659a9`.
+
+A grounded variable containing the complete merge result can legitimately materialize that result;
+applying `head()` afterward does not establish an early-termination contract for that variable. The
+initial eager-result observation is retained. These contracts cover current-group/lookahead retention
+and explicit termination, not arbitrary lazy merge-result consumption or the original RSS/throughput gates.
 
 ## Non-forwarding case review
 
