@@ -708,3 +708,62 @@ configurations. All four retain **2,695 pass / 16 fail / 1 not run**, zero unmat
 passing frozen-case audits. The tested engine copies and JSONL fingerprints are independently
 checked; evidence uses the `compact-pool-*` prefix. These inventory checks preserve the full raw
 population but do not prove actual forwarding or close any original P7 acceptance requirement.
+
+### Grounded accumulator phase storage
+
+The retained large accumulator failure occurs while growing a dictionary keyed by a generated string
+for every visited node. Compact trees now identify before/after phases by exact depth-first event
+position, derived from their preorder index, exclusive subtree end and ancestor depth. Their cache
+stores changes in the phase sequence, carrying the same immutable value reference across unmatched
+nodes. A separate last-recorded position keeps future phases undefined during recursive demands and
+after partial failures. Foreign and vendored navigators retain their existing string-key path.
+
+An initial contiguous change list passes full Release/Debug units, **4,441 on .NET 10 / 4,084 on
+.NET 8**, per configuration, and twelve paired 100 MB observations. It still fails all three 1 GB
+candidate attempts while resizing that list; the baseline also fails while resizing its dictionary.
+The complete failed trials and first image remain retained under `accumulator-timeline-prototype`.
+
+The adopted implementation uses small initial storage and fixed-size blocks thereafter, avoiding a
+large old/new timeline-buffer pair during growth. Every phase value remains available: no input
+limit, eviction, fixture test or qualification-budget change is introduced. Existing gate ownership,
+dependency-cycle handling, cancellation, copy origins and weak document lifetimes remain intact.
+Thirteen additional regressions check mixed content and reverse lookup through compact, vendored
+and genuinely foreign navigators; many value changes across storage blocks; partial and recursive
+phase availability; and document/fragment start/end event positions. Full final-branch Release and
+Debug suites each pass **4,444 on .NET 10 / 4,087 on .NET 8**.
+
+The segmented JIT cohort validates all **15 observations** with the original 4 GiB heap guard:
+twelve alternating tree/stream controls at exact 100 MB and three correct 1 GB tree
+observations (the first large trial precedes the controls). Large-input peaks are **3,383,476,224**,
+**3,842,113,536** and **3,662,856,192 bytes**; all three output oracles pass. This is local evidence for
+one workload, not complete hosted large-input acceptance. At 100 MB, tree median falls from
+**5,556.670 ms** to **2,978.253 ms** and median RSS from **1,361,166,336** to **487,702,528 bytes**.
+Streaming medians remain **4,279.055 / 4,260.305 ms**. The faster tree baseline therefore exposes an
+accumulator throughput shortfall at the original stream-no-slower-than-tree target. That target is
+still required; no performance waiver or full streaming-support claim follows from this memory fix.
+
+[Ordinary CI at the preceding 49475dd checkpoint](https://github.com/skuirrels/Xsl3/actions/runs/40990263039)
+passes Linux, Windows, NativeAOT and ordinary performance. Its full hosted push matrix remains
+**0/16 budgets**, although all sixteen measured transformations complete correctly; peaks are
+**24,395,776–25,616,384 bytes**. Its hosted nightly matrix passes **16/16 workloads / 48 children**,
+maximum peak **40,177,664 bytes**, with exact 2 GiB inputs and both original counters. Downloaded
+ZIPs match the published SHA-256 digests and all measurement fields are independently checked.
+The source's hosted multi-size benchmark is now terminal: **105 valid observations / 126 attempts**,
+with all twenty-one 1 GB tree trials still throwing `OutOfMemoryException`. All other size/mode trials
+validate. Initial compact-tree growth still fails on Linux for the six non-merge populations; merge
+also retains snapshot allocation failures. At 100 MB, identity and fork fail the original throughput
+target at **1.018245** and **3.867905** respectively; the other five pass that cohort. This preceding
+source's raw results and verified artifact digest are under `compact-pool-linux-benchmark`.
+
+Final-source strict API and legacy/saved-sampling exports, in both Release and Debug, retain
+**2,695 pass / 16 fail / 1 not run**, zero unmatched error codes and four passing frozen-inventory
+audits. A new warnings-as-errors NativeAOT publication executes all **48 saved smoke children**
+correctly across sixteen workloads. Its additional exact 1 GB accumulator pair validates both tree
+and stream outputs under the original 4 GiB heap guard, with peaks **3,667,017,728** and
+**26,345,472 bytes** respectively. These are diagnostic/smoke observations, not passes of the
+original full memory or throughput matrices. Native images and all raw outcomes are retained in
+`accumulator-timeline-prototype`.
+
+Final-source hosted qualification, remaining large-tree
+failure sites, Linux push memory, all throughput targets, actual-forwarding/public integration,
+review, merge and release remain required.

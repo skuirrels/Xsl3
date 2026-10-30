@@ -15,6 +15,9 @@
 - Reduce compact-tree short-value cache storage by retaining hashes and value-array indices instead
   of duplicate string-key references. Preserve complete ordinal interning, collision handling and
   the existing pooling boundary; full P7 memory and throughput qualification remains open.
+- Store grounded compact-tree accumulator values at traversal changes in segmented storage,
+  avoiding per-node string-key entries and large timeline resizes. Preserve exact before/after
+  phases, partial failures, recursive-demand errors, cancellation, copy origins and fork sharing.
 - Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
   Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
   older saved formats retain their compatibility checks.

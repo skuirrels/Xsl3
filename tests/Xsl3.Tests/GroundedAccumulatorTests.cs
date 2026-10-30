@@ -39,7 +39,7 @@ public class GroundedAccumulatorTests
         internal Action<XmlQueryRuntime, XPathNavigator>? Start;
         internal Func<XmlQueryRuntime, XPathNavigator, IList<XPathItem>>? Initial;
         internal Func<XmlQueryRuntime, XPathNavigator, IList<XPathItem>>? OtherInitial;
-        internal Fixture(string xml = "<doc><row/><row/></doc>", XmlResolver? resolver = null)
+        internal Fixture(string xml = "<doc><row/><row/></doc>", XmlResolver? resolver = null, bool compact = true)
         {
             var constants = new ConstantTable();
             _table = constants.Add(new Dictionary<string, AccumulatorInfo> {
@@ -49,7 +49,7 @@ public class GroundedAccumulatorTests
             });
             _names = constants.Add(new XsltNameContext(new Dictionary<string, string>(), new HashSet<(string, string, int)>()));
             var manager = new StaticDataManager(); manager.DeclareGlobalValue("g");
-            var data = new XmlQueryStaticData(new XmlWriterSettings(), Array.Empty<WhitespaceRule>(), manager) { Xslt2 = true, CompactTree = true, Constants = constants };
+            var data = new XmlQueryStaticData(new XmlWriterSettings(), Array.Empty<WhitespaceRule>(), manager) { Xslt2 = true, CompactTree = compact, Constants = constants };
             using var input = XmlReader.Create(new StringReader(xml));
             Runtime = new(data, input, resolver ?? XmlResolver.ThrowingResolver, null, new XmlCachedSequenceWriter());
             Root = Runtime.ExternalContext.DefaultDataSource;
@@ -184,6 +184,101 @@ public class GroundedAccumulatorTests
         Assert.Equal("1", fixture.Text(runtime, fixture.First));
         Assert.Equal(1, sources.Closed); Assert.Equal("", caller.Value);
         runtime.CloseStreamedSources(); Assert.Equal(2, sources.Closed);
+    }
+
+    [Fact]
+    public void CompactMixedContentKeepsAllBeforeAndAfterValuesInReverseLookupOrder()
+    {
+        CheckMixedContentPhases(compact: true);
+    }
+
+    [Fact]
+    public void LegacyMixedContentKeepsAllBeforeAndAfterValuesInReverseLookupOrder()
+    {
+        CheckMixedContentPhases(compact: false);
+    }
+
+    [Fact]
+    public void ForeignMixedContentKeepsAllBeforeAndAfterValuesInReverseLookupOrder()
+    {
+        CheckMixedContentPhases(compact: false, foreign: true);
+    }
+
+    private static void CheckMixedContentPhases(bool compact, bool foreign = false)
+    {
+        const string xml = "<doc><!--first--><row><n/>x<?p t?></row><row/><tail>y</tail></doc>";
+        var fixture = new Fixture(xml, compact: compact);
+        XPathNavigator root = fixture.Root;
+        if (foreign)
+        {
+            var document = new XmlDocument(); document.LoadXml(xml);
+            root = document.CreateNavigator()!;
+        }
+        XPathNavigator[] nodes = root.Select("descendant-or-self::node()").Cast<XPathNavigator>().ToArray();
+        int[] before = { 0, 0, 0, 1, 1, 1, 1, 12, 22, 22 };
+        int[] after = { 22, 22, 0, 11, 1, 1, 1, 22, 22, 22 };
+        Assert.Equal(before.Length, nodes.Length);
+        for (int i = nodes.Length - 1; i >= 0; i--)
+        {
+            Assert.Equal(before[i].ToString(System.Globalization.CultureInfo.InvariantCulture), fixture.Text(fixture.Runtime, nodes[i]));
+            Assert.Equal(after[i].ToString(System.Globalization.CultureInfo.InvariantCulture), fixture.Text(fixture.Runtime, nodes[i], true));
+        }
+        Assert.Equal(1, fixture.Initials); Assert.Equal(2, fixture.Starts); Assert.Equal(2, fixture.Ends);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ManyChangesAndUnchangedDescendantsKeepTheirPhasesInReverseOrder(bool compact)
+    {
+        const int rows = 1200;
+        var fixture = new Fixture("<doc>" + string.Concat(Enumerable.Repeat("<row><n/>text</row>", rows)) + "</doc>", compact: compact);
+        XPathNavigator[] nodes = fixture.Root.Select("/doc/row").Cast<XPathNavigator>().ToArray();
+        Assert.Equal(rows, nodes.Length);
+        for (int i = rows - 1; i >= 0; i--)
+        {
+            string before = (i * 11 + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string after = ((i + 1) * 11).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(before, fixture.Text(fixture.Runtime, nodes[i]));
+            Assert.Equal(after, fixture.Text(fixture.Runtime, nodes[i], true));
+            XPathNavigator child = nodes[i].SelectSingleNode("n")!;
+            Assert.Equal(before, fixture.Text(fixture.Runtime, child));
+            Assert.Equal(before, fixture.Text(fixture.Runtime, child, true));
+        }
+        Assert.Equal(1, fixture.Initials); Assert.Equal(rows, fixture.Starts); Assert.Equal(rows, fixture.Ends);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RecursiveDemandsKeepCompletedPhasesButRejectUnrecordedEnds(bool compact)
+    {
+        var fixture = new Fixture("<doc><row><n/>text</row><row/></doc>", compact: compact);
+        fixture.Start = (runtime, node) => {
+            if (!node.IsSamePosition(fixture.Second)) return;
+            Assert.Equal("0", fixture.Text(runtime, fixture.Root));
+            Assert.Equal("1", fixture.Text(runtime, fixture.First));
+            Assert.Equal("11", fixture.Text(runtime, fixture.First, true));
+            Assert.Contains("XTDE3400", Assert.Throws<XdmException>(() => fixture.Value(runtime, fixture.Root, true)).Message);
+            Assert.Contains("XTDE3400", Assert.Throws<XdmException>(() => fixture.Value(runtime, fixture.Second)).Message);
+        };
+        Assert.Equal("22", fixture.Text(fixture.Runtime, fixture.Root, true));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AStoredRuleErrorDoesNotDefineUnvisitedPhases(bool compact)
+    {
+        var fixture = new Fixture("<doc><row/><row/><later/></doc>", compact: compact);
+        var error = new XdmException("TEST0001", "failed before the next phase");
+        fixture.Start = (_, node) => { if (node.IsSamePosition(fixture.Second)) throw error; };
+        Assert.Equal("1", fixture.Text(fixture.Runtime, fixture.First));
+        Assert.Equal("11", fixture.Text(fixture.Runtime, fixture.First, true));
+        Assert.Equal("0", fixture.Text(fixture.Runtime, fixture.Root));
+        Assert.Same(error, Assert.Throws<XdmException>(() => fixture.Value(fixture.Runtime, fixture.Root, true)));
+        Assert.Same(error, Assert.Throws<XdmException>(() => fixture.Value(fixture.Runtime, fixture.Second)));
+        Assert.Same(error, Assert.Throws<XdmException>(() => fixture.Value(fixture.Runtime, fixture.Root.SelectSingleNode("/doc/later")!)));
     }
 
     [Fact]

@@ -59,6 +59,19 @@ namespace Xsl3.Tree
 
         internal CompactDocument Document => _doc;
 
+        /// <summary>The content node's start/end positions in a depth-first traversal with two events per node.</summary>
+        internal (long Before, long After) TraversalPhases
+        {
+            get
+            {
+                if (!OnContent) throw new InvalidOperationException("Attributes and namespaces have no content traversal phases");
+                int depth = 0;
+                for (int parent = _doc._parent[_node]; parent != None; parent = _doc._parent[parent]) depth++;
+                // Preceding nodes have two events, except ancestors whose end is still pending.
+                return (2L * _node - depth, 2L * _doc._end[_node] - depth - 1);
+            }
+        }
+
         /// <summary>Xsl3 (P6): the node's type annotation from validation; null when it is untyped.</summary>
         internal System.Xml.Schema.XmlSchemaType? SchemaType =>
             _ns != None || !_doc.HasAnnotations ? null

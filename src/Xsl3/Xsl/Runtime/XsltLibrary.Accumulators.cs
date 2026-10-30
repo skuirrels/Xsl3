@@ -47,6 +47,7 @@ namespace Xsl3.Runtime
                 throw new XdmException("XTTE3360", $"Accumulators have no value at {node.NodeType.ToString().ToLowerInvariant()} nodes");
             }
             XPathNavigator root = node.Clone();
+            (long Before, long After)? phases = (root as Tree.CompactNavigator)?.TraversalPhases;
             root.MoveToRoot();
             bool validatedCopy = false;
             while (_runtime.Documents.TryGetCopy(root, out var copied) && Original(node, copied.Top, copied.Original) is XPathNavigator original)
@@ -57,6 +58,7 @@ namespace Xsl3.Runtime
                 validatedCopy |= copied.Validated;
                 node = original;
                 root = node.Clone();
+                phases = (root as Tree.CompactNavigator)?.TraversalPhases;
                 root.MoveToRoot();
             }
             // Validation does not replace copied accumulator values with a new traversal. Streamed
@@ -76,8 +78,10 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the source document (the initial mode's use-accumulators)");
             }
-            string nodeId = _runtime.GenerateId(node);
-            var state = cache.Demand(root, rootId, key, nodeId, after, _runtime.EvaluationDependencies, XmlQueryRuntime.Cancellation, out var cached);
+            var position = phases is { } native
+                ? new GroundedAccumulatorValues.Position(null, native.Before, native.After)
+                : new GroundedAccumulatorValues.Position(_runtime.GenerateId(node));
+            var state = cache.Demand(root, rootId, key, position, after, _runtime.EvaluationDependencies, XmlQueryRuntime.Cancellation, out var cached);
             if (state == null) return cache.IsShared ? Copy(cached!) : cached!;
             var previous = XmlQueryRuntime.Cancellation;
             var output = _runtime.SaveOutput();
@@ -114,7 +118,7 @@ namespace Xsl3.Runtime
                     XmlQueryRuntime.Cancellation = previous;
                 }
             }
-            var result = cache.Result(state, nodeId, after);
+            var result = cache.Result(state, position, after);
             return cache.IsShared ? Copy(result) : result;
         }
 
@@ -187,13 +191,13 @@ namespace Xsl3.Runtime
         private IList<XPathItem> AccumulatorVisit(XPathNavigator node, IList<XPathItem> value, IList<XPathItem> items, AccumulatorInfo info, string name,
             GroundedAccumulatorValues cache, GroundedAccumulatorValues.State state)
         {
-            var open = new Stack<(XPathNavigator Node, string Id, IList<XPathItem> Before)>();
+            var open = new Stack<(XPathNavigator Node, string? Id, IList<XPathItem> Before)>();
             XPathNavigator current = node.Clone();
             while (true)
             {
                 XmlQueryRuntime.CheckCancellation();
                 IList<XPathItem> before = AccumulatorApply(current, value, end: false, items, info, name);
-                string id = _runtime.GenerateId(current);
+                string? id = state.IsCompact ? null : _runtime.GenerateId(current);
                 cache.Record(state, id, before, null);
                 open.Push((current.Clone(), id, before));
                 value = before;
