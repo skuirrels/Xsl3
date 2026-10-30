@@ -993,3 +993,85 @@ at startup. All 32 controls validate. The earlier `8734c4d` full Linux benchmark
 are identity **1.058307**, adjacent **0.674070**, accumulator **1.374825**, iterate **0.814353**, merge
 **0.882939**, fork **3.305520** and source-document **1.072508**. No failed trial, budget or throughput
 shortfall is omitted. Final-source hosted qualification and every remaining original P7 gate stay open.
+
+### Linux memory attribution and literal simple content, 2026-10-30
+
+All four ordinary CI jobs pass for `2b12932`. Its complete original hosted nightly matrix independently
+validates **16/16 budgets /48 children**, with maximum absolute RSS **40,128,512 bytes**. Its original
+push matrix passes **0/16 budgets**: fifteen measured transformations consume all 209,715,200 bytes
+and validate output; fork stops during warmup. All 32 controls validate and match. The artifacts and
+independent audits are retained under `adjacent-cursor-linux-push` and `adjacent-cursor-linux-nightly`.
+Its full original benchmark remains active; these results do not qualify subsequent source changes.
+
+The preceding `fecbc83` full hosted benchmark is terminal with **123/126 valid attempts**. Only the
+three adjacent tree trials at exactly 1 GB fail, each with a retained out-of-memory result. The
+100 MB stream/tree median ratios are identity **1.116026**, adjacent **0.722598**, accumulator
+**1.658151**, iterate **0.862772**, merge **1.015752**, fork **3.679577** and source-document
+**1.087057**. Five workloads still miss the original throughput target. Every trial, original
+configuration and independent audit is under `node-pages-linux-benchmark`.
+
+A diagnostic-only `dlopen` interposer resolves the first ICU load in a retained Linux ARM64 native
+image to `StreamingProbe.RunCommand` accessing `CultureInfo.InvariantCulture`, before stylesheet
+loading or execution. That command method is byte-identical to the current source. The historical
+image and platform remain explicit: this establishes that caller in that image, not current hosted
+x64 memory qualification or an irreducible platform minimum. Globalization remains enabled. Raw
+offsets, symbolized callers, image/source fingerprints and output are under `linux-native-callers-2b12932`.
+
+A separate unchanged-builder prototype avoids parsing the internal absent-context sentinel. All
+18 alternating 200 MiB identity/merge/fork controls validate with the original 20 MiB managed guard,
+but macOS median RSS improves by only **16–128 KiB**. No Linux budget fix is established, so that
+prototype is not adopted. Its source, initial test-launch failure, focused contracts, image hashes
+and controls remain under `absent-builder-prototype`.
+
+Current-engine allocation traces identify repeated temporary compact trees/builders beneath the
+canonical identity row template. A compiler prototype substitutes a text constructor's string value
+when its simple-content population contains exactly that one text constructor and the separator is
+constant. Its first 24 alternating 100 MB identity/source-document tree/stream controls all validate
+the original input, output fingerprints and 4 GiB managed guard. Initial identity tree/stream medians
+change from **2,211.094 /2,320.868 ms** to **1,977.197 /2,100.042 ms**, and source-document from
+**2,254.669 /2,335.648 ms** to **2,036.396 /2,132.382 ms**. These local diagnostic cohorts still miss
+the original stream-no-slower-than-tree target. Allocation-tick estimates fall from about **3.48 GB
+to 2.13 GB** at 100 MB input; sampling is not an exact per-type allocation accounting or an
+uninstrumented acceptance timing. Raw traces, named stacks, frozen images and outputs are retained.
+
+Review of that initial prototype finds that dropping the constructor also drops its streamed
+cancellation checkpoint. A deterministic test cancels after actual output inside an already-running
+loop; the negative control completes without throwing, proving the regression. The adopted candidate
+therefore applies only to literal text with a constant separator and calls a stateful, allocation-free
+`X31SimpleContentText` checkpoint for streamed compilation. Dynamic text/separators retain their
+existing evaluation path. The new helper is recorded in the unshipped runtime ABI; the saved format,
+function IDs, fixtures, oracles, GC/globalization settings and all original limits remain unchanged.
+Corrected contracts cover text merging/empty nodes, distinct retained text identities, raw text,
+attributes/comments/PIs, dynamic separator errors, rollback, both API paths, saved Release/Debug
+entry points and cancellation.
+
+The initial cancellation test expected an unwrapped exception; the established legacy API wraps it
+in `XslTransformException` with an `OperationCanceledException` inner cause. That assertion is corrected
+to the existing contract, with failed logs retained. Full corrected-candidate Release and Debug
+units each pass **4,500 .NET 10 /4,138 .NET 8** checks. All four complete strict inventories retain
+**2,695/16/1**, zero unmatched codes, verified frozen-engine/input audits and unchanged per-case
+outcomes/details. The added retained-text identity contract also passes in current-branch focused
+Release/Debug reruns through both APIs and saved compilers.
+
+A fresh warnings-as-errors NativeAOT build regenerates all 32 saved entry points; its identity
+stylesheet calls `X31SimpleContentText`. All **48 smoke children** and **12 exact 100 MB/1 GB
+identity/source-document/copy-select tree/stream controls** validate their independent outputs,
+effective heap guards and native flags. The original 4 GiB guard is unchanged for large comparisons.
+The full seven-workload, three-round native 100 MB matrix validates **42/42 observations**; its
+stream/tree ratios are identity **0.985232**, adjacent **0.654874**, accumulator **1.291422**, iterate
+**0.614513**, merge **0.794948**, fork **3.654435** and source-document **0.976672**. The original
+target still fails on accumulator and fork; the report's descriptive 5% winner band is not a waiver.
+
+All **12** alternating corrected-candidate native identity/source-document controls consume exactly
+209,715,200 bytes and preserve output fingerprints under the original 20 MiB managed guard, with
+the diagnostic RSS guard explicitly disabled. Identity median time changes from **4,136.026 to
+3,815.442 ms**, and source-document from **4,166.396 to 3,776.548 ms**. Median RSS changes from
+**20,119,552 to 19,972,096 bytes** and **20,086,784 to 20,135,936 bytes** respectively. These small,
+mixed RSS differences establish no Linux memory fix. A fresh corrected-candidate allocation trace
+preserves exact output and records about **2.13 GB** sampled allocation, **38.8%** below the retained
+baseline estimate. Final reports, source/binary hashes and independent audits are under
+`text-content-prototype` and `native-literal-content`.
+
+These are local diagnostics, not the original full hosted acceptance matrices. Every original P7
+requirement, including Linux push memory, all throughput targets, forwarding/public integration
+and final full review/merge/release, remains required.

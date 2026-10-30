@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid temporary text trees for singleton literal simple content with a constant separator.
+  Preserve streamed cancellation checkpoints, text-node results and the existing dynamic-content path.
 - Preserve direct streamed emptiness tests when optimizing side-effecting expressions, fixing a
   Debug preservation-verifier failure in nested predicates.
 - Use the existing type-code path for broad atomic checks, with correct exclusion of maps,

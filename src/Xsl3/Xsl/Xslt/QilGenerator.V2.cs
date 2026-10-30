@@ -803,6 +803,22 @@ namespace Xsl3.Xslt
         /// <summary>The string value of simple content (attribute, comment, PI, value-of): atomised items joined by <paramref name="separator"/>.</summary>
         private QilNode SimpleContent31(QilNode items, QilNode separator)
         {
+            // A single constructed text node has exactly its content's string value.
+            // A constant separator has no observable evaluation to preserve here.
+            // Keep other sequences on the canonical merge/atomization path.
+            if (separator.NodeType == QilNodeType.LiteralString)
+            {
+                QilNode single = items;
+                while (single.NodeType == QilNodeType.Sequence && single.Count == 1) single = single[0];
+                if (single.NodeType is QilNodeType.TextCtor or QilNodeType.RawTextCtor
+                    && ((QilUnary)single).Child.NodeType == QilNodeType.LiteralString)
+                {
+                    QilNode text = ((QilUnary)single).Child;
+                    // Retain the streamed constructor's cancellation checkpoint and
+                    // keep it at this instruction, rather than hoisting it from a loop.
+                    return StreamedCompilation31 ? Stateful31(nameof(XsltLibrary.X31SimpleContentText), T.StringX, text) : text;
+                }
+            }
             if (StreamedCompilation31) items = XPath31Compiler.AtomizeSimpleContent(items, StaticContext31(), _f, this);
             QilNode content = X31(nameof(XsltLibrary.X31SimpleContent), T.StringX, Box(items), separator);
             if (StreamedCompilation31) Xsl3.IlGen.OptimizerPatterns.Write(content).AddPattern(Xsl3.IlGen.OptimizerPatternName.StreamedSimpleContent);
