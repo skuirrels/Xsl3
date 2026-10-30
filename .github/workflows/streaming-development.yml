@@ -1,180 +1,65 @@
-name: Streaming development (experimental P7 acceptance)
+name: P7 native initialization diagnostic
 
-# P7A closes the foundations release; full P7 streaming remains unsupported.
-# These original acceptance targets stay strict and failures stay visible here.
-# See docs/plan/p7a-closeout.md; this workflow is separate from release CI.
+# This temporary diagnostic branch leaves PR27 and its acceptance workflow unchanged.
 on:
-  schedule:
-    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       memory_diagnosis:
-        description: Run identity and saved-loader diagnostics only (never an acceptance gate)
+        description: Diagnostic only; no acceptance claim
         type: boolean
-        default: false
+        default: true
       source_ref:
-        description: Immutable source ref for diagnostic controls
+        description: Immutable 40-character source commit
         type: string
-        default: v1.1.3
-      allocation_comparison:
-        description: Run bounded P7F identity comparison and original memory matrices
-        type: boolean
-        default: false
+        required: true
 
 permissions:
   contents: read
 
 jobs:
-  # S7 uses fresh paired processes so source parsing and first output are measured.
-  # The benchmark heap guard is separate from the exact memory gates below.
-  streaming-benchmark:
-    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true }}
+  native-initialization:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-      - name: Build the streaming benchmark
-        run: dotnet build bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
-      - name: Paired streaming measurements and 100 MB throughput target
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 eng/streaming-benchmark.py --assembly bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --sizes 1mb 100mb 1gb --rounds 3 --heap-limit 4294967296 --timeout-seconds 900 --require-throughput-target --output artifacts/streaming-benchmark
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: streaming-benchmark-nightly
-          path: artifacts/streaming-benchmark
-
-  # P7 decision 6: exact generated-input size and absolute process/managed limits.
-  # A failed or incomplete matrix is a failed job; retained artifacts expose it.
-  streaming-memory:
-    if: ${{ inputs.memory_diagnosis != true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: push
-            bytes: 209715200
-            limit: 20971520
-          - name: nightly
-            bytes: 2147483648
-            limit: 209715200
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Publish the NativeAOT streaming probe
-        run: |
-          mkdir -p artifacts
-          set -o pipefail
-          eng/publish-stream-probe.sh linux-x64 artifacts/streaming-probe 2>&1 | tee artifacts/streaming-probe-publish.log
-
-      - name: Exact streaming memory gate (${{ matrix.name }})
-        run: python3 eng/streaming-gate.py --native artifacts/streaming-probe/bin/Xsl3.StreamingProbe.Native --bytes ${{ matrix.bytes }} --limit ${{ matrix.limit }} --timeout-seconds 900 --output artifacts/streaming-probe-${{ matrix.name }}
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: streaming-memory-${{ matrix.name }}
-          path: |
-            artifacts/streaming-probe-publish.log
-            artifacts/streaming-probe-${{ matrix.name }}
-
-  # P7E is an explicitly selected diagnostic job. Scheduled/default acceptance is unchanged.
-  identity-memory-diagnosis:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ inputs.source_ref }}
           path: baseline-source
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: 10.0.x
-      - name: Record diagnostic provenance
+      - name: Record immutable source and toolchain
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
-          mkdir -p artifacts/p7e-memory/linux
-          git rev-parse HEAD > artifacts/p7e-memory/linux/diagnostic-revision.txt
-          git -C baseline-source rev-parse HEAD > artifacts/p7e-memory/linux/source-revision.txt
-          dotnet --info > artifacts/p7e-memory/linux/dotnet-info.txt
-          uname -a > artifacts/p7e-memory/linux/host.txt
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_streaming_memory_diagnosis.py'
-      - name: Publish unchanged controls and separate diagnostic image
+          mkdir -p artifacts/native-init
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C baseline-source rev-parse HEAD)" = "$SOURCE_REF"
+          git rev-parse HEAD > artifacts/native-init/diagnostic-revision.txt
+          git -C baseline-source rev-parse HEAD > artifacts/native-init/source-revision.txt
+          dotnet --info > artifacts/native-init/dotnet-info.txt
+          uname -a > artifacts/native-init/host.txt
+      - name: Publish unchanged NativeAOT control and diagnostic interposer
         run: |
-          bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/p7e-memory/linux/canonical
-          python3 eng/diagnose-streaming-memory.py prepare --source baseline-source --saved artifacts/p7e-memory/linux/canonical/stylesheets --rid linux-x64 --output artifacts/p7e-memory/linux/diagnostic --loader-details
-      - name: Measure identity controls and diagnostic phases
+          bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/native-init/control > artifacts/native-init/publish.log 2>&1
+          clang -shared -fPIC -O2 -g -Wall -Wextra eng/native-initialization/dlopen-trace.c -o artifacts/native-init/dlopen-trace.so -ldl
+          sha256sum artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native.dbg artifacts/native-init/dlopen-trace.so > artifacts/native-init/image-sha256.txt
+      - name: Fresh parent controls and first ICU caller
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
-          python3 eng/diagnose-streaming-memory.py measure --native artifacts/p7e-memory/linux/canonical/bin/Xsl3.StreamingProbe.Native --output artifacts/p7e-memory/linux/control --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --mapping-snapshots
-          python3 eng/diagnose-streaming-memory.py measure --native artifacts/p7e-memory/linux/diagnostic/bin/Xsl3.StreamingProbe.Native --output artifacts/p7e-memory/linux/instrumented --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --instrumented --loader-details
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: p7e-identity-memory-diagnosis
-          path: |
-            artifacts/p7e-memory/linux/*.txt
-            artifacts/p7e-memory/linux/control
-            artifacts/p7e-memory/linux/instrumented
-            artifacts/p7e-memory/linux/diagnostic/preparation.json
-            artifacts/p7e-memory/linux/diagnostic/source-sha256.json
-            artifacts/p7e-memory/linux/diagnostic/publish.log
-
-  # P7F comparisons use the same saved entrypoints on both runtime versions.
-  identity-allocation-comparison:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ inputs.source_ref }}
-          path: baseline-source
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-      - name: Freeze sources and provenance
-        run: |
-          if [ "${{ inputs.memory_diagnosis }}" = true ]; then echo "Select only one diagnostic mode" >&2; exit 64; fi
-          mkdir -p artifacts/p7f-identity/linux/source-candidate
-          git archive HEAD | tar -x -C artifacts/p7f-identity/linux/source-candidate
-          git rev-parse HEAD > artifacts/p7f-identity/linux/candidate-revision.txt
-          git -C baseline-source rev-parse HEAD > artifacts/p7f-identity/linux/baseline-revision.txt
-          dotnet --info > artifacts/p7f-identity/linux/dotnet-info.txt
-          uname -a > artifacts/p7f-identity/linux/host.txt
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_streaming_*.py'
-      - name: Publish controls and matching diagnostic images
-        run: |
-          bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/p7f-identity/linux/baseline-native > artifacts/p7f-identity/linux/baseline-publish.log 2>&1
-          dotnet publish artifacts/p7f-identity/linux/source-candidate/tests/Xsl3.StreamingProbe.Native -c Release -r linux-x64 -m:1 -p:UseSharedCompilation=false -p:ProbeStylesheetDirectory="$PWD/artifacts/p7f-identity/linux/baseline-native/stylesheets" -o artifacts/p7f-identity/linux/candidate-native > artifacts/p7f-identity/linux/candidate-publish.log 2>&1
-          python3 eng/diagnose-streaming-memory.py prepare --source baseline-source --saved artifacts/p7f-identity/linux/baseline-native/stylesheets --rid linux-x64 --output artifacts/p7f-identity/linux/baseline-diagnostic
-          python3 eng/diagnose-streaming-memory.py prepare --source artifacts/p7f-identity/linux/source-candidate --saved artifacts/p7f-identity/linux/baseline-native/stylesheets --rid linux-x64 --output artifacts/p7f-identity/linux/candidate-diagnostic
-      - name: Paired allocation and uninstrumented throughput
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --output artifacts/native-init/parent-control
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --parent-bytes 104857600 --output artifacts/native-init/large-parent-control
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --tracer artifacts/native-init/dlopen-trace.so --output artifacts/native-init/traced
+      - name: Unchanged full-size external mapping controls
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
-          python3 eng/compare-identity-allocation.py --baseline-native artifacts/p7f-identity/linux/baseline-native/bin/Xsl3.StreamingProbe.Native --candidate-native artifacts/p7f-identity/linux/candidate-native/Xsl3.StreamingProbe.Native --baseline-diagnostic artifacts/p7f-identity/linux/baseline-diagnostic/bin/Xsl3.StreamingProbe.Native --candidate-diagnostic artifacts/p7f-identity/linux/candidate-diagnostic/bin/Xsl3.StreamingProbe.Native --output artifacts/p7f-identity/linux/comparison --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --minimum-allocation-reduction 0.2 --maximum-slowdown 1.05
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          python3 eng/diagnose-streaming-memory.py measure --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --workload identity --sizes 209715200 --rounds 1 --heap-limit 20971520 --mapping-snapshots --output artifacts/native-init/identity-mappings
+          python3 eng/diagnose-streaming-memory.py measure --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --workload source-document --sizes 209715200 --rounds 1 --heap-limit 20971520 --mapping-snapshots --output artifacts/native-init/source-mappings
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: p7f-identity-allocation-linux
-          path: |
-            artifacts/p7f-identity/linux/*.txt
-            artifacts/p7f-identity/linux/*.log
-            artifacts/p7f-identity/linux/comparison
-            artifacts/p7f-identity/linux/*-diagnostic/preparation.json
-            artifacts/p7f-identity/linux/*-diagnostic/source-sha256.json
-            artifacts/p7f-identity/linux/*-diagnostic/publish.log
+          name: p7-native-initialization
+          path: artifacts/native-init
