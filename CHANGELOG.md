@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve only the XML reader reflection members used by the bridge during NativeAOT trimming.
+  Shared unit/native contracts verify resolver identity, explicit null policies, whitespace and external DTD reads.
 - Write the native streaming probe's JSON protocol as explicit UTF-8 without a BOM, avoiding
   host console charset discovery while preserving full-lifetime memory measurement.
 - Use the BCL's read-only invariant numeric data for XDM numbers and climbing-set plans,

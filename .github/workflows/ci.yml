@@ -241,6 +241,18 @@ jobs:
       - name: Run it
         run: artifacts/aot/Xsl3.AotSample
 
+      - name: Trimmed NativeAOT reader bridge contracts
+        run: |
+          set -o pipefail
+          dotnet publish tests/Xsl3.ReaderBridgeProbe -c Release -r linux-x64 -m:1 -p:UseSharedCompilation=false -o artifacts/reader-bridge 2>&1 | tee artifacts/reader-bridge-publish.log
+          artifacts/reader-bridge/Xsl3.ReaderBridgeProbe | tee artifacts/reader-bridge.log
+          set +e
+          dotnet tests/Xsl3.ReaderBridgeProbe/bin/Release/net10.0/linux-x64/Xsl3.ReaderBridgeProbe.dll > artifacts/reader-bridge-jit-guard.stdout 2> artifacts/reader-bridge-jit-guard.stderr
+          probe_status=$?
+          set -e
+          test "$probe_status" -eq 1
+          grep -Fq "Publish this reader bridge probe with NativeAOT" artifacts/reader-bridge-jit-guard.stderr
+
       # Saved versions of all real process workloads. This smoke proves the native
       # artifact and its public legacy result-delivery path; limit 0 is not a budget pass.
       - name: Publish the NativeAOT streaming probe
@@ -278,6 +290,9 @@ jobs:
         with:
           name: native-streaming-probe
           path: |
+            artifacts/reader-bridge-publish.log
+            artifacts/reader-bridge.log
+            artifacts/reader-bridge-jit-guard.*
             artifacts/streaming-probe-publish.log
             artifacts/streaming-probe-jit-guard.*
             artifacts/streaming-probe-smoke

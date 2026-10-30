@@ -191,6 +191,9 @@ public class BridgeTests
     }
 
     [Fact]
+    public void ReaderCapturePreservesResolverAndWhitespaceContracts() => Assert.Equal(9, ReaderBridgeContracts.Verify());
+
+    [Fact]
     public void ReaderInternals()
     {
         using var created = XmlReader.Create(new StringReader("<a/>"), new XmlReaderSettings { IgnoreWhitespace = true });

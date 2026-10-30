@@ -46,6 +46,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Xsl3.Tests" />
+    <InternalsVisibleTo Include="Xsl3.ReaderBridgeProbe" />
     <InternalsVisibleTo Include="Xsl3.W3C" />
     <InternalsVisibleTo Include="Xsl3.Dev" />
   </ItemGroup>

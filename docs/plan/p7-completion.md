@@ -1393,3 +1393,59 @@ serialization-only JSON source generation lacks metadata required by the report 
 at runtime. None is adopted. No fixture, URI behavior, input/oracle, counter, memory limit, GC policy
 or public streaming claim changes. Current-source hosted qualification and every original P7 gate
 remain required before final review, merge and release.
+
+
+### Reader bridge metadata retention, 2026-10-30
+
+Hosted x64 qualification of `06dacc5` independently verifies **13/16 original push budgets**,
+**48 children** and **32 valid controls**. Fifteen measured transformations validate their complete
+input/output fingerprints; merge stops during warmup and makes no full-input correctness claim.
+Remaining absolute peaks are merge **21,950,464**, fork **25,665,536** and source-document
+**24,264,704 bytes**. This establishes the console-encoding repair on the hosted platform without
+closing the memory gate. Evidence: `console-utf8-linux-push/independent-audit.json`.
+
+The preceding `bd0031e` paired hosted benchmark has now finished. All **126 observations** validate
+the original sizes, modes, three rounds, 4 GiB effective managed guard, raw outputs and preceding
+fingerprints. The original 100 MB stream/tree ratios are identity **1.126770**, adjacent **0.869563**,
+accumulator **1.254030**, iterate **0.847368**, merge **0.962099**, fork **3.664317** and source-document
+**1.105897**. Four targets fail. The actual benchmark image is absent from the artifact, so its
+reported image hash is not independently verified. Evidence: `numeric-init-linux-benchmark`. This
+older checkpoint does not qualify later changes.
+
+Review identifies unnecessarily broad reflection retention in `XmlReaderInternals`: preserving every
+public/nonpublic method and property on `XmlTextReaderImpl` roots parser members that the bridge never
+looks up. Each lookup now carries its literal BCL type identity directly so trimming preserves the
+requested resolver method and whitespace property. The instance-type check, existing exact member
+dependencies, reader policies and fallback behavior remain unchanged; no warning suppression or new
+parser implementation is introduced.
+
+Eight alternating small native controls retain correct outputs and the original 20 MiB managed guard.
+The isolated native executable shrinks from **14,789,224 to 13,794,080 bytes**, and both small workloads
+show about **0.9 MiB lower RSS**. These diagnostic controls have no RSS acceptance limit and establish
+no throughput improvement. The first comparison's whole-file binary hashing inflated the Python
+parent high-water mark; its results remain retained and excluded. Incremental hashing corrects the
+observer without altering any child counter.
+
+Nine shared contracts now verify modern/legacy resolver identity, explicit null resolvers, both
+whitespace policies, external-DTD retrieval through captured reader settings and actual provider
+read counts. Full Release and Debug units each pass **4,538 .NET 10 /4,172 .NET 8** cases. All four complete strict inventories retain **2,695/16/1**, zero unmatched expected codes and
+identical per-case definitions, outcomes, details and dependencies. This inventory comparison does
+not independently prove actual forwarding. The same
+contracts pass in newly compiled Linux/macOS native consumers; the managed intermediate is rejected.
+The initial isolated consumer incorrectly ignored legacy entity-reference events, and its failure is
+retained; the corrected fixture honors the reader's captured entity policy. An initial missing-using
+compile error is also retained. The permanent native consumer is a test-only friend assembly and CI
+retains its publish, run and JIT-rejection logs.
+
+The final-source Linux ARM64 probe verifies **48/48 children**, all sixteen full measured inputs,
+32 controls, raw reports and preceding output fingerprints. It still passes **13/16 original push
+budgets**. Remaining peaks are merge **23,285,760**, fork **23,511,040** and source-document
+**22,556,672 bytes**. No paired full-size speedup or hosted memory pass is inferred. Native image:
+`c6f8e9470936287d5a419adf87698647593f6a7a0f807d500e8703786b770d4a`. Source/PDB checks match the
+changed reader bridge and both native consumers' shared contract/program files. Full evidence and
+failed trials are under `reader-trim-prototype`.
+
+Current-source hosted qualification, the three remaining memory failures, every original throughput
+target, actual forwarding/public integration, full final review, merge and release remain open.
+URI resolution and globalization semantics, workload fixtures, limits, counters and output oracles
+remain unchanged. P7 is not complete.
