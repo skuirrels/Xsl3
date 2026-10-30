@@ -461,7 +461,18 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>A captured number (a position) back as a double.</summary>
-        public double X31CapturedNumber(IList<XPathItem> value) => System.Xml.XmlConvert.ToDouble(value[0].Value);
+        public double X31CapturedNumber(IList<XPathItem> value) => CapturedNumber(value[0]);
+
+        // These compiler-owned values are already numeric. Preserve the lexical
+        // conversion for other items (notably float, whose string-to-double result
+        // differs from widening its binary value), including its existing errors.
+        private static double CapturedNumber(XPathItem item) => item switch
+        {
+            DoubleValue value => double.IsNaN(value.Double) ? double.NaN : value.Double,
+            IntegerValue value => Numeric.ToDouble(value.Integer),
+            DecimalValue value => Numeric.ToDouble(value.Decimal),
+            _ => System.Xml.XmlConvert.ToDouble(item.Value),
+        };
 
         // The code, description and value of a dynamic error, or null for exceptions that aren't errors.
         internal static (QName, string, IList<XPathItem>)? DynamicError(System.Exception e)

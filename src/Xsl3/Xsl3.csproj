@@ -63,4 +63,10 @@
     <None Include="Xsl\**\*.p" />
   </ItemGroup>
 
+  <Target Name="AddRuntimeAssemblyVersionMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="GetAssemblyVersion">
+    <ItemGroup>
+      <AssemblyMetadata Include="Xsl3.RuntimeAssemblyVersion" Value="$(AssemblyVersion)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

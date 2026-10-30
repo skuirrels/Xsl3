@@ -19,6 +19,10 @@ namespace Xsl3.Tests;
 // of these fixture values are used as data or fallbacks by the transformation engine.
 internal static partial class StreamingProbe
 {
+    // Keep numeric CLI inputs and fixture generation culture-independent without
+    // initializing CultureInfo. The engine uses the same BCL invariant numeric data.
+    private static readonly NumberFormatInfo NumericFormat = NumberFormatInfo.ReadOnly(new NumberFormatInfo());
+
     internal sealed record Fingerprint(long Bytes, string Sha256);
     internal sealed record Result(string Workload, string Mode, string Status, long RequestedInputBytes, long InputBytes,
         long Records, long LimitBytes, long PeakWorkingSetBytes, string PeakMemorySource, long LiveManagedBytes, double? ElapsedMs,
@@ -32,8 +36,8 @@ internal static partial class StreamingProbe
     internal static int RunCommand(string[] args)
     {
         if (args.Length != 4 || !Workloads.Contains(args[0], StringComparer.Ordinal) || args[1] is not ("tree" or "stream")
-            || !long.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out long bytes)
-            || !long.TryParse(args[3], NumberStyles.None, CultureInfo.InvariantCulture, out long limit)
+            || !long.TryParse(args[2], NumberStyles.None, NumericFormat, out long bytes)
+            || !long.TryParse(args[3], NumberStyles.None, NumericFormat, out long limit)
             || bytes < GeneratedInput.MinimumBytes * 2 || limit < 0)
         {
             Console.Error.WriteLine($"stream-probe <{string.Join("|", Workloads)}> <tree|stream> <input-bytes> <absolute-limit-bytes-or-0>");
@@ -257,7 +261,7 @@ internal static partial class StreamingProbe
     {
         internal static readonly byte[] Header = Encoding.UTF8.GetBytes("<doc>"), Footer = Encoding.UTF8.GetBytes("</doc>");
         internal const string BeforeText = "before ", MiddleText = "middle", AfterText = " after";
-        private static readonly string Template = "<row id=\"00000000000000000000\" group=\"a\" amount=\"1\"><value>" + Value.ToString(CultureInfo.InvariantCulture) + "</value><text>" + BeforeText + "<em>" + MiddleText + "</em>" + AfterText + "</text></row>";
+        private static readonly string Template = "<row id=\"00000000000000000000\" group=\"a\" amount=\"1\"><value>" + Value.ToString(NumericFormat) + "</value><text>" + BeforeText + "<em>" + MiddleText + "</em>" + AfterText + "</text></row>";
         internal const int Value = 2;
         private static readonly int IdOffset = Template.IndexOf("00000000000000000000", StringComparison.Ordinal);
         private static readonly int GroupOffset = Template.IndexOf("group=\"", StringComparison.Ordinal) + 7;

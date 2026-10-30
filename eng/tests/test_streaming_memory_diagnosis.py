@@ -113,13 +113,36 @@ class MemoryDiagnosisTests(unittest.TestCase):
             changed = DIAG.instrument_loader(root)
             self.assertEqual(3, len(changed))
             self.assertEqual(original, source.read_bytes())
-            self.assertIn('s_version = P7LoaderObserver.ReadVersion();', target.read_text())
+            self.assertIn('s_version = P7LoaderObserver.ReadVersion(() => GetAssemblyVersionText());', target.read_text())
             self.assertIn('P7LoaderObserver.Mark("execute-delegate")', target.read_text())
             observer = root / 'src/Xsl3/Xsl/Runtime/P7LoaderObserver.cs'
-            self.assertIn('typeof(XslCompiledTransform).Assembly.GetName().Version', observer.read_text())
+            self.assertIn('T version = read();', observer.read_text())
+            self.assertNotIn('Assembly.GetName()', observer.read_text())
             self.assertIn('CompactDocument.Load(', observer.read_text())
             with self.assertRaises(ValueError):
                 DIAG.instrument_loader(root)
+
+    def test_loader_instrumentation_preserves_legacy_version_expression_and_rejects_ambiguous_sources(self):
+        source = PATH.parent.parent / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
+        current = 'private static readonly string? s_version = GetAssemblyVersionText();'
+        legacy = 'private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;'
+        for initialization in (legacy, current + '\n' + legacy, current + '\n' + current, 'private static readonly string? s_version = UnknownVersion();'):
+            with self.subTest(initialization=initialization), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                target = root / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
+                target.parent.mkdir(parents=True)
+                original = source.read_text().replace(current, initialization)
+                target.write_text(original)
+                (root / 'src/Xsl3/Xsl/Runtime').mkdir(parents=True)
+                (root / 'src/Xsl3/PublicAPI.Unshipped.txt').write_text('#nullable enable\n')
+                if initialization == legacy:
+                    DIAG.instrument_loader(root)
+                    self.assertIn('Version? s_version = P7LoaderObserver.ReadVersion(() => typeof(XslCompiledTransform).Assembly.GetName().Version);', target.read_text())
+                else:
+                    with self.assertRaises(ValueError):
+                        DIAG.instrument_loader(root)
+                    self.assertEqual(original, target.read_text())
+                    self.assertFalse((root / 'src/Xsl3/Xsl/Runtime/P7LoaderObserver.cs').exists())
 
     def test_loader_phase_validation_cannot_be_enabled_for_uninstrumented_controls(self):
         with tempfile.TemporaryDirectory() as directory:

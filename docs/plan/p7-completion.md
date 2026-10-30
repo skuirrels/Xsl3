@@ -1273,3 +1273,82 @@ tests** pass on macOS, with one Linux-only check skipped; the initial integratio
 
 Original Linux push RSS, every throughput target, current-source hosted qualification, actual
 forwarding/public integration, final full review/merge and release remain required. P7 stays active.
+
+
+### Invariant numeric initialization, 2026-10-30
+
+All four ordinary CI jobs pass for `c9fcb00`. Its hosted nightly independently passes
+**16/16 budgets /48 children**, with exact original inputs/guards and a maximum absolute RSS of
+**40,226,816 bytes**. Its push passes **0/16 budgets**, although all sixteen full transformations
+and all 32 controls validate. Absolute push peaks are **24,031,232–25,571,328 bytes**. Every raw
+output and preceding output fingerprint is checked. Evidence: `tee-fast-read-linux-push` and
+`tee-fast-read-linux-nightly`. These hosted results qualify that checkpoint, not later source.
+
+Fresh small Linux ARM64 processes show that both `CultureInfo.InvariantCulture` and
+`NumberFormatInfo.InvariantInfo` initialize ICU during numeric parsing. A read-only instance from
+[the BCL invariant numeric constructor](https://learn.microsoft.com/en-us/dotnet/api/system.globalization.numberformatinfo.-ctor?view=net-10.0)
+does not. The runtime now shares that provider for XDM integer/decimal/floating conversions and
+climbing-set plan indices. No project-defined separators, symbols or domain values are introduced.
+Captured numbers and accumulator priorities reuse their typed double/integer/decimal values instead
+of formatting and reparsing them. Float and other items retain the previous lexical conversion;
+float-to-double rounding, canonical NaN bits, signed zero and conversion errors have explicit tests.
+
+Native caller traces establish three additional initialization paths before any memory claim:
+`Assembly.GetName()` constructs a culture just to retrieve the engine version; the probe's lazy
+P/Invoke library search initializes globalization; and JSON double formatting initializes it after
+the probe's internal RSS sample. The external full-lifetime counter correctly rejects that last
+prototype despite its internal sample being below the limit. Its failed exact-size control remains
+retained. No counter is moved or subtracted.
+
+The SDK now records the effective assembly-version property as metadata. Canonical version text
+avoids assembly-name construction and an identical saved-version string proves the existing version
+comparison directly. Differing saved versions retain the original `Version` comparison and exception
+behavior. Noncanonical or absent metadata uses reflection so compiler normalization stays authoritative.
+Five isolated builds verify full, short, padded, wildcard and metadata-disabled versions against the
+actual assembly header. Public signatures and saved-data format 6 remain unchanged.
+
+The native probe directly binds the same Unix `getrusage` entry point using
+[documented NativeAOT interop](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/interop).
+Its numeric CLI/fixture operations use BCL invariant data; report doubles retain validated numeric
+JSON with the BCL's round-trip digits and normal rejection of non-finite values. The source-generated
+report is checked against ordinary BCL JSON representations and bitwise round trips. Input bytes,
+stylesheets, independent output oracles, full-lifetime internal/external counters and effective guards
+are unchanged. Globalization stays enabled and available.
+
+The final full Release and Debug units each pass **4,537 .NET 10 /4,171 .NET 8** checks. All four
+strict inventories retain **2,695/16/1**, zero unmatched expected codes and identical complete per-case
+records. A portable-PDB audit independently matches all nine changed runtime source checksums in the
+Linux engine and the Release/Debug macOS engines. Initial malformed diagnostic commands, the ignored
+heap-variable spelling, a missing test import and all failed budget trials remain recorded and excluded
+from successful qualification. Evidence: `numeric-provider-diagnosis` and `numeric-init-final-*`.
+
+Review also catches a stale version-field anchor in the optional loader diagnostic. The observer now
+brackets the selected initializer through a typed callback, preserving either historical reflection
+or the current metadata expression. Missing, duplicate and ambiguous anchors fail without rewriting
+the source. The initial failing harness log is retained; the corrected harness runs **45 tests**, with
+one Linux-only skip on macOS. A real newly compiled instrumented NativeAOT image validates its output,
+effective 20 MiB managed guard and all **20 loader/process checkpoints** in their legal order. This
+diagnostic keeps RSS guards disabled and establishes no budget pass.
+
+The final-source Linux ARM64 push matrix completes **48/48 children**, validates every full measured
+input and matches all preceding output fingerprints. It passes **13/16 original budgets**, with
+passing absolute peaks **18,161,664–18,927,616 bytes**. Merge (**24,100,864**), fork (**24,268,800**) and
+source-document (**23,252,992**) still exceed the original **20,971,520-byte** absolute limit. Native
+traces locate their ICU initialization inside .NET URI scheme handling. URI resolution, resource
+identity and globalization semantics remain unchanged. This local ARM64 result is separate from
+hosted x64 qualification and is not a comparison against the preceding hosted platform.
+
+Fresh macOS NativeAOT generation validates all **32 saved stylesheets**, **48 smoke children** and
+**12 exact 100 MB/1 GB accumulator/fork/identity tree/stream controls**. All raw outputs, native flags,
+effective guards and preceding fingerprints are independently checked. The complete native 100 MB
+matrix validates **42/42 observations** under the original **4,294,967,296-byte** managed guard.
+Stream/tree ratios are identity **0.980455**, adjacent **0.635381**, accumulator **1.114835**, iterate
+**0.608041**, merge **0.793123**, fork **3.479671** and source-document **0.955863**. Accumulator and
+fork still fail the original target; no reporting band waives either failure. These observations do
+not establish a paired speedup against an earlier source. The final Linux/macOS native image hashes
+are respectively `dc4db3dc4f744b6c3fe96ca29ebb090cf748b5a82b7cd4e87573854ffea59754` and
+`2c66b8ae303a05fb2276e40b4b668480d591bb728cc28b382abdb59caebe37a0`.
+
+Every original Linux memory/throughput, forwarding/public integration, final review/CI, merge and
+release requirement remains in force. P7 stays active. The remaining URI-path footprint and measured
+throughput failures require further implementation; this checkpoint makes no streaming-support claim.

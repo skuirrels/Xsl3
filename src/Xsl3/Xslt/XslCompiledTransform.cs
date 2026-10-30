@@ -41,8 +41,34 @@ namespace Xsl3
     {
         internal const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
 
-        // Version for GeneratedCodeAttribute
-        private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
+        // Version text for GeneratedCodeAttribute
+        private static readonly string? s_version = GetAssemblyVersionText();
+
+        private static string? GetAssemblyVersionText()
+        {
+            // The SDK writes this from the same effective AssemblyVersion used in
+            // the assembly header. Reading it avoids constructing a culture merely
+            // to retrieve a version from Assembly.GetName().
+            foreach (AssemblyMetadataAttribute metadata in typeof(XslCompiledTransform).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+                if (metadata.Key == "Xsl3.RuntimeAssemblyVersion" && IsCanonicalAssemblyVersion(metadata.Value)) return metadata.Value;
+            // Let reflection preserve compiler normalization for short or wildcard
+            // AssemblyVersion inputs and builds without the SDK-generated metadata.
+            return typeof(XslCompiledTransform).Assembly.GetName().Version?.ToString();
+        }
+
+        private static bool IsCanonicalAssemblyVersion(string? text)
+        {
+            if (text == null) return false;
+            string[] components = text.Split('.');
+            if (components.Length != 4) return false;
+            foreach (string component in components)
+            {
+                if (component.Length == 0 || component.Length > 1 && component[0] == '0') return false;
+                foreach (char c in component)
+                    if (!char.IsAsciiDigit(c)) return false;
+            }
+            return true;
+        }
 
         // Options of compilation
         private readonly bool _enableDebug;
@@ -388,7 +414,7 @@ namespace Xsl3
             TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
             type.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
-                new object[] { typeof(XslCompiledTransform).FullName!, s_version?.ToString() ?? "0.0.0.0" }));
+                new object[] { typeof(XslCompiledTransform).FullName!, s_version ?? "0.0.0.0" }));
             bool symbols = _qil!.IsDebug;
             if (symbols)
             {
@@ -461,9 +487,14 @@ namespace Xsl3
             // If GeneratedCodeAttribute is not there, it is not a compiled stylesheet class
             if (generatedCodeAttr != null && generatedCodeAttr.Tool == typeof(XslCompiledTransform).FullName)
             {
-                if (s_version < Version.Parse(generatedCodeAttr.Version!))
+                // Identical canonical version strings prove compatibility without
+                // parsing or initializing the BCL's invariant culture. All other
+                // versions retain the original Version comparison and exceptions.
+                if (s_version == null || !string.Equals(s_version, generatedCodeAttr.Version, StringComparison.Ordinal))
                 {
-                    throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, generatedCodeAttr.Version, s_version), nameof(compiledStylesheet));
+                    Version? version = s_version == null ? null : Version.Parse(s_version);
+                    if (version < Version.Parse(generatedCodeAttr.Version!))
+                        throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, generatedCodeAttr.Version, version), nameof(compiledStylesheet));
                 }
 
                 FieldInfo? fldData = compiledStylesheet.GetField(XmlQueryStaticData.DataFieldName, BindingFlags.Static | BindingFlags.NonPublic);

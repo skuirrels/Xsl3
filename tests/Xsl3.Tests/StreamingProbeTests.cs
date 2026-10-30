@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Xml;
 using Xunit;
 
@@ -12,6 +13,21 @@ namespace Xsl3.Tests;
 
 public class StreamingProbeTests
 {
+    [Fact]
+    public void ReportNumbersKeepTheBclJsonRepresentationAndRoundTripTheirBits()
+    {
+        foreach (double value in new[] { 0d, -0d, double.Epsilon, -double.Epsilon, double.MinValue, double.MaxValue, 1e-6, 1e6, 1e20, 1234.56789012345 })
+        {
+            string actual = JsonSerializer.Serialize(value, StreamingProbeJsonContext.Default.Double);
+            Assert.Equal(JsonSerializer.Serialize(value), actual);
+            using var json = JsonDocument.Parse(actual);
+            Assert.Equal(JsonValueKind.Number, json.RootElement.ValueKind);
+            Assert.Equal(BitConverter.DoubleToInt64Bits(value), BitConverter.DoubleToInt64Bits(json.RootElement.GetDouble()));
+        }
+        foreach (double value in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+            Assert.Throws<ArgumentException>(() => JsonSerializer.Serialize(value, StreamingProbeJsonContext.Default.Double));
+    }
+
     [Fact]
     public void CheckedInStreamingMicroCorpusMatchesTheSharedFixtureDefinitions()
     {

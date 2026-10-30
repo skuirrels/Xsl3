@@ -34,10 +34,10 @@ public static class P7LoaderObserver
 {
     public static Action<string>? Callback { get; set; }
     internal static void Mark(string phase) => Callback?.Invoke(phase);
-    internal static Version? ReadVersion()
+    internal static T ReadVersion<T>(Func<T> read)
     {
         Mark("before-version");
-        Version? version = typeof(XslCompiledTransform).Assembly.GetName().Version;
+        T version = read();
         Mark("after-version");
         return version;
     }
@@ -124,9 +124,17 @@ def instrument_loader(copy):
     """Bracket the existing loader, preserving its expressions and saved inputs."""
     runtime = copy / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
     text = runtime.read_text()
-    replacements = (
+    version_initializers = (
         ('private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;',
-         'private static readonly Version? s_version = P7LoaderObserver.ReadVersion();'),
+         'private static readonly Version? s_version = P7LoaderObserver.ReadVersion(() => typeof(XslCompiledTransform).Assembly.GetName().Version);'),
+        ('private static readonly string? s_version = GetAssemblyVersionText();',
+         'private static readonly string? s_version = P7LoaderObserver.ReadVersion(() => GetAssemblyVersionText());'),
+    )
+    matches = [(before, after) for before, after in version_initializers if before in text]
+    if len(matches) != 1:
+        raise ValueError('Version initialization is missing or ambiguous')
+    replacements = (
+        matches[0],
         ('private static readonly XmlWriterSettings s_defaultWriterSettings = new XmlWriterSettings();',
          'private static readonly XmlWriterSettings s_defaultWriterSettings = P7LoaderObserver.DefaultWriter();'),
         ('internal static readonly XPathNavigator AbsentInput = Xsl3.Tree.CompactDocument.Load(\n'

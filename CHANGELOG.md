@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Use the BCL's read-only invariant numeric data for XDM numbers and climbing-set plans,
+  avoiding culture initialization for numeric-only work. Reuse typed captured numbers and
+  accumulator priorities while preserving float lexical rounding, NaN normalization and errors.
+- Read SDK-derived assembly-version metadata when it is canonical and preserve the original
+  saved-stylesheet version comparison for differing versions. Short, padded, wildcard and
+  metadata-disabled builds retain the assembly header's normalized version.
+- Avoid observer-triggered culture initialization in the NativeAOT streaming probe: directly
+  bind the same Unix RSS counter and retain round-trip numeric JSON reports. Both internal
+  and external full-lifetime counters, original inputs, oracles and budgets remain in force.
+- Keep isolated loader diagnostics compatible with both version-initialization paths without
+  replacing their expressions or forcing the historical assembly-name lookup.
 - Claim published fork events atomically to reduce shared ring-lock traffic. Preserve the
   configured capacity, caller-owned input, ordered faults, cancellation and payload release.
 - Fix argument forwarding in the optional identity-allocation comparison and retain failed child

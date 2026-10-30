@@ -238,7 +238,7 @@ namespace Xsl3.Runtime
                 }
                 if (priority.Count == 1)
                 {
-                    double p = XmlConvert.ToDouble(priority[0].Value);
+                    double p = CapturedNumber(priority[0]);
                     if (best < 0 || p > bestPriority)
                     {
                         best = r;
