@@ -2,3 +2,6 @@
 Xsl3.Runtime.XmlQueryOutput.XsltCopyOfStrippedAttribute(System.Xml.XPath.XPathNavigator! navigator) -> void
 Xsl3.Runtime.XsltLibrary.X31Data(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
 Xsl3.Runtime.XsltLibrary.X31StringJoin(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! separator) -> string!
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupCount(System.Xml.XPath.XPathItem! state) -> double
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupNext(System.Xml.XPath.XPathItem! state) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupsNew(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! tuples, string! collation, bool composite) -> System.Xml.XPath.XPathItem!

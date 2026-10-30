@@ -935,3 +935,61 @@ with no guard or source changes and continues remaining checks. Its original Lin
 still passes **0/16 budgets**: fifteen measured transformations finish correctly, while fork stops
 at startup. All 32 controls validate and match. Nightly independently validates **16/16 budgets /48 children**, with maximum absolute RSS
 **39,907,328 bytes**; its verified raw archive is retained. No acceptance budget or runtime liveness guard is relaxed.
+
+
+### Grounded adjacent-group boundaries and independent frames
+
+The remaining local 1 GB tree failure materializes every adjacent `Group` and member list. The
+compiler now computes boundaries for grounded, unsorted adjacent grouping and consumes independent
+group frames with a cursor. A supplied loop context-size binding preserves the total for `last()`
+without caching all frames. Forks capture the scalar count and the current frame; retained frames
+own their member lists and keys, without retaining the cursor or unrelated tuple metadata after
+completion. Sorted and other grouping paths retain their existing behavior. Key evaluation remains
+once per population item, with comparison/cardinality errors raised before actions start.
+
+Untyped node keys already stored as strings compare through the canonical collation without filling
+per-row atom caches. Each consumed frame receives its own atomic key; mixed typed/composite keys
+retain the canonical comparison rules. Explicit contracts cover population/action focus, repeated
+member reads, retained closures across call-site reuse, fork capture, saved normal/debug compilation,
+API-specific exception types/codes, cancellation, empty input and metadata release. The initial
+new legacy exception expectation was checked against the unchanged baseline and corrected to its
+existing raw `XdmException`; the modern API retains `XsltDynamicException`. Failed logs are retained.
+
+The first cursor passes all candidate 1 MB / 100 MB / 1 GB cases with three observations per mode,
+retaining its predecessor's 1 GB out-of-memory failure (**25 attempts /24 valid**). The selected
+uncached-key variant also passes every trial (**25/25**), including three observations per candidate
+size/mode under the original 4 GiB heap guard. At 100 MB, compared with the first cursor, tree median
+time changes from **1,485.868 to 1,345.641 ms** and median RSS from **584,515,584 to 516,325,376 bytes**.
+The selected 1 GB tree trials use **3,011,248,128–3,590,651,904 bytes** RSS; these local observations
+do not establish Linux qualification. Isolated full Release and Debug suites each pass **4,494 on
+.NET 10 / 4,132 on .NET 8**. Both prototypes, all unsuccessful attempts, immutable images, source
+patches and independent audits remain under `adjacent-cursor-prototype`.
+
+Final branch strict inventories, newly compiled saved NativeAOT stylesheets and the full original
+hosted memory/throughput matrices remain required. This change does not close P7 or relax any gate.
+
+
+Final branch Release and Debug suites retain **4,494 / 4,132** passes. All four complete strict
+inventories retain **2,695/16/1**, zero unmatched codes, verified frozen-engine/input audits and
+identical per-case outcomes/details to the preceding node-page checkpoint. Fresh saved NativeAOT
+stylesheets call the new tree cursor/count helpers; the stream style retains its forward group
+helpers. The warnings-as-errors native build validates all **48 smoke children** and four canonical
+100 MB / 1 GB adjacent tree/stream controls. At 1 GB, native tree/stream full-lifetime RSS is
+**3,741,237,248 /26,624,000 bytes** with independent outputs, native flags and the original heap guard
+verified. The complete reports and native image digest remain in `native-adjacent-cursor`.
+
+The final canonical JIT image also validates **all seven exact 1 GB tree workloads**, one observation
+each, under the original 4 GiB managed-heap guard. Records and output fingerprints match the prior
+valid controls. Identity, adjacent, accumulator, iterate, merge, fork and source-document peaks are
+**2,553,692,160 /3,603,841,024 /2,594,193,408 /2,604,171,264 /2,086,240,256 /3,469,066,240 /
+2,592,915,456 bytes**. This is retained local diagnostic evidence, not the original full paired
+three-round hosted matrix. All seven trials and independent audit are under `final-seven-large`.
+
+Hosted qualification of preceding commits remains source-specific. All four ordinary CI jobs pass
+for `fecbc83`; its nightly passes **16/16 budgets /48 children**, maximum absolute RSS **44,961,792**.
+Its push passes **0/16 budgets**, with fifteen correct complete transformations and merge stopping
+at startup. All 32 controls validate. The earlier `8734c4d` full Linux benchmark is terminal with
+**114/126 valid attempts** and twelve retained large-tree out-of-memory failures. Its 100 MB ratios
+are identity **1.058307**, adjacent **0.674070**, accumulator **1.374825**, iterate **0.814353**, merge
+**0.882939**, fork **3.305520** and source-document **1.072508**. No failed trial, budget or throughput
+shortfall is omitted. Final-source hosted qualification and every remaining original P7 gate stay open.

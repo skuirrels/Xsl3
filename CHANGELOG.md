@@ -24,6 +24,9 @@
   Preserve linear node identities, navigation, attributes, namespaces and temporary-tree flat storage.
 - Process merge snapshots incrementally for streamable-declared sources even when input is
   tree-backed. Preserve explicit tree selection, snapshots, group focus, sorting and source ownership.
+- Store grounded unsorted adjacent groups as boundaries and materialize each action frame on demand.
+  Preserve total context size, key evaluation/comparison, member identity, retained closures and
+  cancellation. Untyped string keys use the canonical collation without per-row atom caches.
 - Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
   Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
   older saved formats retain their compatibility checks.

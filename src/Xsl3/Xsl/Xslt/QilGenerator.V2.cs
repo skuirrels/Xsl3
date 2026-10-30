@@ -3892,7 +3892,8 @@ namespace Xsl3.Xslt
             }
             IList<XslNode> content = node.Content;
             int varScope = _varHelper.StartVariables();
-            bool forward = StreamedCompilation31 && v2.GroupBy == null && !content.Any(child => child.NodeType == XslNodeType.Sort);
+            bool sorted = content.Any(child => child.NodeType == XslNodeType.Sort);
+            bool forward = StreamedCompilation31 && v2.GroupBy == null && !sorted;
 
             // 1. The population, each item with its grouping key, evaluated with the item as the focus.
             QilNode population = CompileXPath31(node.Select);
@@ -3939,11 +3940,20 @@ namespace Xsl3.Xslt
             QilNode collation = v2.Collation != null ? CompileStringAvt(v2.Collation)!
                 : _f.String(defaultCollation == null || defaultCollation == Collation.CodepointUri ? "" : defaultCollation);
             QilNode groupSelection;
+            QilIterator? groupCount = null;
             if (forward)
             {
                 QilIterator producer = _f.Let(Stateful31(nameof(XsltLibrary.X31PullNew), T.Item, Lift31(_ => tuples, 1, pull: true)));
                 QilIterator state = _f.Let(Stateful31(nameof(XsltLibrary.X31ForwardGroupsNew), T.Item, producer, _f.Double(kind), collation, _f.Boolean(v2.Composite)));
                 groupSelection = _f.Loop(producer, _f.Loop(state, PullSequence31(nameof(XsltLibrary.X31ForwardGroupNext), T.ItemS, state)));
+            }
+            else if (v2.GroupAdjacent != null && !sorted)
+            {
+                QilIterator state = _f.Let(Stateful31(nameof(XsltLibrary.X31AdjacentGroupsNew), T.Item, tuples, collation, _f.Boolean(v2.Composite)));
+                _varHelper.AddVariable(state);
+                groupCount = _f.Let(Stateful31(nameof(XsltLibrary.X31AdjacentGroupCount), T.DoubleX, state));
+                _varHelper.AddVariable(groupCount);
+                groupSelection = PullSequence31(nameof(XsltLibrary.X31AdjacentGroupNext), T.ItemS, state);
             }
             else
             {
@@ -3957,6 +3967,7 @@ namespace Xsl3.Xslt
             var savedKey = _currentGroupingKeyFactory;
             QilIterator g = _f.For(groupSelection);
             _curLoop.SetFocus(g);
+            if (groupCount != null) _curLoop.SetContextSize(groupCount);
             _focusOverrides[g] = it => X31(nameof(XsltLibrary.X31GroupFirst), T.Item, it);
             // Sort keys see the group being sorted as current-group(). Groups of a population of child steps are nodes
             // in document order at one depth (Xsl3 P4), which steps from current-group() can use.
