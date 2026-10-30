@@ -1883,3 +1883,60 @@ budget nor workload changes. Initial and corrected regression logs are retained 
 
 Current-head hosted qualification, the original nightly/full paired benchmark and every other P7
 acceptance, public integration, full-branch review, merge and release requirement remain in force.
+
+
+### S7 qualification and resident-page attribution, 2026-10-30
+
+Required hosted CI **41103792667** passes all four jobs for `d744911`. Independent audits of
+acceptance **41103827041** verify all 48 push children, 32 controls, sixteen full measured outputs,
+32 unchanged stylesheet sources and 47 changed runtime PDB sources. Push remains **13/16 budgets**:
+merge **24,461,312**, fork **24,821,760** and source-document **23,613,440 bytes** exceed the original
+20,971,520-byte limit. Nightly passes **16/16 budgets /48 children**, exact 2,147,483,648-byte measured
+inputs and original 209,715,200-byte guards, with maximum absolute RSS **39,211,008 bytes**. Both
+native images, raw reports and archive digests are retained in `contracts-linux-{push,nightly}-d744911`.
+The current paired benchmark continues under its original handle; no duplicate run is dispatched.
+
+The preceding `662d326` acceptance **41097764886** is now terminal. Its complete paired benchmark
+independently verifies all **126 observations**, original 1 MB/100 MB/1 GB sizes, three rounds per
+mode, exact output fingerprints, 4 GiB guards and tested engine/benchmark hashes. Immutable source
+checks verify 47 runtime and six probe PDB documents. Canonical 100 MB stream/tree ratios are
+identity **1.203796**, adjacent **0.840929**, accumulator **1.291537**, iterate **0.854712**, merge
+**0.980481**, fork **3.541268** and source-document **1.186725**. Four original targets fail.
+Evidence: `contracts-linux-benchmark-662d326`. These separate cohorts are not paired speedup evidence.
+
+An isolated destination-aware annotation prototype moves ID/IDREF lookup after checking whether
+the destination can store annotations. It passes 717 .NET 10 /519 .NET 8 focused checks and 48 native
+smoke children, but twelve alternating original-output-checked controls do not demonstrate a copying
+benefit. Early identity trials have substantial variation and all raw observations are retained;
+no causal regression magnitude is claimed. The prototype is rejected and its source restored.
+Evidence: `annotation-destination-d744911`.
+
+Fresh `/proc` mapping attribution uses the source-verified `d744911` Linux native image on identity,
+merge, fork and source-document, consuming exact 200 MiB inputs and verifying preceding full-output
+fingerprints. The actual managed guard remains 20 MiB; the diagnostic disables the RSS status limit
+only so the failing processes complete. These sampled mappings and timings cannot satisfy acceptance.
+The three failing workloads each map **2,985,984 resident bytes of ICU libraries** and **1,499,136 bytes
+of the C++ runtime**; identity maps neither. Reported final live managed bytes are respectively
+**286,856 /249,024 /247,952**, versus identity **244,776**. Anonymous mappings include runtime and
+committed heap/stack pages and must not be equated with live managed objects.
+
+A further exact 1 GB source-document run attributes resident image pages through `/proc/pagemap`.
+All output and the original 20 MiB managed guard are verified. At its maximum sampled image presence,
+**9,338,880 bytes** are resident: managed-code section pages account for **4,444,160 bytes** and
+read-only data for **2,691,072 bytes**, with the remaining pages in native code, unwind/exception,
+linkage and data sections. Section page counts may share boundary pages; they are attribution,
+not a replacement for full-lifetime operating-system counters. No dependency, URI, globalization,
+GC policy, source size, output oracle or budget changes. Evidence: `memory-mappings-d744911`.
+
+An isolated loader prototype reads existing version/generated-code attribute data directly while
+retaining authoritative header fallback and saved-version checks. It passes 22 .NET 10 /20 .NET 8
+focused checks, 48 native smoke children and sixteen alternating full 200 MiB controls under the
+original managed guard. All four median absolute peaks increase: identity **233,472**, merge
+**104,448**, fork **57,344** and source-document **391,168 bytes**. It establishes no memory reduction
+and is rejected. Its source is restored, and no SDK version source, public API or saved format is
+changed. Broader build-configuration qualification is unnecessary for this rejected candidate and
+is not claimed. Evidence: `metadata-readers-d744911`.
+
+The resident dependency/image footprint and fork/accumulator throughput require further work.
+Original acceptance, applicability/physical-read and public-integration evidence, full-branch review,
+merge and release remain open. This record makes no streaming-support or P7 completion claim.
