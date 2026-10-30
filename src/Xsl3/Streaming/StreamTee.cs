@@ -24,7 +24,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly int[] _remaining;
     private readonly long[] _positions;
     private readonly Reader[] _readers;
-    private int _active, _highWaterMark, _waiting, _producerThread;
+    private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread;
     private long _first, _next;
     private bool _producing, _productionRequested, _complete, _disposed;
     private ExceptionDispatchInfo? _fault;
@@ -114,8 +114,6 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         // Skipped events release backpressure before requesting more
                         // source data, including when a predicate or cancellation fails.
                         ReleaseHead();
-                        NotifyProduction();
-                        Monitor.PulseAll(_gate);
                     }
                 }
                 _fault?.Throw();
@@ -127,14 +125,14 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                     if (!_productionRequested)
                     {
                         _productionRequested = true;
-                        _productionCaller.NotifyProduction();
+                        NotifyProduction();
                     }
                     WaitForPublication();
                     continue;
                 }
                 if (_producing || _next - _first == _events.Length)
                 {
-                    WaitForPublication();
+                    WaitForPublication(waitingForSpace: !_producing);
                     continue;
                 }
                 available = _events.Length - (int)(_next - _first);
@@ -146,11 +144,16 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
     }
 
-    private void WaitForPublication()
+    private void WaitForPublication(bool waitingForSpace = false)
     {
         _waiting++;
+        if (waitingForSpace) _waitingForSpace++;
         try { Monitor.Wait(_gate); }
-        finally { _waiting--; }
+        finally
+        {
+            _waiting--;
+            if (waitingForSpace) _waitingForSpace--;
+        }
     }
 
     // Called by the invoking thread's pump, without its queue lock. Consumers only
@@ -228,12 +231,21 @@ internal sealed class StreamTee<T> : IDisposable where T : class
 
     private void ReleaseHead()
     {
+        bool wasFull = _next - _first == _events.Length;
+        long first = _first;
         while (_first < _next)
         {
             int slot = (int)(_first % _events.Length);
             if (_remaining[slot] != 0) break;
             _events[slot] = null;
             _first++;
+        }
+        if (first != _first)
+        {
+            // Only freeing the first slot of a full ring makes a parked producer
+            // newly eligible. Readers awaiting publication need no consumption pulses.
+            if (wasFull) NotifyProduction();
+            if (_waitingForSpace != 0) Monitor.PulseAll(_gate);
         }
     }
 
@@ -247,7 +259,6 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             _active--;
             for (; position < _next; position++) _remaining[(int)(position % _events.Length)]--;
             ReleaseHead();
-            NotifyProduction();
             Monitor.PulseAll(_gate);
         }
     }

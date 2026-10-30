@@ -10,6 +10,8 @@
   buffered subtrees in batches while retaining bounded buffering, source ownership and error ordering.
 - Pump requested fork source batches directly on the invoking thread, avoiding a synchronous queued
   callback per refill. Preserve the configured buffer capacity, callback ownership and cancellation.
+- Reduce redundant wakeups during fork input consumption while preserving progress whenever buffer
+  space is available, cancellation and caller-owned I/O.
 - Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
   Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
   older saved formats retain their compatibility checks.

@@ -554,3 +554,80 @@ isolated-machine speedup claim. The candidate's **6.637 stream/tree ratio still 
 no-slowdown target. Raw trials and both executable hashes are retained in
 `artifacts/p7-completion/caller-pump-paired-100mb/`. Complete current-source memory, seven-workload
 throughput and hosted qualification remain required; this optimization does not complete P7.
+
+### Completed caller-pump qualification at e407054
+
+The complete local push matrix passes **16/16 workloads / 48 children** under the original
+200 MiB input and 20 MiB absolute limit, with maximum peak **20,070,400 bytes**. The complete local
+nightly matrix passes the same full population at exact 2 GiB inputs / 200 MiB limit, with maximum
+peak **26,230,784 bytes**. Every output validates. Raw evidence is under
+`artifacts/p7-completion/native-caller-pump/`.
+
+The complete local 100 MB throughput matrix has **42 valid observations** and still fails the
+original target: identity **1.200507**, fork **5.883849** stream/tree. Source-document passes this
+particular cohort at **0.928778**; variation across cohorts remains retained.
+
+The [hosted e407054 acceptance run](https://github.com/skuirrels/Xsl3/actions/runs/40976023841)
+is terminal. Linux push remains **0/16 original budgets**, with peaks **23,932,928–25,726,976 bytes**.
+All sixteen transformations consume the full input and validate output; their status remains
+`budget-exceeded`, not an acceptance pass. Linux nightly passes **16/16 workloads / 48 children**
+with exact inputs, both original memory counters and maximum peak **40,124,416 bytes**. Downloaded
+ZIP digests, complete reports and child output are retained under `caller-pump-linux-*`.
+
+The hosted benchmark has **105 valid observations / 126 attempts**. All twenty-one 1 GB tree trials
+again throw `OutOfMemoryException` under the unchanged 4 GiB heap guard. All 1 MB and 100 MB trials
+and all twenty-one 1 GB streaming trials validate output. Recomputed 100 MB medians are:
+
+| Workload | Tree median ms | Stream median ms | Stream / tree | Original target |
+|---|---:|---:|---:|---|
+| identity | 5,002.573 | 5,169.102 | 1.033289 | Fail |
+| adjacent | 3,767.117 | 2,429.281 | 0.644865 | Pass |
+| accumulator | 11,878.518 | 8,544.997 | 0.719366 | Pass |
+| iterate | 3,230.405 | 2,547.429 | 0.788579 | Pass |
+| merge | 23,553.885 | 8,499.061 | 0.360835 | Pass |
+| fork | 3,531.392 | 13,855.954 | 3.923653 | Fail |
+| source-document | 5,158.093 | 5,266.846 | 1.021084 | Fail |
+
+Ordinary CI initially failed the unchanged namespace-enumeration allocation check on Linux:
+49,200 bytes against the existing 4,096-byte limit. The original log and test artifact are retained.
+Windows, NativeAOT and ordinary performance passed. Once Windows completed, the Linux job was
+retried without source or threshold changes; its unit tests pass. Remaining retry steps still
+require terminal verification before ordinary CI can be called green.
+
+### Targeted fork wakeups
+
+The tee now distinguishes a producer waiting for buffer space from consumers waiting for publication.
+Consuming buffered events only signals operations that become eligible: a parked space waiter, or
+the invoking-thread producer when a full ring gains space. Publication, cancellation and disposal
+retain their notifications. Refills can still use every free slot; capacity and caller ownership
+are unchanged.
+
+Two additional regressions protect a caller callback reading partially drained input and a faster
+prong advancing within capacity while its peer retains buffered events. Full Release/Debug units
+pass **4,420 checks on .NET 10 / 4,063 on .NET 8**, per configuration. Complete strict Debug and
+Release legacy/saved-sampling exports retain **2,695/16/1**, zero unmatched codes and passing frozen
+inventory audits. Raw results use the `targeted-wakeup-*` prefix under the P7 artifacts.
+
+Two serial, alternating-image native fork cohorts each validate twelve outputs with unchanged
+100 MB inputs and 4 GiB heap guard:
+
+| Cohort | e407054 stream ms | Candidate stream ms | e407054 child CPU ms | Candidate child CPU ms |
+|---|---:|---:|---:|---:|
+| First | 3,920.999 | 3,819.275 | 6,621.104 | 5,279.453 |
+| Confirmation | 4,048.741 | 3,798.656 | 6,923.429 | 5,270.211 |
+
+Observed full-child CPU medians fall **20.3% / 23.9%**. Those counters include startup, warmup and
+oracle generation. Elapsed medians fall **2.6% / 6.2%**; candidate stream/tree ratios **3.694 / 3.663**
+still fail the original target. Reports, CPU counters, both native image hashes and the source patch
+are retained in `artifacts/p7-completion/fork-wakeup-prototype/`. Complete qualification of the
+working-branch image remains required.
+
+Rejected isolated candidates are retained independently. Deferring built-in schema-type fields
+establishes no useful footprint reduction across twelve valid diagnostic trials. Bounded spinning
+raises fork elapsed median **8.1%** and full-child CPU about **31%**. Draining the entire ring before
+refilling reduces CPU but fails the new free-slot progress regression at its cancellation deadline;
+it can strand a prong despite available capacity. None of these policies is included in the branch.
+Their evidence is under `schema-lazy-prototype`, `fork-spin-prototype` and `fork-drain-prototype`.
+
+Full P7 remains active: Linux push memory, the full throughput target, the 1 GB tree comparisons,
+actual-forwarding and integration evidence, final review, merge and release remain required.
