@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Write the native streaming probe's JSON protocol as explicit UTF-8 without a BOM, avoiding
+  host console charset discovery while preserving full-lifetime memory measurement.
 - Use the BCL's read-only invariant numeric data for XDM numbers and climbing-set plans,
   avoiding culture initialization for numeric-only work. Reuse typed captured numbers and
   accumulator priorities while preserving float lexical rounding, NaN normalization and errors.

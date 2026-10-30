@@ -1352,3 +1352,44 @@ are respectively `dc4db3dc4f744b6c3fe96ca29ebb090cf748b5a82b7cd4e87573854ffea597
 Every original Linux memory/throughput, forwarding/public integration, final review/CI, merge and
 release requirement remains in force. P7 stays active. The remaining URI-path footprint and measured
 throughput failures require further implementation; this checkpoint makes no streaming-support claim.
+
+
+### Explicit native report encoding, 2026-10-30
+
+All four ordinary CI jobs pass for `bd0031e`. Its hosted nightly independently passes
+**16/16 original budgets /48 children**, with maximum absolute RSS **40,235,008 bytes**. Its push
+passes **0/16 budgets**, although every full transformation and all 32 controls validate. Thirteen
+workloads report an internal peak below the budget but exceed it in the external lifetime counter.
+The hosted full paired benchmark is still running; it is not restarted. These results qualify that
+preceding checkpoint, not later source. Independent audits are under `numeric-init-linux-*`.
+
+An isolated Ubuntu x64 diagnostic retains the actual native executable/debug symbols and matches
+its source and artifact hashes. Its first ICU caller is console charset discovery:
+`Console.WriteLine -> Console.OutputEncoding -> EncodingHelper.GetCharset -> TextInfo`. It runs
+after the internal peak sample. A high-RSS parent control affects both counters and does not explain
+the late-only increase; no counter is moved, subtracted or replaced. The diagnostic workflow succeeds
+in run **41043588197**, with evidence under `native-initialization-x64`.
+
+The native probe now explicitly selects UTF-8 without a BOM for its JSON process protocol. This
+prevents host charset discovery while leaving globalization available. A Linux ARM64 .NET 10.0.14
+control with `LANG`/`LC_ALL=en_US.UTF-8` reproduces the preceding ICU stack; the candidate preserves
+its output fingerprint without that stack. All **48 macOS smoke children** and four alternating small
+baseline/candidate controls validate. Those small controls show no material RSS regression and do not
+establish a throughput improvement. A portable-PDB checksum matches the changed program source.
+
+The complete local Linux ARM64 original push matrix verifies all **48 children**, all full input
+bytes, raw UTF-8 reports and preceding output fingerprints. It passes **13/16 budgets**. Remaining
+absolute peaks are merge **24,186,880**, fork **24,510,464** and source-document **23,314,432 bytes**,
+against the unchanged **20,971,520-byte** limit and managed guard. Their URI initialization still
+requires repair. The macOS smoke run has no acceptance RSS limit and makes no memory-budget claim.
+Linux/macOS image hashes are respectively
+`9c02f737ad20c43f6e375719d29c53da551a181a0de808d0dabddc7264ed6c08` and
+`d249fc79cb7151ee00578e57abab5cff8d727554d3c7390de0e10826bc3f0d5d`.
+Evidence: `uri-footprint-bd0031e/console-utf8-independent-audit.json` and retained raw files.
+
+Three isolated alternatives are rejected with their failures retained: immediate tee-payload release with deferred head-metadata reclamation
+provides no measured gain; disabling NativeAOT dehydration worsens small-process RSS; and
+serialization-only JSON source generation lacks metadata required by the report converter and fails
+at runtime. None is adopted. No fixture, URI behavior, input/oracle, counter, memory limit, GC policy
+or public streaming claim changes. Current-source hosted qualification and every original P7 gate
+remain required before final review, merge and release.
