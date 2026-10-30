@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Extend isolated streaming-memory diagnostics with saved-stylesheet initialization/loading
+  checkpoints and validation of their source hashes, complete phase inventory and legal ordering.
 - Avoid temporary text trees for singleton literal simple content with a constant separator.
   Preserve streamed cancellation checkpoints, text-node results and the existing dynamic-content path.
 - Preserve direct streamed emptiness tests when optimizing side-effecting expressions, fixing a

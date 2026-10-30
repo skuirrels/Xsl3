@@ -1075,3 +1075,54 @@ baseline estimate. Final reports, source/binary hashes and independent audits ar
 These are local diagnostics, not the original full hosted acceptance matrices. Every original P7
 requirement, including Linux push memory, all throughput targets, forwarding/public integration
 and final full review/merge/release, remains required.
+
+### Hosted large-input completion and loader attribution, 2026-10-30
+
+The complete original hosted benchmark for `2b12932` independently validates **126/126 observations**:
+all seven canonical workloads at exact 1 MB /100 MB /1 GB, three observations per tree/stream mode,
+with the original **4,294,967,296-byte** effective managed-heap guard. Every record count/output
+fingerprint matches preceding valid controls. Earlier out-of-memory trials remain retained. This
+establishes the large-tree repair on Linux for that source, without substituting local diagnostics.
+Its 100 MB stream/tree ratios are identity **1.138184**, adjacent **0.849365**, accumulator **1.512725**,
+iterate **0.873307**, merge **0.976321**, fork **3.652861** and source-document **1.113490**. Four
+workloads still fail the original throughput target. The report and audit are under
+`artifacts/p7-completion/adjacent-cursor-linux-benchmark/`.
+
+All four ordinary CI jobs pass for `1c98c38`. Its original hosted push matrix validates every full
+209,715,200-byte transformation and all 32 controls, but still passes **0/16 memory budgets**.
+Absolute peaks range from **24,064,000 to 25,559,040 bytes**. This improvement in completion count
+does not establish a controlled source-change effect or waive the failed budget. The downloaded
+artifact and independent audit are under `literal-content-linux-push`.
+
+A compact annotation prototype reduces streamed frame size from **184 to 160 bytes** and the 100 MB
+identity allocation estimate from about **2.13 GB to 1.96 GB**. Focused tests preserve insertion/removal
+order, opaque node payloads, concurrent independent updates, allocation-free single annotations,
+discarded-value lifetime, replay, accumulators and fork ownership. All **18** alternating native
+200 MiB identity/accumulator/fork controls validate outputs and the original managed guard. However,
+median RSS rises by **144 /16 /80 KiB**, identity/accumulator times remain flat, and fork's observed
+median improvement is only about **1.5%**. This does not usefully advance the original gates; the
+prototype is not adopted. Source, contracts, size traces and all controls remain under
+`node-annotations-prototype`.
+
+The opt-in identity memory diagnosis now also brackets saved-type initialization, generated-code
+attribute reflection, static fields/data, execution-method lookup/delegate binding, static-data
+deserialization and dispatcher binding. `--loader-details` adds these checkpoints only to an isolated
+source copy and records its generated source hashes. Original saved assemblies, fixtures, output
+oracles, globalization, heap guards and all acceptance jobs remain unchanged. The generated observer
+and its temporary API manifest entries are absent from the production library.
+
+The first native trace exposes a diagnostic ordering assumption: the CLR's `BeforeFieldInit` type
+initializer runs after generated-code attribute lookup here, rather than before `Load`. The revised
+validator requires every checkpoint, the ordered initializer block, the ordered loading operations,
+and initialization before the version-dependent field lookup; it accepts each legal early/late
+initialization point. It rejects missing, duplicate, reordered, malformed or uninstrumented records.
+The initial rejected report is retained. The runtime's initialization timing is not changed to fit
+the diagnostic schema.
+
+A warnings-as-errors native diagnostic build validates both 10 MiB and 200 MiB outputs under the
+original 20 MiB managed guard, with all **20 checkpoints** present and all instrumented source/image
+hashes verified. The observer adds measurement overhead; intervals are not exclusive attribution
+of the uninstrumented process peak. MacOS validation and the default `v1.1.3` source anchors are
+verified; current-source hosted Linux diagnosis is still required. Evidence is under `loader-details`.
+Full P7 remains active, including original Linux memory/throughput, forwarding/public integration,
+final review, merge and release requirements.

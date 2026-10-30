@@ -5,6 +5,7 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -72,6 +73,63 @@ class MemoryDiagnosisTests(unittest.TestCase):
 
     def test_complete_controlled_phases_are_valid(self):
         self.assertTrue(DIAG.validate_points(self.points(), 1024))
+
+    def test_loader_details_require_every_checkpoint_in_order(self):
+        phases = (DIAG.PHASES[0], *DIAG.LOADER_PHASES, *DIAG.PHASES[1:])
+        points = [dict(self.points()[0], Phase=name, PeakBytes=100+i, AllocatedBytes=1000+i)
+                  for i, name in enumerate(phases)]
+        self.assertTrue(DIAG.validate_points(points, 1024, loader_details=True))
+        self.assertFalse(DIAG.validate_points(points, 1024))
+        self.assertFalse(DIAG.validate_points(self.points(), 1024, loader_details=True))
+        for index in range(1, len(DIAG.LOADER_PHASES)+1):
+            self.assertFalse(DIAG.validate_points(points[:index]+points[index+1:], 1024, loader_details=True))
+        swapped = points.copy(); swapped[2], swapped[3] = swapped[3], swapped[2]
+        self.assertFalse(DIAG.validate_points(swapped, 1024, loader_details=True))
+        for malformed in (None, [], {}, 3, True):
+            invalid = points.copy(); invalid[1] = dict(points[1], Phase=malformed)
+            self.assertFalse(DIAG.validate_points(invalid, 1024, loader_details=True))
+
+    def test_beforefieldinit_can_run_at_each_legal_point_before_version_use(self):
+        initialization, loading = DIAG.LOADER_PHASES[:4], DIAG.LOADER_PHASES[4:]
+        for index in range(3):
+            phases = ('entry', *loading[:index], *initialization, *loading[index:], *DIAG.PHASES[1:])
+            self.assertTrue(DIAG.valid_phases(phases, True))
+        for index in range(3, len(loading)+1):
+            phases = ('entry', *loading[:index], *initialization, *loading[index:], *DIAG.PHASES[1:])
+            self.assertFalse(DIAG.valid_phases(phases, True))
+        phases = ('entry', *initialization, loading[1], loading[0], *loading[2:], *DIAG.PHASES[1:])
+        self.assertFalse(DIAG.valid_phases(phases, True))
+
+    def test_loader_instrumentation_changes_only_the_isolated_source_copy(self):
+        source = PATH.parent.parent / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
+        original = source.read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
+            target.parent.mkdir(parents=True)
+            shutil.copyfile(source, target)
+            (root / 'src/Xsl3/Xsl/Runtime').mkdir(parents=True)
+            (root / 'src/Xsl3/PublicAPI.Unshipped.txt').write_text('#nullable enable\n')
+            changed = DIAG.instrument_loader(root)
+            self.assertEqual(3, len(changed))
+            self.assertEqual(original, source.read_bytes())
+            self.assertIn('s_version = P7LoaderObserver.ReadVersion();', target.read_text())
+            self.assertIn('P7LoaderObserver.Mark("execute-delegate")', target.read_text())
+            observer = root / 'src/Xsl3/Xsl/Runtime/P7LoaderObserver.cs'
+            self.assertIn('typeof(XslCompiledTransform).Assembly.GetName().Version', observer.read_text())
+            self.assertIn('CompactDocument.Load(', observer.read_text())
+            with self.assertRaises(ValueError):
+                DIAG.instrument_loader(root)
+
+    def test_loader_phase_validation_cannot_be_enabled_for_uninstrumented_controls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); child = root / 'must-not-run'; child.touch()
+            output = root / 'report'
+            result = subprocess.run([sys.executable, str(PATH), 'measure', '--native', str(child),
+                '--output', str(output), '--sizes', '1024', '--rounds', '1', '--heap-limit', '1024',
+                '--loader-details'], capture_output=True, timeout=10)
+            self.assertEqual(2, result.returncode)
+            self.assertFalse(output.exists())
 
     def test_missing_extra_reordered_or_non_object_phases_are_rejected(self):
         points = self.points()

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       memory_diagnosis:
-        description: Run P7E identity diagnostics only (never an acceptance gate)
+        description: Run identity and saved-loader diagnostics only (never an acceptance gate)
         type: boolean
         default: false
       source_ref:
@@ -113,13 +113,13 @@ jobs:
       - name: Publish unchanged controls and separate diagnostic image
         run: |
           bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/p7e-memory/linux/canonical
-          python3 eng/diagnose-streaming-memory.py prepare --source baseline-source --saved artifacts/p7e-memory/linux/canonical/stylesheets --rid linux-x64 --output artifacts/p7e-memory/linux/diagnostic
+          python3 eng/diagnose-streaming-memory.py prepare --source baseline-source --saved artifacts/p7e-memory/linux/canonical/stylesheets --rid linux-x64 --output artifacts/p7e-memory/linux/diagnostic --loader-details
       - name: Measure identity controls and diagnostic phases
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           python3 eng/diagnose-streaming-memory.py measure --native artifacts/p7e-memory/linux/canonical/bin/Xsl3.StreamingProbe.Native --output artifacts/p7e-memory/linux/control --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --mapping-snapshots
-          python3 eng/diagnose-streaming-memory.py measure --native artifacts/p7e-memory/linux/diagnostic/bin/Xsl3.StreamingProbe.Native --output artifacts/p7e-memory/linux/instrumented --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --instrumented
+          python3 eng/diagnose-streaming-memory.py measure --native artifacts/p7e-memory/linux/diagnostic/bin/Xsl3.StreamingProbe.Native --output artifacts/p7e-memory/linux/instrumented --sizes 10485760 209715200 2147483648 --rounds 3 --heap-limit 20971520 --instrumented --loader-details
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

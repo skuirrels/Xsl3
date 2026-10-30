@@ -20,7 +20,42 @@ import sys
 import time
 
 PHASES = ('entry', 'loaded', 'warmup', 'collected', 'transformed', 'oracle', 'result')
+LOADER_PHASES = ('before-version', 'after-version', 'default-writer', 'absent-input',
+                 'load-type', 'generated-attribute', 'static-fields', 'saved-data',
+                 'execute-method', 'execute-delegate', 'deserialized', 'dispatcher', 'command')
 MARKER = 'P7E_MEMORY_DIAGNOSTICS '
+LOADER_HOOK = r'''// Diagnostic-only observer; generated exclusively inside the isolated source copy.
+using System;
+using System.IO;
+using System.Xml;
+using System.Xml.XPath;
+namespace Xsl3.Runtime;
+public static class P7LoaderObserver
+{
+    public static Action<string>? Callback { get; set; }
+    internal static void Mark(string phase) => Callback?.Invoke(phase);
+    internal static Version? ReadVersion()
+    {
+        Mark("before-version");
+        Version? version = typeof(XslCompiledTransform).Assembly.GetName().Version;
+        Mark("after-version");
+        return version;
+    }
+    internal static XmlWriterSettings DefaultWriter()
+    {
+        var settings = new XmlWriterSettings();
+        Mark("default-writer");
+        return settings;
+    }
+    internal static XPathNavigator AbsentInput()
+    {
+        XPathNavigator node = Xsl3.Tree.CompactDocument.Load(
+            XmlReader.Create(new StringReader(""), new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment })).CreateNavigator();
+        Mark("absent-input");
+        return node;
+    }
+}
+'''
 HOOK = r'''// Diagnostic-only P7E hooks in an isolated source copy, never in the runtime.
 using System;
 using System.Collections.Generic;
@@ -85,6 +120,51 @@ def replace_once(text, before, after):
     return text.replace(before, after, 1)
 
 
+def instrument_loader(copy):
+    """Bracket the existing loader, preserving its expressions and saved inputs."""
+    runtime = copy / 'src/Xsl3/Xslt/XslCompiledTransform.cs'
+    text = runtime.read_text()
+    replacements = (
+        ('private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;',
+         'private static readonly Version? s_version = P7LoaderObserver.ReadVersion();'),
+        ('private static readonly XmlWriterSettings s_defaultWriterSettings = new XmlWriterSettings();',
+         'private static readonly XmlWriterSettings s_defaultWriterSettings = P7LoaderObserver.DefaultWriter();'),
+        ('internal static readonly XPathNavigator AbsentInput = Xsl3.Tree.CompactDocument.Load(\n'
+         '            XmlReader.Create(new StringReader(""), new XmlReaderSettings { ConformanceLevel = ConformanceLevel.Fragment })).CreateNavigator();',
+         'internal static readonly XPathNavigator AbsentInput = P7LoaderObserver.AbsentInput();'),
+        ('            ArgumentNullException.ThrowIfNull(compiledStylesheet);',
+         '            ArgumentNullException.ThrowIfNull(compiledStylesheet);\n            P7LoaderObserver.Mark("load-type");'),
+        ('            object[] customAttrs = compiledStylesheet.GetCustomAttributes(typeof(GeneratedCodeAttribute), false);',
+         '            object[] customAttrs = compiledStylesheet.GetCustomAttributes(typeof(GeneratedCodeAttribute), false);\n            P7LoaderObserver.Mark("generated-attribute");'),
+        ('                FieldInfo? fldTypes = compiledStylesheet.GetField(XmlQueryStaticData.TypesFieldName, BindingFlags.Static | BindingFlags.NonPublic);',
+         '                FieldInfo? fldTypes = compiledStylesheet.GetField(XmlQueryStaticData.TypesFieldName, BindingFlags.Static | BindingFlags.NonPublic);\n                P7LoaderObserver.Mark("static-fields");'),
+        ('                    byte[]? queryData = fldData.GetValue(/*this:*/null) as byte[];',
+         '                    byte[]? queryData = fldData.GetValue(/*this:*/null) as byte[];\n                    P7LoaderObserver.Mark("saved-data");'),
+        ('                        Type[]? earlyBoundTypes = (Type[]?)fldTypes.GetValue(null);',
+         '                        Type[]? earlyBoundTypes = (Type[]?)fldTypes.GetValue(null);\n                        P7LoaderObserver.Mark("execute-method");'),
+        ('            var staticData = new XmlQueryStaticData(queryData, earlyBoundTypes);',
+         '            P7LoaderObserver.Mark("execute-delegate");\n            var staticData = new XmlQueryStaticData(queryData, earlyBoundTypes);\n            P7LoaderObserver.Mark("deserialized");'),
+        ('            _command = new XmlILCommand((ExecuteDelegate)delExec, staticData);\n            OutputSettings = _command.StaticData.DefaultWriterSettings;',
+         '            P7LoaderObserver.Mark("dispatcher");\n            _command = new XmlILCommand((ExecuteDelegate)delExec, staticData);\n            OutputSettings = _command.StaticData.DefaultWriterSettings;\n            P7LoaderObserver.Mark("command");'),
+    )
+    for before, after in replacements:
+        text = replace_once(text, before, after)
+    observer = copy / 'src/Xsl3/Xsl/Runtime/P7LoaderObserver.cs'
+    api = copy / 'src/Xsl3/PublicAPI.Unshipped.txt'
+    if not api.is_file():
+        raise ValueError('The isolated source is missing its unshipped API manifest')
+    if observer.exists():
+        raise FileExistsError(observer)
+    runtime.write_text(text)
+    with observer.open('x') as output:
+        output.write(LOADER_HOOK)
+    with api.open('a') as output:
+        output.write('\nXsl3.Runtime.P7LoaderObserver\n'
+            'static Xsl3.Runtime.P7LoaderObserver.Callback.get -> System.Action<string!>?\n'
+            'static Xsl3.Runtime.P7LoaderObserver.Callback.set -> void\n')
+    return [runtime, observer, api]
+
+
 def prepare(args):
     output = args.output.resolve()
     source = args.source.resolve()
@@ -113,6 +193,13 @@ def prepare(args):
     )
     for before, after in replacements:
         text = replace_once(text, before, after)
+    loader_files = []
+    if args.loader_details:
+        loader_files = instrument_loader(copy)
+        text = replace_once(text, '        Invocation invoke = CreateInvocation(workload, forward);',
+            '        Xsl3.Runtime.P7LoaderObserver.Callback = Capture;\n'
+            '        Invocation invoke = CreateInvocation(workload, forward);\n'
+            '        Xsl3.Runtime.P7LoaderObserver.Callback = null;')
     probe.write_text(text)
     (probe.parent / 'StreamingProbe.Diagnostics.cs').write_text(HOOK)
     context = probe.parent / 'StreamingProbe.Json.cs'
@@ -126,17 +213,41 @@ def prepare(args):
                '-o', str(output / 'bin')]
     with (output / 'publish.log').open('wb') as log:
         result = subprocess.run(command, cwd=copy, stdout=log, stderr=subprocess.STDOUT, timeout=900)
+    instrumented = [probe, context, project, probe.parent / 'StreamingProbe.Diagnostics.cs', *loader_files]
     write_json(output / 'preparation.json', dict(acceptance=False, source=str(source), command=command,
+        loader_details=args.loader_details,
         exit_code=result.returncode, rid=args.rid, instrumented_files=[str(probe.relative_to(copy)),
-            str(context.relative_to(copy)), str(project.relative_to(copy)), 'tests/Xsl3.Tests/StreamingProbe.Diagnostics.cs']))
+            str(context.relative_to(copy)), str(project.relative_to(copy)), 'tests/Xsl3.Tests/StreamingProbe.Diagnostics.cs',
+            *(str(path.relative_to(copy)) for path in loader_files)],
+        instrumented_sha256={str(path.relative_to(copy)): sha256_file(path) for path in instrumented}))
     if result.returncode:
         raise RuntimeError('Diagnostic publish failed; see ' + str(output / 'publish.log'))
 
 
-def validate_points(points, heap_limit):
-    if (not isinstance(points, list) or len(points) != len(PHASES)
-            or not all(isinstance(p, dict) for p in points)
-            or tuple(p.get('Phase') for p in points) != PHASES):
+def valid_phases(phases, loader_details):
+    if not all(isinstance(phase, str) for phase in phases):
+        return False
+    if not loader_details:
+        return phases == PHASES
+    expected = set(PHASES + LOADER_PHASES)
+    if len(phases) != len(expected) or set(phases) != expected:
+        return False
+    if tuple(p for p in phases if p in PHASES) != PHASES or phases[0] != 'entry':
+        return False
+    # BeforeFieldInit allows the type initializer to run before the type is
+    # constructed or later, when Load first reads s_version. Preserve that real
+    # ordering rather than changing the runtime merely to fit a diagnostic schema.
+    initialization, loading = LOADER_PHASES[:4], LOADER_PHASES[4:]
+    start = phases.index(initialization[0])
+    return (phases[start:start+len(initialization)] == initialization
+            and tuple(p for p in phases if p in loading) == loading
+            and phases.index('absent-input') < phases.index('static-fields')
+            and phases.index('loaded') == 1+len(LOADER_PHASES))
+
+
+def validate_points(points, heap_limit, loader_details=False):
+    if (not isinstance(points, list) or not all(isinstance(p, dict) for p in points)
+            or not valid_phases(tuple(p.get('Phase') for p in points), loader_details)):
         return False
     fields = ('PeakBytes', 'AllocatedBytes', 'LiveBytes', 'CommittedBytes', 'HeapSizeBytes',
               'FragmentedBytes', 'AvailableBytes')
@@ -165,7 +276,7 @@ def measure(args):
         workload=args.workload,
         host=platform.platform(), executable=str(args.native.resolve()),
         executable_sha256=sha256_file(args.native),
-        instrumented=args.instrumented, heap_limit=args.heap_limit,
+        instrumented=args.instrumented, loader_details=args.loader_details, heap_limit=args.heap_limit,
         mapping_snapshots_requested=args.mapping_snapshots, runs=[], failures=[])
     report['launcher_peak_bytes_before_first_child'] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
     write_json(directory / 'report.json', report)
@@ -232,7 +343,7 @@ def measure(args):
                     lines = [line[len(MARKER):] for line in stem.with_suffix('.stderr').read_text().splitlines() if line.startswith(MARKER)]
                     points = json.loads(lines[0]) if len(lines) == 1 else None
                     item['points'] = points
-                    valid = valid and validate_points(points, args.heap_limit)
+                    valid = valid and validate_points(points, args.heap_limit, args.loader_details)
                 item['valid'] = valid
             except (ValueError, KeyError, TypeError) as error:
                 item['error'] = str(error)
@@ -252,17 +363,21 @@ def main():
     prep = sub.add_parser('prepare');prep.add_argument('--source', type=Path, required=True)
     prep.add_argument('--saved', type=Path, required=True);prep.add_argument('--output', type=Path, required=True)
     prep.add_argument('--rid', required=True)
+    prep.add_argument('--loader-details', action='store_true', help='Bracket saved-type initialization and loading in the isolated diagnostic copy')
     run = sub.add_parser('measure');run.add_argument('--native', type=Path, required=True)
     run.add_argument('--workload', choices=load_gate().WORKLOADS, default='identity')
     run.add_argument('--output', type=Path, required=True);run.add_argument('--sizes', type=int, nargs='+', required=True)
     run.add_argument('--rounds', type=int, required=True);run.add_argument('--heap-limit', type=int, required=True)
     run.add_argument('--timeout-seconds', type=float, default=900);run.add_argument('--instrumented', action='store_true')
+    run.add_argument('--loader-details', action='store_true', help='Require the complete instrumented loader phase sequence')
     run.add_argument('--mapping-snapshots', action='store_true', help='Linux only: retain external instantaneous smaps snapshots, never a decomposition of the historical peak')
     args = parser.parse_args()
     if args.command == 'prepare':
         prepare(args);return 0
     if args.mapping_snapshots and sys.platform != 'linux':
         parser.error('mapping snapshots require Linux /proc')
+    if args.loader_details and not args.instrumented:
+        parser.error('loader details require an instrumented diagnostic image')
     if (args.rounds <= 0 or args.heap_limit <= 0 or not math.isfinite(args.timeout_seconds)
             or args.timeout_seconds <= 0 or any(s <= 0 for s in args.sizes)
             or len(set(args.sizes)) != len(args.sizes) or not args.native.is_file()):
