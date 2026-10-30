@@ -767,3 +767,48 @@ original full memory or throughput matrices. Native images and all raw outcomes 
 Final-source hosted qualification, remaining large-tree
 failure sites, Linux push memory, all throughput targets, actual-forwarding/public integration,
 review, merge and release remain required.
+
+### Full-tree column growth
+
+Retained hosted stacks identify `CompactDocument.Builder.Grow`, including resizing the exclusive
+subtree-end column, as a shared 1 GB input failure. Full-tree columns now grow by half their current
+capacity instead of doubling, reducing unused space and the old/new buffers present during a resize.
+Temporary trees retain their existing growth policy. Capacity arithmetic uses a wider intermediate
+and the runtime's natural array maximum; no input limit, fixture branch, GC/globalization switch,
+budget or expected-output change is introduced.
+
+Isolated public-loader diagnostics use the unchanged canonical generated input and retain both
+images. At exact 1 GB, both versions retain **8,695,652 records, 69,565,219 content nodes,
+26,086,956 attributes and 8,695,661 distinct stored values**. The old node capacity is **134,217,728**;
+the candidate's is **87,266,902**, avoiding **798,164,042 bytes** of unused capacity across the five
+columns. At 100 MB the same shape counters also match. The diagnostic-only test entry-point command
+is excluded from the branch and canonical benchmark image; this capacity evidence does not itself
+satisfy an acceptance gate.
+
+Full isolated Release and Debug suites each pass **4,446 on .NET 10 / 4,089 on .NET 8**. Two additional
+comparisons against `XPathDocument` exercise content, attributes, namespaces, parent/sibling axes and
+values across many column resizes. All **42 alternating 100 MB tree controls** validate output.
+Candidate median times range from **1.9% faster to 2.7% slower** by workload; no universal speedup
+or performance waiver is claimed. Five of seven candidate 1 GB tree trials validate output under
+the original 4 GiB heap guard: identity, accumulator, iterate, fork and source-document. Adjacent
+grouping still runs out of memory while constructing grouping keys, and merge still runs out of
+memory in its snapshot path. The complete **49 transformation attempts / 47 valid observations**,
+four valid layout diagnostics, images, hashes and source patch are under `tree-growth-prototype`.
+
+The branch adopts only the reviewed runtime and navigation regressions. Final-source compatibility,
+NativeAOT/saved execution and the complete hosted original matrices remain required. The known
+grouping/merge allocations, Linux push memory, all throughput targets, actual-forwarding/public
+integration and final review/merge/release are still open; full P7 is not complete.
+
+The final branch Release/Debug suites retain the same **4,446 / 4,089** unit counts. Complete strict
+inventories through both API paths, including legacy saved sampling, run in both configurations;
+all four retain **2,695 pass / 16 fail / 1 not run**, zero unmatched error codes and verified frozen
+case/engine audits. Raw final-source evidence uses the `tree-growth-*` prefix. These checks do not
+replace the required full hosted qualification or prove actual forwarding.
+
+A warnings-as-errors NativeAOT publication also validates all **48 saved smoke children** and four
+exact 1 GB identity/fork tree/stream controls under the original 4 GiB heap guard. The tree peaks are
+**3,643,604,992 / 4,063,559,680 bytes** for identity/fork, and stream peaks are **26,034,176 /
+26,591,232 bytes**. These smoke/diagnostic checks retain both native flags and independent output
+oracles; they are not the original full memory/throughput acceptance matrices. Raw results and the
+native image digest are retained under `tree-growth-prototype`.

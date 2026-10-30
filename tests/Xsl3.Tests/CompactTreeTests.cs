@@ -84,6 +84,46 @@ public class CompactTreeTests
         }
     }
 
+    [Theory]
+    [InlineData(513)]
+    [InlineData(5000)]
+    public void LargeTreesKeepContentAttributesAndAxesAcrossColumnGrowth(int rows)
+    {
+        var xml = new StringBuilder("<doc xmlns:p='urn:outer'>");
+        for (int i = 0; i < rows; i++)
+            xml.Append(System.FormattableString.Invariant($"<r a='{i}' p:b='value' xmlns:q='urn:{i % 3}'><v>{i}</v>before<q:e/>after<!--comment--><?p data?></r>"));
+        xml.Append("</doc>");
+        var (expected, actual) = Load(xml.ToString(), XmlSpace.Preserve);
+        var en = expected.Select("descendant-or-self::node()");
+        var an = actual.Select("descendant-or-self::node()");
+        int count = 0;
+        while (en.MoveNext())
+        {
+            Assert.True(an.MoveNext());
+            XPathNavigator e = en.Current!, a = an.Current!;
+            Same(e, a);
+            Assert.Equal(e.LookupNamespace("q"), a.LookupNamespace("q"));
+            var ep = e.Clone(); var ap = a.Clone();
+            Assert.Equal(ep.MoveToParent(), ap.MoveToParent());
+            Same(ep, ap);
+            ep = e.Clone(); ap = a.Clone();
+            Assert.Equal(ep.MoveToNext(), ap.MoveToNext());
+            Same(ep, ap);
+            var ea = e.Clone(); var aa = a.Clone();
+            bool more = ea.MoveToFirstAttribute();
+            Assert.Equal(more, aa.MoveToFirstAttribute());
+            while (more)
+            {
+                Same(ea, aa);
+                more = ea.MoveToNextAttribute();
+                Assert.Equal(more, aa.MoveToNextAttribute());
+            }
+            count++;
+        }
+        Assert.False(an.MoveNext());
+        Assert.Equal(rows * 8 + 2, count);
+    }
+
     /// <summary>Compares the two current nodes, then recurses into namespaces, attributes and children.</summary>
     private static void Walk(XPathNavigator e, XPathNavigator a, List<XPathNavigator> en, List<XPathNavigator> an)
     {

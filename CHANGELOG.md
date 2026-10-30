@@ -18,6 +18,8 @@
 - Store grounded compact-tree accumulator values at traversal changes in segmented storage,
   avoiding per-node string-key entries and large timeline resizes. Preserve exact before/after
   phases, partial failures, recursive-demand errors, cancellation, copy origins and fork sharing.
+- Grow full compact-tree columns more densely to reduce excess capacity and transient resize
+  memory. Preserve temporary-tree growth, node order, values, namespaces and attribute metadata.
 - Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
   Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
   older saved formats retain their compatibility checks.

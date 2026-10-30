@@ -474,7 +474,11 @@ namespace Xsl3.Tree
             private void Grow()
             {
                 CompactDocument d = _doc;
-                int size = d._kind.Length * 2;
+                // Full input trees favor denser columns and smaller resize peaks.
+                // Tiny temporary trees retain their existing doubling policy.
+                long proposed = _pool == null ? d._kind.Length + d._kind.Length / 2L : d._kind.Length * 2L;
+                int size = (int)Math.Min(proposed, Array.MaxLength);
+                if (size <= d._kind.Length) throw new OutOfMemoryException();
                 Array.Resize(ref d._kind, size);
                 Array.Resize(ref d._parent, size);
                 Array.Resize(ref d._end, size);
