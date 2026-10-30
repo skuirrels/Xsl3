@@ -69,7 +69,7 @@ def compare(args):
                     suffix = 'native' if kind == 'control' else 'diagnostic'
                     status = DIAG.measure(SimpleNamespace(output=directory, native=getattr(args, variant + '_' + suffix),
                         sizes=[size], rounds=1, heap_limit=args.heap_limit, timeout_seconds=args.timeout_seconds,
-                        instrumented=kind == 'instrumented', mapping_snapshots=False))
+                        workload='identity', instrumented=kind == 'instrumented', loader_details=False, mapping_snapshots=False))
                     child = json.loads((directory / 'report.json').read_text())
                     run = child['runs'][0]
                     row = dict(variant=variant, kind=kind, input_bytes=size, round=round_number,

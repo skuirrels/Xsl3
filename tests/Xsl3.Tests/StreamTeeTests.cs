@@ -510,4 +510,128 @@ public class StreamTeeTests
         finally { release.Set(); tee.Dispose(); Join(producer); }
     }
 
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(7, false)]
+    [InlineData(64, false)]
+    [InlineData(1, true)]
+    [InlineData(7, true)]
+    [InlineData(64, true)]
+    public void ConcurrentAliasesOfOneReaderClaimEveryEventExactlyOnce(int capacity, bool skip)
+    {
+        const int count = 20000;
+        int produced = 0;
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var tee = new StreamTee<Event>(destination => {
+            int n = Math.Min(destination.Length, count - produced);
+            for (int i = 0; i < n; i++) destination.Span[i] = new(++produced);
+            return new(n, produced == count);
+        }, 1, capacity, cancellation.Token);
+        using var start = new ManualResetEventSlim();
+        var errors = new ConcurrentQueue<Exception>();
+        var received = new ConcurrentQueue<int>();
+        var threads = new Thread[4];
+        for (int i = 0; i < threads.Length; i++)
+        {
+            bool skipping = skip && i % 2 != 0;
+            threads[i] = Start(() => {
+                Assert.True(start.Wait(Deadline));
+                while (true)
+                {
+                    Event? item = skipping ? tee.GetReader(0).ReadUntil(value => {
+                        received.Enqueue(value.Number);
+                        return value.Number % 3 == 0;
+                    }) : tee.GetReader(0).Read();
+                    if (item == null) break;
+                    if (!skipping) received.Enqueue(item.Number);
+                }
+            }, errors);
+        }
+        try
+        {
+            start.Set();
+            foreach (Thread thread in threads) Join(thread);
+            Assert.Empty(errors);
+            int[] numbers = received.ToArray();
+            Assert.Equal(count, numbers.Length);
+            Array.Sort(numbers);
+            for (int i = 0; i < numbers.Length; i++) Assert.Equal(i + 1, numbers[i]);
+            Assert.Equal(count, produced);
+            Assert.Equal(0, tee.BufferedCount);
+            Assert.InRange(tee.HighWaterMark, 1, capacity);
+        }
+        finally { cancellation.Cancel(); tee.Dispose(); foreach (Thread thread in threads) Join(thread); }
+    }
+
+    [Fact]
+    public void DetachingDuringConsumptionDoesNotReleaseAnotherReadersEvents()
+    {
+        const int count = 10000;
+        for (int attempt = 0; attempt < 16; attempt++)
+        {
+            int produced = 0;
+            using var cancellation = new CancellationTokenSource(Deadline);
+            using var entered = new ManualResetEventSlim();
+            using var tee = new StreamTee<Event>(() => ++produced <= count ? new(produced) : null, 2, 7, cancellation.Token);
+            var errors = new ConcurrentQueue<Exception>();
+            Thread departing = Start(() => {
+                try
+                {
+                    while (tee.GetReader(0).Read() is { }) entered.Set();
+                }
+                catch (ObjectDisposedException) { }
+            }, errors);
+            Thread remaining = Start(() => {
+                for (int n = 1; n <= count; n++) Assert.Equal(n, tee.GetReader(1).Read()!.Number);
+                Assert.Null(tee.GetReader(1).Read());
+            }, errors);
+            try
+            {
+                Assert.True(entered.Wait(Deadline));
+                tee.GetReader(0).Dispose();
+                Join(departing); Join(remaining);
+                Assert.Empty(errors);
+                Assert.Equal(0, tee.BufferedCount);
+                Assert.InRange(tee.HighWaterMark, 1, 7);
+                Assert.Throws<ObjectDisposedException>(() => tee.GetReader(0).Read());
+            }
+            finally { cancellation.Cancel(); tee.Dispose(); Join(departing); Join(remaining); }
+        }
+    }
+
+    [Fact]
+    public void DisposingDuringBufferedConsumptionStopsAllAliasesAndReleasesTheRing()
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            int produced = 0, stopped = 0;
+            using var cancellation = new CancellationTokenSource(Deadline);
+            using var entered = new ManualResetEventSlim();
+            using var tee = new StreamTee<Event>(destination => {
+                for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++produced);
+                return new(destination.Length, false);
+            }, 1, 64, cancellation.Token);
+            var errors = new ConcurrentQueue<Exception>();
+            var threads = new Thread[4];
+            for (int i = 0; i < threads.Length; i++) threads[i] = Start(() => {
+                try
+                {
+                    while (tee.GetReader(0).Read() is { }) entered.Set();
+                }
+                catch (ObjectDisposedException) { Interlocked.Increment(ref stopped); }
+            }, errors);
+            try
+            {
+                Assert.True(entered.Wait(Deadline));
+                tee.Dispose();
+                foreach (Thread thread in threads) Join(thread);
+                Assert.Empty(errors);
+                Assert.Equal(threads.Length, stopped);
+                Assert.Equal(0, tee.BufferedCount);
+                Assert.InRange(tee.HighWaterMark, 1, 64);
+            }
+            finally { cancellation.Cancel(); tee.Dispose(); foreach (Thread thread in threads) Join(thread); }
+        }
+    }
+
 }

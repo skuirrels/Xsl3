@@ -1203,3 +1203,73 @@ band waives a failure. Final-source evidence and independent audits are under
 Every original P7 requirement retains its completion gate. Current-source hosted qualification,
 remaining memory/throughput repairs, actual forwarding/public integration and final full review,
 merge and release remain required. This change does not close P7 or establish a streaming-support claim.
+
+
+### Atomic buffered fork reads and diagnostic caller repair, 2026-10-30
+
+All four ordinary CI jobs pass for `27b417a`. Its original hosted nightly independently passes
+**16/16 budgets /48 children** at exact **2,147,483,648-byte** inputs with the original **209,715,200-byte**
+absolute RSS and managed guards. Maximum absolute RSS is **40,255,488 bytes**. All raw outputs and
+preceding output fingerprints match. Its original push still passes **0/16 budgets**: fourteen full
+transformations validate, while merge and climbing-union stop during warmup; all 32 controls validate.
+Absolute peaks are **21,901,312–25,423,872 bytes**. The original full paired benchmark independently
+validates **126/126 observations**, all seven workloads, original sizes/modes/rounds and the original
+4 GiB effective heap guard. Every raw output and preceding fingerprint matches. Its 100 MB ratios
+are identity **1.235994**, adjacent **0.855578**, accumulator **1.298077**, iterate **0.848990**, merge
+**0.973949**, fork **3.667523** and source-document **1.238591**. Four original throughput targets
+still fail. The benchmark image file was not included in its artifact; its reported image digest
+cannot be checked against that file independently. These observations do not qualify subsequent
+source changes. Audits: `accumulator-slots-linux-*`.
+
+Fresh fork allocation and native CPU traces use the actual `27b417a` engines and preserve independent
+outputs. CPU sampling uses exact 1 GB input and the original 4 GiB guard; observer overhead excludes
+it from acceptance timings. Source-publication waits remain prominent. A separate immutable
+header/event representation experiment passes focused contracts and all paired outputs, but native
+median time stays flat and median RSS rises **464 KiB**. It is not adopted. Its rejected measurements
+remain under `fork-event-prototype`; current-source traces are under `fork-allocation-profile-27b417a`
+and `fork-cpu-profile-27b417a`.
+
+Normal reads of already-published tee events now claim positions atomically before releasing their
+remaining-reader count. Both the buffered path and the gated path use the same claim operation;
+detachment also claims its position atomically. Batch payload/count initialization precedes release
+publication. The last reader still releases the slot under the ring gate. Skipping, source production,
+capacity, accepted-prefix faults and caller-owned I/O retain their existing contracts. This introduces
+no spin policy, deferred payload retention or speculative source reads.
+
+Review exposes an initial race between the fast path and the old non-atomic gated path. Concurrent
+aliases stall at capacities one, seven and 64; the failing logs and initial patch are retained. The
+corrected contracts cover concurrent normal/mixed skip reads, concurrent detachment and owner disposal.
+All **eight new cases** pass on the unchanged frozen engine and the corrected implementation. Full
+Release and Debug units each pass **4,524 .NET 10 /4,162 .NET 8** checks. All four strict inventories
+retain **2,695/16/1**, zero unmatched expected codes and identical per-case definitions/outcomes/details.
+
+The isolated prototype validates twelve paired JIT observations, six native 200 MiB observations and
+a twelve-observation native 100 MB confirmation. The confirmation's native stream median changes from
+**3,731.015 to 3,575.736 ms** (**4.2%**), and full-child CPU from **5,304.909 to 5,114.123 ms** (**3.6%**).
+Those CPU counters include startup, warmup and oracle generation. Image/source/PDB hashes and all raw
+outputs are independently verified; all failed and outlying trials remain retained.
+
+Fresh final-source NativeAOT generation validates all **32 saved stylesheets**, **48 smoke children**
+and **12 exact 100 MB/1 GB accumulator/fork/identity tree/stream controls**. Large controls retain the
+original 4 GiB managed guard and preceding hosted fingerprints. Native image SHA-256:
+`af8640d22b88d674ec0645e48672168b084f2c542e0cca6fb78bb7406a18ad02`.
+Final-source paired native 200 MiB stream medians change from **8,174.953 to 7,698.730 ms** (**5.8%**),
+with median absolute RSS **20,594,688 /20,611,072 bytes**; these diagnostic RSS guards are disabled.
+JIT stream medians are **4,830.923 /4,869.320 ms**, so no JIT speedup is claimed. All eighteen paired
+outputs validate, as do their raw outputs, image/source/PDB hashes and effective guards.
+
+The complete final-source local native 100 MB matrix validates **42/42 observations**. Stream/tree
+ratios are identity **0.977623**, adjacent **0.634149**, accumulator **1.135194**, iterate **0.623450**,
+merge **0.806387**, fork **3.434250** and source-document **0.957150**. Accumulator and fork still fail
+the original throughput target. No reporting band waives a failure. Full final-source evidence is in
+`tee-fast-read-final-*`, `tee-fast-read-tested-engines` and `native-tee-fast-read`.
+
+The broader review also reproduces a diagnostic integration defect: the optional identity-allocation
+comparison omits newly required workload/loader arguments and crashes before measurement. The caller
+now explicitly selects its original identity/seven-checkpoint mode. A real failing-executable test
+exercises the caller/controller boundary and requires all twelve failed child reports to remain
+invalid and retained. It fabricates no successful native measurements. All **44 streaming-harness
+tests** pass on macOS, with one Linux-only check skipped; the initial integration failure is retained.
+
+Original Linux push RSS, every throughput target, current-source hosted qualification, actual
+forwarding/public integration, final full review/merge and release remain required. P7 stays active.

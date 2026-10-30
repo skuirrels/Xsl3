@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Claim published fork events atomically to reduce shared ring-lock traffic. Preserve the
+  configured capacity, caller-owned input, ordered faults, cancellation and payload release.
+- Fix argument forwarding in the optional identity-allocation comparison and retain failed child
+  reports instead of stopping before measurement.
 - Store the first streamed accumulator phase directly on its frame, allocating a name dictionary
   only for additional accumulators. Skip empty rule phases while preserving initialization,
   publication, expanded-name matching, replay/copy values, fork ownership and cancellation.

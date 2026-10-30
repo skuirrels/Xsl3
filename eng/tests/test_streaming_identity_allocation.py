@@ -1,6 +1,11 @@
 """P7F must reject incomplete evidence and enforce both independent targets."""
 import importlib.util
+import json
+import os
 from pathlib import Path
+import sys
+import tempfile
+from types import SimpleNamespace
 import unittest
 
 PATH = Path(__file__).resolve().parents[1] / 'compare-identity-allocation.py'
@@ -10,6 +15,36 @@ SPEC.loader.exec_module(COMPARE)
 
 
 class IdentityAllocationTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform in ('darwin', 'linux') and hasattr(os, 'wait4'), 'requires the process diagnostic platform')
+    def test_comparison_invokes_real_diagnostics_and_retains_every_failed_child(self):
+        # A failing executable exercises the real caller/controller boundary without
+        # fabricating successful native measurements or allocation/throughput results.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / 'failing-probe'
+            image.write_text('#!/bin/sh\nexit 7\n')
+            image.chmod(0o700)
+            args = SimpleNamespace(output=root / 'comparison', sizes=[512], rounds=3, heap_limit=1024,
+                minimum_allocation_reduction=0.2, maximum_slowdown=1.0, timeout_seconds=5,
+                baseline_native=image, candidate_native=image, baseline_diagnostic=image, candidate_diagnostic=image)
+            self.assertEqual(1, COMPARE.compare(args))
+            report = json.loads((args.output / 'report.json').read_text())
+            self.assertTrue(report['complete'])
+            self.assertFalse(report['passed'])
+            self.assertFalse(report['memory_acceptance'])
+            self.assertEqual(12, len(report['runs']))
+            self.assertEqual(12, len(report['failures']))
+            for run in report['runs']:
+                self.assertFalse(run['valid'])
+                child = json.loads((args.output / run['evidence']).read_text())
+                self.assertTrue(child['complete'])
+                self.assertEqual('identity', child['workload'])
+                self.assertFalse(child['loader_details'])
+                self.assertFalse(child['mapping_snapshots_requested'])
+                self.assertEqual(run['kind'] == 'instrumented', child['instrumented'])
+                self.assertEqual(7, child['runs'][0]['exit_code'])
+                self.assertEqual(1, len(child['failures']))
+
     def runs(self):
         return [dict(input_bytes=100, variant=variant, kind=kind, round=number, valid=True,
                      allocated_bytes=1000 if variant == 'baseline' else 750,

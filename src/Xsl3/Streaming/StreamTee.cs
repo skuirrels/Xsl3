@@ -26,7 +26,8 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly Reader[] _readers;
     private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread;
     private long _first, _next;
-    private bool _producing, _productionRequested, _complete, _disposed;
+    private bool _producing, _productionRequested, _complete;
+    private volatile bool _disposed;
     private ExceptionDispatchInfo? _fault;
 
     internal readonly record struct Batch(int Count, bool Complete, ExceptionDispatchInfo? Fault = null);
@@ -85,10 +86,34 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         lock (_gate) Monitor.PulseAll(_gate);
     }
 
+    // Claim a published position before releasing its remaining-reader count. The same
+    // atomic claim under the gate prevents aliases or detachment from duplicating a read.
+    private bool TryReadBuffered(int reader, out T? item)
+    {
+        _cancellation.ThrowIfCancellationRequested();
+        long position = Volatile.Read(ref _positions[reader]);
+        ObjectDisposedException.ThrowIf(_disposed || position < 0, this);
+        if (position < Volatile.Read(ref _next))
+        {
+            int slot = (int)(position % _events.Length);
+            T? result = Volatile.Read(ref _events[slot]);
+            if (result != null && Interlocked.CompareExchange(ref _positions[reader], position + 1, position) == position)
+            {
+                if (Interlocked.Decrement(ref _remaining[slot]) == 0)
+                    lock (_gate) ReleaseHead();
+                item = result;
+                return true;
+            }
+        }
+        item = null;
+        return false;
+    }
+
     private T? Read(int reader, Predicate<T>? stop = null)
     {
         while (true)
         {
+            if (stop == null && TryReadBuffered(reader, out T? buffered)) return buffered;
             int available;
             lock (_gate)
             {
@@ -103,8 +128,14 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         {
                             int slot = (int)(position % _events.Length);
                             T result = _events[slot]!;
-                            _positions[reader] = ++position;
-                            _remaining[slot]--;
+                            if (Interlocked.CompareExchange(ref _positions[reader], position + 1, position) != position)
+                            {
+                                position = Volatile.Read(ref _positions[reader]);
+                                ObjectDisposedException.ThrowIf(position < 0, this);
+                                continue;
+                            }
+                            position++;
+                            Interlocked.Decrement(ref _remaining[slot]);
                             if (stop == null || stop(result)) return result;
                             _cancellation.ThrowIfCancellationRequested();
                         } while (position < _next);
@@ -211,13 +242,16 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                     else if (_active == 0) _complete = true;
                     else
                     {
+                        long next = _next;
                         for (int i = 0; i < batch.Count; i++)
                         {
-                            int slot = (int)(_next % _events.Length);
+                            int slot = (int)(next % _events.Length);
                             _events[slot] = _staging[i];
                             _remaining[slot] = _active;
-                            _next++;
+                            next++;
                         }
+                        // Release publication follows initialization of every payload/count.
+                        Volatile.Write(ref _next, next);
                         _highWaterMark = Math.Max(_highWaterMark, (int)(_next - _first));
                         _fault = batch.Fault;
                         _complete = batch.Complete || batch.Fault != null;
@@ -236,7 +270,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         while (_first < _next)
         {
             int slot = (int)(_first % _events.Length);
-            if (_remaining[slot] != 0) break;
+            if (Volatile.Read(ref _remaining[slot]) != 0) break;
             _events[slot] = null;
             _first++;
         }
@@ -253,11 +287,10 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     {
         lock (_gate)
         {
-            long position = _positions[reader];
+            long position = Interlocked.Exchange(ref _positions[reader], -1);
             if (position < 0) return;
-            _positions[reader] = -1;
             _active--;
-            for (; position < _next; position++) _remaining[(int)(position % _events.Length)]--;
+            for (; position < _next; position++) Interlocked.Decrement(ref _remaining[(int)(position % _events.Length)]);
             ReleaseHead();
             Monitor.PulseAll(_gate);
         }
