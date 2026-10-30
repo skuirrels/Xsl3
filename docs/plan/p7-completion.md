@@ -1449,3 +1449,79 @@ Current-source hosted qualification, the three remaining memory failures, every 
 target, actual forwarding/public integration, full final review, merge and release remain open.
 URI resolution and globalization semantics, workload fixtures, limits, counters and output oracles
 remain unchanged. P7 is not complete.
+
+### Fork header arrays and measurement integrity, 2026-10-30
+
+All four ordinary hosted CI jobs pass for `76f99af`. Its original hosted push matrix passes
+**13/16 budgets**, with all 48 children and sixteen full measured outputs verified. Its nightly
+matrix passes **16/16 budgets**, with a maximum absolute peak of **39,190,528 bytes**. The complete
+paired benchmark validates all **126 observations**, original sizes/modes/rounds, raw outputs,
+fingerprints and effective **4,294,967,296-byte** managed guards. Its 100 MB stream/tree ratios are
+identity **1.180575**, adjacent **0.837277**, accumulator **1.254481**, iterate **0.844591**, merge
+**0.950282**, fork **3.635142** and source-document **1.156506**. Four targets still fail. The actual
+benchmark executable is absent from the uploaded artifact, so its reported image hash cannot be
+independently verified. Evidence is retained under `reader-trim-linux-*`; this qualifies that
+preceding checkpoint, not the later working candidate.
+
+Fork projections now reuse immutable attribute/namespace arrays when their prong's name table
+returns the same name references. The first changed atom copies the array; mutable schema snapshots
+still receive private storage. Each prong retains its own name table and navigation state. Six new
+contracts cover preseeded element/attribute/namespace atoms and independently mutable schema
+attributes at tee capacities 1, 7 and 64. The schema test synchronizes both projections before
+capturing or mutating their metadata. Existing tee bounds, cancellation, caller-thread I/O and
+declaration-order errors remain unchanged.
+
+Two observations per variant using frozen .NET 10 engine/test binaries and a 100 MB fork input
+reduce median allocated bytes from **4,842,554,440 to 4,592,118,232**, a reduction of **250,436,208
+bytes (5.17%)**. Portable-PDB checks tie both frozen engines to their respective sources. An earlier
+unfrozen allocation cohort is retained but superseded because its original binary hash was not
+captured before later builds. Six two-CPU Linux ARM64 native stream observations show medians of
+**6,638.396/6,503.377 ms** and child CPU **7,764.605/7,550.284 ms** for baseline/candidate respectively.
+Their median RSS is **25,088,000/25,153,536 bytes**, establishing no material RSS reduction. A separate
+one-CPU paired cohort is retained; its RSS is affected by whole-image hashing in the parent and is
+excluded from memory attribution. These small cohorts do not pass the canonical throughput target.
+
+Review reproduces two version defects in actual builds: duplicate reserved metadata selects
+`99.0.0.0` despite a `4.3.2.1` assembly header, and oversized numeric metadata is accepted as a version.
+The runtime now accepts a single canonical reserved entry whose four components fit the header's
+16-bit fields. Ambiguous, invalid, absent and compiler-normalized metadata retains the original
+assembly-header fallback. Both reproductions now match their headers; five separate full, short,
+padded, wildcard and metadata-disabled builds also match. Sixteen unit contracts cover the metadata
+rules. No public signature or saved-data format changes.
+
+Review also reproduces a benchmark observer defect: hashing the entire native executable allocates
+it in the parent before child creation. With the same Linux image and input, the original observer
+reports **32,256,000 bytes** for the stream child; bounded hashing reports **18,923,520 bytes**.
+Raw reports, outputs and artifact fingerprints validate in both controls. The benchmark now hashes
+the artifact, engine and controller with bounded reads. A regression executes the controller with
+unbounded binary reads rejected and fails against the original implementation. All **46 Python
+harness tests** pass, with one Linux-only skip on macOS. The original memory-gate controller, both
+full-lifetime counters, limits and generated inputs are unchanged.
+
+Full Release and Debug units each pass **4,560 .NET 10 /4,194 .NET 8** checks. Four complete strict
+inventories remain **2,695/16/1**, with zero unmatched expected codes and all **2,712 per-case records
+identical** to the preceding checkpoint. This comparison does not prove actual forwarding. The
+three Linux/macOS engine PDB audits match all **42 changed runtime C# sources**. Fresh macOS native
+generation preserves all **32 canonical stylesheets** and validates all **48 smoke children**.
+
+The candidate's complete Linux ARM64 push matrix verifies all **48 children**, all full measured
+inputs, 32 controls and preceding output fingerprints. It still passes **13/16 original budgets**:
+merge peaks at **23,220,224**, fork at **23,490,560** and source-document at **22,614,016 bytes** against
+the original **20,971,520-byte** absolute limit and managed guard. Native Linux/macOS image hashes
+are respectively `c32a7040e2f698ffb0f7caf1e62d2bc4978c69fb21e56bc454a530b7f7e10a43` and
+`e9ae4de31e172d16ea3df8dd04274f35efb5e6ff60f8433ba9406ecdcf8b35f2`. Evidence, failed controls and
+source/frozen-binary audits are retained under `fork-header-arrays-76f99af` and
+`native-fork-header-final`. Twelve fresh native tree/stream controls validate exact 100 MB/1 GB
+identity, accumulator and fork inputs under the original 4 GiB heap guard. All raw reports,
+preceding fingerprints and actual binary/controller hashes match. This one-round control cohort
+does not establish the three-round throughput target or either absolute memory gate.
+
+The next hosted acceptance artifacts also retain the tested benchmark/engine DLLs and PDBs, and
+the native publish directory and generated saved stylesheets. Their actual bytes can therefore
+be checked independently against reported hashes instead of relying on the report alone. The
+workflow parses successfully; original commands, complete matrix, input sizes, limits and timeout
+settings are unchanged. Current-source hosted qualification remains required.
+
+Every original memory, throughput, forwarding/public integration, final review, merge and release
+requirement remains open where not yet verified. This allocation improvement does not complete P7
+or change `supports-streaming`.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Reuse immutable fork attribute and namespace arrays when prong atomization leaves their
+  references unchanged. Preserve private name-table atoms and independent schema snapshots.
+- Reject ambiguous or out-of-range assembly-version metadata and use the authoritative
+  assembly header instead, preserving saved-stylesheet compatibility checks.
+- Hash benchmark artifacts with bounded reads so Linux child memory observations are not
+  inflated by whole-image allocations in the controller before process creation. Retain tested
+  benchmark and native binaries alongside hosted acceptance reports for independent verification.
 - Preserve only the XML reader reflection members used by the bridge during NativeAOT trimming.
   Shared unit/native contracts verify resolver identity, explicit null policies, whitespace and external DTD reads.
 - Write the native streaming probe's JSON protocol as explicit UTF-8 without a BOM, avoiding

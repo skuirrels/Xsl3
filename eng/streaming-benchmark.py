@@ -145,6 +145,11 @@ def write_markdown(output, report):
     (output / 'summary.md').write_text('\n'.join(lines) + '\n')
 
 
+def file_sha256(path):
+    with path.open('rb') as source:
+        return hashlib.file_digest(source, 'sha256').hexdigest()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
@@ -171,12 +176,12 @@ def main():
     report = dict(formatVersion=1, complete=False, config=dict(sizes=args.sizes, workloads=args.workloads,
                   rounds=args.rounds, heapLimit=args.heap_limit, timeoutSeconds=args.timeout_seconds,
                   tieredCompilation=False, native=bool(args.native)), artifact=str(executable.resolve()),
-                  artifactSha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
-                  controllerSha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                  artifactSha256=file_sha256(executable),
+                  controllerSha256=file_sha256(Path(__file__)),
                   platform=sys.platform, trials=[], failures=[], summary=[], throughputTarget=dict(status='incomplete coverage', passed=None))
     engine = executable.parent / 'Xsl3.dll'
     if args.assembly and engine.is_file():
-        report['engineSha256'] = hashlib.sha256(engine.read_bytes()).hexdigest()
+        report['engineSha256'] = file_sha256(engine)
     if args.assembly:
         info = subprocess.run([args.dotnet, str(args.assembly.resolve()), 'streaming-info'], env=env,
                               capture_output=True, text=True, timeout=30)

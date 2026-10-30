@@ -46,7 +46,14 @@ jobs:
         if: always()
         with:
           name: streaming-benchmark-nightly
-          path: artifacts/streaming-benchmark
+          path: |
+            artifacts/streaming-benchmark
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.pdb
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.deps.json
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.runtimeconfig.json
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.dll
+            bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.pdb
 
   # P7 decision 6: exact generated-input size and absolute process/managed limits.
   # A failed or incomplete matrix is a failed job; retained artifacts expose it.
@@ -87,6 +94,7 @@ jobs:
           path: |
             artifacts/streaming-probe-publish.log
             artifacts/streaming-probe-${{ matrix.name }}
+            artifacts/streaming-probe
 
   # P7E is an explicitly selected diagnostic job. Scheduled/default acceptance is unchanged.
   identity-memory-diagnosis:

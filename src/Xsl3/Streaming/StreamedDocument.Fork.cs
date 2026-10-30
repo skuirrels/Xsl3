@@ -81,7 +81,11 @@ internal sealed partial class StreamedDocument
             node.Schema = Schema(SchemaInfo);
             for (int i = 0; i < node.Attributes.Length; i++)
                 if (node.Attributes[i].Schema is { } info)
+                {
+                    // Attribute records are immutable, but PSVI snapshots belong to this view.
+                    if (ReferenceEquals(node.Attributes, Attributes)) node.Attributes = (Attribute[])node.Attributes.Clone();
                     node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
+                }
             return node;
         }
 
@@ -89,18 +93,23 @@ internal sealed partial class StreamedDocument
         {
             node.LocalName = names.Add(node.LocalName); node.Namespace = names.Add(node.Namespace); node.Prefix = names.Add(node.Prefix);
             Attribute[] attributes = node.Attributes;
-            if (attributes.Length != 0) node.Attributes = new Attribute[attributes.Length];
             for (int i = 0; i < attributes.Length; i++)
             {
                 Attribute a = attributes[i];
-                node.Attributes[i] = a with { LocalName = names.Add(a.LocalName), Namespace = names.Add(a.Namespace), Prefix = names.Add(a.Prefix) };
+                string local = names.Add(a.LocalName), uri = names.Add(a.Namespace), prefix = names.Add(a.Prefix);
+                if (ReferenceEquals(local, a.LocalName) && ReferenceEquals(uri, a.Namespace) && ReferenceEquals(prefix, a.Prefix)) continue;
+                // Published records are immutable; copy only when this view has different atoms.
+                if (ReferenceEquals(node.Attributes, attributes)) node.Attributes = (Attribute[])attributes.Clone();
+                node.Attributes[i] = a with { LocalName = local, Namespace = uri, Prefix = prefix };
             }
             Namespace[] namespaces = node.Namespaces;
-            if (namespaces.Length != 0) node.Namespaces = new Namespace[namespaces.Length];
             for (int i = 0; i < namespaces.Length; i++)
             {
                 Namespace ns = namespaces[i];
-                node.Namespaces[i] = ns with { Prefix = names.Add(ns.Prefix), Uri = names.Add(ns.Uri) };
+                string prefix = names.Add(ns.Prefix), uri = names.Add(ns.Uri);
+                if (ReferenceEquals(prefix, ns.Prefix) && ReferenceEquals(uri, ns.Uri)) continue;
+                if (ReferenceEquals(node.Namespaces, namespaces)) node.Namespaces = (Namespace[])namespaces.Clone();
+                node.Namespaces[i] = ns with { Prefix = prefix, Uri = uri };
             }
         }
     }
