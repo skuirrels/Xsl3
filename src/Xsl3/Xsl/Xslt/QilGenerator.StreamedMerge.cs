@@ -9,7 +9,7 @@ namespace Xsl3.Xslt;
 
 internal sealed partial class QilGenerator
 {
-    private QilNode CompileStreamedMerge31(List<XslNode> sources, XslNode action, List<string?> names, QilIterator plan)
+    private QilNode CompilePullMerge31(List<XslNode> sources, XslNode action, List<string?> names, QilIterator plan)
     {
         QilList inputs = _f.BaseFactory.Sequence();
         for (int index = 0; index < sources.Count; index++)
@@ -20,7 +20,7 @@ internal sealed partial class QilGenerator
             {
                 XslNodeV2 data = source.V2!;
                 QilIterator keyFunction = _f.Let(CompileMergeKeys31(source));
-                bool forward = data.Streamable == TriState.True && data.SourceForEachSource != null && !data.SortBeforeMerge
+                bool forward = StreamedCompilation31 && data.Streamable == TriState.True && data.SourceForEachSource != null && !data.SortBeforeMerge
                     && _compiler.StreamabilityResults?.TryGetValue(source, out Streaming.StreamabilityVerdict? verdict) == true && verdict.Guaranteed;
                 QilNode Input(QilNode? document, QilNode anchor)
                 {

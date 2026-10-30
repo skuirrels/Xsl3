@@ -24,14 +24,14 @@ public class StreamedMergeTests
     private static string Source(string name, string uris, string select = "rows/row", string key = "xs:integer(@k)", string attributes = "", string keyAttributes = "") =>
         $"<xsl:merge-source name='{name}' streamable='yes' for-each-source=\"{uris}\" select=\"{select}\" {attributes}><xsl:merge-key select=\"{key}\" {keyAttributes}/></xsl:merge-source>";
 
-    private static string Run(string sheet, Sources sources, bool forward = true, bool legacy = false, Action<string>? message = null, bool schemaAware = false)
+    private static string Run(string sheet, Sources sources, bool forward = true, bool legacy = false, Action<string>? message = null, bool schemaAware = false, bool debug = false, XsltStreamabilityMode streamability = XsltStreamabilityMode.Strict)
     {
         using var input = XmlReader.Create(new StringReader("<input/>"));
         using var output = new StringWriter();
-        var settings = new XsltSettings { StreamedExecution = forward, EnableDocumentFunction = true, SchemaAware = schemaAware };
+        var settings = new XsltSettings { StreamedExecution = forward, EnableDocumentFunction = true, SchemaAware = schemaAware, IncludeDebugInformation = debug, Streamability = streamability };
         if (legacy)
         {
-            var transform = new XslCompiledTransform();
+            var transform = new XslCompiledTransform(debug);
             transform.Load(XmlReader.Create(new StringReader(sheet)), settings, null);
             transform.Transform(input, null, output, sources);
         }
@@ -132,6 +132,26 @@ public class StreamedMergeTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void FallbackSelectionsRetainAnchorPositionAndSize(bool forward, bool legacy)
+    {
+        string sheet = Sheet(Source("s", "('urn:a', 'urn:b')",
+            select: "if (position() + position() = last() + last()) then rows/row else rows/row[not(@skip)]"),
+            "<g key='{current-merge-key()}'><xsl:value-of select='current-merge-group() ! string(@id)'/></g>");
+        var resolver = new Sources(new()
+        {
+            ["urn:a"] = "<rows><row k='1' id='a'/><row k='2' id='skip' skip='yes'/></rows>",
+            ["urn:b"] = "<rows><row k='1' id='b'/><row k='2' id='c' skip='yes'/></rows>"
+        });
+        Assert.Equal("<out><g key=\"1\">a b</g><g key=\"2\">c</g></out>",
+            Run(sheet, resolver, forward, legacy, streamability: XsltStreamabilityMode.Fallback));
+        Assert.All(resolver.Opened, reader => Assert.Equal(2, reader.Rows));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void NumericComparisonPreservesOriginalStringKey(bool forward)
@@ -183,28 +203,41 @@ public class StreamedMergeTests
         Assert.Contains("XTDE2220", Assert.Throws<XsltDynamicException>(() => Run(sheet, new Sources(docs), forward)).Message);
     }
 
-    [Fact]
-    public void FirstActionRunsBeforeTheInputsAreReadCompletely()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InputSelectionRemainsTreeBasedWhenStreamingIsDisabled(bool forward)
     {
         string rows = string.Concat(Enumerable.Range(1, 1000).Select(i => $"<row k='{i}'/>"));
         var docs = new Dictionary<string, string> { ["urn:a"] = "<rows>" + rows + "</rows>", ["urn:b"] = "<rows>" + rows + "</rows>" };
         var resolver = new Sources(docs);
         string sheet = Sheet(Source("a", "'urn:a'") + Source("b", "'urn:b'"), "<xsl:message select='current-merge-key()'/><g/>");
         int messages = 0;
-        Run(sheet, resolver, message: _ => { if (messages++ == 0) Assert.All(resolver.Opened, reader => Assert.InRange(reader.Rows, 1, 4)); });
+        Run(sheet, resolver, forward, message: _ =>
+        {
+            if (messages++ != 0) return;
+            Assert.Equal(2, resolver.Opened.Count);
+            Assert.All(resolver.Opened, reader =>
+            {
+                if (forward) Assert.InRange(reader.Rows, 1, 4);
+                else Assert.Equal(1000, reader.Rows);
+            });
+        });
         Assert.Equal(1000, messages);
         Assert.All(resolver.Opened, reader => Assert.Equal(1000, reader.Rows));
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OwnedStreamsCloseOnCompletionAndActionFailure(bool fail)
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void OwnedStreamsCloseOnCompletionAndActionFailure(bool fail, bool forward)
     {
         var resolver = new Sources(new() { ["urn:a"] = "<rows><row k='1'/><row k='3'/></rows>", ["urn:b"] = "<rows><row k='2'/><row k='4'/></rows>" }) { SupplyStreams = true };
         string sheet = Sheet(Source("a", "'urn:a'") + Source("b", "'urn:b'"), fail ? "<xsl:sequence select='error()'/>" : "<g/>");
-        if (fail) Assert.Throws<XsltDynamicException>(() => Run(sheet, resolver));
-        else Assert.Equal("<out><g/><g/><g/><g/></out>", Run(sheet, resolver));
+        if (fail) Assert.Throws<XsltDynamicException>(() => Run(sheet, resolver, forward));
+        else Assert.Equal("<out><g/><g/><g/><g/></out>", Run(sheet, resolver, forward));
         Assert.Equal(2, resolver.Streams.Count);
         Assert.All(resolver.Streams, stream => Assert.True(stream.Closed));
     }
@@ -423,15 +456,69 @@ public class StreamedMergeTests
         Assert.Equal("<out><g/></out>", Run(sheet, new Sources(docs), forward));
     }
 
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void RetainedSnapshotsAndClosuresSurviveLaterGroups(bool forward, bool debug, bool legacy)
+    {
+        string sheet = """
+            <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" exclude-result-prefixes="xs">
+              <xsl:output omit-xml-declaration="yes"/>
+              <xsl:template match="/">
+                <xsl:variable name="merged" as="item()*">
+                  <xsl:merge>
+                    <xsl:merge-source name="copies" streamable="yes" for-each-source="('urn:a','urn:a')" select="rows/row">
+                      <xsl:merge-key select="xs:integer(@k)"/>
+                    </xsl:merge-source>
+                    <xsl:merge-source name="originals" select="doc('urn:b')/rows/row">
+                      <xsl:merge-key select="xs:integer(@k)"/>
+                    </xsl:merge-source>
+                    <xsl:merge-action>
+                      <xsl:variable name="nodes" select="current-merge-group()"/>
+                      <xsl:sequence select="($nodes, function() { $nodes })"/>
+                    </xsl:merge-action>
+                  </xsl:merge>
+                </xsl:variable>
+                <out>
+                  <xsl:for-each select="reverse($merged[. instance of function(*)])">
+                    <xsl:variable name="nodes" select=".()"/>
+                    <g ids="{$nodes ! string(@id)}" fresh="{not($nodes[1] is $nodes[2])}" originals="{$nodes[3] is doc('urn:b')/rows/row[@k = $nodes[3]/@k]}"
+                       retained="{every $n in $nodes satisfies some $saved in $merged[. instance of node()] satisfies $n is $saved}"
+                       ancestors="{$nodes[1]/../@label}" siblings="{count($nodes[1]/../row)}" children="{$nodes[1]/v}"/>
+                  </xsl:for-each>
+                </out>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+        var resolver = new Sources(new()
+        {
+            ["urn:a"] = "<rows label='copied'><row k='1' id='a'><v>first</v></row><row k='2' id='b'><v>second</v></row></rows>",
+            ["urn:b"] = "<rows><row k='1' id='c'/><row k='2' id='d'/></rows>"
+        });
+        Assert.Equal("<out><g ids=\"b b d\" fresh=\"true\" originals=\"true\" retained=\"true\" ancestors=\"copied\" siblings=\"1\" children=\"second\"/><g ids=\"a a c\" fresh=\"true\" originals=\"true\" retained=\"true\" ancestors=\"copied\" siblings=\"1\" children=\"first\"/></out>",
+            Run(sheet, resolver, forward, legacy, debug: debug));
+        Assert.All(resolver.Opened, reader => Assert.False(reader.Closed));
+    }
+
 #if NET10_0_OR_GREATER
-    [Fact]
-    public void SavedAssembliesResumeMergeInputs()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void SavedAssembliesResumeMergeInputs(bool forward, bool debug)
     {
         string sheet = Sheet(Source("s", "('urn:a','urn:b')"), "<g key='{current-merge-key()}'><xsl:value-of select='current-merge-group() ! string(@id)'/></g>");
-        var settings = new XsltSettings { StreamedExecution = true, EnableDocumentFunction = true };
+        var settings = new XsltSettings { StreamedExecution = forward, EnableDocumentFunction = true };
         using var assembly = new MemoryStream();
-        new XslCompiledTransform().CompileToAssembly(XmlReader.Create(new StringReader(sheet)), settings, null,
-            "Xsl3.Tests.StreamedMerge", "Saved.Merge", assembly);
+        new XslCompiledTransform(debug).CompileToAssembly(XmlReader.Create(new StringReader(sheet)), settings, null,
+            "Xsl3.Tests.StreamedMerge" + Guid.NewGuid().ToString("N"), "Saved.Merge", assembly);
         var transform = new XslCompiledTransform();
         transform.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.Merge", true)!, settings);
         var resolver = new Sources(new() { ["urn:a"] = "<rows><row k='1' id='a'/><row k='3' id='c'/></rows>", ["urn:b"] = "<rows><row k='2' id='b'/><row k='3' id='d'/></rows>" }) { SupplyStreams = true };

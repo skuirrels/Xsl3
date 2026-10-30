@@ -2238,8 +2238,8 @@ namespace Xsl3.Xslt
             if (sources.Count == 0 || action == null) return _f.Sequence();
             var (names, spec) = MergeDeclaration31(sources);
             QilIterator plan = _f.Let(CompileMergePlan31(sources, spec));
-            QilNode result = StreamedCompilation31 && sources.Any(source => source.V2?.Streamable == TriState.True)
-                ? CompileStreamedMerge31(sources, action, names, plan)
+            QilNode result = sources.Any(source => source.V2?.Streamable == TriState.True)
+                ? CompilePullMerge31(sources, action, names, plan)
                 : CompileMaterializedMerge31(sources, action, names, plan);
             return _f.Loop(plan, result);
         }

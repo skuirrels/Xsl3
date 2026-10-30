@@ -812,3 +812,71 @@ exact 1 GB identity/fork tree/stream controls under the original 4 GiB heap guar
 26,591,232 bytes**. These smoke/diagnostic checks retain both native flags and independent output
 oracles; they are not the original full memory/throughput acceptance matrices. Raw results and the
 native image digest are retained under `tree-growth-prototype`.
+
+
+### Incremental snapshots for tree-backed merge inputs
+
+The retained exact 1 GB merge control at `ef57091` fails in `X31Snapshot`: the tree-backed path
+materializes snapshots for the complete merge population. A candidate compiler uses the existing
+pull merge engine whenever any source is declared streamable, including when execution explicitly
+selects tree inputs. Opening a forward source still requires streamed compilation. Merges without
+streamable-declared sources retain materialized grouping and their total action context size.
+No snapshot, source selection, input, oracle, heap guard or acceptance limit is removed.
+
+The isolated full Release and Debug unit suites each pass **4,460 on .NET 10 / 4,100 on .NET 8**.
+Expanded contracts cover explicit tree selection, source ownership on success/failure, retained
+snapshots and closures, mixed-source identity, and normal/debug saved compilation. Existing tests
+retain key/action focus, stable sorting, schema annotations, accumulator provenance and error codes.
+The new retained-result test initially used a document-ordering path to assert merge sequence order;
+its corrected simple-map expression asserts sequence order explicitly. Both logs are retained.
+
+The unchanged exact 1 GB candidate tree trial completes with correct output under the original
+4 GiB heap guard, with full-lifetime RSS **3,073,327,104 bytes**. Its failed predecessor is retained.
+The serial comparison is complete: **25 attempts / 24 valid observations**, with the one failed
+predecessor retained. Every candidate mode at exact 1 MB, 100 MB and 1 GB has three valid observations
+with matching output fingerprints, full input counters and equal effective heap capacities.
+At 100 MB, median tree elapsed time changes from **12,896.914 to 3,902.390 ms** and median full-lifetime
+RSS from **2,088,501,248 to 531,922,944 bytes**. Streaming median elapsed time changes from
+**3,426.938 to 3,442.933 ms**; the candidate stream/tree ratio is **0.882263**. At 1 MB the ratio is
+**1.111226**, and at 1 GB **0.316684**. These are isolated merge controls, not the complete seven-workload
+acceptance matrix or a universal speedup. Final branch strict inventories, freshly generated saved
+NativeAOT stylesheets and full hosted qualification remain required.
+Evidence is under `artifacts/p7-completion/pull-merge-prototype/` and `pull-merge-*` logs.
+This result does not complete P7 or replace any original memory/throughput/public integration gate.
+
+
+Hosted qualification for the preceding `ef57091` growth change retains the original populations
+and limits. The nightly matrix passes **16/16 workloads**, with all **48 children** independently
+validated and maximum absolute RSS **40,288,256 bytes**. The push matrix passes **0/16**: fourteen
+measured children consume the full input and validate output, while merge and fork stop at the
+startup budget check. All 32 push controls validate and match fingerprints. Archive digests and
+raw reports are retained under `tree-growth-linux-{nightly,push}`.
+These results qualify that preceding source, not the subsequent compiler change.
+
+
+The preceding growth commit's ordinary hosted CI finishes with all four jobs passing at run
+`40998445809`. Its complete original Linux benchmark (`40998473014`) validates **105/126** attempts;
+all **21 exact 1 GB tree trials** still throw out-of-memory exceptions. Six workload stacks fail
+while loading the input, including resizing the compact name column; merge fails creating snapshots.
+The 100 MB stream/tree ratios are identity **1.041535**, adjacent **0.633517**, accumulator **1.381856**,
+iterate **0.789006**, merge **0.311745**, fork **3.462467** and source-document **1.042586**. Identity,
+accumulator, fork and source-document miss the original target. All trials, errors, fingerprints,
+effective heap checks and the verified benchmark archive are retained under `tree-growth-linux-benchmark`.
+
+
+Final branch qualification includes four additional fallback anchor-position/size contracts through
+both API paths. The default Strict policy is preserved: the non-guaranteed `last()` selection is
+rejected there, and its anchor focus is verified under the explicitly selected public Fallback policy.
+Final full Release and Debug suites each pass **4,464 on .NET 10 / 4,104 on .NET 8**. All four strict
+inventories retain **2,695/16/1**, zero unmatched codes and verified frozen-engine audits. Every
+per-case outcome and detail matches the preceding growth checkpoint, not just its aggregate totals.
+
+Freshly regenerated saved probe stylesheets and a warnings-as-errors NativeAOT build validate all
+**48 smoke children** and all four canonical 100 MB / 1 GB merge controls. Inspection confirms the
+saved tree merge now calls the pull merge helpers without opening a forward source; the stream
+assembly retains forward opening. At 1 GB, tree/stream full-lifetime RSS is **2,870,181,888 /
+26,574,848 bytes**. Tree mode consumes the complete input before the first output write; stream mode
+writes after **122,880 input bytes** at both measured sizes. These controls retain the original
+4 GiB heap guard and correct independent outputs/native flags, but do not replace the complete
+original acceptance matrices. The native image digest and all raw trials are retained in
+`pull-merge-qualification-state.json` and `native-pull-merge/`.
