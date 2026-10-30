@@ -49,6 +49,7 @@ The original exact-size NativeAOT matrices and paired benchmarks remain separate
 | Merge | `StreamedMergeTests`: sorted inputs, stable groups, raw key values, context-size rules, XTDE errors, ownership, retained snapshots and saved execution | Complete original construct/applicability mapping |
 | Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases. `StreamTeePayloadTests`: measured live payload bytes with explicit payload assumptions and an isolated retention mutation | Complete full S6 acceptance mapping and original process-memory qualification |
 | Fork callers | `ForkCallerTests`: input/output ownership, lost-wakeup protection, full-ring output progress, partial-ring refill and active callback lifetime. `ForkProngsTests`: declaration-order failures, cancellation and joining | Original absolute RSS and throughput targets still fail |
+| Nested fork frames | `StreamedForkInputTests.NestedEventsDoNotRetainConsumedProngFrameState`: after the source advances past an intermediate prong frame, a slow nested reader may retain its published event without retaining that frame's private runtime state | A focused lifetime contract; complete variable-payload, ancestor and replay accounting remains required |
 
 A tee capacity counts events, not bytes. The ring and unpublished staged payloads share its capacity;
 each reader can additionally retain its current event. Payload sizes, ancestor/scope metadata, reader

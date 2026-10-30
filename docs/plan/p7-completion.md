@@ -2048,3 +2048,54 @@ Final Release and Debug related checks pass **167 .NET 10 /164 .NET 8** in each 
 including all **eight** new measurement cases per framework. TRX files preserve actual measurements
 under `state-bounds-final-{release,debug}`. Generic construct/state accounting, the original absolute
 memory and throughput failures, full review/CI, public integration, merge and release remain open.
+
+
+### Compact fork events and intermediate-frame lifetime, 2026-10-30
+
+Fork events now inherit their header instead of allocating a separate wrapper. Immutable kind,
+name/text, base URI and language data come from the existing provenance frame. Attribute/namespace
+arrays, schema references and mutable navigation flags still snapshot the actual publishing frame;
+prong atomization and private PSVI copies are unchanged. No public API, saved format, tee capacity,
+threading policy, canonical fixture, oracle, input size or acceptance limit changes.
+
+Review rejected an earlier candidate that retained the immediate prong frame for metadata access.
+A new nested-fork lifetime test proves the defect on .NET 8 and 10: a slow reader retaining the first
+published event also retained private runtime state from the consumed intermediate frame. The
+unchanged production baseline passes this contract on both frameworks. The revised representation
+passes it in Release and Debug without retaining that intermediate frame. Lazy-header and smaller
+schema-only trials remain separate, unadopted experiments; their focused checks are not qualification.
+
+Six alternating JIT fork controls validate unchanged outputs with an actual 4 GiB heap guard.
+Measured allocated-byte medians fall from **4,592,121,984 to 3,673,856,192** (approximately **20%**)
+for the existing 100 MB input after the same 64 KiB warmup. This diagnostic includes complete probe
+invocation allocation and does not substitute for native RSS or canonical throughput acceptance.
+Six alternating NativeAOT controls also validate all original output fingerprints. Median elapsed
+is **6,597.302 /6,491.761 ms** baseline/candidate and full-child CPU **7,616.725 /7,450.879 ms**.
+The trial ranges overlap; these controls do not establish a decisive throughput improvement or an
+absolute memory reduction. The allocation reduction is the demonstrated benefit.
+
+The corrected native candidate passes **48/48 smoke children**. Its complete original local Linux
+push matrix validates all **48 children /32 controls /16 full measured outputs**, matching preceding
+output fingerprints and record counts with unchanged actual heap caps. It still passes **13/16
+budgets**: merge **23,220,224**, fork **23,572,480** and source-document **22,437,888 bytes** exceed
+the original **20,971,520-byte** absolute limit. Native image SHA-256:
+`c93c6fa458d74a68547a9dc76cf303139aec412a478041759dc854265d550578`.
+All 407 runtime C#/project inputs were compared with the diagnostic copy, with only the intended
+fork source differing before adoption. Portable PDB checks match **47 runtime /six native probe**
+sources and the unchanged generated saved-entrypoint source.
+
+Full units on the actual branch pass **4,678 .NET 10 /4,288 .NET 8** checks in both Release and Debug.
+Final artifact checks initially detect a stale .NET 8 Release engine containing the preceding fork
+source: a copied source timestamp allowed incremental compilation to skip that target. That initial
+binary and its successful baseline-checksum audit are retained. Explicit rebuilds of both configurations
+then verify all **47 runtime /seven probe-and-retention source documents** in each framework's actual
+test-directory binaries before the complete suites are rerun with `--no-build`. Initial test counts
+alone are not treated as proof that the changed runtime was executed.
+Focused fork/tee/accumulator/read contracts pass **426 /384**, respectively, in each configuration.
+The preceding `8a909b6` required CI **41120177647** is terminal with all four jobs successful. Fresh
+hosted CI, strict inventories, original nightly and full paired benchmark qualification are required
+for the changed runtime. Evidence, including the rejected candidate's failing lifetime test and
+full push results, is retained under `artifacts/p7-completion/lazy-fork-header-8a909b6`.
+
+Original memory/throughput failures, complete construct/state applicability, public integration,
+full-branch review, final-source hosted CI, merge and release remain open. Full P7 is not complete.

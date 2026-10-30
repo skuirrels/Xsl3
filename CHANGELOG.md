@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Consolidate fork events with their headers and share immutable name/text data through existing
+  provenance. Preserve private attribute/schema snapshots and verify that nested events release
+  consumed prong state even while a slower reader retains the published event.
 - Measure tee payload retention and scalar accumulator frame/value lifetimes under explicit
   payload and input-shape assumptions. Verify collection of consumed state, reader ownership,
   and sensitivity to an isolated consumed-slot retention regression.

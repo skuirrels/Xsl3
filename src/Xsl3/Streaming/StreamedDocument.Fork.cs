@@ -34,12 +34,19 @@ internal sealed partial class StreamedDocument
 
     // Source frames continue to advance, so an event freezes their metadata and phase flags.
     // The original frame supplies identity/provenance, not mutable navigation state.
-    private sealed class ForkHeader(Node node)
+    private class ForkHeader(Node node)
     {
         internal readonly Node Original = node.Original ?? node;
-        internal readonly XPathNodeType Kind = node.Kind;
-        internal readonly string LocalName = node.LocalName, Namespace = node.Namespace, Prefix = node.Prefix,
-            Text = node.Text, BaseUri = node.BaseUri, Language = node.Language;
+        // Original already supplies provenance. Its name/text data is immutable after
+        // publication; do not retain an intermediate prong's observer or replay state.
+        internal XPathNodeType Kind => Original.Kind;
+        internal string LocalName => Original.LocalName;
+        internal string Namespace => Original.Namespace;
+        internal string Prefix => Original.Prefix;
+        internal string Text => Original.Text;
+        internal string BaseUri => Original.BaseUri;
+        internal string Language => Original.Language;
+        // Prongs may own atomized arrays and private schema annotations.
         internal readonly Attribute[] Attributes = node.Attributes;
         internal readonly Namespace[] Namespaces = node.Namespaces;
         internal readonly IXmlSchemaInfo? SchemaInfo = node.Schema;
@@ -113,7 +120,12 @@ internal sealed partial class StreamedDocument
         }
     }
 
-    private sealed record ForkEvent(ForkHeader Header, bool End);
+    private sealed class ForkEvent(Node node, bool end) : ForkHeader(node)
+    {
+        internal ForkHeader Header => this;
+        internal readonly bool End = end;
+        internal long Number => Original.Number;
+    }
 
     internal bool CanFork(Node boundary)
     {
@@ -171,7 +183,7 @@ internal sealed partial class StreamedDocument
             Node current = _source._current;
             bool end = current.Kind is XPathNodeType.Root or XPathNodeType.Element && current.Ended && !current.EmptyElement;
             if (current == _boundary && current.Ended) _complete = true;
-            return new(new(current), end);
+            return new(current, end);
         }
 
         internal void Run(IReadOnlyList<Action<StreamedNavigator, CancellationToken>> bodies, int capacity,
@@ -311,7 +323,7 @@ internal sealed partial class StreamedDocument
             if (_state is ReadState.Closed or ReadState.EndOfFile) return false;
             _attribute = -1; _attributeValue = false;
             Current = input.Read();
-            if (Current is null || Current.Header.Kind == XPathNodeType.Root)
+            if (Current is null || Current.Kind == XPathNodeType.Root)
             {
                 Current = null; _state = ReadState.EndOfFile;
                 return false;
@@ -326,7 +338,7 @@ internal sealed partial class StreamedDocument
             if (Current is { End: false, Header.Kind: XPathNodeType.Element, Header.Empty: false })
             {
                 _skipNumber = Header.Original.Number;
-                Current = input.ReadUntil(_skipEnd ??= item => item.End && item.Header.Original.Number == _skipNumber);
+                Current = input.ReadUntil(_skipEnd ??= item => item.End && item.Number == _skipNumber);
                 if (Current is null)
                 {
                     _state = ReadState.EndOfFile;
