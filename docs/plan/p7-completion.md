@@ -1626,3 +1626,64 @@ changed runtime sources against the actual committed blobs, and all **32** canon
 source files match. Evidence: `contracts-linux-push-260236b/independent-audit.json`. NativeAOT and
 ordinary performance CI pass for that commit; the other hosted jobs remain on their original handles.
 Every original P7 acceptance and delivery requirement remains in force.
+
+### Actual source-representation evidence, 2026-10-30
+
+An optional internal capture observes the navigator types that the command's initial-selection
+and forward source-document paths actually return. It records execution nesting, input kind,
+body completion and failed source openings. A failed opening has no claimed navigator type or
+forwarding result. The capture does not choose an execution path, inspect node values or read an
+input. Its ambient storage and queues are allocated only by an explicit test capture; ordinary
+consumers install none. Dedicated threads and fork workers inherit the observation scope.
+
+`XSL3_XSLT30_FORWARDING=1` adds versioned observations to the optional per-case JSONL export.
+The auditor rejects missing captures, unfinished or duplicate executions, inconsistent types,
+missing successful eligible initial sources, unexpected grounding and failed openings that claim
+a representation. All three hosted strict inventory steps now require this evidence with
+`--require-forwarding`. Case selection, assertion evaluation and the frozen inventory are unchanged.
+
+Four complete Release/Debug API/legacy runs retain **2,695/16/1** and zero unmatched expected error
+codes. All **2,712 underlying case records** match `8da25f4`'s preceding runtime checkpoint; only
+the explicitly added observations differ. Every run observes **274 forward initial sources** and
+**4,635 forward source-document entries**, spanning **2,459 cases**. It also records **two failed
+source openings** without inventing a navigator. None of the observed requested-forward paths
+returns a tree.
+
+The **130 cases with commands but no forward source** and **123 cases without a command** remain
+explicitly listed for applicability review. Commands can also execute during compilation and
+assertion evaluation; their counts are not a count of principal stylesheet invocations. The seven
+reader-input cases selecting a tree have non-streamable effective mode declarations: four omit
+streamability or explicitly set it to `no`, and three disable it through static parameters.
+Their definitions and stylesheet fingerprints are retained in `reader-input-tree-case-definitions.json`.
+This observation gate does not by itself establish all stylesheet applicability, physical reads,
+memory bounds or full P7 acceptance.
+
+Seventeen capture contracts cover both public APIs, reader/stream/URI inputs, borrowed-stream
+ownership, dedicated threads, fork-worker source documents, nested captures, incomplete executions
+and failures before or during source opening. Five report contracts cover exclusive evidence files,
+interruption and actual captured representations. All **18 Python runtime-audit contracts** pass;
+the complete streaming harness suite passes **52 tests**, with one Linux-only skip on macOS.
+Full Release and Debug units each pass **4,590 .NET 10 /4,224 .NET 8** checks. The workflow parses
+successfully. Linux Release and macOS Release/Debug PDBs match all **47 changed runtime C# sources**.
+
+With capture disabled, all **48 fresh macOS native smoke children** validate and all **32 canonical
+stylesheet source files** are unchanged. The fresh Linux ARM64 original push verifies **48 children**,
+**32 controls**, all **16 complete measured outputs** and preceding fingerprints. It still passes
+**13/16 budgets**: merge **23,285,760**, fork **23,449,600** and source-document **22,491,136 bytes**
+exceed the unchanged **20,971,520-byte** absolute limit and managed guard. Linux/macOS image SHA-256
+values are respectively `51ca0492c3e9003757a5565064137d795f31847e2570915ef1de0cb3002cb0cd` and
+`45c7b9e6d7d14dc2e08f3b75fa6d9cce347005859c5e3e90f7a20837e99068e0`.
+Evidence, earlier pilot formats and failed test drafts are retained under `forwarding-8da25f4`;
+the first pilot engine and its 46-source PDB audit are frozen separately.
+
+Both preceding required CI runs are green: **41074066095** for `260236b` and **41078285402** for
+the source-equivalent S6 tests/documentation head `8da25f4`. Original acceptance run **41074093851**
+is terminal. Independently audited nightly passes **16/16 budgets /48 children**, with maximum
+absolute RSS **39,268,352 bytes**. Its complete **126-observation** paired benchmark validates
+all original sizes, rounds, modes, raw outputs and **4 GiB** guards, but still fails the no-slowdown
+target. Its 100 MB stream/tree ratios are identity **1.156786**, adjacent **0.827880**, accumulator
+**1.196930**, iterate **0.820468**, merge **0.964893**, fork **3.582623** and source-document **1.138794**.
+The actual native/managed binaries, controller hashes and immutable-source PDB checks validate.
+Evidence is under `contracts-linux-{push,nightly,benchmark}-260236b`. These hosted results qualify
+that preceding runtime, not the observation implementation. Current-source CI and original acceptance
+remain required; public integration, full review, merge and release remain open.

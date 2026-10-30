@@ -113,12 +113,15 @@ namespace Xsl3
             dataSources ??= XmlResolver.ThrowingResolver;
 
             XmlQueryRuntime? runtime = null;
+            using Streaming.StreamingExecutionCapture.Execution? capture =
+                Streaming.StreamingExecutionCapture.BeginExecution(_staticData.StreamedInitialMode, defaultDocument);
             bool stripping = Xsl3.Tree.CompactDocument.StripInputAnnotations;
             try
             {
                 runtime = new XmlQueryRuntime(_staticData, defaultDocument, dataSources, argumentList, results, resourceOwner);
                 _delExec(runtime);
                 runtime.ExternalContext.CloseInitialSource();
+                capture?.CompleteBody();
             }
             catch (System.Exception e) when (runtime != null && runtime.AttachStylesheetStack(e))
             {

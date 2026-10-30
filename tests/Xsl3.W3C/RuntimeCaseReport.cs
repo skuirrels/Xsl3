@@ -7,7 +7,9 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
+using Xsl3.Streaming;
 using Xsl3.W3C.Qt3;
 using TestCase = Xsl3.W3C.Xslt30.TestCase;
 
@@ -18,9 +20,11 @@ internal sealed class RuntimeCaseReport : IDisposable
 {
     private readonly StreamWriter _writer;
     private readonly Dictionary<string, string> _setHashes = new(StringComparer.Ordinal);
+    private readonly bool _captureSources;
 
-    internal RuntimeCaseReport(string path, string root, string profile, bool strict)
+    internal RuntimeCaseReport(string path, string root, string profile, bool strict, bool captureSources = false)
     {
+        _captureSources = captureSources;
         // An interrupted or earlier run is evidence, not a file to overwrite implicitly.
         // Resolve metadata before opening the output, so a metadata failure cannot leak its handle.
         string catalogHash = HashFile(Path.Combine(root, "catalog.xml"));
@@ -31,6 +35,7 @@ internal sealed class RuntimeCaseReport : IDisposable
             Write(new
             {
                 Kind = "run", FormatVersion = 1, Profile = profile, Strict = strict,
+                ForwardingCaptured = captureSources,
                 Api = Environment.GetEnvironmentVariable("XSL3_W3C_API") != "0",
                 SavedSampling = Environment.GetEnvironmentVariable("XSL3_W3C_SAVED"),
                 SetPrefixes = Environment.GetEnvironmentVariable("XSL3_XSLT30_SETS"),
@@ -51,11 +56,13 @@ internal sealed class RuntimeCaseReport : IDisposable
         }
     }
 
-    internal void Record(TestCase test, Outcome outcome)
+    internal StreamingExecutionCapture? CaptureCase() => _captureSources ? new() : null;
+
+    internal void Record(TestCase test, Outcome outcome, StreamingExecutionCapture? capture = null)
     {
         if (!_setHashes.TryGetValue(test.Set.File, out string? setHash))
             _setHashes.Add(test.Set.File, setHash = HashFile(test.Set.File));
-        Write(new
+        var row = new
         {
             Kind = "case", Case = test.Id, Set = test.Set.Name,
             SetFile = Path.GetRelativePath(test.Set.Catalog.Root, test.Set.File).Replace('\\', '/'),
@@ -63,7 +70,15 @@ internal sealed class RuntimeCaseReport : IDisposable
             DefinitionSha256 = Hash(Encoding.UTF8.GetBytes(test.Element.ToString(SaveOptions.DisableFormatting))),
             Outcome = outcome.Kind.ToString(), outcome.Detail,
             Dependencies = test.EffectiveDependencies,
-        });
+        };
+        if (_captureSources)
+        {
+            if (capture == null) throw new InvalidOperationException("A forwarding-enabled report requires a case capture");
+            JsonObject payload = JsonSerializer.SerializeToNode(row)!.AsObject();
+            payload["Forwarding"] = JsonSerializer.SerializeToNode(capture.Snapshot());
+            Write(payload);
+        }
+        else Write(row);
     }
 
     internal void Complete(int passed, int failed, int notRun, int unmatchedCodes,

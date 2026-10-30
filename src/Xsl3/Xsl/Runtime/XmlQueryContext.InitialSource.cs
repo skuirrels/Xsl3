@@ -107,11 +107,15 @@ public sealed partial class XmlQueryContext
                 _initialSelection = BuildTree(filtered);
                 if (uri != null) _runtime.Documents.Cache(uri, _initialSelection);
             }
+            Streaming.StreamingExecutionCapture.RecordSource(Streaming.StreamingExecutionCapture.SourceKind.Initial,
+                _runtime.StreamedInitialMode, _initialSelection);
             completed = true;
             return _initialSelection;
         }
         catch (Exception error) when (XmlException.IsCatchableException(error))
         {
+            Streaming.StreamingExecutionCapture.RecordSourceFailure(Streaming.StreamingExecutionCapture.SourceKind.Initial,
+                _runtime.StreamedInitialMode);
             if (error is Xsl3.Xdm.XdmException or OperationCanceledException) throw;
             DocumentResources.RethrowReadControlError(error);
             throw new Xsl3.Xdm.XdmException("FODC0002", $"Could not read the initial source: {error.Message}");

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Xml;
 using Xsl3.W3C.Qt3;
 using Xunit;
 using Catalog = Xsl3.W3C.Xslt30.Catalog;
@@ -70,6 +71,45 @@ public sealed class RuntimeCaseReportTests : IDisposable
         Assert.Equal("complete", complete.RootElement.GetProperty("Kind").GetString());
         Assert.Equal(1, complete.RootElement.GetProperty("Selected").GetInt32());
         Assert.Equal(0, complete.RootElement.GetProperty("UnmatchedExpectedErrorCodes").GetInt32());
+    }
+
+    [Fact]
+    public void ForwardingEnabledReportsRequireAnActualCaseCapture()
+    {
+        using var report = new RuntimeCaseReport(Path.Combine(_root, "missing-capture.jsonl"), _root, "strm", true, captureSources: true);
+        Assert.Throws<InvalidOperationException>(() => report.Record(Catalog.Load(_root).TestCases.Single(), Outcome.Pass()));
+    }
+
+    [Fact]
+    public void ForwardingReportRetainsTheRuntimeRepresentation()
+    {
+        string path = Path.Combine(_root, "forwarding.jsonl");
+        using (var report = new RuntimeCaseReport(path, _root, "strm", true, captureSources: true))
+        using (var capture = report.CaptureCase())
+        {
+            var unit = new XslCompiledTransform();
+            using var stylesheet = XmlReader.Create(new StringReader("""
+                <xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
+                  <xsl:mode streamable='yes'/><xsl:template match='/'><out><xsl:value-of select='count(doc/n)'/></out></xsl:template>
+                </xsl:stylesheet>
+                """));
+            unit.Load(stylesheet, new XsltSettings { StreamedExecution = true }, null);
+            using var input = XmlReader.Create(new StringReader("<doc><n/></doc>"));
+            using var output = new StringWriter();
+            unit.Transform(input, null, output);
+            report.Record(Catalog.Load(_root).TestCases.Single(), Outcome.Pass(), capture);
+        }
+        string[] lines = File.ReadAllLines(path);
+        using JsonDocument header = JsonDocument.Parse(lines[0]), row = JsonDocument.Parse(lines[1]);
+        Assert.True(header.RootElement.GetProperty("ForwardingCaptured").GetBoolean());
+        var evidence = row.RootElement.GetProperty("Forwarding");
+        Assert.Equal(1, evidence.GetProperty("FormatVersion").GetInt32());
+        Assert.Equal(1, evidence.GetProperty("Started").GetInt32());
+        var execution = evidence.GetProperty("Executions")[0];
+        Assert.True(execution.GetProperty("BodyCompleted").GetBoolean());
+        var source = execution.GetProperty("Sources")[0];
+        Assert.True(source.GetProperty("ActualForward").GetBoolean());
+        Assert.Equal("Xsl3.Streaming.StreamedNavigator", source.GetProperty("NavigatorType").GetString());
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);

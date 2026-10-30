@@ -127,6 +127,9 @@ namespace Xsl3.Runtime
                     _runtime.Documents.Cache(inputUri, root);
                 }
             }
+            if (_initialSource == null && _defaultDataSource != null)
+                Streaming.StreamingExecutionCapture.RecordSource(Streaming.StreamingExecutionCapture.SourceKind.Default,
+                    _runtime.StreamedInitialMode && defaultDataSource is XmlReader or Stream or Uri or string, _defaultDataSource);
         }
 
         private static bool MoveToRoot(XPathNavigator navigator)

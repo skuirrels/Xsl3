@@ -131,10 +131,106 @@ def verify_suite(suite, revision):
         raise ValueError('Suite contains modified or untracked fixtures')
 
 
-def audit(report, suite, manifest=None, engine=None, revision=None):
+def audit_forwarding(header, cases, required=False):
+    captured = header.get('ForwardingCaptured', False)
+    if type(captured) is not bool:
+        raise ValueError('Invalid forwarding capture declaration')
+    if not captured:
+        if required or any('Forwarding' in row for row in cases.values()):
+            raise ValueError('A forwarding capture is required for this evidence')
+        return None
+    counts = Counter()
+    early, no_execution, no_forward = [], [], []
+    for case, row in cases.items():
+        evidence = row.get('Forwarding')
+        if (not isinstance(evidence, dict) or type(evidence.get('FormatVersion')) is not int
+                or evidence['FormatVersion'] != 1 or type(evidence.get('Started')) is not int or evidence['Started'] < 0):
+            raise ValueError(f'Missing or invalid forwarding capture: {case}')
+        executions = evidence.get('Executions')
+        if not isinstance(executions, list) or len(executions) != evidence['Started']:
+            raise ValueError(f'Incomplete forwarding executions: {case}')
+        ids = [entry.get('Id') for entry in executions if isinstance(entry, dict)]
+        if (len(ids) != len(executions) or any(type(i) is not int for i in ids)
+                or sorted(ids) != list(range(1, evidence['Started'] + 1))):
+            raise ValueError(f'Invalid or duplicate forwarding execution IDs: {case}')
+        id_set = set(ids)
+        case_forwarded = False
+        if not executions:
+            no_execution.append(case)
+        for entry in executions:
+            if not {'Id', 'Parent', 'StreamedInitialMode', 'InputKind', 'ForwardInput', 'BodyCompleted', 'Sources'} <= entry.keys():
+                raise ValueError(f'Missing execution metadata: {case}')
+            parent = entry.get('Parent')
+            if parent is not None and (type(parent) is not int or parent not in id_set or parent >= entry['Id']):
+                raise ValueError(f'Invalid parent execution: {case}')
+            if any(type(entry.get(field)) is not bool for field in ('StreamedInitialMode', 'ForwardInput', 'BodyCompleted')):
+                raise ValueError(f'Invalid forwarding execution flags: {case}')
+            kind = entry.get('InputKind')
+            if kind not in ('reader', 'stream', 'uri', 'location', 'navigator', 'navigable', 'other'):
+                raise ValueError(f'Invalid forwarding input kind: {case}')
+            if entry['ForwardInput'] != (kind in ('reader', 'stream', 'uri', 'location')):
+                raise ValueError(f'Inconsistent forwarding input kind: {case}')
+            sources = entry.get('Sources')
+            if not isinstance(sources, list):
+                raise ValueError(f'Missing source representations: {case}')
+            opened_initial = False
+            for source in sources:
+                if not isinstance(source, dict) or source.get('Kind') not in ('Initial', 'Default', 'SourceDocument'):
+                    raise ValueError(f'Invalid source entry point: {case}')
+                if not {'Kind', 'RequestedForward', 'Status', 'ActualForward', 'NavigatorType'} <= source.keys():
+                    raise ValueError(f'Missing source observation: {case}')
+                if type(source.get('RequestedForward')) is not bool:
+                    raise ValueError(f'Invalid source representation flags: {case}')
+                if source['Kind'] == 'SourceDocument' and not source['RequestedForward']:
+                    raise ValueError(f'Invalid forward source-document entry: {case}')
+                if source['Status'] == 'Failed':
+                    if source['ActualForward'] is not None or source['NavigatorType'] is not None:
+                        raise ValueError(f'Failed opening cannot claim a source representation: {case}')
+                    counts['FailedSourceObservations'] += 1
+                    continue
+                if source['Status'] != 'Opened' or type(source['ActualForward']) is not bool:
+                    raise ValueError(f'Invalid source observation status: {case}')
+                name = source.get('NavigatorType')
+                if not isinstance(name, str) or not name or source['ActualForward'] != (name == 'Xsl3.Streaming.StreamedNavigator'):
+                    raise ValueError(f'Inconsistent actual source representation: {case}')
+                if source['RequestedForward'] and not source['ActualForward']:
+                    raise ValueError(f'Requested forward source was grounded: {case}')
+                if source['ActualForward']:
+                    case_forwarded = True
+                    counts['ForwardSources'] += 1
+                    if source['Kind'] == 'Initial':
+                        counts['InitialForwardSources'] += 1
+                        opened_initial |= source['RequestedForward']
+                    elif source['Kind'] == 'SourceDocument':
+                        counts['SourceDocumentForwardSources'] += 1
+                else:
+                    counts['TreeSources'] += 1
+            counts['Executions'] += 1
+            if entry['StreamedInitialMode'] and entry['ForwardInput']:
+                counts['EligibleInitialExecutions'] += 1
+                if not opened_initial:
+                    if entry['BodyCompleted']:
+                        raise ValueError(f'Eligible execution did not open its forward initial source: {case}')
+                    early.append(dict(Case=case, Execution=entry['Id']))
+        if case_forwarded:
+            counts['CasesWithForwardSources'] += 1
+        elif executions:
+            no_forward.append(case)
+    if required and not counts['ForwardSources']:
+        raise ValueError('Forwarding capture contains no actual forward sources')
+    return dict(Verified=True, CapturedCases=len(cases),
+                **{name: counts[name] for name in ('CasesWithForwardSources', 'Executions', 'EligibleInitialExecutions', 'ForwardSources',
+                    'InitialForwardSources', 'SourceDocumentForwardSources', 'TreeSources', 'FailedSourceObservations')},
+                FailedBeforeInitialSourceObservation=early, CasesWithoutCommandExecution=no_execution,
+                CasesWithCommandsWithoutForwardSources=no_forward,
+                Scope='Observed command executions and source representations only; stylesheet applicability, physical reads, bounds and full P7 acceptance require separate evidence.')
+
+
+def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False):
     if revision is not None:
         verify_suite(suite, revision)
     header, cases, complete = load_report(report, suite, engine)
+    forwarding = audit_forwarding(header, cases, require_forwarding)
     current = inventory(header, cases)
     current['SuiteRevision'] = revision
     if manifest is not None:
@@ -165,6 +261,8 @@ def audit(report, suite, manifest=None, engine=None, revision=None):
                'SetOwnership': {name: dict(zip(('Stage', 'Reason'), stage(name))) for name in sorted({r['Set'] for r in cases.values()})},
                'NonPassing': [{**row, 'Stage': stage(row['Set'])[0]} for row in cases.values() if row['Outcome'] != 'Pass'],
                'Scope': 'Inventory and reported outcomes only; forward execution and full P7 acceptance require separate evidence.'}
+    if forwarding is not None:
+        summary['Forwarding'] = forwarding
     return summary, current
 
 
@@ -174,6 +272,7 @@ def main():
     parser.add_argument('--suite', type=Path, required=True)
     parser.add_argument('--suite-revision', help='Exact immutable suite commit; defaults to the frozen inventory pin')
     parser.add_argument('--engine', type=Path)
+    parser.add_argument('--require-forwarding', action='store_true', help='Require complete actual runtime source-representation captures')
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--manifest', type=Path)
     choice.add_argument('--write-manifest', type=Path, help='Freeze a reviewed complete selection; never overwrite')
@@ -186,7 +285,7 @@ def main():
             revision = json.loads(args.manifest.read_text(encoding='utf-8')).get('SuiteRevision')
         if not isinstance(revision, str):
             raise ValueError('An immutable suite revision is required')
-        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision)
+        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding)
         if args.write_manifest:
             if args.expected_count is None or len(frozen['Cases']) != args.expected_count:
                 raise ValueError('Initial inventory requires a matching reviewed expected count')

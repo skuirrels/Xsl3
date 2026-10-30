@@ -158,6 +158,91 @@ class RuntimeAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'modified'):
             AUDIT.verify_suite(self.root, revision)
 
+    def forwarding(self):
+        self.rows[0]['ForwardingCaptured'] = True
+        self.rows[1]['Forwarding'] = dict(FormatVersion=1, Started=1, Executions=[dict(
+            Id=1, Parent=None, StreamedInitialMode=True, InputKind='reader', ForwardInput=True,
+            BodyCompleted=True, Sources=[dict(Kind='Initial', RequestedForward=True, Status='Opened',
+                ActualForward=True, NavigatorType='Xsl3.Streaming.StreamedNavigator')])])
+
+    def forwarding_check(self):
+        self.write()
+        return AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_forwarding=True)[0]
+
+    def test_forwarding_capture_is_required_and_counts_actual_sources(self):
+        with self.assertRaisesRegex(ValueError, 'capture'):
+            self.forwarding_check()
+        self.forwarding()
+        execution = self.rows[1]['Forwarding']['Executions'][0]
+        execution['Sources'].append(dict(execution['Sources'][0], Kind='SourceDocument'))
+        result = self.forwarding_check()['Forwarding']
+        self.assertEqual(1, result['EligibleInitialExecutions'])
+        self.assertEqual(1, result['InitialForwardSources'])
+        self.assertEqual(1, result['SourceDocumentForwardSources'])
+        self.assertIn('separate', result['Scope'])
+
+    def test_forwarding_rejects_grounding_or_inconsistent_representation(self):
+        self.forwarding()
+        source = self.rows[1]['Forwarding']['Executions'][0]['Sources'][0]
+        for actual, name in [(False, 'Xsl3.Tree.CompactNavigator'),
+                             (True, 'Xsl3.Tree.CompactNavigator'),
+                             (False, 'Xsl3.Streaming.StreamedNavigator')]:
+            with self.subTest(actual=actual, name=name):
+                source.update(ActualForward=actual, NavigatorType=name)
+                with self.assertRaises(ValueError):
+                    self.forwarding_check()
+
+    def test_successful_eligible_input_must_open_but_failed_early_input_stays_visible(self):
+        self.forwarding()
+        execution = self.rows[1]['Forwarding']['Executions'][0]
+        execution['Sources'] = []
+        with self.assertRaisesRegex(ValueError, 'initial source'):
+            self.forwarding_check()
+        execution['BodyCompleted'] = False
+        self.write()
+        result = AUDIT.audit(self.report, self.root, self.manifest, self.engine)[0]['Forwarding']
+        self.assertEqual([dict(Case='si-copy/example', Execution=1)], result['FailedBeforeInitialSourceObservation'])
+        self.assertEqual(0, result['InitialForwardSources'])
+
+    def test_forwarding_rejects_lost_duplicate_or_malformed_executions(self):
+        self.forwarding()
+        original = copy.deepcopy(self.rows)
+        changes = [lambda r: r[1]['Forwarding'].update(Started=2),
+                   lambda r: r[1]['Forwarding'].update(FormatVersion=True),
+                   lambda r: r[1].pop('Forwarding'),
+                   lambda r: r[1]['Forwarding'].update(Started=True),
+                   lambda r: r[1]['Forwarding']['Executions'][0].update(Id=True),
+                   lambda r: r[1]['Forwarding']['Executions'][0].update(Parent=1),
+                   lambda r: r[1]['Forwarding']['Executions'][0].update(ForwardInput=False),
+                   lambda r: r[1]['Forwarding']['Executions'][0].update(BodyCompleted='yes'),
+                   lambda r: r[1]['Forwarding']['Executions'].append(copy.deepcopy(r[1]['Forwarding']['Executions'][0]))]
+        for change in changes:
+            self.rows = copy.deepcopy(original)
+            change(self.rows)
+            with self.subTest(rows=self.rows), self.assertRaises(ValueError):
+                self.forwarding_check()
+
+    def test_forwarding_data_cannot_be_silently_ignored(self):
+        self.forwarding()
+        self.rows[0]['ForwardingCaptured'] = False
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'capture'):
+            self.check()
+        self.rows[0]['ForwardingCaptured'] = 'true'
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'capture'):
+            self.check()
+
+    def test_source_opening_failures_do_not_claim_a_representation(self):
+        self.forwarding()
+        source = dict(Kind='SourceDocument', RequestedForward=True, Status='Failed', ActualForward=None, NavigatorType=None)
+        self.rows[1]['Forwarding']['Executions'][0]['Sources'].append(source)
+        self.assertEqual(1, self.forwarding_check()['Forwarding']['FailedSourceObservations'])
+        for actual, name in [(False, 'Xsl3.Tree.CompactNavigator'), (True, 'Xsl3.Streaming.StreamedNavigator')]:
+            with self.subTest(actual=actual), self.assertRaisesRegex(ValueError, 'cannot claim'):
+                source.update(ActualForward=actual, NavigatorType=name)
+                self.forwarding_check()
+
 
 if __name__ == '__main__':
     unittest.main()

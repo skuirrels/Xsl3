@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Capture actual forward/tree source representations during optional strict-suite audits,
+  including failed source openings and nested, dedicated-thread and fork execution. Require
+  complete source observations in hosted strict audits while preserving raw conformance results.
 - Publish tee reader counts atomically so source-batch checks avoid taking the ring lock.
   Preserve reader detachment, payload release, configured capacity and cancellation.
 - Reject function items, maps and arrays in atomic type checks without dereferencing absent
