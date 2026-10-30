@@ -1940,3 +1940,41 @@ is not claimed. Evidence: `metadata-readers-d744911`.
 The resident dependency/image footprint and fork/accumulator throughput require further work.
 Original acceptance, applicability/physical-read and public-integration evidence, full-branch review,
 merge and release remain open. This record makes no streaming-support or P7 completion claim.
+
+### Physical read contracts and complete hosted benchmark, 2026-10-30
+
+New [runtime contract evidence](p7-runtime-contracts.md) links the seven canonical workloads to
+physical input reads and actual nonempty sink writes. Unit-only guards wrap the existing generated
+streams and refuse reads beyond each source's halfway boundary before output. Identity, adjacent,
+source-document, merge and fork must produce output within that boundary; matching tree controls
+must fail there before any sink write. Accumulator and iterate totals instead require complete
+input in both modes. Every successful run consumes the exact input and matches the unchanged
+independent output fingerprint, including both fork secondary results.
+
+Exact 1 MiB and 4 MiB cases cover both public APIs and .NET 10 saved execution: **72 checks on
+.NET 10 /48 on .NET 8**, in both Release and Debug. Final combined stateful/fork/read-boundary
+verification passes **378 /338**, respectively, in each configuration. Optional captures verify
+actual stylesheet-stage forward representations. Principal writes and secondary-result opening
+stay on the invoking thread; prongs may write their independent secondary sinks. The first fixture
+incorrectly omitted merge's principal launch-source observation; a later fixture incorrectly required
+secondary-sink writes on the caller thread. Both failures are retained and corrected without engine
+changes. Evidence: `artifacts/p7-completion/read-boundary-*.log`.
+
+The new file belongs only to the unit-test project. Runtime, native/benchmark probe sources, canonical
+fixtures, input sizes, output oracles and acceptance guards are unchanged. Existing runtime inventories
+remain evidence for the unchanged runtime, rather than being relabeled as fresh executions. The
+contract map explicitly retains whole-suite applicability and full retained-state qualification as open.
+
+Hosted acceptance **41103827041** is now terminal. Its benchmark artifact **13004297246** independently
+verifies all **126 observations**, original 1 MB/100 MB/1 GB sizes, three rounds per mode, 4 GiB managed
+guards, raw child outputs, prior full-output fingerprints and actual tested engine/benchmark hashes.
+Portable PDB checks match all **47 runtime /six probe source documents**. Canonical 100 MB stream/tree
+ratios are identity **1.254050**, adjacent **0.847529**, accumulator **1.335710**, iterate **0.841212**,
+merge **0.955344**, fork **3.456069** and source-document **1.194419**. Four targets still fail; the
+report's descriptive 5% comparison band does not waive the original target. Evidence:
+`contracts-linux-benchmark-d744911`, verified archive SHA-256
+`6dede50922e65028605f08a5b5acb549b252e23205eb0eebe590ee443fbbc968`.
+
+Required CI **41110967828** passes all four jobs for preceding documentation commit `d90ffb3`.
+The new unit contracts require their own hosted CI. Original push memory, throughput, complete
+applicability/state-bound evidence, full-branch review, public integration, merge and release remain open.

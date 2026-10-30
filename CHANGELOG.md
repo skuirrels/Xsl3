@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Verify physical input reads and actual sink emission for all seven canonical streaming workloads
+  through both APIs and saved execution. Guard incremental reads against eager consumption, preserve
+  complete-input accumulator/iterate totals, and validate original independent output fingerprints.
 - Reuse each output writer's removal callback when reattaching its attribute cache. Preserve
   nested and pooled output ownership, duplicate attributes, saved execution and XML/HTML selection.
 - Reject process-probe reports whose live managed heap exceeds the configured cap even when
