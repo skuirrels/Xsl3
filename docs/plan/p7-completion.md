@@ -2162,3 +2162,51 @@ in `contracts-linux-{push,nightly}-a7e6381`. These observations remain attribute
 Current-source hosted CI, strict inventories, original full memory/benchmark qualification, complete
 construct/state applicability, public integration, full-branch review, merge and release remain
 required. No original acceptance criterion or streaming-support claim changes; full P7 stays open.
+
+
+### Bounded rolling accumulator values, 2026-10-30
+
+The [runtime contract map](p7-runtime-contracts.md#measured-retention-with-explicit-payload-assumptions)
+now includes variable-sized atomic state through the actual initial-source accumulator observer.
+The existing native-rule test fixture accepts explicit initial/update functions; its scalar defaults
+and all runtime/probe sources remain unchanged. The rolling program appends strings derived from
+actual row IDs and configured repetitions, retaining the last **1 /7 /64** values. It runs at exact
+**65,536 /1,048,576-byte** generated inputs, **569 /9,117 records** and **five /72 checkpoints**.
+
+The initial assertion incorrectly counted the globally shared empty sequence alongside live current
+phase arrays. Runtime `Copy` returns `Sequences.Empty` for an empty value; the corrected contract
+asserts that identity explicitly and measures nonempty arrays separately. The original six failing
+cases per framework remain retained. A conditional weak table deduplicates atomic object identities
+without retaining targets; the growing weak recorder is instrumentation rather than a process-memory
+claim. Each checkpoint requires at most one row frame, one row metadata object, two nonempty phase
+arrays, `W + 1` live atomic objects and `(W + 1) * P` logical payload characters. The root may retain
+its final window after closure; caller input ownership remains intact.
+
+All **24 final TRX measurements** independently verify the short/long input pairs on both frameworks
+and configurations. Window widths **1 /7 /64** retain maxima of **2 /8 /65** objects and
+**40 /1,310,720 /166,400** logical payload characters, respectively. Maximum item lengths are
+**20 /163,840 /2,560** characters. Logical characters are distinct from actual object/array/string
+allocation and full-lifetime RSS; generic growing or opaque/node-valued state, explicit copies and
+remaining S3–S6 accounting still need their own qualification.
+
+A diagnostic copy first matches all **407 runtime C#/project inputs**. Adding a private history of
+prior phase values, while leaving their computed contents unchanged, fails all **six** window cases
+on each framework at the retention checks. Restoring and rebuilding passes all six on both frameworks.
+The canonical native image is unchanged. Final related Release and Debug contracts each pass
+**205 .NET 10 /200 .NET 8** checks, including the original scalar and new rolling cases. Frozen engine
+and test PDB checks verify **49 runtime /two changed test-source documents** for all four executions.
+Raw measurements, initial failures, mutation/control logs and hashes are retained in
+`artifacts/p7-completion/window-state-bd89eae`.
+
+Hosted `bd89eae` acceptance **41132108776** has a terminal independently audited push matrix:
+**48 children /32 controls /16 full measured outputs**, unchanged 32 stylesheet sources, 49 matching
+runtime PDB documents and preceding output fingerprints. It remains **13/16 budgets**; merge
+**24,080,384**, fork **24,768,512** and source-document **23,633,920 bytes** exceed the unchanged
+**20,971,520-byte** absolute limit. Archive SHA-256:
+`db0fbfe4768746848487fab0ed5876db59b6c36ce78883200db66c261fb3e1a2`.
+Image SHA-256: `e8d4bfe9913b2e023e2c3c8910717f75fd729226cdb3051c03485201f404aef0`.
+Its nightly/benchmark jobs and required CI continue under their existing handles at this checkpoint.
+This unit/documentation change does not dispatch another acceptance run for the unchanged runtime.
+
+Original memory/throughput targets, complete runtime applicability/state accounting, public integration,
+full-branch review, final-source hosted CI, merge and release remain open. Full P7 stays active.

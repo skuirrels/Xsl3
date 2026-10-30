@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Measure rolling string-valued accumulator lifetimes across window widths, payload sizes and
+  input lengths. Verify shared empty-sequence reuse, collection of evicted values and sensitivity
+  to retained prior states without changing the runtime or original acceptance limits.
 - Avoid copying an accumulator matcher's already-owned argument a second time. Deliver intrinsic
   accumulator notifications directly from source frames while ordinary observers keep fresh,
   retainable positions. Preserve matcher/body focus, argument conversion and deferred failures.

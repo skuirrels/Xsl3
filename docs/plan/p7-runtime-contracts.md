@@ -44,7 +44,7 @@ The original exact-size NativeAOT matrices and paired benchmarks remain separate
 
 | Area | Concrete test evidence | Remaining qualification |
 |---|---|---|
-| Accumulators | `StreamedAccumulatorTests`: start/end values, skipped subtrees, dependency cycles, applicability, copies and saved bindings. `StreamedAccumulatorStorageTests`: independent counter slots, deferred headers, fork consumers and cancellation after output. `StreamedAccumulatorLifetimeTests`: measured scalar-value and frame collection across two generated input sizes | Complete mapping of original S5 requirements, including variable-sized state and explicit copies |
+| Accumulators | `StreamedAccumulatorTests`: start/end values, skipped subtrees, dependency cycles, applicability, copies and saved bindings. `StreamedAccumulatorStorageTests`: independent counter slots, deferred headers, fork consumers and cancellation after output. `StreamedAccumulatorLifetimeTests`: measured scalar and bounded rolling-string state across two generated input sizes | Complete mapping of original S5 requirements, general growing/opaque/node-valued state and explicit copies |
 | Grouping | `StreamedGroupingTests`: consume members before advancing, drain unused members, nested groups, repeatable grounded copies, key cardinality/errors and saved execution | Complete original construct/applicability mapping |
 | Merge | `StreamedMergeTests`: sorted inputs, stable groups, raw key values, context-size rules, XTDE errors, ownership, retained snapshots and saved execution | Complete original construct/applicability mapping |
 | Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases. `StreamTeePayloadTests`: measured live payload bytes with explicit payload assumptions and an isolated retention mutation | Complete full S6 acceptance mapping and original process-memory qualification |
@@ -89,8 +89,36 @@ frame, one observer-metadata object and two tracked scalar phase lists. Moving t
 and closing the source releases all tracked row frames/metadata; the final root after-value may
 legitimately retain one scalar list. The caller-owned generated stream remains open.
 
-These measurements cover fixed-size scalar state and the specified payload model. Explicitly retained
-copies, variable-sized accumulator values, XML ancestor/header metadata, parser buffers, reference-array
+The same actual initial-source observer now also runs a bounded rolling-string program. Its initial
+value is empty; the start rule forwards the prior value and the end rule appends a fresh string derived
+from the current row's actual `@id`, retaining the last `W` items. Explicit test parameters control
+the repetitions in each string. A conditional weak table deduplicates observed atomic objects without
+rooting them; the weak-reference list and its storage are measurement instrumentation.
+
+At a checkpoint, the current before/after windows overlap except for their entering/leaving items.
+The tests require at most `W + 1` live atomic objects and `(W + 1) * P` logical payload characters,
+where `P` is derived from the actual source IDs and configured repetitions. They also require at most
+one current row frame, one row metadata object and two nonempty phase arrays. The initial empty
+sequence is checked by identity against the runtime's shared `Sequences.Empty`; its static lifetime
+is accounted for separately. After moving to the root and closing, row frames/metadata must collect,
+while the root may retain one final phase array containing up to `W` atomic values.
+
+| Window `W` | Maximum item characters `P` | Measured maximum live values | Measured maximum logical payload characters |
+|---:|---:|---:|---:|
+| 1 | 20 | 2 | 40 |
+| 7 | 163,840 | 8 | 1,310,720 |
+| 64 | 2,560 | 65 | 166,400 |
+
+Each row is verified at 65,536 and 1,048,576 input bytes (569 and 9,117 records), with respectively
+five and 72 checkpoints, on .NET 8/10 in Release and Debug. All 24 TRX measurements show the same
+maximum value/character counts between short and long inputs. Character counts describe logical
+payload, not physical string allocation, array/object overhead or process RSS. An isolated source
+mutation retaining previous accumulator values fails all six window cases on both frameworks;
+restoring the source and rebuilding passes all six. Canonical native images remain unchanged.
+
+These measurements cover fixed-size scalar state, the specified rolling-string program and tee
+payload model. Explicitly retained copies, general growing/opaque/node-valued state, XML ancestor/header
+metadata, parser buffers, reference-array
 and object overhead, and buffered prong output need their own accounting. They do not replace the
 full-lifetime managed-heap/RSS counters or the original sixteen-workload acceptance matrices. The
 streamed merge also retains its current equal-key group, as the original design specifies; a bound
@@ -98,6 +126,8 @@ for that path must include the group size and snapshot payload rather than only 
 
 Evidence: `artifacts/p7-completion/state-bounds-final-{release,debug}` TRX files retain each measurement.
 The isolated mutation/control and source hashes are in `artifacts/p7-completion/tee-payload-f8915f6`.
+Rolling-window measurements, the initial shared-empty-sequence accounting failure, the retained-state
+mutation/control and frozen engines are in `artifacts/p7-completion/window-state-bd89eae`.
 
 ## Non-forwarding case review
 

@@ -38,7 +38,8 @@ public class StreamedForkAccumulatorTests
         internal Source(string xml, bool fail = false, bool cycle = false, Action<XPathNavigator>? matchAction = null)
             : this(XmlReader.Create(new StringReader(xml)), fail, cycle, matchAction) { }
 
-        internal Source(XmlReader input, bool fail = false, bool cycle = false, Action<XPathNavigator>? matchAction = null)
+        internal Source(XmlReader input, bool fail = false, bool cycle = false, Action<XPathNavigator>? matchAction = null,
+            IList<XPathItem>? initialValue = null, Func<XPathNavigator, IList<XPathItem>, bool, IList<XPathItem>>? rule = null)
         {
             int thread = Environment.CurrentManagedThreadId;
             var constants = new ConstantTable();
@@ -56,13 +57,14 @@ public class StreamedForkAccumulatorTests
                 XmlResolver.ThrowingResolver, null, new XmlCachedSequenceWriter());
             Library = Runtime.XsltFunctions;
             _functions = new XPathItem[] {
-                Function(1, _ => Integer(0)),
+                Function(1, _ => initialValue ?? Integer(0)),
                 Function(1, Match),
                 Function(2, a => {
                     Assert.Equal(thread, Environment.CurrentManagedThreadId);
                     Assert.Equal("row", ((XPathNavigator)a[0][0]).LocalName);
                     Starts++;
                     if (fail && Starts == 2) throw new XdmException(cycle ? "XTDE3400" : "TEST0001", "Accumulator rule failed") { AccumulatorCycle = cycle };
+                    if (rule != null) return rule((XPathNavigator)a[0][0], a[1], false);
                     return Integer(((IntegerValue)a[1][0]).Integer + 1);
                 }),
                 Function(1, Match),
@@ -70,6 +72,7 @@ public class StreamedForkAccumulatorTests
                     Assert.Equal(thread, Environment.CurrentManagedThreadId);
                     Assert.Equal("row", ((XPathNavigator)a[0][0]).LocalName);
                     Ends++;
+                    if (rule != null) return rule((XPathNavigator)a[0][0], a[1], true);
                     return Integer(((IntegerValue)a[1][0]).Integer + 10);
                 }),
                 Function(1, _ => Integer(7)),
