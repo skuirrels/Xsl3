@@ -64,9 +64,11 @@
     <None Include="Xsl\**\*.p" />
   </ItemGroup>
 
-  <Target Name="AddRuntimeAssemblyVersionMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="GetAssemblyVersion">
+  <Target Name="AddRuntimeAssemblyVersionMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="GetAssemblyVersion"
+          Condition="'$(GenerateAssemblyInfo)' == 'true' And '$(GenerateAssemblyVersionAttribute)' == 'true'">
     <ItemGroup>
       <AssemblyMetadata Include="Xsl3.RuntimeAssemblyVersion" Value="$(AssemblyVersion)" />
+      <AssemblyMetadata Include="Xsl3.RuntimeAssemblyVersion.Source" Value="SDK" />
     </ItemGroup>
   </Target>
 

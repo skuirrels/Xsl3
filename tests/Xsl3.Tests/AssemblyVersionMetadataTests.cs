@@ -10,13 +10,15 @@ namespace Xsl3.Tests;
 public class AssemblyVersionMetadataTests
 {
     private const string Key = "Xsl3.RuntimeAssemblyVersion";
+    private static AssemblyMetadataAttribute SdkSource => new(Key + ".Source", "SDK");
     private static string Header => typeof(XslCompiledTransform).Assembly.GetName().Version!.ToString();
 
     [Fact]
     public void UniqueSdkMetadataKeepsTheActualVersion()
     {
         var metadata = typeof(XslCompiledTransform).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().ToArray();
-        Assert.Equal(Header, Assert.Single(metadata.Where(item => item.Key == Key)).Value);
+        Assert.Equal(Header, Assert.Single(metadata, item => item.Key == Key).Value);
+        Assert.Equal("SDK", Assert.Single(metadata, item => item.Key == Key + ".Source").Value);
         Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(metadata));
     }
 
@@ -33,6 +35,7 @@ public class AssemblyVersionMetadataTests
     public void DuplicateReservedKeysUseTheAssemblyHeader(bool conflicting)
     {
         var metadata = new[] {
+            SdkSource,
             new AssemblyMetadataAttribute(Key, conflicting ? "99.0.0.0" : Header),
             new AssemblyMetadataAttribute(Key, Header)
         };
@@ -54,6 +57,23 @@ public class AssemblyVersionMetadataTests
     [InlineData("4.3.x.1")]
     public void InvalidOrCompilerNormalizedMetadataUsesTheAssemblyHeader(string? value)
     {
-        Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(new[] { new AssemblyMetadataAttribute(Key, value) }));
+        Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(new[] { SdkSource, new AssemblyMetadataAttribute(Key, value) }));
     }
+
+    [Fact]
+    public void CanonicalMetadataWithoutSdkProvenanceUsesTheHeader() =>
+        Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(new[] { new AssemblyMetadataAttribute(Key, "99.0.0.0") }));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("sdk")]
+    [InlineData("manual")]
+    public void UnrecognizedProvenanceUsesTheHeader(string? source) =>
+        Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(new[] {
+            new AssemblyMetadataAttribute(Key + ".Source", source), new AssemblyMetadataAttribute(Key, "99.0.0.0") }));
+
+    [Fact]
+    public void DuplicateSdkProvenanceUsesTheHeader() =>
+        Assert.Equal(Header, XslCompiledTransform.ReadAssemblyVersionText(new[] { SdkSource, SdkSource, new AssemblyMetadataAttribute(Key, "99.0.0.0") }));
 }

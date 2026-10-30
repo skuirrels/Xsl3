@@ -53,11 +53,18 @@ internal sealed partial class StreamedDocument
             {
                 Original = Original, LocalName = LocalName, Namespace = Namespace, Prefix = Prefix,
                 Text = Text, BaseUri = BaseUri, Language = Language, Attributes = Attributes, Namespaces = Namespaces,
-                Schema = SchemaInfo, EmptyElement = Empty, Ended = boundary ? Empty : Ended,
+                Schema = Schema(SchemaInfo), EmptyElement = Empty, Ended = boundary ? Empty : Ended,
                 ChildrenStarted = !boundary && Started, FirstChild = boundary ? -1 : FirstChild,
                 Consumed = Consumed, Skipped = Skipped, NoNext = NoNext,
             };
             if (names != null) Atomize(node, names);
+            for (int i = 0; i < node.Attributes.Length; i++)
+                if (node.Attributes[i].Schema is { } info)
+                {
+                    // Boundary, ancestor and event projections all own their PSVI snapshots.
+                    if (ReferenceEquals(node.Attributes, Attributes)) node.Attributes = (Attribute[])node.Attributes.Clone();
+                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
+                }
             return node;
         }
 
@@ -78,14 +85,6 @@ internal sealed partial class StreamedDocument
             // Navigation and observer state belong to this view, not the pumping source.
             Node node = Create(parent, boundary: true, names);
             node.Consumed = node.Skipped = node.NoNext = false;
-            node.Schema = Schema(SchemaInfo);
-            for (int i = 0; i < node.Attributes.Length; i++)
-                if (node.Attributes[i].Schema is { } info)
-                {
-                    // Attribute records are immutable, but PSVI snapshots belong to this view.
-                    if (ReferenceEquals(node.Attributes, Attributes)) node.Attributes = (Attribute[])node.Attributes.Clone();
-                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
-                }
             return node;
         }
 

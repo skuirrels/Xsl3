@@ -70,7 +70,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     internal int BufferedCount { get { lock (_gate) return (int)(_next - _first); } }
     internal int HighWaterMark { get { lock (_gate) return _highWaterMark; } }
     internal int WaitingReaders { get { lock (_gate) return _waiting; } }
-    internal int ActiveReaders { get { lock (_gate) return _active; } }
+    internal int ActiveReaders => Volatile.Read(ref _active);
 
     internal sealed class Reader(StreamTee<T> owner, int index) : IDisposable
     {
@@ -289,7 +289,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         {
             long position = Interlocked.Exchange(ref _positions[reader], -1);
             if (position < 0) return;
-            _active--;
+            Volatile.Write(ref _active, _active - 1);
             for (; position < _next; position++) Interlocked.Decrement(ref _remaining[(int)(position % _events.Length)]);
             ReleaseHead();
             Monitor.PulseAll(_gate);
@@ -306,7 +306,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             Array.Clear(_events);
             Array.Clear(_remaining);
             _first = _next;
-            _active = 0;
+            Volatile.Write(ref _active, 0);
             Monitor.PulseAll(_gate);
         }
         // Disposing a registration can wait for its callback, which also acquires the ring lock.

@@ -1525,3 +1525,72 @@ settings are unchanged. Current-source hosted qualification remains required.
 Every original memory, throughput, forwarding/public integration, final review, merge and release
 requirement remains open where not yet verified. This allocation improvement does not complete P7
 or change `supports-streaming`.
+
+### Fork schema ownership and runtime contracts, 2026-10-30
+
+Review reproduces shared mutable schema snapshots in the initial fork boundary and ancestor
+headers. Event projections already copied those snapshots, but the other projections did not.
+Both reduced cases fail on .NET 8 and .NET 10 before the repair. Every header projection now
+copies node and attribute PSVI, while preserving copy-on-write sharing of immutable name and
+namespace records. The synchronized tests mutate one prong only after both views exist. The
+focused fork/tee suites pass **101 .NET 10 /100 .NET 8** checks.
+
+General sequence checks and specific atomic type-code checks also dereferenced absent schema
+annotations on functions, maps and arrays. Two reduced facts reproduce those null-reference
+failures on both frameworks. The shared general type conversion now represents those values as
+`item()`, consistently with the existing single-item contract, and specific atomic checks reject
+them. Both repairs preserve the broad atomic fast path and ordinary schema matching.
+
+Actual SDK builds expose two additional assembly-version cases: disabling only the generated
+version attribute leaves a zero version header, and a manual header can coexist with misleading
+reserved metadata. SDK provenance is now emitted only alongside the SDK-generated version
+attribute. Missing, unrecognized or duplicate provenance uses the authoritative header, as do
+ambiguous, invalid or normalized version values. `eng/verify-runtime-version.py` compiles nine
+independent configurations on each actual .NET 8/10 host and compares runtime text with the real
+assembly header. All **18 builds** pass. Their source, fixture, controller and engine fingerprints
+are independently checked; all **422 base source/configuration files** match this checkpoint.
+Required Ubuntu CI now repeats these build contracts and retains their files and logs.
+
+The source-pumping reader count uses volatile reads and writes, with decrements still serialized
+by the tee gate. Existing capacity, detachment, payload release, cancellation and ordered-fault
+contracts are unchanged. Six alternating two-CPU Linux ARM64 100 MB fork observations show
+baseline/candidate medians of **6,559.310 /6,319.913 ms** and child CPU **7,440.459 /7,235.939 ms**.
+These are diagnostic controls, not a canonical throughput pass or an RSS improvement. The
+alternative SDK-generated version-source experiment produces no material RSS benefit and is
+rejected; its failed initial generation and all controls remain retained. The runtime hash-collision
+test also has a finite search bound and fails explicitly if no actual collision is found.
+
+Full Release and Debug units each pass **4,570 .NET 10 /4,204 .NET 8** checks. Fresh macOS native
+generation preserves all **32 canonical stylesheet source files** and passes all **48 smoke
+children**. Independently audited Linux/macOS Release PDBs match all **42 changed runtime C#
+sources**. Fresh saved assembly timestamps and module identifiers are not fixture source changes.
+The macOS smoke limit is zero and makes no memory-acceptance claim.
+
+The fresh Linux ARM64 original push matrix validates **48 children**, **32 controls**, all
+**16 complete measured transformations** and their preceding output fingerprints. It still passes
+only **13/16 budgets**: merge peaks at **23,343,104**, fork at **23,425,024** and source-document at
+**22,544,384 bytes**, against the unchanged **20,971,520-byte** absolute limit and managed guard.
+Linux/macOS native image SHA-256 values are respectively
+`3c3c145bc2bad621dd9f168786d9743cb742a45bffc61ea00595b1b1f08028f8` and
+`40f79b24c46347c8a0f8a6b88cbe05f932d17e5ee70d45a3d2307c5a535fbae5`.
+Evidence and unsuccessful controls are retained under `build-version-823e677`,
+`tee-reader-count-823e677` and `native-boundary-final`.
+
+The preceding committed checkpoint `823e677` is now fully observed. All four required CI jobs
+pass in run **41058722486**. Acceptance run **41058734124** independently verifies **13/16 push
+budgets**, **16/16 nightly budgets** (maximum absolute RSS **39,292,928 bytes**) and all **126**
+paired benchmark observations under the original **4 GiB** guard. The tested native and managed
+binaries are retained and their actual hashes and source PDB checksums validate. Its canonical
+100 MB stream/tree ratios are identity **1.198732**, adjacent **0.832245**, accumulator **1.350917**,
+iterate **0.846919**, merge **0.977374**, fork **3.690490** and source-document **1.164916**. Four
+original throughput targets fail. These hosted observations qualify that preceding commit only.
+
+Four complete Release/Debug API/legacy strict inventories retain **2,695/16/1** with zero unmatched
+expected codes. All **2,712 per-case records** are identical to the preceding committed checkpoint,
+and the frozen engine hashes match the reports. The Debug PDB also matches all **42 changed runtime
+C# sources**. This comparison establishes inventory preservation, not actual forwarding.
+
+Current-source hosted results remain required for this checkpoint. Original memory, throughput,
+actual forwarding, public integration, complete review,
+merge and release gates remain open. No budget, fixture, URI semantics, oracle, globalisation
+setting, source population or public streaming claim changes.

@@ -212,6 +212,10 @@ jobs:
           eng/conformance-report.sh tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports artifacts/test-results/conformance-sets.md
           cat artifacts/test-results/conformance-sets.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Runtime assembly-version build contracts (.NET 8/10)
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 eng/verify-runtime-version.py --frameworks net8.0 net10.0 --output artifacts/test-results/runtime-version-builds
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

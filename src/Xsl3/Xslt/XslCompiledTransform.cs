@@ -55,16 +55,24 @@ namespace Xsl3
         internal static string? ReadAssemblyVersionText(System.Collections.Generic.IEnumerable<AssemblyMetadataAttribute> attributes)
         {
             string? candidate = null;
-            int matches = 0;
+            int matches = 0, sources = 0;
+            bool sdkGenerated = false;
             foreach (AssemblyMetadataAttribute metadata in attributes)
             {
-                if (metadata.Key != "Xsl3.RuntimeAssemblyVersion") continue;
-                if (++matches > 1) break;
-                candidate = metadata.Value;
+                if (metadata.Key == "Xsl3.RuntimeAssemblyVersion.Source")
+                {
+                    if (++sources > 1) break;
+                    sdkGenerated = metadata.Value == "SDK";
+                }
+                else if (metadata.Key == "Xsl3.RuntimeAssemblyVersion")
+                {
+                    if (++matches > 1) break;
+                    candidate = metadata.Value;
+                }
             }
-            if (matches == 1 && IsCanonicalAssemblyVersion(candidate)) return candidate;
+            if (sources == 1 && sdkGenerated && matches == 1 && IsCanonicalAssemblyVersion(candidate)) return candidate;
             // The assembly header remains authoritative for ambiguous, invalid or
-            // absent metadata and for compiler-normalized short/wildcard versions.
+            // non-SDK metadata and for compiler-normalized short/wildcard versions.
             return typeof(XslCompiledTransform).Assembly.GetName().Version?.ToString();
         }
 

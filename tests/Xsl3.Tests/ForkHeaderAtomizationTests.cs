@@ -13,6 +13,40 @@ namespace Xsl3.Tests;
 public class ForkHeaderAtomizationTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BoundaryAndAncestorSchemaSnapshotsBelongToTheirProng(bool ancestor)
+    {
+        var schemas = new XmlSchemaSet();
+        schemas.Add(null, XmlReader.Create(new StringReader("<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'><xs:element name='doc'><xs:complexType><xs:sequence><xs:element name='row'><xs:complexType><xs:attribute name='k' type='xs:integer'/></xs:complexType></xs:element></xs:sequence><xs:attribute name='kind' type='xs:string'/></xs:complexType></xs:element></xs:schema>")));
+        using var input = XmlReader.Create(new StringReader("<doc kind='root'><row k='7'/></doc>"), new() { ValidationType = ValidationType.Schema, Schemas = schemas });
+        using var document = new StreamedDocument(input);
+        var focus = (StreamedNavigator)document.CreateNavigator();
+        Assert.True(focus.MoveToFirstChild()); Assert.True(focus.MoveToFirstChild());
+        using var fork = document.Fork(focus);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var barrier = new Barrier(2);
+        fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, token) => Check(view, token, 0), (view, token) => Check(view, token, 1)
+        }, 1, cancellation.Token);
+
+        void Check(StreamedNavigator view, CancellationToken token, int index)
+        {
+            if (ancestor) Assert.True(view.MoveToParent());
+            var attribute = view.Clone(); Assert.True(attribute.MoveToAttribute(ancestor ? "kind" : "k", ""));
+            var nodeInfo = Assert.IsType<XmlSchemaInfo>(view.SchemaInfo);
+            var attributeInfo = Assert.IsType<XmlSchemaInfo>(attribute.SchemaInfo);
+            XmlSchemaValidity nodeBefore = nodeInfo.Validity, attributeBefore = attributeInfo.Validity;
+            XmlSchemaValidity changed = nodeBefore == XmlSchemaValidity.Invalid ? XmlSchemaValidity.Valid : XmlSchemaValidity.Invalid;
+            barrier.SignalAndWait(token);
+            if (index == 0) { nodeInfo.Validity = changed; attributeInfo.Validity = XmlSchemaValidity.Invalid; }
+            barrier.SignalAndWait(token);
+            Assert.Equal(index == 0 ? changed : nodeBefore, view.SchemaInfo!.Validity);
+            Assert.Equal(index == 0 ? XmlSchemaValidity.Invalid : attributeBefore, attribute.SchemaInfo!.Validity);
+        }
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(7)]
     [InlineData(64)]

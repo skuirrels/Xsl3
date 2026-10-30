@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+- Publish tee reader counts atomically so source-batch checks avoid taking the ring lock.
+  Preserve reader detachment, payload release, configured capacity and cancellation.
+- Reject function items, maps and arrays in atomic type checks without dereferencing absent
+  schema annotations; general sequence checks consistently recognize them as items.
 - Reuse immutable fork attribute and namespace arrays when prong atomization leaves their
   references unchanged. Preserve private name-table atoms and independent schema snapshots.
-- Reject ambiguous or out-of-range assembly-version metadata and use the authoritative
-  assembly header instead, preserving saved-stylesheet compatibility checks.
+- Copy mutable schema snapshots for fork boundary and ancestor headers as well as events,
+  so a prong cannot alter another prong's node or attribute validation metadata.
+- Reject ambiguous, out-of-range or non-SDK assembly-version metadata and use the authoritative
+  assembly header instead. Emit SDK provenance only alongside an SDK-generated version attribute;
+  verify actual .NET 8/10 headers for standard, normalized, disabled and manual configurations.
 - Hash benchmark artifacts with bounded reads so Linux child memory observations are not
   inflated by whole-image allocations in the controller before process creation. Retain tested
   benchmark and native binaries alongside hosted acceptance reports for independent verification.
