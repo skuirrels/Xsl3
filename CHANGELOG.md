@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Measure tee payload retention and scalar accumulator frame/value lifetimes under explicit
+  payload and input-shape assumptions. Verify collection of consumed state, reader ownership,
+  and sensitivity to an isolated consumed-slot retention regression.
 - Retain actual primary compiler/runtime diagnostics and initial-source declarations in optional
   conformance exports. Require complete evaluation observations in strict CI audits and document
   every case without forwarding evidence while preserving raw outcomes and the original inventory.

@@ -44,10 +44,10 @@ The original exact-size NativeAOT matrices and paired benchmarks remain separate
 
 | Area | Concrete test evidence | Remaining qualification |
 |---|---|---|
-| Accumulators | `StreamedAccumulatorTests`: start/end values, skipped subtrees, dependency cycles, applicability, copies and saved bindings. `StreamedAccumulatorStorageTests`: independent counter slots, deferred headers, fork consumers and cancellation after output | Complete mapping of original S5 requirements and retained-state bounds |
+| Accumulators | `StreamedAccumulatorTests`: start/end values, skipped subtrees, dependency cycles, applicability, copies and saved bindings. `StreamedAccumulatorStorageTests`: independent counter slots, deferred headers, fork consumers and cancellation after output. `StreamedAccumulatorLifetimeTests`: measured scalar-value and frame collection across two generated input sizes | Complete mapping of original S5 requirements, including variable-sized state and explicit copies |
 | Grouping | `StreamedGroupingTests`: consume members before advancing, drain unused members, nested groups, repeatable grounded copies, key cardinality/errors and saved execution | Complete original construct/applicability mapping |
 | Merge | `StreamedMergeTests`: sorted inputs, stable groups, raw key values, context-size rules, XTDE errors, ownership, retained snapshots and saved execution | Complete original construct/applicability mapping |
-| Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases | Relate event bounds to payload assumptions and complete full S6 acceptance mapping |
+| Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases. `StreamTeePayloadTests`: measured live payload bytes with explicit payload assumptions and an isolated retention mutation | Complete full S6 acceptance mapping and original process-memory qualification |
 | Fork callers | `ForkCallerTests`: input/output ownership, lost-wakeup protection, full-ring output progress, partial-ring refill and active callback lifetime. `ForkProngsTests`: declaration-order failures, cancellation and joining | Original absolute RSS and throughput targets still fail |
 
 A tee capacity counts events, not bytes. The ring and unpublished staged payloads share its capacity;
@@ -55,6 +55,47 @@ each reader can additionally retain its current event. Payload sizes, ancestor/s
 buffers, explicitly retained copies and prong output must also be accounted for. Unbounded text or
 attribute payloads cannot acquire a constant byte bound merely from a passing ring-count assertion.
 XSLT's permitted fork output buffering is distinct from the shared input bound.
+
+### Measured retention with explicit payload assumptions
+
+`StreamTeePayloadTests` measures reachable payload arrays at controlled checkpoints after every reader's
+`Read` call has returned. Each reader retains only its current event, and at a checkpoint all readers
+are at the same event. A weak-reference recorder observes live payloads after collection; its own
+growing list is measurement instrumentation and is not part of a process-memory acceptance claim.
+
+For capacity `C` and fixed payload length `P`, live payload bytes at each such checkpoint must equal
+`(BufferedCount + 1) * P` and be no greater than `(C + 1) * P`. The extra event is the shared current
+event already released from the ring. This checkpoint bound is narrower than the general allowance
+of a separate current event per reader and does not describe every in-flight machine instruction.
+
+| Capacity | Readers | Payload bytes | Events in short /long input | Checkpoint byte bound |
+|---:|---:|---:|---:|---:|
+| 1 | 2 | 1,024 | 112 /448 | 2,048 |
+| 7 | 3 | 8,192 | 496 /1,984 | 65,536 |
+| 64 | 4 | 1,024 | 4,144 /16,576 | 66,560 |
+
+Every run measures 16 or 64 checkpoints, verifies the ring high-water mark and requires no live
+payloads after the readers finish and their current references are released. Release and Debug pass
+all six cases on .NET 8 and 10. A separate source-verified copy with consumed-slot clearing disabled
+fails all six cases; restoring and rebuilding that copy passes all six again. The mutation changes
+retention without changing the supplied event sequence and is never adopted in the working branch.
+
+`StreamedAccumulatorLifetimeTests` exercises the actual initial-source observer with the existing
+native-rule fixture, a generated non-seekable input and both before/after values. At 65,536 bytes
+(569 records) and 1,048,576 bytes (9,117 records), sampled live per-row state remains at most one row
+frame, one observer-metadata object and two tracked scalar phase lists. Moving the focus to the root
+and closing the source releases all tracked row frames/metadata; the final root after-value may
+legitimately retain one scalar list. The caller-owned generated stream remains open.
+
+These measurements cover fixed-size scalar state and the specified payload model. Explicitly retained
+copies, variable-sized accumulator values, XML ancestor/header metadata, parser buffers, reference-array
+and object overhead, and buffered prong output need their own accounting. They do not replace the
+full-lifetime managed-heap/RSS counters or the original sixteen-workload acceptance matrices. The
+streamed merge also retains its current equal-key group, as the original design specifies; a bound
+for that path must include the group size and snapshot payload rather than only one lookahead per input.
+
+Evidence: `artifacts/p7-completion/state-bounds-final-{release,debug}` TRX files retain each measurement.
+The isolated mutation/control and source hashes are in `artifacts/p7-completion/tee-payload-f8915f6`.
 
 ## Non-forwarding case review
 

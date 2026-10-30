@@ -2015,3 +2015,36 @@ translation regression are retained beside the corrected results. Evidence:
 
 Full P7 remains open: original memory/throughput targets, complete construct and state-bound evidence,
 full-branch review, public integration, final-source hosted CI, merge and release are still required.
+
+### Measured tee and scalar accumulator retention, 2026-10-30
+
+New unit-only measurements address two parts of the original S5/S6 state-bound evidence. The
+[contract map](p7-runtime-contracts.md#measured-retention-with-explicit-payload-assumptions) states the
+payload, reader, source-shape and checkpoint assumptions and keeps process RSS qualification separate.
+They reuse the actual tee/caller and accumulator observer; no engine, benchmark/native probe,
+canonical fixture, heap guard, event-capacity policy or original acceptance threshold changes.
+
+Six tee cases use capacities **1 /7 /64**, **two /three /four readers**, payloads **1,024 /8,192 bytes**,
+and paired input lengths with **16 /64 checkpoints**. Every checkpoint counts reachable payload
+arrays after readers have returned from `Read`; all readers hold the same current event. Bytes equal
+`(BufferedCount + 1) * payloadBytes` and remain below the configured `(capacity + 1)` bound. Finishing
+the readers and dropping current references leaves zero live payloads. The weak-reference recorder
+is test instrumentation, not evidence of constant total process memory.
+
+A separate diagnostic copy matches all **407 runtime C#/project inputs** before disabling only
+consumed ring-slot clearing. All **six** cases fail against that deliberate retention mutation and
+pass after source restoration and rebuild. The checked-out runtime is never modified. Source hashes,
+both logs and the original source are retained in `tee-payload-f8915f6`; its managed diagnostic outputs
+are rebuilt from restored source, while the existing canonical native image is unchanged.
+
+Two accumulator cases stream exact **65,536 /1,048,576 bytes**, **569 /9,117 records**, through the
+actual initial-source observer and native rule fixture. Sample maxima stay at **one row frame /one
+metadata object /two tracked scalar phase lists**. Closing after moving to the root releases row
+frames and metadata; the root may retain its final scalar after-value. Reader input ownership is
+preserved. The shared fixture now also accepts an explicitly supplied reader. Initial fixture failures
+(the batch callback signature and padding whitespace selected as a row) are retained and corrected.
+
+Final Release and Debug related checks pass **167 .NET 10 /164 .NET 8** in each configuration,
+including all **eight** new measurement cases per framework. TRX files preserve actual measurements
+under `state-bounds-final-{release,debug}`. Generic construct/state accounting, the original absolute
+memory and throughput failures, full review/CI, public integration, merge and release remain open.

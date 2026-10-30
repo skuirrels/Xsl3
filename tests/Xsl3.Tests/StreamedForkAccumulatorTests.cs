@@ -36,6 +36,9 @@ public class StreamedForkAccumulatorTests
         internal int Starts, Ends;
 
         internal Source(string xml, bool fail = false, bool cycle = false)
+            : this(XmlReader.Create(new StringReader(xml)), fail, cycle) { }
+
+        internal Source(XmlReader input, bool fail = false, bool cycle = false)
         {
             int thread = Environment.CurrentManagedThreadId;
             var constants = new ConstantTable();
@@ -48,7 +51,7 @@ public class StreamedForkAccumulatorTests
             var data = new XmlQueryStaticData(new XmlWriterSettings(), Array.Empty<WhitespaceRule>(), new StaticDataManager()) {
                 Xslt2 = true, StreamedInitialMode = true, Constants = constants,
             };
-            Input = XmlReader.Create(new StringReader(xml));
+            Input = input;
             Runtime = new XmlQueryRuntime(data, new InitialSource(Input, null, XslCompiledTransform.AbsentInput),
                 XmlResolver.ThrowingResolver, null, new XmlCachedSequenceWriter());
             Library = Runtime.XsltFunctions;
