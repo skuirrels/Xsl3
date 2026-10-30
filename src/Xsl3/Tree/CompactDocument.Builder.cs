@@ -32,7 +32,8 @@ namespace Xsl3.Tree
             // Values: each distinct short one once.
             private string[] _values;
             private int _valueCount;
-            private readonly Dictionary<string, int>? _shared;
+            private ulong[]? _shared;
+            private int _sharedCount;
             private const int ShortValue = 32;
 
             // Open elements, and their base URIs.
@@ -75,7 +76,7 @@ namespace Xsl3.Tree
                     _local = new List<string>();
                     _uri = new List<string>();
                     _prefix = new List<string>();
-                    _shared = new Dictionary<string, int>(StringComparer.Ordinal);
+                    _shared = new ulong[4];
                     d._xmlPrefix = nameTable.Add("xml");
                     d._xmlUri = nameTable.Add(XmlReservedNs.NsXml);
                     _open = new int[16];
@@ -394,20 +395,62 @@ namespace Xsl3.Tree
 
             private int Value(string value)
             {
+                int slot = -1;
+                uint hash = 0;
                 if (_shared != null && value.Length <= ShortValue)
                 {
-                    if (_shared.TryGetValue(value, out int id))
+                    hash = unchecked((uint)StringComparer.Ordinal.GetHashCode(value));
+                    slot = SharedSlot(value, hash, _shared);
+                    int existing = (int)(_shared[slot] & uint.MaxValue) - 1;
+                    if (existing >= 0) return existing;
+                    if (_sharedCount >= _shared.Length - _shared.Length / 4)
                     {
-                        return id;
+                        GrowShared();
+                        slot = SharedSlot(value, hash, _shared);
                     }
-                    _shared[value] = _valueCount;
                 }
                 if (_valueCount == _values.Length)
-                {
                     Array.Resize(ref _values, _valueCount * 2);
+                int id = _valueCount;
+                _values[_valueCount++] = value;
+                if (slot >= 0)
+                {
+                    _shared![slot] = ((ulong)hash << 32) | (uint)(id + 1);
+                    _sharedCount++;
                 }
-                _values[_valueCount] = value;
-                return _valueCount++;
+                return id;
+            }
+
+            // Zero is empty. Other entries pair an ordinal hash with a value-array
+            // index, avoiding duplicate string references and collision string loads.
+            private int SharedSlot(string value, uint hash, ulong[] slots)
+            {
+                int mask = slots.Length - 1;
+                int slot = (int)(hash & (uint)mask);
+                while (slots[slot] != 0)
+                {
+                    ulong entry = slots[slot];
+                    if ((uint)(entry >> 32) == hash && string.Equals(_values[(int)(entry & uint.MaxValue) - 1], value, StringComparison.Ordinal)) return slot;
+                    slot = (slot + 1) & mask;
+                }
+                return slot;
+            }
+
+            private void GrowShared()
+            {
+                ulong[] previous = _shared!;
+                if (previous.Length > Array.MaxLength / 2) throw new OutOfMemoryException();
+                var expanded = new ulong[previous.Length * 2];
+                int mask = expanded.Length - 1;
+                foreach (ulong entry in previous)
+                {
+                    if (entry == 0) continue;
+                    int slot = (int)((entry >> 32) & (uint)mask);
+                    // Previous entries are unique; resizing only needs to place them.
+                    while (expanded[slot] != 0) slot = (slot + 1) & mask;
+                    expanded[slot] = entry;
+                }
+                _shared = expanded;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

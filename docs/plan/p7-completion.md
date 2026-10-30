@@ -631,3 +631,80 @@ Their evidence is under `schema-lazy-prototype`, `fork-spin-prototype` and `fork
 
 Full P7 remains active: Linux push memory, the full throughput target, the 1 GB tree comparisons,
 actual-forwarding and integration evidence, final review, merge and release remain required.
+
+### Completed targeted-wakeup qualification at fab882f
+
+The local NativeAOT matrices are terminal. Push passes **16/16 workloads / 48 children** with
+maximum peak **20,480,000 bytes**; nightly passes the same full population with maximum peak
+**26,492,928 bytes**. The local 100 MB throughput matrix validates all **42 observations**. Fork
+still fails the original target at **3.542325 stream/tree**; the other six medians pass this cohort.
+The original budgets, inputs and counters are unchanged. Evidence is under `native-targeted-wakeup`.
+
+[Ordinary CI for fab882f](https://github.com/skuirrels/Xsl3/actions/runs/40982585852) is terminal and
+passes Linux, Windows, NativeAOT and the ordinary performance gate. The separate
+[hosted P7 qualification](https://github.com/skuirrels/Xsl3/actions/runs/40982648282) retains its
+original failures. Downloaded archive digests match GitHub's published artifact digests:
+
+- Linux push passes **0/16 budgets**, with process-lifetime peaks **21,684,224–25,137,152 bytes**.
+  Fourteen transformations consume the exact input and validate output. Merge and fork exceed the
+  budget during startup/warmup and stop before the measured input, so these two are not completed
+  transformations or valid throughput observations.
+- Linux nightly passes **16/16 workloads / 48 children**, with exact 2 GiB inputs, both original
+  memory counters and maximum peak **40,337,408 bytes**.
+- The hosted benchmark has **105 valid observations / 126 attempts**. All twenty-one 1 GB tree
+  attempts throw `OutOfMemoryException` under the original **4 GiB heap guard**. The invalid trials
+  and their complete error output are retained. At 100 MB, identity, fork and source-document
+  still fail the original throughput target at **1.034118**, **3.134382** and **1.032397** respectively.
+
+Raw hosted evidence is under `targeted-wakeup-linux-push`, `targeted-wakeup-linux-nightly` and
+`targeted-wakeup-linux-benchmark`. These outcomes do not qualify full P7 or public streaming support.
+
+### Compact value-pool investigation
+
+The 1 GB tree failures initially occur while growing compact-tree arrays. The full-tree builder also
+owns a dictionary of short strings that are already retained in its value array. An isolated
+hash/index table preserves the existing ordinal equality, complete interning, stable value indices
+and 32-character boundary while eliminating those duplicated key references. Its four-entry initial
+table also avoids a large up-front cache for small documents. No cache cap, eviction or fixture-specific
+behavior is introduced.
+
+The reviewed isolated candidate passes full Release/Debug units, **4,427 on .NET 10 / 4,070 on
+.NET 8**, per configuration. These runs include a hash-bucket collision/growth regression. An
+additional full-hash collision regression derives a pair using the current process's randomized
+ordinal comparer; all eight value-pool tests pass on both frameworks. The published native probe
+retains the same 32 saved entry points and corpus definitions.
+
+Serial alternating 100 MB controls validate all **42 native observations** across seven workloads,
+plus **six JIT identity observations**. Native identity peak RSS median falls from **381,140,992** to
+**345,309,184 bytes**; JIT identity falls from **488,898,560** to **410,697,728 bytes**. Other native
+memory outcomes vary by workload, including a small increase for fork. Native adjacent grouping
+is **4.6% slower**, confirmed at **4.4%** in a second six-observation cohort. A native sample shows
+the table lookup and ordinal hashing on the hot path. Explicit lookup inlining, mixed single-unit
+hashes and direct ASCII-value slots are retained as separate experimental variants. Their additional
+18/18/42/42-observation cohorts validate output but do not consistently eliminate the grouping cost.
+Those extra policies are excluded from the branch; a memory saving alone does not establish a
+throughput win or waive an ordinary performance or original streaming qualification gate.
+
+A one-round diagnostic runs all seven JIT tree workloads at exact 1 GB input and the original
+4 GiB heap guard. Identity, iterate and source-document validate output; adjacent, accumulator,
+merge and fork still throw `OutOfMemoryException`. Their retained stacks now identify grouping tuple
+clones, grounded accumulator phase dictionaries, snapshot copy-origin storage and temporary result
+text construction. This is **3/7 diagnostic successes**, not the required twenty-one hosted tree
+observations or complete benchmark acceptance. All raw trials, errors, original images, patches and
+hashes remain under `tree-hash-index-prototype`. The earlier index-only attempt and its observed
+1 GB slowdown remain separately retained under `tree-index-prototype`.
+
+The branch now incorporates the simpler reviewed hash/index runtime. Its runtime source digest
+matches the measured `bin-reviewed` image exactly. Eleven public-loader regressions cover full-hash
+collisions, bucket collisions through growth and wraparound, repeated attribute/text values, ASCII and Unicode
+single-unit values, mixed long/short value indices, ordinal distinctions and the 31/32/33-unit
+boundary. The single-unit regressions also apply to the ordinary randomized-hash table; they do not
+enable any experimental special-key policy. Final-source compatibility and hosted qualification
+remain required, including the unresolved tree-grouping timing cost and four large-tree failures.
+
+Final branch Release and Debug unit suites each pass **4,431 on .NET 10 / 4,074 on .NET 8**. Complete
+strict inventories run through both the public API and the legacy API with saved sampling, in both
+configurations. All four retain **2,695 pass / 16 fail / 1 not run**, zero unmatched error codes and
+passing frozen-case audits. The tested engine copies and JSONL fingerprints are independently
+checked; evidence uses the `compact-pool-*` prefix. These inventory checks preserve the full raw
+population but do not prove actual forwarding or close any original P7 acceptance requirement.
