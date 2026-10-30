@@ -102,7 +102,7 @@ public partial class Xslt30RunTests
         string? caseReportPath = Environment.GetEnvironmentVariable("XSL3_XSLT30_RESULTS");
         using RuntimeCaseReport? caseReport = caseReportPath == null ? null : new RuntimeCaseReport(
             caseReportPath, root, requestedProfile ?? "3.0", Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1",
-            captureSources: Environment.GetEnvironmentVariable("XSL3_XSLT30_FORWARDING") == "1");
+            captureSources: Environment.GetEnvironmentVariable("XSL3_XSLT30_FORWARDING") == "1", captureEvaluation: true);
         bool Selected(Xslt30.TestCase t) => sandp ? Requires(t, "sweep_and_posture", "supports-sweep-and-posture-assessments")
             : strm ? Requires(t, "feature", "streaming") : !sa || Requires(t, "feature", "schema_aware");
         foreach (Xslt30.TestCase test in catalog.TestCases.Where(profile.Applies).Where(Routine).Where(Selected).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
@@ -112,8 +112,9 @@ public partial class Xslt30RunTests
                 File.AppendAllText(trace, test.Id + Environment.NewLine);
             }
             using var sourceCapture = caseReport?.CaptureCase();
-            Outcome outcome = runner.Run(test);
-            caseReport?.Record(test, outcome, sourceCapture);
+            var evaluation = caseReport?.CaptureEvaluation();
+            Outcome outcome = evaluation == null ? runner.Run(test) : runner.Run(test, evaluation.Observe);
+            caseReport?.Record(test, outcome, sourceCapture, evaluation);
             int[] counts = perSet.TryGetValue(test.Set.Name, out int[]? c) ? c : perSet[test.Set.Name] = new int[3];
             counts[(int)outcome.Kind]++;
             foreach (Xslt30.Dependency d in test.EffectiveDependencies.Where(d => d.Satisfied && d.Type is "spec" or "feature"))

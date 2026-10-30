@@ -1978,3 +1978,40 @@ report's descriptive 5% comparison band does not waive the original target. Evid
 Required CI **41110967828** passes all four jobs for preceding documentation commit `d90ffb3`.
 The new unit contracts require their own hosted CI. Original push memory, throughput, complete
 applicability/state-bound evidence, full-branch review, public integration, merge and release remain open.
+
+### Primary diagnostics and non-forwarding case review, 2026-10-30
+
+The optional runtime report now captures the actual evaluation result before assertion checking,
+including primary compilation/runtime diagnostics and declared principal-source metadata. The observer
+is bound to one invocation, so a late worker cannot populate the following case's observation. Legacy
+compilation reads the actual first non-warning compiler diagnostic; legacy dynamic exceptions use the
+existing public API translation. Assertions do not provide the observed code or alter the verdict.
+CI requires complete, well-formed observations independently of the original forwarding minimum.
+
+Four fresh Release/Debug API/legacy runs preserve every underlying case record, **2,695 pass /16 fail
+/one not run**, zero unmatched codes, **2,459** stylesheet-forward cases and the same source observations.
+Each records **2,442 returned evaluations /269 errors /one unobserved collection case**. Primary codes,
+compilation/runtime classification and initial-source declarations agree across all four runs. Tested
+Release/Debug PDBs match **47 runtime and six harness files**. Runtime and native/benchmark inputs are
+unchanged; this checkpoint does not introduce a new performance candidate.
+
+The [253-case review](p7-runtime-nonforward-review.csv) retains exact case identities and definition
+fingerprints. Of the cases without stylesheet forwarding, **156** raise an expected compilation error,
+**eight** an expected dynamic error, **76** receive tree/absent principal input and **six** explicitly
+invoke a nonstreamed mode despite being supplied a reader. Every observed error code matches a pinned
+error assertion. The remaining **six failures and one collection skip remain unchanged**. No case is
+removed or relabeled as passing. The contract map distinguishes this accounting from complete static
+applicability and S3–S6 retained-state qualification.
+
+Final Release legacy and Debug API report/coverage checks each pass **18** checks; all four fresh
+inventories also execute the report contracts. Original and
+reviewed S2 runs also pass their established gates in Release and Debug: the reviewed suite remains
+**155/155** with **152 exact codes /three allowed results**; the original remains **153 pass /two retained
+fixture failures**, with no new mismatch. The full Python harness passes **75 tests**, with one
+Linux-only skip on macOS. Initial compiler-type import errors and the missing legacy dynamic-code
+translation regression are retained beside the corrected results. Evidence:
+`artifacts/p7-completion/evaluation-observation-de179f8`, `evaluation-report-*.log` and
+`evaluation-python-full.log`.
+
+Full P7 remains open: original memory/throughput targets, complete construct and state-bound evidence,
+full-branch review, public integration, final-source hosted CI, merge and release are still required.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retain actual primary compiler/runtime diagnostics and initial-source declarations in optional
+  conformance exports. Require complete evaluation observations in strict CI audits and document
+  every case without forwarding evidence while preserving raw outcomes and the original inventory.
 - Verify physical input reads and actual sink emission for all seven canonical streaming workloads
   through both APIs and saved execution. Guard incremental reads against eager consumption, preserve
   complete-input accumulator/iterate totals, and validate original independent output fingerprints.

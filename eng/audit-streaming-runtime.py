@@ -268,11 +268,64 @@ def audit_forwarding(header, cases, required=False, require_stylesheet=False):
                 Scope='Observed command executions and source representations only; stylesheet applicability, physical reads, bounds and full P7 acceptance require separate evidence.')
 
 
-def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False, require_stylesheet_forwarding=False):
+def audit_evaluation(header, cases, required=False):
+    captured = header.get('EvaluationCaptured', False)
+    if type(captured) is not bool:
+        raise ValueError('Invalid evaluation capture declaration')
+    if not captured:
+        if required or any('Evaluation' in row or 'DeclaredInitialSources' in row for row in cases.values()):
+            raise ValueError('An evaluation capture is required for this evidence')
+        return None
+    counts = Counter()
+    observations = {}
+    for case, row in cases.items():
+        entry = row.get('Evaluation')
+        if not isinstance(entry, dict) or not {'Status', 'ExceptionType', 'Diagnostic'} <= entry.keys():
+            raise ValueError(f'Missing evaluation observation: {case}')
+        status = entry['Status']
+        if status not in ('NotObserved', 'Returned', 'Error'):
+            raise ValueError(f'Invalid evaluation status: {case}')
+        diagnostic = entry['Diagnostic']
+        if status != 'Error':
+            if diagnostic is not None or entry['ExceptionType'] is not None:
+                raise ValueError(f'An evaluation without an error cannot claim a diagnostic: {case}')
+            if status == 'NotObserved' and row['Outcome'] == 'Pass':
+                raise ValueError(f'A passing runtime case has no evaluation observation: {case}')
+        else:
+            if not isinstance(entry['ExceptionType'], str) or not entry['ExceptionType']:
+                raise ValueError(f'Missing evaluation exception type: {case}')
+            if (not isinstance(diagnostic, dict)
+                    or not {'Code', 'IsStatic', 'ModuleUri', 'Line', 'Column', 'Reason'} <= diagnostic.keys()
+                    or type(diagnostic['IsStatic']) is not bool):
+                raise ValueError(f'Missing primary diagnostic: {case}')
+            if diagnostic['Code'] is not None and (not isinstance(diagnostic['Code'], str)
+                    or not re.fullmatch(r'Q\{[^{}]*\}[^\s{}:]+', diagnostic['Code'])):
+                raise ValueError(f'Invalid primary diagnostic code: {case}')
+            if any(type(diagnostic[key]) is not int or diagnostic[key] < 0 for key in ('Line', 'Column')):
+                raise ValueError(f'Invalid primary diagnostic location: {case}')
+            if any(diagnostic[key] is not None and not isinstance(diagnostic[key], str) for key in ('ModuleUri', 'Reason')):
+                raise ValueError(f'Invalid primary diagnostic text: {case}')
+        sources = row.get('DeclaredInitialSources')
+        if not isinstance(sources, list):
+            raise ValueError(f'Missing declared initial-source metadata: {case}')
+        for source in sources:
+            if (not isinstance(source, dict) or not {'Streaming', 'Select', 'Validation', 'HasDocument'} <= source.keys()
+                    or any(type(source[key]) is not bool for key in ('Streaming', 'HasDocument'))
+                    or any(source[key] is not None and not isinstance(source[key], str) for key in ('Select', 'Validation'))):
+                raise ValueError(f'Invalid declared initial-source metadata: {case}')
+        counts[status] += 1
+        observations[case] = dict(Evaluation=entry, DeclaredInitialSources=sources)
+    return dict(Verified=True, CapturedCases=len(cases), StatusCounts=dict(counts), Cases=observations,
+                Scope='Primary evaluation results before assertions and source declarations; observations do not assign static applicability or waive failures.')
+
+
+def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False, require_stylesheet_forwarding=False,
+          require_evaluation=False):
     if revision is not None:
         verify_suite(suite, revision)
     header, cases, complete = load_report(report, suite, engine)
     forwarding = audit_forwarding(header, cases, require_forwarding, require_stylesheet_forwarding)
+    evaluation = audit_evaluation(header, cases, require_evaluation)
     current = inventory(header, cases)
     current['SuiteRevision'] = revision
     if manifest is not None:
@@ -314,6 +367,8 @@ def audit(report, suite, manifest=None, engine=None, revision=None, require_forw
                'Scope': 'Inventory and reported outcomes only; forward execution and full P7 acceptance require separate evidence.'}
     if forwarding is not None:
         summary['Forwarding'] = forwarding
+    if evaluation is not None:
+        summary['Evaluation'] = evaluation
     return summary, current
 
 
@@ -325,6 +380,7 @@ def main():
     parser.add_argument('--engine', type=Path)
     parser.add_argument('--require-forwarding', action='store_true', help='Require complete actual runtime source-representation captures')
     parser.add_argument('--require-stylesheet-forwarding', action='store_true', help='Require explicit command stages and actual forwarding during stylesheet execution')
+    parser.add_argument('--require-evaluation', action='store_true', help='Require primary evaluation diagnostics and declared initial-source metadata for every case')
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--manifest', type=Path)
     choice.add_argument('--write-manifest', type=Path, help='Freeze a reviewed complete selection; never overwrite')
@@ -337,7 +393,8 @@ def main():
             revision = json.loads(args.manifest.read_text(encoding='utf-8')).get('SuiteRevision')
         if not isinstance(revision, str):
             raise ValueError('An immutable suite revision is required')
-        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding, args.require_stylesheet_forwarding)
+        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding,
+                               args.require_stylesheet_forwarding, args.require_evaluation)
         if args.write_manifest:
             if args.expected_count is None or len(frozen['Cases']) != args.expected_count:
                 raise ValueError('Initial inventory requires a matching reviewed expected count')

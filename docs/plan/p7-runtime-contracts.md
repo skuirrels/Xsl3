@@ -56,17 +56,48 @@ buffers, explicitly retained copies and prong output must also be accounted for.
 attribute payloads cannot acquire a constant byte bound merely from a passing ring-count assertion.
 XSLT's permitted fork output buffering is distinct from the shared input bound.
 
-## Whole-suite applicability remains open
+## Non-forwarding case review
 
 The retained runtime inventory still contains all 2,712 cases. The four latest strict captures preserve
 the same 2,459 cases with stylesheet-stage forward sources. Of the other 253 cases, 144 have no
 stylesheet-stage command and 109 have stylesheet commands without an observed forward source. Their
 outcomes are 246 pass, six fail and one not run. These are observation categories, not exclusions.
 
-Each requires an applicability disposition grounded in the pinned case inputs, entry point, strict
-analysis and actual diagnostic. A passing expected-error case or a tree-supplied input can be valid,
-but aggregate pass counts cannot establish that disposition. The frozen forwarding minimum prevents
-loss of existing evidence; it does not establish the static obligation for every case.
+The [253-case review](p7-runtime-nonforward-review.csv) now records each identity, original definition
+fingerprint, actual primary diagnostic, outcome and disposition. Fresh Release/Debug API and legacy
+captures preserve all underlying case records and forwarding observations. They add the evaluation
+result before assertions and the initial-source declarations read by the ordinary runner.
 
-Source evidence: `artifacts/p7-completion/writer-callback-662d326/forwarding-final-*.jsonl` and their
-audits. Original fixtures and `docs/plan/p7-runtime-inventory.json` are unchanged.
+| Disposition | Cases | Evidence |
+|---|---:|---|
+| Expected compilation error | 156 | Actual primary compiler code matches a pinned error assertion |
+| Expected dynamic error | 8 | Actual primary runtime code matches a pinned error assertion |
+| Tree or absent principal input | 76 | Stylesheet commands receive tree/absent inputs and no streaming principal source is declared |
+| Explicit nonstreamed initial mode | 6 | Supplied readers are paired with a nonstreamed invoked mode; exact declarations/static parameters are recorded per case |
+| Retained failure | 6 | Four compilation failures, the pending streaming feature claim and a schema-validation mismatch remain failures |
+| Retained collection skip | 1 | The existing unavailable collection environment remains not run |
+
+The six reader controls are accumulator-033s, -036, -044s and -045s, si-group-057-ns and si-fork-812ns.
+Their modes specify `streamable="no"`, omit the attribute, or use the test's explicit false/no static
+parameter. This agrees with [XSLT 3.0 modes](https://www.w3.org/TR/xslt-30/#modes). Tree-supplied inputs
+need not be forwarded, while static streamability analysis still applies
+([streamability guarantees](https://www.w3.org/TR/xslt-30/#streamability-guarantees)).
+
+The review does not remove cases, change assertions, change the denominator or waive a failure.
+It accounts for the missing forwarding observations; it does not establish every original S3–S6
+construct's static/runtime obligations or retained-state bounds. Those mappings remain open alongside
+the original memory and throughput targets.
+
+`RuntimeCaseReport`'s optional evaluation observer belongs to one runner invocation, including if a
+worker finishes late after timeout. The export keeps `Returned`, `Error` and `NotObserved` distinct.
+It reads the actual primary compiler diagnostic and reuses the public API's dynamic-error translation
+for legacy exceptions; expected assertion codes never supply a diagnostic. A returned evaluation can
+still fail an assertion. Deferred replay/assertion failures remain visible in the case outcome and
+forwarding capture; this field describes the evaluation before assertion checking.
+
+CI now requires `--require-evaluation`. Missing or malformed observations, undeclared capture data,
+coerced source flags and a passing runtime case with no observed evaluation fail the audit. The
+frozen forwarding minimum still independently protects every previously forwarding case.
+
+Source evidence: `artifacts/p7-completion/evaluation-observation-de179f8/{release,debug}-{api,legacy}.jsonl`,
+their audits and `comparison.json`. Original fixtures and `p7-runtime-inventory.json` are unchanged.

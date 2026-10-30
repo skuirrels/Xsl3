@@ -308,6 +308,75 @@ class RuntimeAuditTests(unittest.TestCase):
             with self.subTest(minimum=minimum), self.assertRaisesRegex(ValueError, 'frozen stylesheet-forwarding'):
                 AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
 
+    def evaluation(self):
+        self.rows[0]['EvaluationCaptured'] = True
+        self.rows[1].update(Evaluation=dict(Status='Returned', ExceptionType=None, Diagnostic=None),
+                            DeclaredInitialSources=[dict(Streaming=True, Select=None, Validation=None, HasDocument=True)])
+
+    def evaluation_check(self):
+        self.write()
+        return AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_evaluation=True)[0]
+
+    def test_evaluation_observations_are_complete_and_separate_from_applicability(self):
+        with self.assertRaisesRegex(ValueError, 'evaluation capture'):
+            self.evaluation_check()
+        self.evaluation()
+        result = self.evaluation_check()['Evaluation']
+        self.assertEqual({'Returned': 1}, result['StatusCounts'])
+        self.assertEqual(self.rows[1]['DeclaredInitialSources'], result['Cases']['si-copy/example']['DeclaredInitialSources'])
+        self.assertIn('do not assign static applicability', result['Scope'])
+
+    def test_evaluation_cannot_disappear_or_hide_under_an_invalid_header(self):
+        self.evaluation()
+        original = copy.deepcopy(self.rows)
+        for change in [lambda r: r[1].pop('Evaluation'), lambda r: r[1].pop('DeclaredInitialSources'),
+                       lambda r: r[0].update(EvaluationCaptured=False), lambda r: r[0].update(EvaluationCaptured=1),
+                       lambda r: r[1]['Evaluation'].update(Status='NotObserved')]:
+            self.rows = copy.deepcopy(original)
+            change(self.rows)
+            with self.subTest(rows=self.rows), self.assertRaises(ValueError):
+                self.evaluation_check()
+
+    def test_only_an_error_can_claim_a_primary_diagnostic(self):
+        self.evaluation()
+        entry = self.rows[1]['Evaluation']
+        entry.update(Status='Error', ExceptionType='XsltStaticException', Diagnostic=dict(
+            Code='Q{http://www.w3.org/2005/xqt-errors}XTSE3430', IsStatic=True,
+            ModuleUri='urn:stylesheet', Line=3, Column=7, Reason='actual primary error'))
+        self.assertEqual({'Error': 1}, self.evaluation_check()['Evaluation']['StatusCounts'])
+        original = copy.deepcopy(self.rows)
+        for change in [lambda e: e.update(Status='Returned'), lambda e: e.update(Diagnostic=None),
+                       lambda e: e.update(ExceptionType=''), lambda e: e['Diagnostic'].update(Code='XTSE3430'),
+                       lambda e: e['Diagnostic'].update(Line=True), lambda e: e['Diagnostic'].update(Column=-1),
+                       lambda e: e['Diagnostic'].update(IsStatic='true'), lambda e: e['Diagnostic'].update(ModuleUri=[]),
+                       lambda e: e['Diagnostic'].update(Reason=1)]:
+            self.rows = copy.deepcopy(original)
+            change(self.rows[1]['Evaluation'])
+            with self.subTest(rows=self.rows), self.assertRaises(ValueError):
+                self.evaluation_check()
+
+    def test_unobserved_failures_and_skips_remain_visible_without_claiming_an_error(self):
+        self.evaluation()
+        self.rows[1]['Evaluation']['Status'] = 'NotObserved'
+        frozen = json.loads(self.manifest.read_text())
+        frozen['Cases']['si-copy/example']['Outcome'] = 'NotRun'
+        self.manifest.write_text(json.dumps(frozen))
+        for outcome in ['Fail', 'NotRun']:
+            self.rows[1].update(Outcome=outcome, Detail='actual unavailable environment')
+            self.rows[-1].update(Passed=0, Failed=int(outcome == 'Fail'), NotRun=int(outcome == 'NotRun'),
+                                 NotRunReasons={} if outcome == 'Fail' else {'actual unavailable environment': 1})
+            with self.subTest(outcome=outcome):
+                self.assertEqual({'NotObserved': 1}, self.evaluation_check()['Evaluation']['StatusCounts'])
+
+    def test_declared_source_flags_and_optional_text_are_not_coerced(self):
+        self.evaluation()
+        original = copy.deepcopy(self.rows)
+        for field, value in [('Streaming', 1), ('HasDocument', 'yes'), ('Select', []), ('Validation', True)]:
+            self.rows = copy.deepcopy(original)
+            self.rows[1]['DeclaredInitialSources'][0][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'initial-source metadata'):
+                self.evaluation_check()
+
 
 if __name__ == '__main__':
     unittest.main()

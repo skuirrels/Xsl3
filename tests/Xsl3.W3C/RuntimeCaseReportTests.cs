@@ -81,6 +81,80 @@ public sealed class RuntimeCaseReportTests : IDisposable
     }
 
     [Fact]
+    public void EvaluationEnabledReportsRequireTheirOwnCaseCapture()
+    {
+        using var report = new RuntimeCaseReport(Path.Combine(_root, "missing-evaluation.jsonl"), _root, "strm", true, captureEvaluation: true);
+        Assert.Throws<InvalidOperationException>(() => report.Record(Catalog.Load(_root).TestCases.Single(), Outcome.Pass()));
+    }
+
+    [Fact]
+    public void EvaluationCapturesDoNotShareLateResultsOrMutableCompilerDiagnostics()
+    {
+        var previous = new RuntimeCaseReport.EvaluationCapture();
+        var next = new RuntimeCaseReport.EvaluationCapture();
+        next.Observe(null, null);
+        var diagnostic = new Xsl3.Xslt.CompilerError("urn:original", 3, 7, "", "XTSE0010: original error");
+        var errors = new Xsl3.Xslt.CompilerErrorCollection { diagnostic };
+        previous.Observe(new InvalidOperationException("outer message mentions XTSE3430"), errors);
+        diagnostic.ErrorText = "XTSE3430: changed error";
+        Assert.Equal("Returned", next.Snapshot().Status);
+        var actual = previous.Snapshot();
+        Assert.Equal("Error", actual.Status);
+        Assert.Equal("Q{http://www.w3.org/2005/xqt-errors}XTSE0010", actual.Diagnostic!.Code);
+        Assert.Equal("urn:original", actual.Diagnostic.ModuleUri);
+        Assert.Equal(3, actual.Diagnostic.Line);
+        Assert.Equal(7, actual.Diagnostic.Column);
+        Assert.Throws<InvalidOperationException>(() => previous.Observe(null, null));
+    }
+
+    [Theory]
+    [InlineData("static", "Error", "XTSE0545")]
+    [InlineData("dynamic", "Error", "FOAR0001")]
+    [InlineData("result", "Returned", null)]
+    [InlineData("skip", "NotObserved", null)]
+    public void ActualEvaluationIsRecordedBeforeCheckingTheExpectedAssertion(string kind, string status, string? code)
+    {
+        File.WriteAllText(Path.Combine(_root, "source.xml"), "<doc/>");
+        string declarations = kind == "static" ? "<xsl:mode name='m' streamable='yes'/><xsl:mode name='m' streamable='no'/>" : "";
+        string expression = kind == "dynamic" ? "1 div 0" : "42";
+        File.WriteAllText(Path.Combine(_root, "style.xsl"), $$"""
+            <xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
+              {{declarations}}<xsl:template match='/'><xsl:sequence select='{{expression}}'/></xsl:template>
+            </xsl:stylesheet>
+            """);
+        string unsupported = kind == "skip" ? "<collection uri='urn:unavailable'/>" : "";
+        string assertion = code == null ? "<assert>true()</assert>" : "<error code='" + code + "'/>";
+        File.WriteAllText(Path.Combine(_root, "set.xml"), $$"""
+            <test-set xmlns="{{Catalog.Ns}}" name="si-copy"><test-case name="evaluation">
+              <environment><source role="." file="source.xml" streaming="yes"/>{{unsupported}}</environment>
+              <test><stylesheet file="style.xsl"/></test><result>{{assertion}}</result>
+            </test-case></test-set>
+            """);
+        var test = Catalog.Load(_root).TestCases.Single();
+        var runner = new Xsl3.W3C.Xslt30.Runner();
+        Outcome control = runner.Run(test);
+        string path = Path.Combine(_root, "evaluation.jsonl");
+        using (var report = new RuntimeCaseReport(path, _root, "strm", true, captureEvaluation: true))
+        {
+            var capture = report.CaptureEvaluation()!;
+            Outcome observed = runner.Run(test, capture.Observe);
+            Assert.Equal(control, observed);
+            report.Record(test, observed, evaluation: capture);
+        }
+        using var row = JsonDocument.Parse(File.ReadAllLines(path)[1]);
+        var evidence = row.RootElement.GetProperty("Evaluation");
+        Assert.Equal(status, evidence.GetProperty("Status").GetString());
+        if (code != null)
+        {
+            var diagnostic = evidence.GetProperty("Diagnostic");
+            Assert.Equal("Q{http://www.w3.org/2005/xqt-errors}" + code, diagnostic.GetProperty("Code").GetString());
+            Assert.Equal(kind == "static", diagnostic.GetProperty("IsStatic").GetBoolean());
+        }
+        else Assert.Equal(JsonValueKind.Null, evidence.GetProperty("Diagnostic").ValueKind);
+        Assert.True(row.RootElement.GetProperty("DeclaredInitialSources")[0].GetProperty("Streaming").GetBoolean());
+    }
+
+    [Fact]
     public void ForwardingReportRetainsTheRuntimeRepresentation()
     {
         string path = Path.Combine(_root, "forwarding.jsonl");
