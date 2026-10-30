@@ -1687,3 +1687,80 @@ The actual native/managed binaries, controller hashes and immutable-source PDB c
 Evidence is under `contracts-linux-{push,nightly,benchmark}-260236b`. These hosted results qualify
 that preceding runtime, not the observation implementation. Current-source CI and original acceptance
 remain required; public integration, full review, merge and release remain open.
+
+
+### Fork publication-wait experiment and current hosted push, 2026-10-30
+
+A fresh native fork sample uses the committed `784408a` macOS image and validates a full
+1,000,000,000-byte transformation. Its sampling overhead excludes it from canonical timings.
+Both prongs frequently wait for source publication; waiting stack samples alone do not measure
+CPU waste. An isolated candidate tests the BCL's bounded optimistic `SpinWait` before parking,
+without custom spin counts, new buffers, capacity changes or moving source I/O and callbacks.
+
+The candidate passes focused Release and Debug contracts on both frameworks (**121 .NET 10 /
+120 .NET 8**, each configuration). Review fixes a redundant `Volatile.Read` on an already volatile
+field; the earlier warning and the sandbox-denied test-runner attempt remain retained. The final
+native PDB matches all **47 changed runtime sources**; among **428 runtime/probe inputs**, only
+`StreamTee.cs` differs from the committed baseline.
+
+Twelve alternating Linux ARM64 native observations validate unchanged 100 MB inputs, identical
+output fingerprints and effective **4 GiB** guards. With two CPUs, baseline/candidate median
+elapsed times are **6,470.499 /6,519.738 ms** and CPU times **7,356.110 /8,377.938 ms**. With one
+CPU, elapsed medians are **10,681.398 /10,641.018 ms** and CPU medians **10,798.710 /10,749.427 ms**.
+The candidate provides no material elapsed-time benefit and increases two-CPU consumption by
+**13.89%**. It is rejected, its extra synchronization is not adopted, and the disposable source
+copy is restored. Raw trials, source patch, binary hashes, PDB and decision remain under
+`artifacts/p7-completion/tee-publication-spin-784408a/`. These controls do not satisfy canonical
+throughput or memory acceptance.
+
+Current-source hosted acceptance run **41087810596** has completed its original push job. An
+independent audit validates all **48 children**, **32 controls**, **16 full measured outputs**,
+preceding output fingerprints, the original **209,715,200-byte inputs**, effective **20,971,520-byte**
+guards and all **32 unchanged stylesheet sources**. Its retained PDB matches all **47 changed
+runtime C# files**. It passes **13/16 budgets**: merge **24,453,120**, fork **24,813,568** and
+source-document **23,687,168 bytes** exceed the absolute limit. The image SHA-256 is
+`582f78f5379eb89a6c6436a5d484e38946dc83cd3ba00fc35b0b861c02b39582`.
+Evidence is under `artifacts/p7-completion/contracts-linux-push-784408a/`.
+
+The same run's nightly and full paired benchmark remain under observation; neither is restarted.
+Required CI **41087738727** has successful native and ordinary performance jobs while Ubuntu and
+Windows functional jobs continue. The compact-page/value-pool, accumulator phase, grouping,
+saved-version and synchronization review records no additional established defect in the inspected
+changes; it is explicitly partial. All remaining original qualification, applicability, public
+integration, full review, merge and release requirements remain open.
+
+
+The exclusion audit now accounts for all **253 cases without an observed forward source** in
+all four Release/Debug API/legacy inventories, with identical case classifications. Of the
+**130 cases with commands**, **123** use only materialized or absent inputs; the other **seven**
+use readers with non-streamable effective initial modes, matched to their retained stylesheet
+and static-parameter reviews. All their observed initial-mode flags are false.
+
+Of the **123 cases without commands**, **118** pass their declared static errors, one passes
+`XTDE3490` for a literal nonexistent merge-source name detected during compilation, **three**
+retain their reported `XTSE3195` failures and **one** retains the collection-environment skip.
+The audit verifies the pinned clean suite, test-set and stylesheet fingerprints and the actual
+compiler branch for the literal merge-source diagnostic. It retains every case, outcome and
+reason under `forwarding-8da25f4/applicability-exclusions-audit.json`. This explains the observation
+gaps; independent principal-invocation, static streamability, physical-read and qualification
+requirements are not inferred from these classifications.
+
+
+### Producer-side control and hosted CI, 2026-10-30
+
+The separate producer-side bounded-spin control is also rejected. It passes **121 .NET 10 /
+120 .NET 8** Release contracts and its PDB matches all **47 changed runtime sources**. Of **428**
+runtime/probe inputs, only the disposable `ForkCaller.cs` differs from `784408a`. Six alternating
+two-CPU Linux ARM64 native 100 MB controls retain identical outputs and original **4 GiB** guards.
+Baseline/candidate median elapsed times are **6,506.052 /6,509.850 ms** and CPU times
+**7,417.486 /7,917.651 ms**. The negligible elapsed difference and **6.74%** CPU increase do not
+justify the extra waiting protocol. The source copy is restored, and no further spin variants are
+planned without new evidence. Debug and single-CPU candidate runs are unnecessary for this rejected
+implementation; they are not claimed. Evidence: `caller-publication-spin-784408a`.
+
+Required hosted CI **41087738727** is now terminal with all four jobs successful: Ubuntu, Windows,
+NativeAOT and ordinary performance. It validates source commit `784408a`. Subsequent documentation
+records do not change runtime/probe inputs, fixtures, selectors or acceptance limits. The original
+acceptance run **41087810596** remains independent: its push result is the audited **13/16**, and
+its nightly and full paired benchmark continue under their original handles. Full P7 qualification,
+public integration, final full-branch review, merge and release are still required.
