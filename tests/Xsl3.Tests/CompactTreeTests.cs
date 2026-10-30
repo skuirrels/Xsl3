@@ -87,6 +87,8 @@ public class CompactTreeTests
     [Theory]
     [InlineData(513)]
     [InlineData(5000)]
+    [InlineData(33000)]
+    [InlineData(66000)]
     public void LargeTreesKeepContentAttributesAndAxesAcrossColumnGrowth(int rows)
     {
         var xml = new StringBuilder("<doc xmlns:p='urn:outer'>");
@@ -105,7 +107,7 @@ public class CompactTreeTests
             Assert.Equal(e.LookupNamespace("q"), a.LookupNamespace("q"));
             var ep = e.Clone(); var ap = a.Clone();
             Assert.Equal(ep.MoveToParent(), ap.MoveToParent());
-            Same(ep, ap);
+            Same(ep, ap, value: false);
             ep = e.Clone(); ap = a.Clone();
             Assert.Equal(ep.MoveToNext(), ap.MoveToNext());
             Same(ep, ap);
@@ -122,6 +124,17 @@ public class CompactTreeTests
         }
         Assert.False(an.MoveNext());
         Assert.Equal(rows * 8 + 2, count);
+        // The optimized named following scan must use every page, too.
+        expected.MoveToRoot(); actual.MoveToRoot();
+        count = 0;
+        while (expected.MoveToFollowing("r", ""))
+        {
+            Assert.True(actual.MoveToFollowing("r", ""));
+            Same(expected, actual);
+            count++;
+        }
+        Assert.False(actual.MoveToFollowing("r", ""));
+        Assert.Equal(rows, count);
     }
 
     /// <summary>Compares the two current nodes, then recurses into namespaces, attributes and children.</summary>
@@ -238,14 +251,14 @@ public class CompactTreeTests
         return $"{n.NodeType} {n.Name}={n.Value} (of {p.Name})";
     }
 
-    private static void Same(XPathNavigator e, XPathNavigator a)
+    private static void Same(XPathNavigator e, XPathNavigator a, bool value = true)
     {
         Assert.Equal(e.NodeType, a.NodeType);
         Assert.Equal(e.LocalName, a.LocalName);
         Assert.Equal(e.NamespaceURI, a.NamespaceURI);
         Assert.Equal(e.Prefix, a.Prefix);
         Assert.Equal(e.Name, a.Name);
-        Assert.Equal(e.Value, a.Value);
+        if (value) Assert.Equal(e.Value, a.Value);
         Assert.Equal(e.BaseURI, a.BaseURI);
         Assert.Equal(e.IsEmptyElement, a.IsEmptyElement);
         Assert.Equal(e.HasAttributes, a.HasAttributes);

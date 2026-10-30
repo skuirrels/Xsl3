@@ -317,7 +317,7 @@ namespace Xsl3.Tree
                     int open = _open[--_depth];
                     if (open != None)
                     {
-                        _doc._end[open] = _doc._count;
+                        _doc.EndAt(open) = _doc._count;
                     }
                 }
                 if (_doc._count == 0 && _doc._attrCount == 0 && _doc._nsCount == 0)
@@ -458,15 +458,15 @@ namespace Xsl3.Tree
             {
                 CompactDocument d = _doc;
                 int i = d._count;
-                if (i == d._kind.Length)
+                if (i == d.NodeCapacity)
                 {
                     Grow();
                 }
-                d._kind[i] = (byte)kind;
-                d._parent[i] = parent;
-                d._end[i] = i + 1;
-                d._name[i] = name;
-                d._data[i] = data;
+                d.KindAt(i) = (byte)kind;
+                d.ParentAt(i) = parent;
+                d.EndAt(i) = i + 1;
+                d.NameAt(i) = name;
+                d.DataAt(i) = data;
                 d._count = i + 1;
                 return i;
             }
@@ -474,9 +474,20 @@ namespace Xsl3.Tree
             private void Grow()
             {
                 CompactDocument d = _doc;
-                // Full input trees favor denser columns and smaller resize peaks.
-                // Tiny temporary trees retain their existing doubling policy.
-                long proposed = _pool == null ? d._kind.Length + d._kind.Length / 2L : d._kind.Length * 2L;
+                if (d._nodePages != null)
+                {
+                    d._nodePages.Add();
+                    return;
+                }
+                if (_pool == null && d._kind.Length == NodePages.Length)
+                {
+                    var pages = new NodePages(d);
+                    pages.Add();
+                    d._nodePages = pages;
+                    return;
+                }
+                // Temporary trees retain flat arrays; full inputs stop resizing at one page.
+                long proposed = _pool == null ? Math.Min(d._kind.Length + d._kind.Length / 2L, NodePages.Length) : d._kind.Length * 2L;
                 int size = (int)Math.Min(proposed, Array.MaxLength);
                 if (size <= d._kind.Length) throw new OutOfMemoryException();
                 Array.Resize(ref d._kind, size);
@@ -543,11 +554,11 @@ namespace Xsl3.Tree
             {
                 FlushText();
                 int element = _open[--_depth];
-                _doc._end[element] = _doc._count;
+                _doc.EndAt(element) = _doc._count;
                 // An element written <e/>: a reader reports it; a writer allows it when the element has no children.
                 if (emptyTag && _doc._count == element + 1)
                 {
-                    _doc._kind[element] |= EmptyTag;
+                    _doc.KindAt(element) |= EmptyTag;
                 }
             }
 
@@ -572,9 +583,9 @@ namespace Xsl3.Tree
                 d._attrOwner[i] = element;
                 d._attrName[i] = name;
                 d._attrValue[i] = Value(value);
-                if (element != None && d._data[element] == None)
+                if (element != None && d.DataAt(element) == None)
                 {
-                    d._data[element] = i;
+                    d.DataAt(element) = i;
                 }
                 d._attrCount = i + 1;
                 if (_idrefs != null && element != None && _idrefs.Contains((local, prefix)))

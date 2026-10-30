@@ -172,31 +172,31 @@ namespace Xsl3.Tree
         /// <summary>The number of nodes, attributes and namespace declarations the tree holds.</summary>
         public int NodeCount => _count + _attrCount + _nsCount;
 
-        internal int Kind(int node) => _kind[node] & KindMask;
+        internal int Kind(int node) => KindAt(node) & KindMask;
 
-        internal bool IsText(int node) => (_kind[node] & KindMask) is (int)XPathNodeType.Text or (int)XPathNodeType.SignificantWhitespace or (int)XPathNodeType.Whitespace;
+        internal bool IsText(int node) => (KindAt(node) & KindMask) is (int)XPathNodeType.Text or (int)XPathNodeType.SignificantWhitespace or (int)XPathNodeType.Whitespace;
 
         /// <summary>The next sibling: the node just past this one's subtree, if that is still inside the parent's.</summary>
         internal int Next(int node)
         {
-            int parent = _parent[node];
+            int parent = ParentAt(node);
             if (parent == None)
             {
                 return None;
             }
-            int next = _end[node];
-            return next < _end[parent] ? next : None;
+            int next = EndAt(node);
+            return next < EndAt(parent) ? next : None;
         }
 
-        internal string LeafValue(int node) => _values[_data[node]];
+        internal string LeafValue(int node) => _values[DataAt(node)];
 
         /// <summary>The string value of a document or element node: its text descendants, concatenated.</summary>
         internal string StringValue(int node)
         {
-            int end = _end[node];
+            int end = EndAt(node);
             int first = node + 1;
             // The common case: a single text child.
-            if (first < end && IsText(first) && _end[first] == end)
+            if (first < end && IsText(first) && EndAt(first) == end)
             {
                 return LeafValue(first);
             }
@@ -226,7 +226,7 @@ namespace Xsl3.Tree
             {
                 // As XPathDocumentBuilder records them from writer events: the document node has the tree's base URI,
                 // elements and PIs none; other nodes take their nearest such ancestor's.
-                for (int n = node; n != None; n = _parent[n])
+                for (int n = node; n != None; n = ParentAt(n))
                 {
                     switch (Kind(n))
                     {
@@ -243,7 +243,7 @@ namespace Xsl3.Tree
             }
             if (_baseUris != null)
             {
-                for (int n = node; n != None; n = _parent[n])
+                for (int n = node; n != None; n = ParentAt(n))
                 {
                     if (_baseUris.TryGetValue(n, out string? uri))
                     {
@@ -262,13 +262,13 @@ namespace Xsl3.Tree
         /// </summary>
         internal (string Prefix, string Uri, int Owner, int Decl)[] InScopeNamespaces(int element)
         {
-            for (int n = element; n != None; n = _parent[n])
+            for (int n = element; n != None; n = ParentAt(n))
             {
                 if (_scopes != null && _scopes.TryGetValue(n, out var scope))
                 {
                     return scope;
                 }
-                if (_noInherit != null && _parent[n] != None && _noInherit.Contains(_parent[n]))
+                if (_noInherit != null && ParentAt(n) != None && _noInherit.Contains(ParentAt(n)))
                 {
                     var needed = InheritedNamespaces(n);
                     (_scopes ??= new Dictionary<int, (string, string, int, int)[]>())[n] = needed;
@@ -283,7 +283,7 @@ namespace Xsl3.Tree
 
         private (string Prefix, string Uri, int Owner, int Decl)[] InheritedNamespaces(int element)
         {
-            int parent = _parent[element];
+            int parent = ParentAt(element);
             var inherited = InScopeNamespaces(parent);
             if (_noInherit?.Contains(parent) != true) return inherited;
             // §5.7.1 propagates an ancestor's namespaces through every descendant. A
@@ -312,8 +312,8 @@ namespace Xsl3.Tree
                     list.Add((prefix, uri, element, 0));
                 }
             }
-            Need(_name[element]);
-            for (int a = _data[element]; a != None && a < _attrCount && _attrOwner[a] == element; a++)
+            Need(NameAt(element));
+            for (int a = DataAt(element); a != None && a < _attrCount && _attrOwner[a] == element; a++)
             {
                 if (_prefix[_attrName[a]].Length != 0)
                 {
@@ -466,7 +466,7 @@ namespace Xsl3.Tree
                 {
                     element++;
                 }
-                while (element < _kind.Length && Kind(element) != (int)System.Xml.XPath.XPathNodeType.Element);
+                while (element < NodeCapacity && Kind(element) != (int)System.Xml.XPath.XPathNodeType.Element);
                 System.Xml.XPath.XPathNavigator e = elements.Current!;
                 System.Xml.XPath.XPathNavigator attribute = e.Clone();
                 if (!attribute.MoveToFirstAttribute())

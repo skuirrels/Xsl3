@@ -880,3 +880,58 @@ writes after **122,880 input bytes** at both measured sizes. These controls reta
 4 GiB heap guard and correct independent outputs/native flags, but do not replace the complete
 original acceptance matrices. The native image digest and all raw trials are retained in
 `pull-merge-qualification-state.json` and `native-pull-merge/`.
+
+
+### Fixed-size pages for large source-node columns
+
+The complete preceding Linux benchmark still fails during large input-column resizes. Large source
+trees now append fixed-size pages after their first page; kind, parent, exclusive subtree end, name
+and data retain the same linear node indexes. Small source trees and temporary trees keep flat
+arrays. Attributes, namespace declarations, pooling, input generation, independent oracles and
+all acceptance limits are unchanged. Ref-returning accessors cover both layouts, including the
+optimized named following scan and accumulator traversal clocks.
+
+Isolated full Release and Debug suites each pass **4,466 on .NET 10 / 4,106 on .NET 8**. Additional
+comparisons cross the first two page boundaries and verify every content node, values, attributes,
+namespaces, parent/sibling axes and named following scans against `XPathDocument`. The expanded
+predecessor test repeatedly compared whole parent string values, making large cases quadratic;
+the interrupted log is retained. The linear version compares every node value once and checks
+parent metadata without rereading its whole subtree for every child.
+
+All four public-loader diagnostics retain matching record, node, attribute and value counts. At
+exact 1 GB, node capacity falls from **87,266,902 to 69,730,304**, avoiding **298,122,166 bytes** of
+unused node-column capacity. Diagnostic entry points are excluded from this branch and from the
+canonical benchmark image. Layout/GC snapshots are diagnostics, not acceptance measurements.
+
+All **42 alternating canonical 100 MB tree controls** validate output. Median times range from
+**0.5% faster to 3.6% slower**; measured RSS decreases by workload. Six of seven exact 1 GB candidate
+tree trials validate under the original 4 GiB managed-heap guard. Adjacent grouping still runs out
+of memory materializing its groups. All **49 attempts / 48 valid transformations**, four loader
+diagnostics, images, source patch and independent audit are retained in `node-pages-prototype`.
+These local macOS results do not establish that the Linux failure is fixed. Final branch strict
+inventories, NativeAOT/saved checks and the complete original hosted matrices remain required.
+
+A local Linux diagnostic was stopped after its Docker inventory showed other applications using
+most VM memory. Only the new diagnostic container was stopped. Its aborted output is retained and
+is neither reproduction nor acceptance evidence; large Linux qualification remains hosted.
+
+
+Final branch Release and Debug suites retain **4,466 / 4,106** passes. All four strict inventories
+retain **2,695/16/1**, zero unmatched codes and verified frozen-engine/input audits. Every case's
+outcome and detail matches the preceding pull-merge checkpoint. The shipping test entry point
+remains unchanged; only the isolated public-loader diagnostics contain the layout command.
+
+A warnings-as-errors NativeAOT build uses the preceding compiler's saved entry points, validating
+all **48 smoke children** and four exact 1 GB identity/fork tree/stream controls under the original
+4 GiB heap guard. Full-lifetime tree RSS is **2,435,940,352 / 3,769,581,568 bytes**, and stream RSS is
+**25,968,640 / 26,509,312 bytes**, with independent outputs and both native flags verified. Image
+hashes, full reports and audits are retained under `native-node-pages` and the qualification state.
+These local controls do not replace the original complete hosted matrices or prove Linux completion.
+
+The preceding pull-merge commit's CI passes NativeAOT, ordinary performance and Ubuntu. Its first
+Windows attempt cancels `ContextFreeRawNamedTemplateFinishesAfterItsFork` at the existing two-second
+guard; the complete failed log is retained. The exact-source Windows retry passes its unit stage
+with no guard or source changes and continues remaining checks. Its original Linux push matrix
+still passes **0/16 budgets**: fifteen measured transformations finish correctly, while fork stops
+at startup. All 32 controls validate and match. Nightly independently validates **16/16 budgets /48 children**, with maximum absolute RSS
+**39,907,328 bytes**; its verified raw archive is retained. No acceptance budget or runtime liveness guard is relaxed.

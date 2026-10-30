@@ -66,9 +66,9 @@ namespace Xsl3.Tree
             {
                 if (!OnContent) throw new InvalidOperationException("Attributes and namespaces have no content traversal phases");
                 int depth = 0;
-                for (int parent = _doc._parent[_node]; parent != None; parent = _doc._parent[parent]) depth++;
+                for (int parent = _doc.ParentAt(_node); parent != None; parent = _doc.ParentAt(parent)) depth++;
                 // Preceding nodes have two events, except ancestors whose end is still pending.
-                return (2L * _node - depth, 2L * _doc._end[_node] - depth - 1);
+                return (2L * _node - depth, 2L * _doc.EndAt(_node) - depth - 1);
             }
         }
 
@@ -118,7 +118,7 @@ namespace Xsl3.Tree
                 {
                     return _doc._local[_doc._attrName[_attr]];
                 }
-                int name = _doc._name[_node];
+                int name = _doc.NameAt(_node);
                 return name == None ? string.Empty : _doc._local[name];
             }
         }
@@ -135,7 +135,7 @@ namespace Xsl3.Tree
                 {
                     return _doc._uri[_doc._attrName[_attr]];
                 }
-                int name = _doc._name[_node];
+                int name = _doc.NameAt(_node);
                 return name == None ? string.Empty : _doc._uri[name];
             }
         }
@@ -152,7 +152,7 @@ namespace Xsl3.Tree
                 {
                     return _doc._prefix[_doc._attrName[_attr]];
                 }
-                int name = _doc._name[_node];
+                int name = _doc.NameAt(_node);
                 return name == None ? string.Empty : _doc._prefix[name];
             }
         }
@@ -186,13 +186,13 @@ namespace Xsl3.Tree
 
         public override string BaseURI => _doc.BaseUri(_node);
 
-        public override bool IsEmptyElement => OnContent && (_doc._kind[_node] & CompactDocument.EmptyTag) != 0;
+        public override bool IsEmptyElement => OnContent && (_doc.KindAt(_node) & CompactDocument.EmptyTag) != 0;
 
         public override XmlNameTable NameTable => _doc._nameTable;
 
-        public override bool HasAttributes => OnContent && _doc.Kind(_node) == (int)XPathNodeType.Element && _doc._data[_node] != None;
+        public override bool HasAttributes => OnContent && _doc.Kind(_node) == (int)XPathNodeType.Element && _doc.DataAt(_node) != None;
 
-        public override bool HasChildren => OnContent && _node + 1 < _doc._end[_node];
+        public override bool HasChildren => OnContent && _node + 1 < _doc.EndAt(_node);
 
         public override object UnderlyingObject => Clone();
 
@@ -200,11 +200,11 @@ namespace Xsl3.Tree
 
         public override bool MoveToFirstAttribute()
         {
-            if (!OnContent || _doc.Kind(_node) != (int)XPathNodeType.Element || _doc._data[_node] == None)
+            if (!OnContent || _doc.Kind(_node) != (int)XPathNodeType.Element || _doc.DataAt(_node) == None)
             {
                 return false;
             }
-            _attr = _doc._data[_node];
+            _attr = _doc.DataAt(_node);
             return true;
         }
 
@@ -224,7 +224,7 @@ namespace Xsl3.Tree
             {
                 return false;
             }
-            int a = _doc._data[_node];
+            int a = _doc.DataAt(_node);
             if (a == None)
             {
                 return false;
@@ -247,7 +247,7 @@ namespace Xsl3.Tree
 
         public override string GetAttribute(string localName, string namespaceURI)
         {
-            if (OnContent && _doc.Kind(_node) == (int)XPathNodeType.Element && _doc._data[_node] is int a and not None)
+            if (OnContent && _doc.Kind(_node) == (int)XPathNodeType.Element && _doc.DataAt(_node) is int a and not None)
             {
                 int target = Target(localName, namespaceURI);
                 for (; target != CompactDocument.Absent && a < _doc._attrCount && _doc._attrOwner[a] == _node; a++)
@@ -344,16 +344,16 @@ namespace Xsl3.Tree
             {
                 return false;
             }
-            int parent = _doc._parent[_node];
+            int parent = _doc.ParentAt(_node);
             int p = _node - 1;
             if (p == parent)
             {
                 return false;
             }
             // p is the last node of the previous sibling's subtree: climb to the child of parent.
-            while (_doc._parent[p] != parent)
+            while (_doc.ParentAt(p) != parent)
             {
-                p = _doc._parent[p];
+                p = _doc.ParentAt(p);
             }
             _node = p;
             return true;
@@ -361,7 +361,7 @@ namespace Xsl3.Tree
 
         public override bool MoveToFirstChild()
         {
-            if (!OnContent || _node + 1 >= _doc._end[_node])
+            if (!OnContent || _node + 1 >= _doc.EndAt(_node))
             {
                 return false;
             }
@@ -383,7 +383,7 @@ namespace Xsl3.Tree
                 _scope = null;
                 return true;
             }
-            int parent = _doc._parent[_node];
+            int parent = _doc.ParentAt(_node);
             if (parent == None)
             {
                 return false;
@@ -458,9 +458,9 @@ namespace Xsl3.Tree
             }
             CompactDocument d = _doc;
             int[] expanded = d._expanded;
-            for (int c = _node + 1 < d._end[_node] ? _node + 1 : None; c != None; c = d.Next(c))
+            for (int c = _node + 1 < d.EndAt(_node) ? _node + 1 : None; c != None; c = d.Next(c))
             {
-                if (d.Kind(c) == (int)XPathNodeType.Element && expanded[d._name[c]] == target)
+                if (d.Kind(c) == (int)XPathNodeType.Element && expanded[d.NameAt(c)] == target)
                 {
                     _node = c;
                     return true;
@@ -484,7 +484,7 @@ namespace Xsl3.Tree
             int[] expanded = d._expanded;
             for (int c = d.Next(_node); c != None; c = d.Next(c))
             {
-                if (d.Kind(c) == (int)XPathNodeType.Element && expanded[d._name[c]] == target)
+                if (d.Kind(c) == (int)XPathNodeType.Element && expanded[d.NameAt(c)] == target)
                 {
                     _node = c;
                     return true;
@@ -501,7 +501,7 @@ namespace Xsl3.Tree
             }
             int mask = XPathNavigator.GetContentKindMask(type);
             CompactDocument d = _doc;
-            for (int c = _node + 1 < d._end[_node] ? _node + 1 : None; c != None; c = d.Next(c))
+            for (int c = _node + 1 < d.EndAt(_node) ? _node + 1 : None; c != None; c = d.Next(c))
             {
                 if (((1 << d.Kind(c)) & mask) != 0)
                 {
@@ -539,12 +539,12 @@ namespace Xsl3.Tree
                 return false;
             }
             CompactDocument d = _doc;
-            int[] expanded = d._expanded, names = d._name;
+            int[] expanded = d._expanded;
             int stop = FollowingEnd(end);
             for (int i = _node + 1; i < stop; i++)
             {
                 // Among content nodes only elements and PIs have names.
-                int name = names[i];
+                int name = d.NameAt(i);
                 if (name >= 0 && expanded[name] == target && d.Kind(i) == (int)XPathNodeType.Element)
                 {
                     SetContent(i);
@@ -639,7 +639,7 @@ namespace Xsl3.Tree
             }
             int o = that._node;
             // An attribute or namespace node counts as below its own element, as XPathDocument's navigator has it.
-            return that.OnContent ? _node < o && o < _doc._end[_node] : _node <= o && o < _doc._end[_node];
+            return that.OnContent ? _node < o && o < _doc.EndAt(_node) : _node <= o && o < _doc.EndAt(_node);
         }
 
         /// <summary>The id generate-id() uses: the node's kind letter and index, and the attribute or namespace's.</summary>

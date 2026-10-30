@@ -20,6 +20,8 @@
   phases, partial failures, recursive-demand errors, cancellation, copy origins and fork sharing.
 - Grow full compact-tree columns more densely to reduce excess capacity and transient resize
   memory. Preserve temporary-tree growth, node order, values, namespaces and attribute metadata.
+- Append fixed-size node-column pages for large source trees to avoid whole-column resize peaks.
+  Preserve linear node identities, navigation, attributes, namespaces and temporary-tree flat storage.
 - Process merge snapshots incrementally for streamable-declared sources even when input is
   tree-backed. Preserve explicit tree selection, snapshots, group focus, sorting and source ownership.
 - Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
