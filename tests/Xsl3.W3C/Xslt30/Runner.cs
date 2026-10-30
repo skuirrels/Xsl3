@@ -98,9 +98,11 @@ public sealed partial class Runner
         {
             compiler.Packages.Add(name, version, location);
         }
-        XsltExecutable executable = stylesheet.Contains('#')
-            ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
-            : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
+        XsltExecutable executable;
+        using (Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Compilation))
+            executable = stylesheet.Contains('#')
+                ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
+                : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
         Xslt30Transformer transformer = executable.CreateTransformer();
         transformer.SetStylesheetParameters(api.Parameters);
         transformer.MessageHandler = messages.Add;
@@ -123,6 +125,7 @@ public sealed partial class Runner
             "The transformation applies templates, but there is no initial match selection");
         bool forward = ForwardInitialSource(inputSource) && entry.InitialTemplate == null && entry.InitialFunction == null;
         XmlReader SourceReader() => OpenInitialSource(inputSource!, test);
+        using var stylesheetStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet);
         try
         {
             if (entry.RawResult)
@@ -272,6 +275,7 @@ public sealed partial class Runner
 
     private Outcome RunCore(TestCase test)
     {
+        using var preparationStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Preparation);
         if (test.TestElement.Element(Catalog.Ns + "posture-and-sweep") is { } analysis)
         {
             return RunPostureAndSweep(test, analysis);
@@ -322,6 +326,7 @@ public sealed partial class Runner
         RunResult run = Execute(test, envs, resolver, stylesheetPath,
             ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), mode, parameters, t.Element(Catalog.Ns + "initial-function"));
         ExecutionCompleted?.Invoke(test, run.Error);
+        using var assertionStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Assertion);
         return Check(test, test.Result, run);
     }
 
@@ -463,6 +468,7 @@ public sealed partial class Runner
                 : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver });
             using (XmlReader stylesheetReader = StylesheetReader())
             {
+                using var compilationStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Compilation);
                 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
                     EnableEvaluate = true,
@@ -493,6 +499,7 @@ public sealed partial class Runner
                 }
             }
             var sw = new StringWriter();
+            using var stylesheetStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet);
             // No source document: the context is an empty document (standing in for an absent context item).
             XPathNavigator context = input ?? XslCompiledTransform.AbsentInput;
             bool forward = ForwardInitialSource(inputSource) && transform.InitialTemplate == null && transform.InitialFunction == null;

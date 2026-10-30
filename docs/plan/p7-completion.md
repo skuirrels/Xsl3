@@ -1764,3 +1764,51 @@ records do not change runtime/probe inputs, fixtures, selectors or acceptance li
 acceptance run **41087810596** remains independent: its push result is the audited **13/16**, and
 its nightly and full paired benchmark continue under their original handles. Full P7 qualification,
 public integration, final full-branch review, merge and release are still required.
+
+
+### Stylesheet-stage forwarding contracts, 2026-10-30
+
+Optional captures now label preparation, compilation, stylesheet execution and assertions.
+Deferred result-tree replay restores the stylesheet stage when an assertion invokes it. A reduced
+real-transform regression fails with `Assertion` before that repair and passes with `Stylesheet`
+after it. Scopes restore across nested commands, exceptions, dedicated threads and fork workers;
+ordinary consumers install none. Command counts can still include nested work within a harness
+operation and are not counts of principal invocations. Nested capture format **2** adds stages;
+retained format **1** remains valid for source-only audits but cannot prove stage qualification.
+No public API or saved-stylesheet format changes.
+
+Four final Release/Debug API/legacy inventories preserve all **2,712 underlying case records**,
+**2,695/16/1** outcomes and zero unmatched expected codes. Every **274 forward initial** and
+**4,635 forward source-document** observation now belongs to stylesheet execution/replay;
+assertion evaluation has no forward-source observation. All four cohorts observe the same
+**2,459 cases** forwarding during the stylesheet stage. The inventory adds those case identities
+as a reviewed minimum, with source/report fingerprints. Its population, definition fingerprints,
+outcomes and suite pin are unchanged. `--require-stylesheet-forwarding` rejects unclassified or
+legacy evidence and any individual loss from that minimum, including when other cases still
+forward. All three hosted strict steps require it.
+
+Full Release and Debug units each pass **4,591 .NET 10 /4,225 .NET 8** checks. The capture and
+report contracts pass **18** and **seven** tests; all **22** auditor contracts pass. The full
+streaming Python harness passes **56** tests with one Linux-only skip on macOS. Frozen Release/
+Debug PDBs match all **47 changed runtime** and **five changed harness C# sources**. The final
+Linux native image matches the same runtime sources and all **428 runtime/probe inputs**.
+Its original push matrix validates **48 children**, **32 controls**, **16 full measured outputs**
+and all **32 unchanged stylesheet sources**, but still passes **13/16 budgets**: merge
+**23,285,760**, fork **23,445,504** and source-document **22,528,000 bytes** exceed the unchanged
+**20,971,520-byte** absolute limit and managed guard. Image SHA-256:
+`6a4d17163a0581e88f885bda3846c7474ae600c42c253e65a2730107ab58f30a`.
+Evidence, initial stage pilots and failed regression attempts: `staged-forwarding-9d5344c`.
+
+The preceding source checkpoint `784408a` is fully observed. Its required CI **41087738727** and
+documentation-only head `9d5344c`'s CI **41092363988** both pass all four jobs. Original acceptance
+**41087810596** is terminal: independently audited nightly passes **16/16 budgets /48 children**
+with maximum absolute RSS **39,415,808 bytes**. Its benchmark validates all **126 observations**,
+original sizes/modes/rounds, output fingerprints and **4 GiB** guards. The 100 MB stream/tree
+ratios are identity **1.096061**, adjacent **0.808101**, accumulator **1.187782**, iterate **0.821138**,
+merge **0.865522**, fork **3.010683** and source-document **1.070866**. Four original targets fail;
+these separate cohorts do not establish a paired speedup over an earlier commit. Retained binaries,
+controller hashes and immutable-source PDB checks match **47 runtime /six probe sources**.
+Evidence: `contracts-linux-{push,nightly,benchmark}-784408a`. These hosted results qualify that
+preceding runtime; the staged observer still requires hosted CI. The original memory/throughput,
+remaining applicability/physical-read, public integration, full review, merge and release gates
+remain in force.

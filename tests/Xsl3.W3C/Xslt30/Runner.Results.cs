@@ -23,6 +23,9 @@ public sealed partial class Runner
     {
         var result = new Lazy<XPathNavigator>(() =>
         {
+            // The assertion triggers this deferred callback, but the callback runs
+            // the stylesheet. Keep its commands separate from assertion evaluation.
+            using var stage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet);
             string[] savedMessages = messages.ToArray();
             KeyValuePair<string, StringWriter>[] savedSecondary = secondary.ToArray();
             Dictionary<string, XPathNavigator>? trees = t_resultTrees;

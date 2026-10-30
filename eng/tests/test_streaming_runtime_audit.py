@@ -164,6 +164,9 @@ class RuntimeAuditTests(unittest.TestCase):
             Id=1, Parent=None, StreamedInitialMode=True, InputKind='reader', ForwardInput=True,
             BodyCompleted=True, Sources=[dict(Kind='Initial', RequestedForward=True, Status='Opened',
                 ActualForward=True, NavigatorType='Xsl3.Streaming.StreamedNavigator')])])
+        manifest = json.loads(self.manifest.read_text())
+        manifest['StylesheetForwardCases'] = ['si-copy/example']
+        self.manifest.write_text(json.dumps(manifest))
 
     def forwarding_check(self):
         self.write()
@@ -242,6 +245,68 @@ class RuntimeAuditTests(unittest.TestCase):
             with self.subTest(actual=actual), self.assertRaisesRegex(ValueError, 'cannot claim'):
                 source.update(ActualForward=actual, NavigatorType=name)
                 self.forwarding_check()
+
+    def test_stylesheet_forwarding_cannot_be_proved_by_compilation_or_assertions(self):
+        self.forwarding()
+        self.rows[1]['Forwarding']['FormatVersion'] = 2
+        entry = self.rows[1]['Forwarding']['Executions'][0]
+        for stage in ['Compilation', 'Preparation', 'Assertion']:
+            entry['Stage'] = stage
+            self.write()
+            with self.subTest(stage=stage), self.assertRaisesRegex(ValueError, 'no actual stylesheet-stage'):
+                AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
+        entry['Stage'] = 'Stylesheet'
+        self.write()
+        result = AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)[0]['Forwarding']
+        self.assertEqual(1, result['StylesheetCasesWithForwardSources'])
+        self.assertEqual(1, result['StageObservations']['Stylesheet']['ForwardSources'])
+        self.assertEqual(1, result['StagesCapturedCases'])
+
+    def test_stylesheet_gate_rejects_legacy_missing_or_unclassified_stages(self):
+        self.forwarding()
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'stage forwarding evidence'):
+            AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
+        self.rows[1]['Forwarding']['FormatVersion'] = 2
+        entry = self.rows[1]['Forwarding']['Executions'][0]
+        for stage in [None, 'Unclassified', 'other', [], True]:
+            entry['Stage'] = stage
+            self.write()
+            with self.subTest(stage=stage), self.assertRaises(ValueError):
+                AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
+        entry.pop('Stage')
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'execution stage'):
+            AUDIT.audit(self.report, self.root, self.manifest, self.engine)
+
+    def test_stylesheet_case_floor_rejects_a_regression_even_when_another_case_still_forwards(self):
+        self.forwarding()
+        self.rows[1]['Forwarding']['FormatVersion'] = 2
+        self.rows[1]['Forwarding']['Executions'][0]['Stage'] = 'Stylesheet'
+        other = copy.deepcopy(self.rows[1])
+        other['Case'] = 'si-copy/other'
+        other['Forwarding']['Executions'][0].update(StreamedInitialMode=False, InputKind='navigator', ForwardInput=False, Sources=[])
+        self.rows.insert(2, other)
+        self.rows[-1].update(Selected=2, Passed=2)
+        manifest = json.loads(self.manifest.read_text())
+        manifest['Cases']['si-copy/other'] = dict(manifest['Cases']['si-copy/example'])
+        manifest['StylesheetForwardCases'].append('si-copy/other')
+        self.manifest.write_text(json.dumps(manifest))
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'si-copy/other'):
+            AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
+
+    def test_stylesheet_gate_requires_a_valid_frozen_case_floor(self):
+        self.forwarding()
+        self.rows[1]['Forwarding']['FormatVersion'] = 2
+        self.rows[1]['Forwarding']['Executions'][0]['Stage'] = 'Stylesheet'
+        self.write()
+        manifest = json.loads(self.manifest.read_text())
+        for minimum in [None, [], [True], ['si-copy/missing'], ['si-copy/example', 'si-copy/example']]:
+            manifest['StylesheetForwardCases'] = minimum
+            self.manifest.write_text(json.dumps(manifest))
+            with self.subTest(minimum=minimum), self.assertRaisesRegex(ValueError, 'frozen stylesheet-forwarding'):
+                AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
 
 
 if __name__ == '__main__':

@@ -14,11 +14,12 @@ namespace Xsl3.Streaming;
 internal sealed class StreamingExecutionCapture : IDisposable
 {
     internal enum SourceKind { Initial, Default, SourceDocument }
+    internal enum Stage { Unclassified, Preparation, Compilation, Stylesheet, Assertion }
     internal sealed record SourceEntry(string Kind, bool RequestedForward, string Status, bool? ActualForward, string? NavigatorType);
-    internal sealed record ExecutionEntry(int Id, int? Parent, bool StreamedInitialMode, string InputKind,
+    internal sealed record ExecutionEntry(int Id, int? Parent, string Stage, bool StreamedInitialMode, string InputKind,
         bool ForwardInput, bool BodyCompleted, SourceEntry[] Sources);
     internal sealed record Report(int FormatVersion, int Started, ExecutionEntry[] Executions);
-    internal sealed record Ambient(StreamingExecutionCapture Owner, Execution? Execution);
+    internal sealed record Ambient(StreamingExecutionCapture Owner, Execution? Execution, Stage Stage = Stage.Unclassified);
 
     private static AsyncLocal<Ambient?>? s_slot;
     private readonly AsyncLocal<Ambient?> _slot;
@@ -39,7 +40,35 @@ internal sealed class StreamingExecutionCapture : IDisposable
         slot.Value = new(this, null);
     }
 
-    internal Report Snapshot() => new(1, Volatile.Read(ref _started), _executions.ToArray());
+    internal Report Snapshot() => new(2, Volatile.Read(ref _started), _executions.ToArray());
+
+    // Harness boundaries identify the operation being observed. The scope only changes
+    // capture metadata; it cannot choose a source, compile a stylesheet or execute a command.
+    internal static IDisposable? ObserveStage(Stage stage)
+    {
+        Ambient? current = Volatile.Read(ref s_slot)?.Value;
+        return current == null || Volatile.Read(ref current.Owner._disposed) != 0
+            ? null : new StageScope(current, stage);
+    }
+
+    private sealed class StageScope : IDisposable
+    {
+        private readonly Ambient _previous, _current;
+        private int _disposed;
+
+        internal StageScope(Ambient previous, Stage stage)
+        {
+            _previous = previous;
+            _current = previous with { Stage = stage };
+            previous.Owner._slot.Value = _current;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0 && ReferenceEquals(_previous.Owner._slot.Value, _current))
+                _previous.Owner._slot.Value = _previous;
+        }
+    }
 
     internal static Execution? BeginExecution(bool streamedInitialMode, object input)
     {
@@ -89,7 +118,7 @@ internal sealed class StreamingExecutionCapture : IDisposable
                 XPathNavigator => "navigator", IXPathNavigable => "navigable", _ => "other",
             };
             _forwardInput = source is XmlReader or Stream or Uri or string;
-            previous.Owner._slot.Value = new(previous.Owner, this);
+            previous.Owner._slot.Value = new(previous.Owner, this, previous.Stage);
         }
 
         internal void CompleteBody() => _bodyCompleted = true;
@@ -101,7 +130,7 @@ internal sealed class StreamingExecutionCapture : IDisposable
             StreamingExecutionCapture owner = _previous.Owner;
             if (owner._slot.Value?.Execution == this) owner._slot.Value = _previous;
             if (Volatile.Read(ref owner._disposed) == 0)
-                owner._executions.Enqueue(new(_id, _previous.Execution?._id, _streamedInitialMode,
+                owner._executions.Enqueue(new(_id, _previous.Execution?._id, _previous.Stage.ToString(), _streamedInitialMode,
                     _inputKind, _forwardInput, _bodyCompleted, _sources.ToArray()));
         }
     }

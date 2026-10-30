@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Capture actual forward/tree source representations during optional strict-suite audits,
-  including failed source openings and nested, dedicated-thread and fork execution. Require
-  complete source observations in hosted strict audits while preserving raw conformance results.
+  including failed source openings and nested, dedicated-thread and fork execution. Separate
+  preparation, compilation, stylesheet execution/replay and assertion observations. Require
+  every frozen forwarding case in hosted strict audits while preserving raw conformance results.
 - Publish tee reader counts atomically so source-batch checks avoid taking the ring lock.
   Preserve reader detachment, payload release, configured capacity and cancellation.
 - Reject function items, maps and arrays in atomic type checks without dereferencing absent

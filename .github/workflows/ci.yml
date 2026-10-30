@@ -174,7 +174,7 @@ jobs:
           XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-strict
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --output artifacts/test-results/streaming-strict-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --output artifacts/test-results/streaming-strict-audit.json
 
       # Same frozen selection with a Debug engine; an inventory audit does not waive P7's memory gates.
       - name: Debug strict streaming runtime inventory
@@ -186,7 +186,7 @@ jobs:
           XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Debug --no-build --filter "FullyQualifiedName~Xslt30Conformance|FullyQualifiedName~RuntimeCaseReportTests" --logger trx --results-directory artifacts/test-results/streaming-strict-debug
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --output artifacts/test-results/streaming-strict-debug-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --output artifacts/test-results/streaming-strict-debug-audit.json
 
       - name: Legacy strict runtime inventory with saved sampling
         if: matrix.os == 'ubuntu-latest'
@@ -199,7 +199,7 @@ jobs:
           XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-strict-legacy
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --output artifacts/test-results/streaming-strict-legacy-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --output artifacts/test-results/streaming-strict-legacy-audit.json
 
       - name: Streaming development baseline (UNSTREAMED)
         if: matrix.os == 'ubuntu-latest'

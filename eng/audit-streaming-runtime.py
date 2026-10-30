@@ -113,10 +113,15 @@ def inventory(header, cases):
         if row['Set'] in sets and sets[row['Set']] != definition:
             raise ValueError(f'Inconsistent set identity: {row["Set"]}')
         sets[row['Set']] = definition
-    return {'FormatVersion': 1, 'CatalogSha256': header['CatalogSha256'],
+    result = {'FormatVersion': 1, 'CatalogSha256': header['CatalogSha256'],
             'Sets': dict(sorted(sets.items())), 'Cases': {
                 key: {field: row[field] for field in ('Set', 'DefinitionSha256', 'Outcome')}
                 for key, row in sorted(cases.items())}}
+    if header.get('ForwardingCaptured') is True and all(row.get('Forwarding', {}).get('FormatVersion') == 2 for row in cases.values()):
+        result['StylesheetForwardCases'] = sorted(case for case, row in cases.items()
+            if any(entry.get('Stage') == 'Stylesheet' and any(source.get('ActualForward') is True for source in entry['Sources'])
+                   for entry in row['Forwarding']['Executions']))
+    return result
 
 
 def verify_suite(suite, revision):
@@ -131,7 +136,8 @@ def verify_suite(suite, revision):
         raise ValueError('Suite contains modified or untracked fixtures')
 
 
-def audit_forwarding(header, cases, required=False):
+def audit_forwarding(header, cases, required=False, require_stylesheet=False):
+    required = required or require_stylesheet
     captured = header.get('ForwardingCaptured', False)
     if type(captured) is not bool:
         raise ValueError('Invalid forwarding capture declaration')
@@ -140,12 +146,20 @@ def audit_forwarding(header, cases, required=False):
             raise ValueError('A forwarding capture is required for this evidence')
         return None
     counts = Counter()
+    stage_counts = {}
+    staged_cases = 0
+    stylesheet_forward_cases = 0
     early, no_execution, no_forward = [], [], []
+    no_stylesheet, stylesheet_no_forward = [], []
     for case, row in cases.items():
         evidence = row.get('Forwarding')
         if (not isinstance(evidence, dict) or type(evidence.get('FormatVersion')) is not int
-                or evidence['FormatVersion'] != 1 or type(evidence.get('Started')) is not int or evidence['Started'] < 0):
+                or evidence['FormatVersion'] not in (1, 2) or type(evidence.get('Started')) is not int or evidence['Started'] < 0):
             raise ValueError(f'Missing or invalid forwarding capture: {case}')
+        staged = evidence['FormatVersion'] == 2
+        if require_stylesheet and not staged:
+            raise ValueError(f'Stylesheet-stage forwarding evidence is required: {case}')
+        staged_cases += staged
         executions = evidence.get('Executions')
         if not isinstance(executions, list) or len(executions) != evidence['Started']:
             raise ValueError(f'Incomplete forwarding executions: {case}')
@@ -155,11 +169,21 @@ def audit_forwarding(header, cases, required=False):
             raise ValueError(f'Invalid or duplicate forwarding execution IDs: {case}')
         id_set = set(ids)
         case_forwarded = False
+        case_stylesheet_forwarded = False
+        case_stylesheet_executed = False
         if not executions:
             no_execution.append(case)
         for entry in executions:
             if not {'Id', 'Parent', 'StreamedInitialMode', 'InputKind', 'ForwardInput', 'BodyCompleted', 'Sources'} <= entry.keys():
                 raise ValueError(f'Missing execution metadata: {case}')
+            stage = entry.get('Stage') if staged else None
+            if staged and stage not in ('Unclassified', 'Preparation', 'Compilation', 'Stylesheet', 'Assertion'):
+                raise ValueError(f'Missing or invalid execution stage: {case}')
+            if require_stylesheet and stage == 'Unclassified':
+                raise ValueError(f'Unclassified command cannot prove stylesheet forwarding: {case}')
+            bucket = stage_counts.setdefault(stage, Counter()) if staged else Counter()
+            bucket['Executions'] += 1
+            case_stylesheet_executed |= stage == 'Stylesheet'
             parent = entry.get('Parent')
             if parent is not None and (type(parent) is not int or parent not in id_set or parent >= entry['Id']):
                 raise ValueError(f'Invalid parent execution: {case}')
@@ -187,6 +211,7 @@ def audit_forwarding(header, cases, required=False):
                     if source['ActualForward'] is not None or source['NavigatorType'] is not None:
                         raise ValueError(f'Failed opening cannot claim a source representation: {case}')
                     counts['FailedSourceObservations'] += 1
+                    bucket['FailedSourceObservations'] += 1
                     continue
                 if source['Status'] != 'Opened' or type(source['ActualForward']) is not bool:
                     raise ValueError(f'Invalid source observation status: {case}')
@@ -198,16 +223,22 @@ def audit_forwarding(header, cases, required=False):
                 if source['ActualForward']:
                     case_forwarded = True
                     counts['ForwardSources'] += 1
+                    bucket['ForwardSources'] += 1
+                    case_stylesheet_forwarded |= stage == 'Stylesheet'
                     if source['Kind'] == 'Initial':
                         counts['InitialForwardSources'] += 1
+                        bucket['InitialForwardSources'] += 1
                         opened_initial |= source['RequestedForward']
                     elif source['Kind'] == 'SourceDocument':
                         counts['SourceDocumentForwardSources'] += 1
+                        bucket['SourceDocumentForwardSources'] += 1
                 else:
                     counts['TreeSources'] += 1
+                    bucket['TreeSources'] += 1
             counts['Executions'] += 1
             if entry['StreamedInitialMode'] and entry['ForwardInput']:
                 counts['EligibleInitialExecutions'] += 1
+                bucket['EligibleInitialExecutions'] += 1
                 if not opened_initial:
                     if entry['BodyCompleted']:
                         raise ValueError(f'Eligible execution did not open its forward initial source: {case}')
@@ -216,21 +247,32 @@ def audit_forwarding(header, cases, required=False):
             counts['CasesWithForwardSources'] += 1
         elif executions:
             no_forward.append(case)
+        stylesheet_forward_cases += case_stylesheet_forwarded
+        if staged and not case_stylesheet_executed:
+            no_stylesheet.append(case)
+        elif staged and not case_stylesheet_forwarded:
+            stylesheet_no_forward.append(case)
     if required and not counts['ForwardSources']:
         raise ValueError('Forwarding capture contains no actual forward sources')
+    if require_stylesheet and not stylesheet_forward_cases:
+        raise ValueError('Forwarding capture contains no actual stylesheet-stage forward sources')
     return dict(Verified=True, CapturedCases=len(cases),
                 **{name: counts[name] for name in ('CasesWithForwardSources', 'Executions', 'EligibleInitialExecutions', 'ForwardSources',
                     'InitialForwardSources', 'SourceDocumentForwardSources', 'TreeSources', 'FailedSourceObservations')},
                 FailedBeforeInitialSourceObservation=early, CasesWithoutCommandExecution=no_execution,
                 CasesWithCommandsWithoutForwardSources=no_forward,
+                StagesCapturedCases=staged_cases, StylesheetCasesWithForwardSources=stylesheet_forward_cases,
+                CasesWithoutStylesheetExecution=no_stylesheet,
+                CasesWithStylesheetExecutionWithoutForwardSources=stylesheet_no_forward,
+                StageObservations={key: dict(value) for key, value in sorted(stage_counts.items())},
                 Scope='Observed command executions and source representations only; stylesheet applicability, physical reads, bounds and full P7 acceptance require separate evidence.')
 
 
-def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False):
+def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False, require_stylesheet_forwarding=False):
     if revision is not None:
         verify_suite(suite, revision)
     header, cases, complete = load_report(report, suite, engine)
-    forwarding = audit_forwarding(header, cases, require_forwarding)
+    forwarding = audit_forwarding(header, cases, require_forwarding, require_stylesheet_forwarding)
     current = inventory(header, cases)
     current['SuiteRevision'] = revision
     if manifest is not None:
@@ -251,6 +293,15 @@ def audit(report, suite, manifest=None, engine=None, revision=None, require_forw
                 raise ValueError(f'Previously passing case regressed: {key}')
             if old['Outcome'] == 'Fail' and new['Outcome'] == 'NotRun':
                 raise ValueError(f'Previously runnable case became unsupported: {key}')
+        if require_stylesheet_forwarding:
+            minimum = previous.get('StylesheetForwardCases')
+            if (not isinstance(minimum, list) or not minimum or any(not isinstance(case, str) for case in minimum)
+                    or len(set(minimum)) != len(minimum) or not set(minimum) <= cases.keys()):
+                raise ValueError('A valid frozen stylesheet-forwarding case minimum is required')
+            lost = sorted(set(minimum) - set(current['StylesheetForwardCases']))
+            if lost:
+                raise ValueError('Previously forwarding stylesheet cases lost execution evidence: ' + ', '.join(lost))
+            forwarding['ExpectedMinimumStylesheetForwardCases'] = len(minimum)
     totals = {}
     for row in cases.values():
         owner, _ = stage(row['Set'])
@@ -273,6 +324,7 @@ def main():
     parser.add_argument('--suite-revision', help='Exact immutable suite commit; defaults to the frozen inventory pin')
     parser.add_argument('--engine', type=Path)
     parser.add_argument('--require-forwarding', action='store_true', help='Require complete actual runtime source-representation captures')
+    parser.add_argument('--require-stylesheet-forwarding', action='store_true', help='Require explicit command stages and actual forwarding during stylesheet execution')
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--manifest', type=Path)
     choice.add_argument('--write-manifest', type=Path, help='Freeze a reviewed complete selection; never overwrite')
@@ -285,7 +337,7 @@ def main():
             revision = json.loads(args.manifest.read_text(encoding='utf-8')).get('SuiteRevision')
         if not isinstance(revision, str):
             raise ValueError('An immutable suite revision is required')
-        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding)
+        result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding, args.require_stylesheet_forwarding)
         if args.write_manifest:
             if args.expected_count is None or len(frozen['Cases']) != args.expected_count:
                 raise ValueError('Initial inventory requires a matching reviewed expected count')

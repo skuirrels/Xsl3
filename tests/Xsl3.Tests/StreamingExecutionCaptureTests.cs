@@ -13,6 +13,26 @@ namespace Xsl3.Tests;
 
 public class StreamingExecutionCaptureTests
 {
+    [Fact]
+    public void StageScopesRestoreAfterNestedCommandsAndExceptions()
+    {
+        using var capture = new StreamingExecutionCapture();
+        using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Preparation))
+        {
+            using var parent = StreamingExecutionCapture.BeginExecution(false, XslCompiledTransform.AbsentInput);
+            Assert.Throws<InvalidOperationException>((Action)(() => {
+                using var stage = StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Compilation);
+                using var child = StreamingExecutionCapture.BeginExecution(false, XslCompiledTransform.AbsentInput);
+                throw new InvalidOperationException("compilation failed");
+            }));
+            using var next = StreamingExecutionCapture.BeginExecution(false, XslCompiledTransform.AbsentInput);
+        }
+        using (StreamingExecutionCapture.BeginExecution(false, XslCompiledTransform.AbsentInput)) { }
+        var entries = capture.Snapshot().Executions.OrderBy(e => e.Id).ToArray();
+        Assert.Equal(new[] { "Preparation", "Compilation", "Preparation", "Unclassified" }, entries.Select(e => e.Stage));
+        Assert.Equal(new int?[] { null, 1, 1, null }, entries.Select(e => e.Parent));
+    }
+
     private const string Stylesheet = """
         <xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
           <xsl:mode streamable='yes'/><xsl:output method='text'/>
@@ -39,7 +59,8 @@ public class StreamingExecutionCaptureTests
         {
             var executable = new XsltCompiler { Settings = settings }.Compile(new StringReader(Stylesheet));
             using var output = new MemoryStream();
-            executable.CreateTransformer().ApplyTemplates(input, output);
+            using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+                executable.CreateTransformer().ApplyTemplates(input, output);
             text = Encoding.UTF8.GetString(output.ToArray()).TrimStart('\uFEFF');
         }
         else
@@ -48,13 +69,15 @@ public class StreamingExecutionCaptureTests
             using var stylesheet = XmlReader.Create(new StringReader(Stylesheet));
             unit.Load(stylesheet, settings, null);
             using var output = new StringWriter();
-            unit.Transform(input, null, output);
+            using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+                unit.Transform(input, null, output);
             text = output.ToString();
         }
         Assert.Equal("2", text);
         var report = capture.Snapshot();
         Assert.Equal(1, report.Started);
         var execution = Assert.Single(report.Executions);
+        Assert.Equal("Stylesheet", execution.Stage);
         Assert.True(execution.BodyCompleted);
         Assert.Equal(forward, execution.StreamedInitialMode);
         Assert.True(execution.ForwardInput);
@@ -159,9 +182,11 @@ public class StreamingExecutionCaptureTests
         using var input = XmlReader.Create(new StringReader("<doc/>"));
         using var capture = new StreamingExecutionCapture();
         using var output = new StringWriter();
-        unit.Transform(input, null, output, new SourceResolver());
+        using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+            unit.Transform(input, null, output, new SourceResolver());
         Assert.Equal("22", output.ToString());
         var execution = Assert.Single(capture.Snapshot().Executions);
+        Assert.Equal("Stylesheet", execution.Stage);
         Assert.True(execution.BodyCompleted);
         var sources = execution.Sources.Where(s => s.Kind == "SourceDocument").ToArray();
         Assert.Equal(2, sources.Length);
