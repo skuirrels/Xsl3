@@ -1594,3 +1594,35 @@ Current-source hosted results remain required for this checkpoint. Original memo
 actual forwarding, public integration, complete review,
 merge and release gates remain open. No budget, fixture, URI semantics, oracle, globalisation
 setting, source population or public streaming claim changes.
+
+### Closing-event schema contracts and deferred header reuse
+
+Three additional S6 cases exercise tee capacities **1, 7 and 64** with nested closing events,
+`xs:int` values, schema-supplied element defaults and independently mutable final PSVI for both
+prongs. They pass on the original `260236b` runtime on .NET 8/10, in Release and Debug. The tests
+use explicit forward child/sibling/parent navigation: the initial test draft used a general
+descendant iterator, which revisits consumed nodes and is not a valid streamed traversal.
+Its failed runs are retained separately. The original behavior is covered without adopting a new
+runtime optimization.
+
+An isolated alternative retains immutable start headers until their closing events and carries
+final PSVI separately. All **104 .NET 10 /103 .NET 8** focused contracts pass. Four alternating
+frozen-engine 100 MB fork controls validate unchanged outputs and reduce median allocated bytes
+from **4,592,118,232 to 4,258,203,688** (**333,914,544 bytes /7.27%**). Source PDB checks match all
+42 changed runtime C# files for each frozen variant. Six two-CPU Linux ARM64 native controls give
+baseline/candidate elapsed medians of **6,785.988 /6,758.808 ms**, child CPU **7,751.735 /7,710.012 ms**
+and absolute peak RSS **25,223,168 /25,145,344 bytes**. This small cohort establishes no material
+elapsed-time or RSS improvement toward the outstanding gates. The implementation remains deferred;
+the additional source-depth header retention is not adopted solely for an allocation-only result.
+The exact inputs, outputs, original 4 GiB heap guard, raw reports, binaries, patch and independent
+audits are retained under `fork-end-header-260236b`.
+
+Hosted push qualification for committed `260236b` in run **41074093851** independently verifies
+all **48 children**, **32 controls**, **16 full measured outputs**, original limits and prior output
+fingerprints. It passes **13/16 budgets**: merge **24,522,752**, fork **25,030,656** and source-document
+**23,556,096 bytes** exceed the original **20,971,520-byte** limit. The retained native image SHA-256
+is `73633b94f6f30dd80328928c41316f1ef9c9d6cac58e497da20122d6dc21273d`; its PDB matches all **42**
+changed runtime sources against the actual committed blobs, and all **32** canonical stylesheet
+source files match. Evidence: `contracts-linux-push-260236b/independent-audit.json`. NativeAOT and
+ordinary performance CI pass for that commit; the other hosted jobs remain on their original handles.
+Every original P7 acceptance and delivery requirement remains in force.
