@@ -25,9 +25,8 @@ internal sealed partial class StreamedDocument
         _notifying = true;
         try
         {
-            var navigator = new StreamedNavigator(this, node);
-            if (end) _observer.End(navigator);
-            else _observer.Start(navigator);
+            if (end) _observer.End(this, node);
+            else _observer.Start(this, node);
             if (end) node.ObservedEnd = true;
             else node.ObservedStart = true;
         }

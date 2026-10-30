@@ -2099,3 +2099,66 @@ full push results, is retained under `artifacts/p7-completion/lazy-fork-header-8
 
 Original memory/throughput failures, complete construct/state applicability, public integration,
 full-branch review, final-source hosted CI, merge and release remain open. Full P7 is not complete.
+
+
+### Accumulator argument ownership and intrinsic frame notifications, 2026-10-30
+
+A fresh allocation profile of the exact `a7e6381` Release engine validates the canonical 100 MB
+accumulator output under its actual 4 GiB heap cap. Weighted allocation ticks identify navigator
+copies in matcher argument conversion and source notifications as large contributors. The trace
+includes startup/warmup and collector overhead; sampled per-type bytes are estimates, not canonical
+elapsed-time measurements. Existing identity profiles instead locate their largest source-frame
+allocation in template traversal, so a deep-copy writer change alone would miss that cost.
+
+Accumulator matchers now use the existing owned-argument function-call path for their freshly
+allocated sequence and cloned cursor. Argument conversion still runs, and the clone separating the
+matcher from its caller and rule body remains. A native-rule contract moves every matcher cursor
+to the root while requiring row focus and before/after values in the body and caller. The original
+runtime and candidate pass on both frameworks. Removing just the required clone in a separate copy
+fails that contract on both frameworks; the source is restored and rebuilt afterward.
+
+The intrinsic accumulator observer also accepts source frames directly, avoiding a temporary
+navigator for each start/end notification. Default internal interface adapters retain the existing
+fresh-navigator callbacks for other observers. A new contract retains all ordinary callback
+positions and verifies their independent positions after source completion. Original event ordering,
+caller-thread execution, motionless-read guards, phase publication, error/cancellation handling and
+copy/fork ownership remain covered by the focused suite. Saved formats and public APIs are unchanged.
+
+The matcher-only prototype has six valid alternating JIT controls. Its cumulative allocation median
+falls from **8,306,635,784 to 7,638,806,216 bytes**, with elapsed medians **3,497.188 /3,340.972 ms**.
+The combined candidate's independent six-control cohort reduces cumulative allocation from
+**8,306,635,784 to 6,748,366,792 bytes** (approximately **19%**) and elapsed medians from
+**3,510.880 to 3,230.171 ms**. Every process uses the same 64 KiB warmup, canonical 100 MB input,
+actual 4 GiB heap cap and preceding full-output fingerprint. These controls preserve their complete
+invocation allocation and do not replace the original seven-workload throughput comparison.
+
+Six alternating NativeAOT controls verify the original outputs and actual 4 GiB caps. Accumulator
+elapsed medians are **2,370.523 /2,178.422 ms** baseline/candidate, and full-child CPU medians are
+**2,382.225 /2,192.891 ms**. The candidate passes **48/48 native smoke children**. Its complete original
+local Linux push matrix verifies **48 children /32 controls /16 full measured outputs**, with
+unchanged input sizes, actual heap caps and full-output fingerprints. It still passes **13/16
+budgets**: merge **23,220,224**, fork **23,511,040** and source-document **22,507,520 bytes** exceed
+the unchanged **20,971,520-byte** absolute limit. Image SHA-256:
+`8b89b6c03eeacf152dcb7e44fc67c9ed09e50eacf98c60c5d0c766e51184131d`.
+All 407 runtime C#/project inputs are compared before adoption; only the four intended runtime
+files differ. Portable PDB checks verify **49 runtime /six native probe** sources and the unchanged
+generated saved-entrypoint source. The canonical sources, oracles, capacities and budgets are intact.
+
+Focused Release/Debug checks pass **493 .NET 10 /449 .NET 8** per configuration. Full source-verified
+units pass **4,680 /4,290**, respectively, in both configurations. Every actual test-directory engine
+is explicitly rebuilt, frozen and checked against **49 runtime /eight probe-and-contract sources**
+before the full `--no-build` invocation. Evidence, raw controls, mutation and restored source hashes,
+all native children and frozen engines are retained in `artifacts/p7-completion/accumulator-phase-a7e6381`.
+
+The preceding `a7e6381` required CI **41127550335** is terminal with all four jobs successful. Hosted
+acceptance **41127579684** has independently verified push **13/16 budgets /48 children**, unchanged
+32 stylesheet sources and original output fingerprints. Peaks are merge **24,313,856**, fork
+**24,567,808** and source-document **23,777,280 bytes**. Its nightly matrix verifies **16/16 budgets
+/48 children**, exact **2,147,483,648-byte** inputs and original **209,715,200-byte** heap/RSS guards;
+maximum absolute RSS is **39,309,312 bytes**. Its original full paired benchmark remains under the
+same live handle at this checkpoint. Archived digests and 49-source runtime PDB checks are retained
+in `contracts-linux-{push,nightly}-a7e6381`. These observations remain attributed to that source.
+
+Current-source hosted CI, strict inventories, original full memory/benchmark qualification, complete
+construct/state applicability, public integration, full-branch review, merge and release remain
+required. No original acceptance criterion or streaming-support claim changes; full P7 stays open.

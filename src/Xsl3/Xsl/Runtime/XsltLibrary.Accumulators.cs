@@ -230,7 +230,12 @@ namespace Xsl3.Runtime
                 IList<XPathItem> priority;
                 var output = _runtime.SaveOutput();
                 int sourceMark = _runtime.StreamedSourceMark;
-                try { priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone())); }
+                try
+                {
+                    // The fresh sequence and cloned cursor belong to this matcher invocation.
+                    priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r],
+                        new[] { Sequences.One(node.Clone()) }, owned: true);
+                }
                 catch (Exception error) when (CanIgnorePatternError(error, sourceMark))
                 {
                     _runtime.RestoreOutput(output);

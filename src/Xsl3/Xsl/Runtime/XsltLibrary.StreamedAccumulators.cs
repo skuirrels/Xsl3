@@ -281,15 +281,15 @@ public sealed partial class XsltLibrary
             finally { phase.Ending = false; }
         }
 
-        private void Visit(StreamedNavigator node, bool end)
+        private void Visit(StreamedDocument.Node node, bool end)
         {
             foreach (State state in _states.Values)
             {
                 if (state.Fault != null) continue;
                 try
                 {
-                    if (end) After(state, node.PositionNode);
-                    else Before(state, node.PositionNode);
+                    if (end) After(state, node);
+                    else Before(state, node);
                 }
                 catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
                 {
@@ -301,8 +301,10 @@ public sealed partial class XsltLibrary
             }
         }
 
-        public void Start(StreamedNavigator node) => Visit(node, end: false);
-        public void End(StreamedNavigator node) => Visit(node, end: true);
+        public void Start(StreamedNavigator node) => Visit(node.PositionNode, end: false);
+        public void End(StreamedNavigator node) => Visit(node.PositionNode, end: true);
+        void IStreamedNodeObserver.Start(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: false);
+        void IStreamedNodeObserver.End(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: true);
 
         internal IList<XPathItem> Value(string name, StreamedNavigator node, bool after)
         {

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Avoid copying an accumulator matcher's already-owned argument a second time. Deliver intrinsic
+  accumulator notifications directly from source frames while ordinary observers keep fresh,
+  retainable positions. Preserve matcher/body focus, argument conversion and deferred failures.
 - Consolidate fork events with their headers and share immutable name/text data through existing
   provenance. Preserve private attribute/schema snapshots and verify that nested events release
   consumed prong state even while a slower reader retains the published event.
