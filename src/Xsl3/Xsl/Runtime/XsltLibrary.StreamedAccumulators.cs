@@ -19,6 +19,8 @@ public sealed partial class XsltLibrary
         {
             internal readonly string Name = name;
             internal readonly AccumulatorInfo Info = info;
+            internal readonly bool HasStartRules = Array.IndexOf(info.EndPhases, false) >= 0;
+            internal readonly bool HasEndRules = Array.IndexOf(info.EndPhases, true) >= 0;
             internal IList<XPathItem>? Current;
             internal bool Initialized, Initializing;
             internal volatile ExceptionDispatchInfo? Fault;
@@ -62,10 +64,64 @@ public sealed partial class XsltLibrary
             }
         }
 
-        private sealed class NodeValues(object owner, SnapshotCodec codec, bool frozen = false) : Dictionary<string, Phase>, IStreamedHeaderMetadata
+        private sealed class NodeValues(object owner, SnapshotCodec codec, bool frozen = false) : IStreamedHeaderMetadata
         {
             internal readonly object Owner = owner;
             internal readonly bool Frozen = frozen;
+            // The common single-accumulator frame needs no dictionary or entry array.
+            // Additional expanded names retain the original ordinal lookup semantics.
+            private string? _firstName;
+            private Phase? _firstPhase;
+            private Dictionary<string, Phase>? _more;
+            internal int Count => _firstName == null ? 0 : 1 + (_more?.Count ?? 0);
+
+            internal bool TryGetValue(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Phase? phase)
+            {
+                if (_firstName != null && string.Equals(name, _firstName, StringComparison.Ordinal))
+                {
+                    phase = _firstPhase!;
+                    return true;
+                }
+                if (_more != null) return _more.TryGetValue(name, out phase);
+                phase = null;
+                return false;
+            }
+
+            internal void Add(string name, Phase phase)
+            {
+                ArgumentNullException.ThrowIfNull(name);
+                if (_firstName == null) { _firstName = name; _firstPhase = phase; return; }
+                if (string.Equals(name, _firstName, StringComparison.Ordinal))
+                    throw new ArgumentException("An accumulator phase is already recorded", nameof(name));
+                (_more ??= new(StringComparer.Ordinal)).Add(name, phase);
+            }
+
+            public Enumerator GetEnumerator() => new(this);
+            public struct Enumerator : IDisposable
+            {
+                private readonly KeyValuePair<string, Phase> _first;
+                private readonly bool _hasFirst, _hasMore;
+                private Dictionary<string, Phase>.Enumerator _more;
+                private bool _started;
+                internal Enumerator(NodeValues values)
+                {
+                    _hasFirst = values._firstName != null;
+                    _hasMore = values._more != null;
+                    _first = _hasFirst ? new(values._firstName!, values._firstPhase!) : default;
+                    _more = values._more?.GetEnumerator() ?? default;
+                    _started = false;
+                    Current = default;
+                }
+                public KeyValuePair<string, Phase> Current { get; private set; }
+                public bool MoveNext()
+                {
+                    if (!_started) { _started = true; if (_hasFirst) { Current = _first; return true; } }
+                    if (_hasMore && _more.MoveNext()) { Current = _more.Current; return true; }
+                    return false;
+                }
+                public void Dispose() { if (_hasMore) _more.Dispose(); }
+            }
+
             public IStreamedHeaderMetadataCodec Codec => codec;
             public void Write(BinaryWriter writer, StreamedXdmValueStore values)
             {
@@ -186,8 +242,9 @@ public sealed partial class XsltLibrary
             try
             {
                 Initialize(state);
-                var value = _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
-                    end: false, _items!, state.Info, state.Name);
+                // Even a phase without rules must initialize and publish its unchanged value.
+                var value = state.HasStartRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                    end: false, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: false); return state.Current = value; }
             }
             catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
@@ -211,8 +268,8 @@ public sealed partial class XsltLibrary
             try
             {
                 Before(state, node);
-                var value = _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
-                    end: true, _items!, state.Info, state.Name);
+                var value = state.HasEndRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                    end: true, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: true); return state.Current = value; }
             }
             catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))

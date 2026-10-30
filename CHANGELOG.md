@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Store the first streamed accumulator phase directly on its frame, allocating a name dictionary
+  only for additional accumulators. Skip empty rule phases while preserving initialization,
+  publication, expanded-name matching, replay/copy values, fork ownership and cancellation.
 - Extend isolated streaming-memory diagnostics with saved-stylesheet initialization/loading
   checkpoints and validation of their source hashes, complete phase inventory and legal ordering.
 - Avoid temporary text trees for singleton literal simple content with a constant separator.

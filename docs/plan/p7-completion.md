@@ -1126,3 +1126,80 @@ of the uninstrumented process peak. MacOS validation and the default `v1.1.3` so
 verified; current-source hosted Linux diagnosis is still required. Evidence is under `loader-details`.
 Full P7 remains active, including original Linux memory/throughput, forwarding/public integration,
 final review, merge and release requirements.
+
+### Streamed accumulator frame storage, 2026-10-30
+
+All four ordinary CI jobs pass for `efcb7f8`. The original hosted benchmark for runtime checkpoint
+`1c98c38` is terminal with **126/126 valid observations**, all three original sizes/rounds/modes and
+the original **4,294,967,296-byte** effective heap guard. Every output fingerprint matches preceding
+valid controls. Its 100 MB stream/tree ratios are identity **1.257418**, adjacent **0.877160**,
+accumulator **1.569434**, iterate **0.856084**, merge **0.996829**, fork **3.773996** and source-document
+**1.171731**. Four original throughput targets still fail. Its original nightly passes **16/16 budgets
+/48 children**, maximum absolute RSS **40,230,912 bytes**; push still passes **0/16 budgets** despite
+all sixteen measured transformations consuming the full input with correct outputs. These results
+remain specific to that runtime checkpoint.
+
+The hosted loader diagnosis completes nine control and nine instrumented runs, with all **20**
+checkpoints present. Independent audit checks every raw output, paired fingerprint, effective guard,
+checkpoint record and retained mapping digest; all **1,507 tracked source files** match the pinned
+source, and all **seven injected source hashes** match the independently prepared local copy. Native
+images were not included in the hosted artifact, so their reported digests cannot be checked against
+the actual files independently. Loader intervals do not account for the full observed growth:
+collection/setup and sustained transformation also increase resident memory. Observer overhead and
+overlapping intervals prevent exclusive attribution or an irreducible-platform-floor conclusion.
+The diagnosis establishes no original memory-budget pass. Evidence: `loader-details-linux`.
+
+The accumulator allocation trace estimates about **9.98 GB** allocated for the canonical 100 MB
+streamed workload. Per-node name dictionaries/entry arrays and navigators created for empty rule
+phases account for avoidable allocations. The implementation stores the first accumulator's expanded
+name and phase directly and creates an ordinal dictionary only for additional names. It caches
+whether each rule phase exists and avoids navigator/rule dispatch setup for an absent phase while
+still initializing and publishing its unchanged value. Existing locks, cycle/fault behavior, phase
+ownership, snapshot encoding and publication to fork/replay readers are preserved. Public APIs,
+saved formats, compiler analysis, fixtures, oracles and acceptance settings are unchanged.
+
+The isolated prototype's twelve alternating JIT tree/stream observations validate exact 100 MB
+inputs, the original 4 GiB managed guard and identical outputs. Accumulator tree/stream medians
+change from **2,940.816 /4,097.626 ms** to **2,922.292 /3,516.270 ms**. All six alternating native
+200 MiB streamed controls also validate; median time changes from **5,985.498 to 5,479.583 ms** and
+median absolute RSS from **20,299,776 to 20,250,624 bytes**, with the original 20 MiB managed guard
+and diagnostic RSS guard explicitly disabled. Sampled allocation falls to about **8.31 GB**, a
+**16.7%** reduction in the estimate. These diagnostics establish no original Linux budget or full
+throughput pass. The retained JIT report's patch digest references the initial, non-compiling
+enumerator-accessibility patch. Its report is preserved; the independent audit records that error,
+the corrected patch digest and a matching frozen-candidate PDB source checksum. Evidence:
+`accumulator-slots-prototype`.
+
+Six contract areas cover single/multiple counters, namespace/case distinctions, empty start/end
+phases, copies and deferred snapshots, fork readers, and failures/cancellation. All **16 new cases**
+pass on .NET 8/10 through both public APIs and saved .NET 10 entry points, with normal/debug compilers.
+The first fixture run is retained: its combined consuming expressions, fork-child syntax and resolver
+return type were invalid and corrected without changing production behavior. Cancellation is triggered
+after actual sink output and must stop before input EOF. Full Release and Debug units each pass
+**4,516 .NET 10 /4,154 .NET 8** checks. All four complete strict inventories retain **2,695/16/1**,
+zero unmatched codes and identical per-case definitions, outcomes, details and dependencies.
+
+The fresh final-source NativeAOT build regenerates all **32 saved entry points** and validates
+**48/48 smoke children** plus **12/12 exact 100 MB/1 GB accumulator/fork/identity tree/stream controls**.
+The large controls preserve the original 4 GiB effective managed guard and match preceding hosted
+output fingerprints. The final native image SHA-256 is
+`3fdddbfaf298da4a15f8ce7df15e5a3e02383893c8620baf85c57c46cfdb617d`.
+
+Final-source paired measurements independently validate all twelve JIT and six native observations,
+their raw outputs, image/engine/source hashes, effective guards and matching fingerprints. The frozen
+JIT candidate's PDB checksum also matches the actual final runtime source. JIT tree medians remain
+**3,078.786 /3,085.799 ms**; streaming improves from **4,279.657 to 3,650.100 ms** (**14.7%**).
+Native streaming improves from **5,979.555 to 5,457.543 ms** (**8.7%**), with median absolute RSS
+**20,299,776 /20,234,240 bytes**. JIT RSS changes by **112 KiB**, native RSS by **-64 KiB**; neither
+establishes an original Linux memory-budget pass. Diagnostic RSS guards remain explicitly disabled.
+
+The complete final-source local native 100 MB matrix validates **42/42 observations**. Stream/tree
+ratios are identity **0.984842**, adjacent **0.648028**, accumulator **1.161259**, iterate **0.627506**,
+merge **0.789350**, fork **3.665512** and source-document **1.001595**. The original target still fails
+on accumulator, fork and source-document, including the small source-document overrun; no reporting
+band waives a failure. Final-source evidence and independent audits are under
+`native-accumulator-slots`, `accumulator-slots-final-measurements` and `accumulator-slots-tested-engines`.
+
+Every original P7 requirement retains its completion gate. Current-source hosted qualification,
+remaining memory/throughput repairs, actual forwarding/public integration and final full review,
+merge and release remain required. This change does not close P7 or establish a streaming-support claim.
