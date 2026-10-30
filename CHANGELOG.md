@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reuse each output writer's removal callback when reattaching its attribute cache. Preserve
+  nested and pooled output ownership, duplicate attributes, saved execution and XML/HTML selection.
+- Reject process-probe reports whose live managed heap exceeds the configured cap even when
+  their status claims success; preserve the original memory limits and retained measurements.
 - Capture actual forward/tree source representations during optional strict-suite audits,
   including failed source openings and nested, dedicated-thread and fork execution. Separate
   preparation, compilation, stylesheet execution/replay and assertion observations. Require

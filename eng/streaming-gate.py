@@ -43,7 +43,7 @@ def valid_measurement(result, workload, mode, size, limit, native):
             and type(result.get('HasTrustedPlatformAssemblies')) is bool
             and (not native or result['DynamicCodeSupported'] is False and result['HasTrustedPlatformAssemblies'] is False)
             and result['AvailableManagedBytes'] > 0
-            and (not limit or result['AvailableManagedBytes'] <= limit)
+            and (not limit or result['AvailableManagedBytes'] <= limit and result['LiveManagedBytes'] <= limit)
             and valid_fingerprints(result.get('Outputs'), workload))
 
 

@@ -1812,3 +1812,74 @@ Evidence: `contracts-linux-{push,nightly,benchmark}-784408a`. These hosted resul
 preceding runtime; the staged observer still requires hosted CI. The original memory/throughput,
 remaining applicability/physical-read, public integration, full review, merge and release gates
 remain in force.
+
+
+### Copying profile and output callback reuse, 2026-10-30
+
+The current `662d326` hosted memory artifacts are independently audited against all **47 changed
+runtime sources**, **32 unchanged stylesheet sources**, raw reports and preceding output fingerprints.
+Push still passes **13/16 budgets**: merge **24,408,064**, fork **24,936,448** and source-document
+**23,674,880 bytes** exceed the original **20,971,520-byte** limit. Nightly passes all **16 budgets /
+48 children**, with maximum absolute RSS **39,374,848 bytes**, exact **2,147,483,648-byte** measured
+inputs and original **209,715,200-byte** guards. Archive digests, independent audits and native images
+are retained in `contracts-linux-{push,nightly}-662d326`. The paired hosted benchmark remains a
+separate qualification; these memory results do not prove throughput or full P7 completion.
+
+A fresh macOS NativeAOT identity profile validates both exact 1 GB outputs. Its PDB matches all
+47 changed runtime sources, all 32 stylesheet sources are unchanged, and 48 small smoke children
+pass. CPU sampling makes its timings diagnostic, never canonical acceptance. Evidence:
+`copy-profile-662d326`.
+
+Two isolated reader candidates are rejected. A metadata-reader bypass adds another retained reader
+reference but improves the twelve 100 MB controls by only **0.4% /1.1% elapsed** for identity/source-
+document, with roughly **0.7% CPU** changes. Per-token node-type caching initially improves the same
+controls by about **1.8% /1.9%**, but twelve longer 1 GB controls show identity **0.8% slower** and
+source-document **1.4% faster**. These mixed results do not justify adoption. All trials, initial
+compile/test attempts, source patches and checksums are retained in `reader-metadata-662d326` and
+`token-kind-662d326`; their isolated runtime sources were restored. Neither candidate changes the
+branch or any acceptance threshold.
+
+The same native profile identifies allocation inside `XmlQueryOutput.Writer` when each element
+reattaches its reusable attribute cache. The output now retains its own removal callback once,
+while every attachment still registers it with the current removable writer. Callback targets,
+writer replacement, nested ownership, output resets and saved formats are unchanged. No reader
+unwrapping or node-type caching is adopted.
+
+Six new contracts cover nested attribute-cache ownership, alternating pooled sequence/event
+outputs, and automatic XML/HTML selection through modern, legacy and saved execution. Corrected
+fixtures pass the unchanged baseline and the candidate. Initial fixture failures involving nullable
+raw-writer namespace arguments, XML empty-tag spacing and RTF conversion are retained separately;
+they are not runtime defect claims. Full Release and Debug units each pass **4,597 .NET 10 /
+4,231 .NET 8** checks. Focused checks pass **717 /519**, respectively.
+
+A source-verified warmed JIT allocation diagnostic on exact 100 MB identity input falls from
+**2,129,114,168 to 1,906,504,520 bytes**, a **10.5%** reduction, with matching record/output
+fingerprints and equal **4 GiB** guards. This is total allocation after warmup, not absolute RSS.
+All **48 NativeAOT smoke children** pass; the image matches the 47 runtime PDB sources and all
+428 runtime/probe input hashes. Twelve alternating 100 MB native controls validate every output.
+Identity baseline/candidate medians are **1,902.376 /1,861.383 ms elapsed** and
+**2,315.576 /2,268.933 ms CPU**; source-document medians are **1,905.679 /1,864.294 ms elapsed**
+and **2,313.081 /2,279.607 ms CPU**. Median absolute peaks are unchanged in these controls. They do not
+establish an original seven-workload throughput or memory pass. Evidence: `writer-callback-662d326`.
+
+The final local original push matrix validates all **48 children /32 controls /16 full measured
+outputs** and preceding output fingerprints, but still passes **13/16 budgets**. Absolute peaks are
+merge **23,281,664**, fork **23,511,040** and source-document **22,503,424 bytes**. The exact 200 MiB
+input, 20 MiB managed and absolute RSS guards, all workloads and full-lifetime counters are unchanged.
+Native image SHA-256: `a55e612651a4dd139dbb9a8bcf12bc1f27f2cd8058cffeb20e4551cb5483bdf6`.
+Four fresh Release/Debug API/legacy strict inventories preserve all **2,712 underlying case records**,
+**2,695/16/1** outcomes, zero unmatched expected codes and the identical **2,459-case** stylesheet-
+forwarding minimum. Frozen engines match their report fingerprints and all 47 runtime PDB sources.
+Required CI **41097655800** passes all four jobs for preceding commit `662d326`; the callback source
+still requires its own hosted qualification.
+
+The gate review also reproduces a controller validation defect: an untrusted child can claim `ok`
+and the correct configured heap cap while reporting live managed memory above that cap. Its real
+process regression fails before the fix because the controller exits successfully. The shared
+validator now independently rejects that contradiction. All **57 Python harness tests** pass with
+one Linux-only skip on macOS. Revalidating all 48 retained native memory reports with the stronger
+validator preserves every output/guard observation and the same three budget failures. Neither
+budget nor workload changes. Initial and corrected regression logs are retained with this checkpoint.
+
+Current-head hosted qualification, the original nightly/full paired benchmark and every other P7
+acceptance, public integration, full-branch review, merge and release requirement remain in force.
