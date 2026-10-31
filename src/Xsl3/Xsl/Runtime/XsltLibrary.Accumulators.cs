@@ -235,8 +235,7 @@ namespace Xsl3.Runtime
                 try
                 {
                     // The fresh sequence and cloned cursor belong to this matcher invocation.
-                    priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r],
-                        new[] { Sequences.One(node.Clone()) }, owned: true);
+                    priority = CallFunctionOwned((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
                 }
                 catch (Exception error) when (CanIgnorePatternError(error, sourceMark))
                 {

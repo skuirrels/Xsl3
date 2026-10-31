@@ -2713,8 +2713,8 @@ The corrected five-variant control run executes all 712 cases per variant with s
 frozen engines: baseline 556 failures; rejected CLR conversion 24; omitted miscellaneous-only
 insertion 540; omitted normalization 256; restored repair zero. Socket-denied zero-case controls are
 explicitly invalidated. Raw evidence remains under `artifacts/p7-completion/schema-defaults-5a53141`.
-The reviewed revision passes full Release .NET 10/8 suites (**6,927 /5,925** checks), with frozen
-binaries and 53 runtime /16 test PDB source checks. Both full Debug suites remain in progress. Its warning-free
+The reviewed revision passes all four full Release/Debug .NET 10/8 suites (**6,927 /5,925** checks per
+configuration), with frozen binaries and 53 runtime /16 test PDB source checks. Its warning-free
 trimmed NativeAOT consumer passes **568** functional checks from the shared fixture, including the
 24 typed-value regressions, 144 saved styles at independent 7/32-row inputs, actual forwarding,
 borrowed-reader ownership and assertion-failure controls. The engine equals the full-tested Release
@@ -2741,3 +2741,163 @@ stacks, symbols and guard/output verification remain under
 `artifacts/p7-completion/icu-callstack-lexical-5a53141`. An initial approval review misreads the original
 hexadecimal GC setting as decimal; read-only controller/child evidence verifies its actual 20 MiB
 meaning before the unchanged diagnostic is approved and run. No original guard is relaxed.
+
+### Reviewed schema-default checkpoint and original gates, 2026-10-31
+
+Commit `87c40e7` passes all four hosted CI jobs in **41182562412**, including ordinary performance,
+NativeAOT and both operating systems. All four local full Release/Debug suites pass **6,927 .NET 10
+/5,925 .NET 8** checks per configuration. All 1,318 present committed source/test files match
+the tested checkout; frozen DLL/PDB files remain unchanged during testing. The schema-default
+repair, changelog and contracts are pushed to draft PR **#27**.
+
+Its fresh local Linux ARM64 original push matrix validates all **48 children** and passes **13/16**
+budgets. Merge **23,707,648**, fork **23,642,112** and source-document **23,093,248 bytes** exceed the
+original 20,971,520-byte absolute RSS limit. Measured inputs are exactly 209,715,200 bytes; each child
+reports the original 20,971,520-byte managed guard. The native image matches 53 runtime /six probe
+PDB source documents, and all 32 stylesheet sources remain unchanged. Evidence:
+`schema-defaults-5a53141/lexical-canonical-push` under the P7 completion artifacts.
+
+Hosted qualification **41182595937** is terminal. Independently audited archives match GitHub's
+digests and immutable `87c40e7` sources. All **96 memory children** produce correct output. Nightly
+passes **16/16** with exact 2,147,483,648-byte inputs, actual 209,715,200-byte managed guards and
+maximum absolute peak **39,686,144 bytes**. Push passes **13/16** with exact 209,715,200-byte inputs
+and actual 20,971,520-byte managed guards. Merge **24,387,584**, fork **25,006,080** and source-document
+**23,154,688 bytes** exceed the original RSS limit. Raw children, immutable source snapshots and
+audits remain under `contracts-linux-{push,nightly}-87c40e7`.
+
+The full paired benchmark retains **126 valid observations**, with zero failed/missing trials,
+three per mode in every workload/size group, exact 1,000,000 /100,000,000 /1,000,000,000-byte inputs
+and actual 4,294,967,296-byte managed guards. All output fingerprints, engine/driver/controller
+hashes and 53 immutable runtime PDB source documents are verified. At 100 MB:
+
+| Workload | Stream / tree median | Original no-slowdown target |
+|---|---:|---|
+| identity | 1.111446 | Fail |
+| adjacent | 0.781133 | Pass |
+| accumulator | 1.198711 | Fail |
+| iterate | 0.805264 | Pass |
+| merge | 0.900192 | Pass |
+| fork | 3.175741 | Fail |
+| source-document | 1.131682 | Fail |
+
+The 5% display band waives no target. Raw first-output observations and the independent audit remain
+under `contracts-linux-benchmark-87c40e7`. These separately hosted/local cohorts do not establish
+causal before/after performance changes. The failed original targets, remaining S3–S6 applicability
+and accounting, public integration, final review, merge and release remain open.
+
+### Rejected cursor and optional-state experiments, 2026-10-31
+
+An isolated padded reader-position array passes all existing tee/fork cases in Release/Debug:
+**348 .NET 10 /333 .NET 8** per configuration, preserving the exact baseline case population.
+All 24 alternating NativeAOT controls at one/two CPUs have valid output, exact 100,000,000-byte
+inputs and actual 4,294,967,296-byte managed guards. Streaming elapsed medians are **5.17% /0.22%
+higher**, respectively, so the candidate is rejected. Its initial explicit-layout type nested in
+a generic class fails CLR loading; those failures are retained separately. This repeats the earlier
+`tee-position-padding-79cb441` investigation and confirms no benefit on the current checkpoint;
+the earlier artifact should have been consulted before repeating it. Evidence: `position-padding-87c40e7`.
+
+A distinct experiment adds a peer-progress check before locking to the earlier position-based
+reclamation protocol. Its initial release-only head publication fails three alias-progress/prefix
+checks. Full-fence head publication before cursor resampling passes all four 348 /333-case focused
+configurations and 160 repeated checks using the actual test assembly. This follows the distinction
+between release and full-fence operations in the [.NET memory model](https://github.com/dotnet/runtime/blob/main/docs/design/specs/Memory-model.md).
+The new 24-child NativeAOT cohort validates all outputs, but one-CPU elapsed median rises **5.65%**
+while the two-CPU reduction is only **0.89%**. No useful overall improvement is established, so this
+protocol is also rejected. Source checks cover 53 runtime /six probe documents, and every canonical
+stylesheet source is unchanged. A generator invocation against an existing output directory is a
+retained setup failure; its corrected build uses a new workspace. Evidence: `reclaim-progress-87c40e7`.
+
+An optional-frame-state prototype packs schema, full-replay and value-replay references into one
+slot, leaving atomic runtime facts and observer state independent. Identical allocation controls
+on both frozen engines cover 1,024 /8,192 nodes and all eight field combinations. Both engines pass
+216 metadata add/clear transitions. Empty/single-value nodes shrink **184 →168 bytes**, but nodes
+with multiple optional values grow **184 →208 bytes**. This shifts allocation onto schema-aware
+grounding, so the design is rejected before native performance measurement. Its complete Release
+focused suites pass **4,698 .NET 10 /3,922 .NET 8** cases; remaining verification is explicitly stopped
+after rejection and is not claimed to pass. Evidence: `optional-frame-state-87c40e7`.
+
+None of these experiments enters production. Source callbacks, capacities, thread model, URI and
+globalization behavior, original qualification limits and fixture/oracle data remain unchanged.
+
+### Leaf-frame layout and dynamic-call storage controls, 2026-10-31
+
+The owner requires stopping at a reviewed, deployable version and prioritizing the failed memory
+and throughput gates. Speculative candidates remain local; another hosted acceptance run is not
+dispatched merely because an allocation microbenchmark improves. Original qualification limits
+remain unchanged.
+
+An isolated leaf/header inheritance prototype reduces text, whitespace and comment frames from
+184 to 136 bytes while elements remain 184 bytes. All 80 direct allocation rows preserve replay
+field combinations without an increase. Actual traversal controls at 1,024 /8,192 rows reduce
+allocation by about 12.2% for plain input and 7–9% for schema, namespace and language cases.
+All four focused Release/Debug suites pass 4,698 .NET 10 /3,922 .NET 8 cases with unchanged baseline
+case populations. An unchanged saved-style NativeAOT consumer passes all 568 functional checks,
+including both assertion-failure controls. Frozen source checks cover 53 runtime documents.
+
+The subsequent isolated single-CPU Linux ARM64 cohort retains 24 valid NativeAOT children, with
+exact 100,000,000-byte inputs, actual 4,294,967,296-byte managed guards and diagnostic RSS guards
+disabled. Candidate/baseline elapsed median ratios are identity 1.004138, source-document
+1.036733, accumulator 0.983247 and fork 1.051119. RSS medians increase by 192,512 /200,704 /184,320
+bytes for identity /accumulator /fork; source-document is unchanged. The design is rejected and
+the primary verification source is restored byte-for-byte to all 1,318 present committed source/test
+files. Evidence: `artifacts/p7-completion/leaf-frame-87c40e7`. The initial sandbox-blocked VSTest
+launch and malformed diagnostic PDB arguments remain retained, separately from passing checks.
+
+A separate dynamic-call prototype, based directly on `87c40e7`, stores its first two arguments
+on the existing `PendingCall` object and retains array storage for additional arguments. Direct
+controls cover arities 0 /1 /2 /3 /4 /7 /16 /64, capacity growth beyond the initial arity, argument
+identity and independent returned arrays. One/two-argument call storage falls from 104 /112 to
+64 bytes. Actual runtime observer controls reduce allocation by about 5.6% while preserving
+computed accumulator values. The source-verified .NET 10 Release engine passes all 435 selected
+function, pull, fork-runtime and fork-accumulator contracts.
+
+All 24 isolated native children validate unchanged outputs. Relative elapsed medians are identity
+0.981065, source-document 0.989390, accumulator 0.893797 and fork 1.009919. Accumulator's median
+absolute RSS falls by 208,896 bytes; the other three medians are unchanged. These diagnostic
+controls establish neither the original absolute memory gates nor the complete throughput gate.
+Raw evidence and 53 runtime /six probe source checks are under `call-arguments-87c40e7`.
+The follow-up removes temporary one/two-argument params arrays with the existing copy/conversion
+policy.
+
+The follow-up is retained after all four full Release/Debug suites pass 6,927 .NET 10 /5,925 .NET 8
+cases, preserving every baseline case name. Frozen runtime/test binaries remain unchanged during
+testing; source checks cover 53 runtime /16 test documents per configuration. All 1,318 present committed
+source/test files match the verified candidate after adopting only `XsltLibrary.FunctionItems.cs`
+and `XsltLibrary.Accumulators.cs`. The unchanged 144-style NativeAOT consumer passes all 568
+functional checks and both assertion-failure controls. Public API and saved format 6 are unchanged.
+
+Its 24 isolated one-CPU native observations validate all original outputs. Candidate/baseline elapsed
+median ratios are identity 0.989099, source-document 0.970879, accumulator 0.953054 and fork 0.993543.
+RSS medians change by -4,096 /+53,248 /+4,096 /-81,920 bytes, respectively. Six additional tree
+accumulator observations remain separately retained; improving both modes is not a streaming
+throughput pass. These cohorts do not replace the original full memory or paired benchmark gates.
+The original failures, full S3–S6 accounting, public integration and delivery requirements remain open.
+
+A separate inline accumulator-phase prototype passes 1,469 .NET 10 contracts but includes the
+rejected leaf layout. It has no isolated workload benefit and is not adopted. Its frozen sources,
+PDB checks, allocation controls and explicit source restoration remain under `inline-phase-87c40e7`.
+
+A nullable value-event prototype keeps immutable fork headers inline in the existing bounded ring.
+Its four focused configurations pass 361 .NET 10 /346 .NET 8 cases, including 13 new checks for
+default values, ordered completion, concurrent aliases, disposal races and immediate reclamation.
+All original cases remain present. Its 24 NativeAOT tree/stream children at one/two CPUs preserve
+original input, output and heap guards, but fork stream medians regress 10.60% /6.07%, respectively.
+It is rejected, with no production event, tee, capacity or thread-model change. Evidence:
+`value-events-87c40e7`.
+
+An isolated native layout build uses the SDK's profile-guided layout options with unchanged Size
+preference and runtime policies. Its response file contains no MIBC input, and the SDK fails in
+`FileLayoutOptimizer.PettisHansenSort` before producing an image. This is retained tooling evidence,
+not a memory result or a runtime defect; neither these publishing settings nor a profile enter
+production. Evidence: `native-layout-v3-87c40e7`.
+
+A later zero-delimited tracked-file inventory identifies one omitted upstream XML fixture in the
+isolated source copies (`Straße.xml`): 1,318 files are present and match, out of 1,319 tracked
+source/test files. The preceding inventories are corrected accordingly. The 6,927 /5,925-case
+claims describe `Xsl3.Tests`; they do not include the separate legacy upstream suite. A fresh
+archive plus the two adopted runtime files verifies all 1,319 tracked files, including the original
+fixture, before that independent suite runs. Evidence: `call-arguments-87c40e7/v3-upstream` and
+`v3-source-inventory-correction.json`.
+The separate Release upstream suite passes **1,654 .NET 10 /1,654 .NET 8** cases with zero
+failures/skips under the unchanged CI filter (`category!=failing`); all original fixture bytes are
+present. Its runtime/test binaries are retained separately from the four `Xsl3.Tests` runs.

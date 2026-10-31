@@ -592,8 +592,8 @@ verified. The initial socket-denied zero-case controls are explicitly invalidate
 controller requires every case to execute before accepting an outcome. Initial oracle failures for
 mixed content and nil/empty lists are retained separately and are not attributed to runtime defects.
 
-The reviewed revision passes full Release suites: **6,927 .NET 10 /5,925 .NET 8** unit checks, with
-frozen binaries and 53 runtime /16 test PDB source checks. Both Debug suites remain in progress.
+The reviewed revision passes all four full Release/Debug suites: **6,927 .NET 10 /5,925 .NET 8**
+unit checks per configuration, with frozen binaries and 53 runtime /16 test PDB source checks.
 Its warning-free trimmed NativeAOT consumer passes **568** functional checks: 256 direct, 24 typed
 semantic and 288 saved-pipeline checks from 144 styles at independent 7/32-row inputs. The consumer
 rejects JIT hosting and checks actual forwarding, borrowed-reader ownership and two assertion-failure
@@ -603,3 +603,11 @@ review now passes all sixty semantic comparisons. Evidence remains under
 `artifacts/p7-completion/schema-defaults-5a53141`.
 This work does not assign accumulator phases to schema-created nodes without source counterparts,
 change attribute defaults or close any failed original P7 memory/throughput gate.
+
+Hosted CI run **41182562412** passes all four jobs on immutable `87c40e7`. The complete local original
+push matrix validates all 48 outputs and passes 13/16 budgets. Hosted run **41182595937** validates
+all 96 memory children, passes nightly 16/16 and push 13/16, and retains all 126 valid benchmark
+observations. Identity, accumulator, fork and source-document still fail the original throughput
+target. Those results qualify this correctness checkpoint; they do not complete P7 or authorize
+streaming support, merge or release. The detailed original-limit audit is in
+[P7 completion](p7-completion.md#reviewed-schema-default-checkpoint-and-original-gates-2026-10-31).

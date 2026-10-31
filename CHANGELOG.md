@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reduce dynamic-call allocations by storing the first two arguments directly on each call.
+  Avoid temporary one/two-argument arrays and accumulator matcher argument arrays while preserving
+  argument copying, conversion, larger arities and saved/native execution.
 - Insert schema-supplied default/fixed element text alongside comments and processing instructions.
   Apply assessed whitespace normalization while preserving QName prefixes, timezone components
   and calendar duration units from schema declarations.
