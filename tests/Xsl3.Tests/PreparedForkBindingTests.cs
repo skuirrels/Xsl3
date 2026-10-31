@@ -16,6 +16,7 @@ using static Xsl3.Tests.ForkBindingTests;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class PreparedForkBindingTests
 {
     [Fact]

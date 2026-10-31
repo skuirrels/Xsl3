@@ -26,7 +26,7 @@ internal static class ForkProngs
         caller ??= ownedCaller!;
         caller.Start(bodies.Count);
         StreamTee<T>? sourceTee = null;
-        using var tee = sourceTee = new StreamTee<T>(destination => caller.Invoke(() => {
+        using var tee = sourceTee = new StreamTee<T>(destination => {
             int count = 0;
             try
             {
@@ -46,7 +46,7 @@ internal static class ForkProngs
                 // failure. An early-ending prong need not observe unread future errors.
                 return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
             }
-        }, cancellation), bodies.Count, capacity, cancellation);
+        }, bodies.Count, capacity, cancellation, productionCaller: caller);
         var workers = new Thread[bodies.Count];
         var cancellations = new CancellationTokenSource[bodies.Count];
         var faults = new ExceptionDispatchInfo?[bodies.Count];
@@ -79,7 +79,7 @@ internal static class ForkProngs
                 workers[i].Start();
                 started++;
             }
-            caller.Pump();
+            caller.Pump(tee.ProduceRequested);
             for (int i = 0; i < started; i++) workers[i].Join();
             joined = true;
             // Cancellation by an earlier failed prong only creates faults at greater indices.

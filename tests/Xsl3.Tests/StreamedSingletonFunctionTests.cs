@@ -9,6 +9,32 @@ namespace Xsl3.Tests;
 
 public class StreamedSingletonFunctionTests
 {
+    // Reduced from W3C function-5014: nested filters also occur inside a predicate.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NestedSingletonFiltersKeepTheirOriginalEvaluationScope(bool debug)
+    {
+        const string sheet = """
+            <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:f="urn:filter">
+              <xsl:mode streamable="yes"/><xsl:output method="text"/>
+              <xsl:function name="f:filter" streamability="filter" as="node()">
+                <xsl:param name="node" as="node()"/>
+                <xsl:sequence select="$node[local-name() = 'section']"/>
+              </xsl:function>
+              <xsl:template match="/">
+                <xsl:copy-of select="doc/f:filter(section[1])/f:filter(section)[f:filter(self::section)]/p[2]"/>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+        var compiler = new XsltCompiler { Settings = new() { StreamedExecution = true, IncludeDebugInformation = debug } };
+        var transform = compiler.Compile(new StringReader(sheet)).CreateTransformer();
+        using var reader = XmlReader.Create(new StringReader("<doc><section><section><p>first</p><p>kept</p><p>last</p></section></section></doc>"));
+        using var output = new StringWriter();
+        transform.ApplyTemplates(reader, output);
+        Assert.Equal("kept", output.ToString());
+    }
+
     private const string Input = "<doc><row><a/><b/></row></doc>";
     private static string Sheet(string body, string call = "f:consume(doc/row)", string parameter = "node()", string result = "xs:integer", string parameters = "", string attributes = "", string prologue = "") => $$"""
         <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"

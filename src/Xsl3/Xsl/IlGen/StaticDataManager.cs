@@ -55,6 +55,9 @@ namespace Xsl3.IlGen
     /// </summary>
     internal sealed class StaticDataManager
     {
+        // Set only when emitted IL dispatches a built-in by its registry index.
+        public bool UsesBuiltinFunctionIds { get; set; }
+
         private UniqueList<string>? _uniqueNames;
         private UniqueList<Int32Pair>? _uniqueFilters;
         private List<StringPair[]>? _prefixMappingsList;

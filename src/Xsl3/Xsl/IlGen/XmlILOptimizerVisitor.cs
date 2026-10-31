@@ -27,7 +27,7 @@ namespace Xsl3.IlGen
         private readonly NodeCounter _nodeCounter = new NodeCounter();
         private readonly SubstitutionList _subs = new SubstitutionList();
 
-        private static QilPatterns CreatePatternsNoOpt(bool indexes = true)
+        private static QilPatterns CreatePatternsNoOpt(bool indexes = true, bool eliminateEmpty = true)
         {
             // Only enable Required and OptimizedConstruction pattern groups
             // Only enable Required patterns
@@ -37,7 +37,7 @@ namespace Xsl3.IlGen
             patterns.Add((int)XmlILOptimization.EliminatePositionOf);
             patterns.Add((int)XmlILOptimization.EliminateTypeAssert);
             patterns.Add((int)XmlILOptimization.EliminateIsType);
-            patterns.Add((int)XmlILOptimization.EliminateIsEmpty);
+            if (eliminateEmpty) patterns.Add((int)XmlILOptimization.EliminateIsEmpty);
             patterns.Add((int)XmlILOptimization.EliminateAverage);
             patterns.Add((int)XmlILOptimization.EliminateSum);
             patterns.Add((int)XmlILOptimization.EliminateMinimum);
@@ -70,7 +70,9 @@ namespace Xsl3.IlGen
         {
             // Retain construction analysis and safe removal of redundant ordering. Do not inline, hoist,
             // duplicate, or cache expressions that can share the reader's advancing cursor.
-            QilPatterns patterns = CreatePatternsNoOpt(indexes: false);
+            // EliminateIsEmpty can introduce a Let cache around a nonempty operand with
+            // side effects. Keep the direct emptiness test over forward populations instead.
+            QilPatterns patterns = CreatePatternsNoOpt(indexes: false, eliminateEmpty: false);
             patterns.Add((int)XmlILOptimization.EliminateDod);
             // Axis and loop facts let the ordering pass recognize forward paths as already ordered.
             // Without these annotations, DocOrderDistinct buffers even a simple child path.

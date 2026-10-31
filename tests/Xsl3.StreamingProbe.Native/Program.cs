@@ -12,4 +12,7 @@ if (RuntimeFeature.IsDynamicCodeSupported || AppContext.GetData("TRUSTED_PLATFOR
     return 1;
 }
 if (args.Length == 0 || args[0] != "stream-probe") return 64;
+// The process protocol is UTF-8 JSON. Avoid locale-driven charset discovery
+// when writing the report, which is included in the external lifetime peak.
+Console.OutputEncoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 return StreamingProbe.RunCommand(args[1..]);

@@ -19,12 +19,12 @@ namespace System.Xml
         private const string Asm = "System.Private.Xml";
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
-        // Xsl3: annotated, so the trimmer keeps the members looked up below (a literal type name is analyzable).
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods
-            | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)]
-        private static readonly Type? s_implType = Type.GetType("System.Xml.XmlTextReaderImpl, System.Private.Xml");
-        private static readonly MethodInfo? s_getResolver = s_implType?.GetMethod("GetResolver", Instance, Type.EmptyTypes);
-        private static readonly PropertyInfo? s_whitespaceHandling = s_implType?.GetProperty("WhitespaceHandling", Instance);
+        private const string ImplTypeName = "System.Xml.XmlTextReaderImpl, System.Private.Xml";
+        private static readonly Type? s_implType = Type.GetType(ImplTypeName);
+        // Keep the literal type identity at each lookup so trimming preserves the requested
+        // members, rather than every method and property on the XML parser implementation.
+        private static readonly MethodInfo? s_getResolver = Type.GetType(ImplTypeName)?.GetMethod("GetResolver", Instance, Type.EmptyTypes);
+        private static readonly PropertyInfo? s_whitespaceHandling = Type.GetType(ImplTypeName)?.GetProperty("WhitespaceHandling", Instance);
         private static readonly PropertyInfo? s_textReaderImpl = typeof(XmlTextReader).GetProperty("Impl", Instance);
 
         /// <summary>Upstream: <c>(reader as XmlTextReaderImpl)?.GetResolver()</c>.</summary>

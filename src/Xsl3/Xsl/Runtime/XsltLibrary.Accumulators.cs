@@ -47,17 +47,24 @@ namespace Xsl3.Runtime
                 throw new XdmException("XTTE3360", $"Accumulators have no value at {node.NodeType.ToString().ToLowerInvariant()} nodes");
             }
             XPathNavigator root = node.Clone();
+            (long Before, long After)? phases = (root as Tree.CompactNavigator)?.TraversalPhases;
             root.MoveToRoot();
+            _runtime.Documents.TryGetCopy(root, out var copied);
+            if (copied != null && !CopiedAccumulatorApplies(copied, info, key, new QName(ns, local).EQName))
+                throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
             bool validatedCopy = false;
-            while (_runtime.Documents.TryGetCopy(root, out var copied) && Original(node, copied.Top, copied.Original) is XPathNavigator original)
+            while (copied != null)
             {
-                // A copy made with copy-accumulators="yes": the original node's values. Applicable as they are to the
-                // original's tree (copy-3002, XTDE3362), unless validation made the copy: a new temporary tree, to which
-                // every accumulator applies (accumulator-073).
+                if (copied.Accumulators?.TryValue(node, key, after, out var recorded) == true) return recorded!;
+                if (copied.Original is not XPathNavigator source || Original(node, copied.Top, source) is not XPathNavigator original) break;
+                // Copies keep their source positions. The tree's applicability was checked above,
+                // retaining the legacy grounded, nonstreamable validation policy (accumulator-073).
                 validatedCopy |= copied.Validated;
                 node = original;
                 root = node.Clone();
+                phases = (root as Tree.CompactNavigator)?.TraversalPhases;
                 root.MoveToRoot();
+                _runtime.Documents.TryGetCopy(root, out copied);
             }
             // Validation does not replace copied accumulator values with a new traversal. Streamed
             // origins may already be closed; their observer owns the recorded before/after values.
@@ -76,8 +83,10 @@ namespace Xsl3.Runtime
             {
                 throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the source document (the initial mode's use-accumulators)");
             }
-            string nodeId = _runtime.GenerateId(node);
-            var state = cache.Demand(root, rootId, key, nodeId, after, _runtime.EvaluationDependencies, XmlQueryRuntime.Cancellation, out var cached);
+            var position = phases is { } native
+                ? new GroundedAccumulatorValues.Position(null, native.Before, native.After)
+                : new GroundedAccumulatorValues.Position(_runtime.GenerateId(node));
+            var state = cache.Demand(root, rootId, key, position, after, _runtime.EvaluationDependencies, XmlQueryRuntime.Cancellation, out var cached);
             if (state == null) return cache.IsShared ? Copy(cached!) : cached!;
             var previous = XmlQueryRuntime.Cancellation;
             var output = _runtime.SaveOutput();
@@ -114,7 +123,7 @@ namespace Xsl3.Runtime
                     XmlQueryRuntime.Cancellation = previous;
                 }
             }
-            var result = cache.Result(state, nodeId, after);
+            var result = cache.Result(state, position, after);
             return cache.IsShared ? Copy(result) : result;
         }
 
@@ -144,6 +153,29 @@ namespace Xsl3.Runtime
         /// <summary>fn:copy-of: copies preserve annotations in a schema-aware processor and inherit accumulator values.</summary>
         public IList<XPathItem> X31CopyWithAccumulators(IList<XPathItem> items) =>
             Copies(items, copyNamespaces: true, keepTypes: _runtime.SchemaAware);
+
+        // Applicability belongs to the copied tree, including schema-created nodes that have no
+        // corresponding source position. Resolve it before attempting positional provenance.
+        private bool CopiedAccumulatorApplies(CopyOriginRegistry.Origin origin, AccumulatorInfo info, string key, string name)
+        {
+            bool validated = false;
+            while (true)
+            {
+                validated |= origin.Validated;
+                if (origin.Accumulators is { } captured) return captured.Applies(key);
+                if (origin.Original is not { } source) return false;
+                if (source is Streaming.StreamedNavigator streamed)
+                    return streamed.Document.Identity.Observer is StreamedAccumulators observer && observer.Applies(key);
+                XPathNavigator root = source.Clone();
+                root.MoveToRoot();
+                if (_runtime.Documents.TryGetCopy(root, out var previous)) { origin = previous; continue; }
+                // Preserve the existing grounded, nonstreamable validation policy. Streamed
+                // provenance and declared-streamable accumulators keep their source selection.
+                if (validated && !info.Streamable) return true;
+                return (info.OnPrincipal || !_runtime.ExternalContext.IsInitialSelectionDocument(root))
+                    && (_groundedAccumulators ??= new()).Applies(root, _runtime.GenerateId(root), name);
+            }
+        }
 
         // The node of the original tree at the same place as `node` in the copy of it rooted at `top`.
         private static XPathNavigator? Original(XPathNavigator node, XPathNavigator top, XPathNavigator original)
@@ -187,13 +219,13 @@ namespace Xsl3.Runtime
         private IList<XPathItem> AccumulatorVisit(XPathNavigator node, IList<XPathItem> value, IList<XPathItem> items, AccumulatorInfo info, string name,
             GroundedAccumulatorValues cache, GroundedAccumulatorValues.State state)
         {
-            var open = new Stack<(XPathNavigator Node, string Id, IList<XPathItem> Before)>();
+            var open = new Stack<(XPathNavigator Node, string? Id, IList<XPathItem> Before)>();
             XPathNavigator current = node.Clone();
             while (true)
             {
                 XmlQueryRuntime.CheckCancellation();
                 IList<XPathItem> before = AccumulatorApply(current, value, end: false, items, info, name);
-                string id = _runtime.GenerateId(current);
+                string? id = state.IsCompact ? null : _runtime.GenerateId(current);
                 cache.Record(state, id, before, null);
                 open.Push((current.Clone(), id, before));
                 value = before;
@@ -226,7 +258,11 @@ namespace Xsl3.Runtime
                 IList<XPathItem> priority;
                 var output = _runtime.SaveOutput();
                 int sourceMark = _runtime.StreamedSourceMark;
-                try { priority = CallFunction((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone())); }
+                try
+                {
+                    // The fresh sequence and cloned cursor belong to this matcher invocation.
+                    priority = CallFunctionOwned((FunctionItem)items[info.Offset + 1 + 2 * r], Sequences.One(node.Clone()));
+                }
                 catch (Exception error) when (CanIgnorePatternError(error, sourceMark))
                 {
                     _runtime.RestoreOutput(output);
@@ -234,7 +270,7 @@ namespace Xsl3.Runtime
                 }
                 if (priority.Count == 1)
                 {
-                    double p = XmlConvert.ToDouble(priority[0].Value);
+                    double p = CapturedNumber(priority[0]);
                     if (best < 0 || p > bestPriority)
                     {
                         best = r;

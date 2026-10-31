@@ -17,14 +17,35 @@ public class StreamedObservationTests
     {
         internal readonly List<string> Events = new();
         internal Action<StreamedNavigator>? OnStart;
+        internal Action<StreamedNavigator>? OnEnd;
         internal bool Closed;
         public void Start(StreamedNavigator node)
         {
             Events.Add("+" + node.NodeType + ":" + node.LocalName);
             OnStart?.Invoke(node);
         }
-        public void End(StreamedNavigator node) => Events.Add("-" + node.NodeType + ":" + node.LocalName);
+        public void End(StreamedNavigator node)
+        {
+            Events.Add("-" + node.NodeType + ":" + node.LocalName);
+            OnEnd?.Invoke(node);
+        }
         public void Dispose() => Closed = true;
+    }
+
+    [Fact]
+    public void ObserverCallbacksKeepIndependentPositionsAfterTheSourceAdvances()
+    {
+        using var input = XmlReader.Create(new StringReader("<doc><first/><second/></doc>"));
+        using var document = new StreamedDocument(input);
+        var starts = new List<StreamedNavigator>();
+        var ends = new List<StreamedNavigator>();
+        document.Observe(new Observer { OnStart = starts.Add, OnEnd = ends.Add });
+        document.CompleteSubtree(document.Root);
+        Assert.Equal(new[] { "", "doc", "first", "second" }, starts.ConvertAll(node => node.LocalName));
+        Assert.Equal(new[] { "first", "second", "doc", "" }, ends.ConvertAll(node => node.LocalName));
+        Assert.True(starts[2].IsSamePosition(ends[0]));
+        Assert.True(starts[3].IsSamePosition(ends[1]));
+        Assert.All(starts, start => Assert.All(ends, end => Assert.NotSame(start, end)));
     }
 
     [Fact]

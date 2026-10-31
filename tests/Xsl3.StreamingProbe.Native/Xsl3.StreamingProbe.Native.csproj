@@ -14,6 +14,8 @@
     <Error Condition="!Exists('$(ProbeStylesheetDirectory)/StreamingProbe.Native.g.cs')" Text="Generate saved probe entry points with eng/publish-stream-probe.sh first." />
   </Target>
   <ItemGroup>
+    <!-- Bind the same Unix RSS counter directly instead of the managed library-name search. -->
+    <DirectPInvoke Include="libc!getrusage" Condition="$(RuntimeIdentifier.StartsWith('linux')) Or $(RuntimeIdentifier.StartsWith('osx'))" />
     <ProjectReference Include="../../src/Xsl3/Xsl3.csproj" />
     <Reference Include="$(ProbeStylesheetDirectory)/*.dll" />
     <Compile Include="$(ProbeStylesheetDirectory)/StreamingProbe.Native.g.cs" Link="StreamingProbe.Native.g.cs" />

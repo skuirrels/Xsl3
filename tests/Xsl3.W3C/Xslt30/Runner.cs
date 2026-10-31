@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System;
+using CompilerErrorCollection = Xsl3.Xslt.CompilerErrorCollection;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,6 +32,7 @@ public sealed partial class Runner
 
     private sealed record RunResult(string? Serialized, Exception? Error, IReadOnlyList<string> Messages)
     {
+        public CompilerErrorCollection? CompilationErrors { get; init; }
         /// <summary>P7: analysis-only tests have no stylesheet or principal result.</summary>
         public IReadOnlyList<AssessedExpression>? StreamabilityResults { get; init; }
 
@@ -98,9 +100,11 @@ public sealed partial class Runner
         {
             compiler.Packages.Add(name, version, location);
         }
-        XsltExecutable executable = stylesheet.Contains('#')
-            ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
-            : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
+        XsltExecutable executable;
+        using (Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Compilation))
+            executable = stylesheet.Contains('#')
+                ? compiler.Compile(new StringReader(XsltCompiler.IncludeWrapper(new Uri(stylesheet))))
+                : compiler.Compile(new Uri(Path.GetFullPath(stylesheet)));
         Xslt30Transformer transformer = executable.CreateTransformer();
         transformer.SetStylesheetParameters(api.Parameters);
         transformer.MessageHandler = messages.Add;
@@ -123,6 +127,7 @@ public sealed partial class Runner
             "The transformation applies templates, but there is no initial match selection");
         bool forward = ForwardInitialSource(inputSource) && entry.InitialTemplate == null && entry.InitialFunction == null;
         XmlReader SourceReader() => OpenInitialSource(inputSource!, test);
+        using var stylesheetStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet);
         try
         {
             if (entry.RawResult)
@@ -242,7 +247,11 @@ public sealed partial class Runner
     private static XPathNavigator ResultTree(RunResult run, string serialized) =>
         run.Tree != null ? run.Tree() : ResultDocument(serialized, run.BaseUri);
 
-    public Outcome Run(TestCase test)
+    public Outcome Run(TestCase test) => Run(test, null);
+
+    // The observer belongs to this invocation, including if its worker times out.
+    // A late worker must never write diagnostics into the following case's capture.
+    internal Outcome Run(TestCase test, Action<Exception?, CompilerErrorCollection?>? observeExecution)
     {
         Outcome outcome = Outcome.Fail("timeout");
         using var cancel = new CancellationTokenSource();
@@ -252,7 +261,7 @@ public sealed partial class Runner
             {
                 // A test that runs away is stopped at its next template or function entry.
                 Xsl3.Runtime.XmlQueryRuntime.Cancellation = cancel.Token;
-                outcome = RunCore(test);
+                outcome = RunCore(test, observeExecution);
             }
             catch (Exception e)
             {
@@ -270,8 +279,9 @@ public sealed partial class Runner
         return outcome;
     }
 
-    private Outcome RunCore(TestCase test)
+    private Outcome RunCore(TestCase test, Action<Exception?, CompilerErrorCollection?>? observeExecution)
     {
+        using var preparationStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Preparation);
         if (test.TestElement.Element(Catalog.Ns + "posture-and-sweep") is { } analysis)
         {
             return RunPostureAndSweep(test, analysis);
@@ -322,6 +332,8 @@ public sealed partial class Runner
         RunResult run = Execute(test, envs, resolver, stylesheetPath,
             ResolveQName(t.Element(Catalog.Ns + "initial-template"), "name"), mode, parameters, t.Element(Catalog.Ns + "initial-function"));
         ExecutionCompleted?.Invoke(test, run.Error);
+        observeExecution?.Invoke(run.Error, run.CompilationErrors);
+        using var assertionStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Assertion);
         return Check(test, test.Result, run);
     }
 
@@ -351,6 +363,7 @@ public sealed partial class Runner
         List<TestEnvironment.Param> parameters, XElement? initialFunction)
     {
         var messages = new List<string>();
+        XslCompiledTransform? compiledEntry = null;
         var secondary = new Dictionary<string, StringWriter>(StringComparer.Ordinal);
         Xsl3.Runtime.XmlQueryRuntime.ResultDocumentHandler = (uri, method) => secondary[uri] = new Utf8StringWriter();
         // The result documents' trees, typed (schema-aware assertions on them: si-result-document-116).
@@ -452,6 +465,7 @@ public sealed partial class Runner
                 RawResult = (initialFunction != null || test.TestElement.Element(Catalog.Ns + "output")?.Attribute("tree") is { Value: "no" }) &&
                     test.TestElement.Element(Catalog.Ns + "output")?.Attribute("serialize") is not { Value: "yes" },
             };
+            compiledEntry = transform;
             if (s_api && !(Saved(test.Id)))
             {
                 return ExecuteApi(test, stylesheet, resolver, input, inputSource, transform, api, packages, messages, secondary);
@@ -463,6 +477,7 @@ public sealed partial class Runner
                 : XmlReader.Create(stylesheet, new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse, XmlResolver = resolver });
             using (XmlReader stylesheetReader = StylesheetReader())
             {
+                using var compilationStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Compilation);
                 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
                     EnableEvaluate = true,
@@ -493,6 +508,7 @@ public sealed partial class Runner
                 }
             }
             var sw = new StringWriter();
+            using var stylesheetStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet);
             // No source document: the context is an empty document (standing in for an absent context item).
             XPathNavigator context = input ?? XslCompiledTransform.AbsentInput;
             bool forward = ForwardInitialSource(inputSource) && transform.InitialTemplate == null && transform.InitialFunction == null;
@@ -545,7 +561,7 @@ public sealed partial class Runner
         }
         catch (Exception e) when (e is not OutOfMemoryException and not ThreadAbortException)
         {
-            return new RunResult(null, e, messages);
+            return new RunResult(null, e, messages) { CompilationErrors = compiledEntry?.CompilerErrors };
         }
     }
 

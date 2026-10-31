@@ -45,7 +45,7 @@ public sealed partial class XsltLibrary
                 }
                 else
                 {
-                    if (!int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out int leaf) || leaf != leaves++)
+                    if (!int.TryParse(token, NumberStyles.None, InvariantNumberFormat.Info, out int leaf) || leaf != leaves++)
                         throw new ArgumentException("Climbing-set leaves must be consecutive", nameof(plan));
                     Plan[i] = leaf; depth++;
                 }

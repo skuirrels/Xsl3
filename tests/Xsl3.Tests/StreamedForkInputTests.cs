@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Xml;
 using System.Xml.Schema;
@@ -14,6 +15,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedForkInputTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
@@ -31,6 +33,36 @@ public class StreamedForkInputTests
         var result = new XmlDocument();
         result.Load(input);
         return result.OuterXml;
+    }
+
+    [Fact]
+    public void LogicalEventsKeepCoalescedTextAndPreservedWhitespace()
+    {
+        const string xml = "<doc xml:space='preserve'> a<![CDATA[b]]>c<!--note--><?pi value?><n/> \t</doc>";
+        using var baselineInput = XmlReader.Create(new StringReader(xml));
+        using var baseline = new StreamedDocument(baselineInput);
+        string[] expected = Trace(baseline.CreateNavigator());
+        Assert.Equal("Text: abc", expected[0]);
+        Assert.Contains("SignificantWhitespace: \t", expected);
+        using var input = XmlReader.Create(new StringReader(xml));
+        using var document = new StreamedDocument(input);
+        Run((StreamedNavigator)document.CreateNavigator(),
+            view => Assert.Equal(expected, Trace(view)), view => Assert.Equal(expected, Trace(view)));
+
+        static string[] Trace(XPathNavigator view)
+        {
+            Assert.True(view.MoveToFirstChild());
+            Assert.Same(view.NameTable.Get("doc"), view.LocalName);
+            Assert.True(view.MoveToFirstChild());
+            var result = new List<string>();
+            do
+            {
+                if (view.NodeType == XPathNodeType.Element)
+                    Assert.Same(view.NameTable.Get(view.LocalName), view.LocalName);
+                result.Add(view.NodeType + ":" + (view.NodeType == XPathNodeType.Element ? view.LocalName : view.Value));
+            } while (view.MoveToNext());
+            return result.ToArray();
+        }
     }
 
     [Theory]
@@ -51,6 +83,34 @@ public class StreamedForkInputTests
         Assert.Contains("<?pi q?>", first);
         Assert.Equal("onetwothree", text);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(64)]
+    public void SkippingNestedContentKeepsTheFollowingSiblingAndOtherProng(int capacity)
+    {
+        const string xml = "<doc><row id='1'><value>one<nested>two</nested>three</value><!--c--></row>"
+            + "<row id='2'/><row id='3'><value/></row></doc>";
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var input = XmlReader.Create(new StringReader(xml));
+        using var document = new StreamedDocument(input);
+        using var fork = document.Fork((StreamedNavigator)document.CreateNavigator());
+        var ids = new List<string>();
+        string? copy = null;
+        fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, _) => {
+                Assert.True(view.MoveToFirstChild());
+                Assert.True(view.MoveToFirstChild());
+                do { ids.Add(view.GetAttribute("id", "")); } while (view.MoveToNext());
+                Assert.False(view.MoveToNext());
+            },
+            (view, _) => copy = ReadXml(view),
+        }, capacity, cancellation.Token);
+        Assert.Equal(new[] { "1", "2", "3" }, ids);
+        var expected = new XmlDocument(); expected.LoadXml(xml);
+        Assert.Equal(expected.OuterXml, copy);
     }
 
     [Fact]
@@ -148,6 +208,54 @@ public class StreamedForkInputTests
         var results = new string?[3];
         Run(focus, view => Run(view, nested => results[0] = nested.Value, nested => results[1] = nested.Value), view => results[2] = view.Value);
         Assert.All(results, result => Assert.Equal("onetwo", result));
+    }
+
+    [Fact]
+    public void NestedEventsDoNotRetainConsumedProngFrameState()
+    {
+        using var input = XmlReader.Create(new StringReader("<doc><n/><n/></doc>"));
+        using var document = new StreamedDocument(input);
+        Run((StreamedNavigator)document.CreateNavigator(), view =>
+        {
+            Assert.True(view.MoveToFirstChild());
+            Assert.True(view.MoveToFirstChild());
+            WeakReference state = AttachProngState(view);
+            Assert.True(view.MoveToParent());
+            using var firstRead = new ManualResetEventSlim();
+            using var advanced = new ManualResetEventSlim();
+            using var inspected = new ManualResetEventSlim();
+            Run(view, slow =>
+            {
+                try
+                {
+                    Assert.True(slow.MoveToFirstChild());
+                    firstRead.Set();
+                    Assert.True(advanced.Wait(Deadline));
+                    GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+                    Assert.False(state.IsAlive);
+                    // The slow reader still owns the first published event here.
+                    Assert.Equal("n", slow.LocalName);
+                    GC.KeepAlive(slow);
+                }
+                finally { inspected.Set(); }
+            }, fast =>
+            {
+                Assert.True(firstRead.Wait(Deadline));
+                Assert.True(fast.MoveToFirstChild());
+                Assert.True(fast.MoveToNext());
+                advanced.Set();
+                Assert.True(inspected.Wait(Deadline));
+            });
+        }, view => _ = view.Value);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference AttachProngState(StreamedNavigator view)
+    {
+        // Per-prong state must not become part of a nested fork's immutable payload.
+        object state = new();
+        view.PositionNode.RuntimeFacts = state;
+        return new WeakReference(state);
     }
 
     private sealed class Observer(int thread) : IStreamedNodeObserver

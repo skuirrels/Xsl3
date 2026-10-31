@@ -32,7 +32,8 @@ namespace Xsl3.Tree
             // Values: each distinct short one once.
             private string[] _values;
             private int _valueCount;
-            private readonly Dictionary<string, int>? _shared;
+            private ulong[]? _shared;
+            private int _sharedCount;
             private const int ShortValue = 32;
 
             // Open elements, and their base URIs.
@@ -75,7 +76,7 @@ namespace Xsl3.Tree
                     _local = new List<string>();
                     _uri = new List<string>();
                     _prefix = new List<string>();
-                    _shared = new Dictionary<string, int>(StringComparer.Ordinal);
+                    _shared = new ulong[4];
                     d._xmlPrefix = nameTable.Add("xml");
                     d._xmlUri = nameTable.Add(XmlReservedNs.NsXml);
                     _open = new int[16];
@@ -316,7 +317,7 @@ namespace Xsl3.Tree
                     int open = _open[--_depth];
                     if (open != None)
                     {
-                        _doc._end[open] = _doc._count;
+                        _doc.EndAt(open) = _doc._count;
                     }
                 }
                 if (_doc._count == 0 && _doc._attrCount == 0 && _doc._nsCount == 0)
@@ -394,20 +395,62 @@ namespace Xsl3.Tree
 
             private int Value(string value)
             {
+                int slot = -1;
+                uint hash = 0;
                 if (_shared != null && value.Length <= ShortValue)
                 {
-                    if (_shared.TryGetValue(value, out int id))
+                    hash = unchecked((uint)StringComparer.Ordinal.GetHashCode(value));
+                    slot = SharedSlot(value, hash, _shared);
+                    int existing = (int)(_shared[slot] & uint.MaxValue) - 1;
+                    if (existing >= 0) return existing;
+                    if (_sharedCount >= _shared.Length - _shared.Length / 4)
                     {
-                        return id;
+                        GrowShared();
+                        slot = SharedSlot(value, hash, _shared);
                     }
-                    _shared[value] = _valueCount;
                 }
                 if (_valueCount == _values.Length)
-                {
                     Array.Resize(ref _values, _valueCount * 2);
+                int id = _valueCount;
+                _values[_valueCount++] = value;
+                if (slot >= 0)
+                {
+                    _shared![slot] = ((ulong)hash << 32) | (uint)(id + 1);
+                    _sharedCount++;
                 }
-                _values[_valueCount] = value;
-                return _valueCount++;
+                return id;
+            }
+
+            // Zero is empty. Other entries pair an ordinal hash with a value-array
+            // index, avoiding duplicate string references and collision string loads.
+            private int SharedSlot(string value, uint hash, ulong[] slots)
+            {
+                int mask = slots.Length - 1;
+                int slot = (int)(hash & (uint)mask);
+                while (slots[slot] != 0)
+                {
+                    ulong entry = slots[slot];
+                    if ((uint)(entry >> 32) == hash && string.Equals(_values[(int)(entry & uint.MaxValue) - 1], value, StringComparison.Ordinal)) return slot;
+                    slot = (slot + 1) & mask;
+                }
+                return slot;
+            }
+
+            private void GrowShared()
+            {
+                ulong[] previous = _shared!;
+                if (previous.Length > Array.MaxLength / 2) throw new OutOfMemoryException();
+                var expanded = new ulong[previous.Length * 2];
+                int mask = expanded.Length - 1;
+                foreach (ulong entry in previous)
+                {
+                    if (entry == 0) continue;
+                    int slot = (int)((entry >> 32) & (uint)mask);
+                    // Previous entries are unique; resizing only needs to place them.
+                    while (expanded[slot] != 0) slot = (slot + 1) & mask;
+                    expanded[slot] = entry;
+                }
+                _shared = expanded;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -415,15 +458,15 @@ namespace Xsl3.Tree
             {
                 CompactDocument d = _doc;
                 int i = d._count;
-                if (i == d._kind.Length)
+                if (i == d.NodeCapacity)
                 {
                     Grow();
                 }
-                d._kind[i] = (byte)kind;
-                d._parent[i] = parent;
-                d._end[i] = i + 1;
-                d._name[i] = name;
-                d._data[i] = data;
+                d.KindAt(i) = (byte)kind;
+                d.ParentAt(i) = parent;
+                d.EndAt(i) = i + 1;
+                d.NameAt(i) = name;
+                d.DataAt(i) = data;
                 d._count = i + 1;
                 return i;
             }
@@ -431,7 +474,22 @@ namespace Xsl3.Tree
             private void Grow()
             {
                 CompactDocument d = _doc;
-                int size = d._kind.Length * 2;
+                if (d._nodePages != null)
+                {
+                    d._nodePages.Add();
+                    return;
+                }
+                if (_pool == null && d._kind.Length == NodePages.Length)
+                {
+                    var pages = new NodePages(d);
+                    pages.Add();
+                    d._nodePages = pages;
+                    return;
+                }
+                // Temporary trees retain flat arrays; full inputs stop resizing at one page.
+                long proposed = _pool == null ? Math.Min(d._kind.Length + d._kind.Length / 2L, NodePages.Length) : d._kind.Length * 2L;
+                int size = (int)Math.Min(proposed, Array.MaxLength);
+                if (size <= d._kind.Length) throw new OutOfMemoryException();
                 Array.Resize(ref d._kind, size);
                 Array.Resize(ref d._parent, size);
                 Array.Resize(ref d._end, size);
@@ -496,11 +554,11 @@ namespace Xsl3.Tree
             {
                 FlushText();
                 int element = _open[--_depth];
-                _doc._end[element] = _doc._count;
+                _doc.EndAt(element) = _doc._count;
                 // An element written <e/>: a reader reports it; a writer allows it when the element has no children.
                 if (emptyTag && _doc._count == element + 1)
                 {
-                    _doc._kind[element] |= EmptyTag;
+                    _doc.KindAt(element) |= EmptyTag;
                 }
             }
 
@@ -525,9 +583,9 @@ namespace Xsl3.Tree
                 d._attrOwner[i] = element;
                 d._attrName[i] = name;
                 d._attrValue[i] = Value(value);
-                if (element != None && d._data[element] == None)
+                if (element != None && d.DataAt(element) == None)
                 {
-                    d._data[element] = i;
+                    d.DataAt(element) = i;
                 }
                 d._attrCount = i + 1;
                 if (_idrefs != null && element != None && _idrefs.Contains((local, prefix)))

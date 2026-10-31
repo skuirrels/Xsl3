@@ -1,5 +1,128 @@
 # Changelog
 
+## Unreleased
+
+- Reuse a streamed accumulator's published before-phase when computing its after-phase,
+  avoiding a redundant locked frame lookup while preserving initialization and cycle/error checks.
+- Check copied accumulator applicability before looking up a corresponding source node. Preserve
+  source selection for declared-streamable accumulators and streamed provenance, including schema-created
+  text, while retaining the existing grounded nonstreamable validation policy.
+- Isolate unit tests that force process-wide garbage collections, including in-process streaming
+  probes, from other test collections. Keep their assertions, inputs and cancellation limits intact.
+- Reduce dynamic-call allocations by storing the first two arguments directly on each call.
+  Avoid temporary one/two-argument arrays and accumulator matcher argument arrays while preserving
+  argument copying, conversion, larger arities and saved/native execution.
+- Insert schema-supplied default/fixed element text alongside comments and processing instructions.
+  Apply assessed whitespace normalization while preserving QName prefixes, timezone components
+  and calendar duration units from schema declarations.
+- Preserve inherited accumulator phases when `xsl:copy-of` combines
+  `type="xs:untypedAtomic"` with `copy-accumulators="yes"`. Reuse the existing validated-copy
+  provenance policy so copied values keep their positions in the original source. Cover
+  both APIs, normal/debug compilation, supported saved loading and NativeAOT execution.
+- Measure rolling string-valued accumulator lifetimes across window widths, payload sizes and
+  input lengths. Verify shared empty-sequence reuse, collection of evicted values and sensitivity
+  to retained prior states without changing the runtime or original acceptance limits.
+- Avoid copying an accumulator matcher's already-owned argument a second time. Deliver intrinsic
+  accumulator notifications directly from source frames while ordinary observers keep fresh,
+  retainable positions. Preserve matcher/body focus, argument conversion and deferred failures.
+- Consolidate fork events with their headers and share immutable name/text data through existing
+  provenance. Preserve private attribute/schema snapshots and verify that nested events release
+  consumed prong state even while a slower reader retains the published event.
+- Measure tee payload retention and scalar accumulator frame/value lifetimes under explicit
+  payload and input-shape assumptions. Verify collection of consumed state, reader ownership,
+  and sensitivity to an isolated consumed-slot retention regression.
+- Retain actual primary compiler/runtime diagnostics and initial-source declarations in optional
+  conformance exports. Require complete evaluation observations in strict CI audits and document
+  every case without forwarding evidence while preserving raw outcomes and the original inventory.
+- Verify physical input reads and actual sink emission for all seven canonical streaming workloads
+  through both APIs and saved execution. Guard incremental reads against eager consumption, preserve
+  complete-input accumulator/iterate totals, and validate original independent output fingerprints.
+- Reuse each output writer's removal callback when reattaching its attribute cache. Preserve
+  nested and pooled output ownership, duplicate attributes, saved execution and XML/HTML selection.
+- Reject process-probe reports whose live managed heap exceeds the configured cap even when
+  their status claims success; preserve the original memory limits and retained measurements.
+- Capture actual forward/tree source representations during optional strict-suite audits,
+  including failed source openings and nested, dedicated-thread and fork execution. Separate
+  preparation, compilation, stylesheet execution/replay and assertion observations. Require
+  every frozen forwarding case in hosted strict audits while preserving raw conformance results.
+- Publish tee reader counts atomically so source-batch checks avoid taking the ring lock.
+  Preserve reader detachment, payload release, configured capacity and cancellation.
+- Reject function items, maps and arrays in atomic type checks without dereferencing absent
+  schema annotations; general sequence checks consistently recognize them as items.
+- Reuse immutable fork attribute and namespace arrays when prong atomization leaves their
+  references unchanged. Preserve private name-table atoms and independent schema snapshots.
+- Copy mutable schema snapshots for fork boundary and ancestor headers as well as events,
+  so a prong cannot alter another prong's node or attribute validation metadata.
+- Reject ambiguous, out-of-range or non-SDK assembly-version metadata and use the authoritative
+  assembly header instead. Emit SDK provenance only alongside an SDK-generated version attribute;
+  verify actual .NET 8/10 headers for standard, normalized, disabled and manual configurations.
+- Hash benchmark artifacts with bounded reads so Linux child memory observations are not
+  inflated by whole-image allocations in the controller before process creation. Retain tested
+  benchmark and native binaries alongside hosted acceptance reports for independent verification.
+- Preserve only the XML reader reflection members used by the bridge during NativeAOT trimming.
+  Shared unit/native contracts verify resolver identity, explicit null policies, whitespace and external DTD reads.
+- Write the native streaming probe's JSON protocol as explicit UTF-8 without a BOM, avoiding
+  host console charset discovery while preserving full-lifetime memory measurement.
+- Use the BCL's read-only invariant numeric data for XDM numbers and climbing-set plans,
+  avoiding culture initialization for numeric-only work. Reuse typed captured numbers and
+  accumulator priorities while preserving float lexical rounding, NaN normalization and errors.
+- Read SDK-derived assembly-version metadata when it is canonical and preserve the original
+  saved-stylesheet version comparison for differing versions. Short, padded, wildcard and
+  metadata-disabled builds retain the assembly header's normalized version.
+- Avoid observer-triggered culture initialization in the NativeAOT streaming probe: directly
+  bind the same Unix RSS counter and retain round-trip numeric JSON reports. Both internal
+  and external full-lifetime counters, original inputs, oracles and budgets remain in force.
+- Keep isolated loader diagnostics compatible with both version-initialization paths without
+  replacing their expressions or forcing the historical assembly-name lookup.
+- Claim published fork events atomically to reduce shared ring-lock traffic. Preserve the
+  configured capacity, caller-owned input, ordered faults, cancellation and payload release.
+- Fix argument forwarding in the optional identity-allocation comparison and retain failed child
+  reports instead of stopping before measurement.
+- Store the first streamed accumulator phase directly on its frame, allocating a name dictionary
+  only for additional accumulators. Skip empty rule phases while preserving initialization,
+  publication, expanded-name matching, replay/copy values, fork ownership and cancellation.
+- Extend isolated streaming-memory diagnostics with saved-stylesheet initialization/loading
+  checkpoints and validation of their source hashes, complete phase inventory and legal ordering.
+- Avoid temporary text trees for singleton literal simple content with a constant separator.
+  Preserve streamed cancellation checkpoints, text-node results and the existing dynamic-content path.
+- Preserve direct streamed emptiness tests when optimizing side-effecting expressions, fixing a
+  Debug preservation-verifier failure in nested predicates.
+- Use the existing type-code path for broad atomic checks, with correct exclusion of maps,
+  arrays, functions and internal control items.
+- Project normalized fork events directly into independent prong views and skip unselected
+  buffered subtrees in batches while retaining bounded buffering, source ownership and error ordering.
+- Pump requested fork source batches directly on the invoking thread, avoiding a synchronous queued
+  callback per refill. Preserve the configured buffer capacity, callback ownership and cancellation.
+- Reduce redundant wakeups during fork input consumption while preserving progress whenever buffer
+  space is available, cancellation and caller-owned I/O.
+- Reduce compact-tree short-value cache storage by retaining hashes and value-array indices instead
+  of duplicate string-key references. Preserve complete ordinal interning, collision handling and
+  the existing pooling boundary; full P7 memory and throughput qualification remains open.
+- Store grounded compact-tree accumulator values at traversal changes in segmented storage,
+  avoiding per-node string-key entries and large timeline resizes. Preserve exact before/after
+  phases, partial failures, recursive-demand errors, cancellation, copy origins and fork sharing.
+- Grow full compact-tree columns more densely to reduce excess capacity and transient resize
+  memory. Preserve temporary-tree growth, node order, values, namespaces and attribute metadata.
+- Append fixed-size node-column pages for large source trees to avoid whole-column resize peaks.
+  Preserve linear node identities, navigation, attributes, namespaces and temporary-tree flat storage.
+- Process merge snapshots incrementally for streamable-declared sources even when input is
+  tree-backed. Preserve explicit tree selection, snapshots, group focus, sorting and source ownership.
+- Store grounded unsorted adjacent groups as boundaries and materialize each action frame on demand.
+  Preserve total context size, key evaluation/comparison, member identity, retained closures and
+  cancellation. Untyped string keys use the canonical collation without per-row atom caches.
+- Emit streamed atomization through the canonical atomizer without generic built-in dispatch.
+  Saved static-data format 6 records whether numeric built-in IDs require fingerprint validation;
+  older saved formats retain their compatibility checks.
+- Use a direct streamed `string-join` path when its separator is a known string, sharing lexical
+  conversion with the ordinary function while preserving overlapping values and schema atomization.
+- Write streamed stripped attribute copies directly into constructed content. Raw sequences keep
+  fresh parentless copies; schema stripping, ID/IDREF properties and namespace fixup are preserved.
+- Avoid initializing default cultures when fork workers already inherit the captured execution
+  context. Preserve explicit cultures, suppressed-flow behavior and worker state, and release
+  captured ambient objects when a prong finishes.
+- Full [Phase 7 qualification](docs/plan/p7-completion.md) remains in progress. Streaming support
+  is not yet claimed; original memory, throughput and release gates remain required.
+
 ## [1.1.6](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.6) — 2026-10-29
 
 - Give bare XPath 3.1 variable references separate instruction source locations. Repeated

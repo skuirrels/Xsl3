@@ -77,6 +77,7 @@ public sealed partial class XmlQueryRuntime
         }
         finally
         {
+            state.ReleaseCultures();
             try { CloseStreamedSources(); }
             finally { saved.Apply(saved.Token, saved.PrincipalWriter); }
         }
@@ -97,10 +98,16 @@ public sealed partial class XmlQueryRuntime
         private readonly string? _baseOutput = BaseOutputUri;
         private readonly int _depth = Depth;
         private readonly bool _strip = CompactDocument.StripInputAnnotations, _html5 = HtmlVoidElements.Html5;
-        private readonly CultureInfo _culture = CultureInfo.CurrentCulture, _uiCulture = CultureInfo.CurrentUICulture;
+        private ExecutionContext? _cultureContext;
+        private (CultureInfo Culture, CultureInfo Ui)? _cultures;
 
         internal ExecutionState(ForkCaller? caller = null)
         {
+            // Thread.Start normally carries this exact context to the worker. Do not
+            // materialize platform-default cultures just to assign them back unchanged.
+            // Suppressed flow has no context to retain, so capture its cultures now.
+            _cultureContext = ExecutionContext.Capture();
+            if (_cultureContext == null) _cultures = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
             if (caller == null) return;
             var opener = _opener;
             var handler = _handler;
@@ -108,6 +115,14 @@ public sealed partial class XmlQueryRuntime
             if (opener != null) _opener = uri => caller.Invoke(() => opener(uri), Cancellation);
             if (handler != null) _handler = (uri, method) => caller.Invoke(() => handler(uri, method), Cancellation);
             if (trees != null) _trees = (uri, tree) => caller.Invoke(() => trees(uri, tree), Cancellation);
+        }
+
+        internal void ReleaseCultures()
+        {
+            // A returned function may retain this runtime after its one prong run.
+            // Its completed state must not root the host's unrelated AsyncLocal graph.
+            _cultureContext = null;
+            _cultures = null;
         }
 
         internal void Apply(CancellationToken cancellation, PrincipalResult? principal)
@@ -127,8 +142,20 @@ public sealed partial class XmlQueryRuntime
             Depth = _depth;
             CompactDocument.StripInputAnnotations = _strip;
             HtmlVoidElements.Html5 = _html5;
-            CultureInfo.CurrentCulture = _culture;
-            CultureInfo.CurrentUICulture = _uiCulture;
+            if (_cultureContext == null || !ReferenceEquals(_cultureContext, ExecutionContext.Capture()))
+            {
+                if (_cultures == null)
+                {
+                    // Extract only the owner's cultures. Run restores the worker context;
+                    // unrelated AsyncLocal values must not be transferred with the cultures.
+                    ExecutionContext.Run(_cultureContext!, static state => {
+                        ((ExecutionState)state!)._cultures = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+                    }, this);
+                }
+                var cultures = _cultures!.Value;
+                CultureInfo.CurrentCulture = cultures.Culture;
+                CultureInfo.CurrentUICulture = cultures.Ui;
+            }
         }
     }
 }

@@ -9,7 +9,23 @@ namespace Xsl3.Xslt;
 
 internal sealed partial class QilGenerator
 {
-    private QilNode CompileStreamedMerge31(List<XslNode> sources, XslNode action, List<string?> names, QilIterator plan)
+    System.IDisposable? XPath31.IXPath31Environment.FunctionBody()
+    {
+        if (_currentMerge31 == null) return null;
+        var scope = new MergeFunctionScope(this, _currentMerge31);
+        _currentMerge31 = null;
+        return scope;
+    }
+
+    // XSLT 3.0 15.6: implicit merge context is absent in function values. Explicit
+    // variables are still captured by the XPath compiler through its normal closure ABI.
+    private sealed class MergeFunctionScope(QilGenerator owner,
+        (QilNode Group, QilNode Key, QilNode Sources, List<string?> Names)? saved) : System.IDisposable
+    {
+        public void Dispose() => owner._currentMerge31 = saved;
+    }
+
+    private QilNode CompilePullMerge31(List<XslNode> sources, XslNode action, List<string?> names, QilIterator plan)
     {
         QilList inputs = _f.BaseFactory.Sequence();
         for (int index = 0; index < sources.Count; index++)
@@ -20,7 +36,7 @@ internal sealed partial class QilGenerator
             {
                 XslNodeV2 data = source.V2!;
                 QilIterator keyFunction = _f.Let(CompileMergeKeys31(source));
-                bool forward = data.Streamable == TriState.True && data.SourceForEachSource != null && !data.SortBeforeMerge
+                bool forward = StreamedCompilation31 && data.Streamable == TriState.True && data.SourceForEachSource != null && !data.SortBeforeMerge
                     && _compiler.StreamabilityResults?.TryGetValue(source, out Streaming.StreamabilityVerdict? verdict) == true && verdict.Guaranteed;
                 QilNode Input(QilNode? document, QilNode anchor)
                 {

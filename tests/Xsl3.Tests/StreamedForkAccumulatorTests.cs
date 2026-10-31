@@ -19,6 +19,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedForkAccumulatorTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
@@ -35,7 +36,11 @@ public class StreamedForkAccumulatorTests
         private readonly int _table, _names;
         internal int Starts, Ends;
 
-        internal Source(string xml, bool fail = false, bool cycle = false)
+        internal Source(string xml, bool fail = false, bool cycle = false, Action<XPathNavigator>? matchAction = null)
+            : this(XmlReader.Create(new StringReader(xml)), fail, cycle, matchAction) { }
+
+        internal Source(XmlReader input, bool fail = false, bool cycle = false, Action<XPathNavigator>? matchAction = null,
+            IList<XPathItem>? initialValue = null, Func<XPathNavigator, IList<XPathItem>, bool, IList<XPathItem>>? rule = null)
         {
             int thread = Environment.CurrentManagedThreadId;
             var constants = new ConstantTable();
@@ -48,28 +53,40 @@ public class StreamedForkAccumulatorTests
             var data = new XmlQueryStaticData(new XmlWriterSettings(), Array.Empty<WhitespaceRule>(), new StaticDataManager()) {
                 Xslt2 = true, StreamedInitialMode = true, Constants = constants,
             };
-            Input = XmlReader.Create(new StringReader(xml));
+            Input = input;
             Runtime = new XmlQueryRuntime(data, new InitialSource(Input, null, XslCompiledTransform.AbsentInput),
                 XmlResolver.ThrowingResolver, null, new XmlCachedSequenceWriter());
             Library = Runtime.XsltFunctions;
             _functions = new XPathItem[] {
-                Function(1, _ => Integer(0)),
-                Function(1, a => ((XPathNavigator)a[0][0]).LocalName == "row" ? Integer(0) : Array.Empty<XPathItem>()),
+                Function(1, _ => initialValue ?? Integer(0)),
+                Function(1, Match),
                 Function(2, a => {
                     Assert.Equal(thread, Environment.CurrentManagedThreadId);
+                    Assert.Equal("row", ((XPathNavigator)a[0][0]).LocalName);
                     Starts++;
                     if (fail && Starts == 2) throw new XdmException(cycle ? "XTDE3400" : "TEST0001", "Accumulator rule failed") { AccumulatorCycle = cycle };
+                    if (rule != null) return rule((XPathNavigator)a[0][0], a[1], false);
                     return Integer(((IntegerValue)a[1][0]).Integer + 1);
                 }),
-                Function(1, a => ((XPathNavigator)a[0][0]).LocalName == "row" ? Integer(0) : Array.Empty<XPathItem>()),
+                Function(1, Match),
                 Function(2, a => {
                     Assert.Equal(thread, Environment.CurrentManagedThreadId);
+                    Assert.Equal("row", ((XPathNavigator)a[0][0]).LocalName);
                     Ends++;
+                    if (rule != null) return rule((XPathNavigator)a[0][0], a[1], true);
                     return Integer(((IntegerValue)a[1][0]).Integer + 10);
                 }),
                 Function(1, _ => Integer(7)),
             };
             Focus = (StreamedNavigator)Library.X31InitialObservedSource(_functions, _table);
+
+            IList<XPathItem> Match(IList<XPathItem>[] arguments)
+            {
+                var context = (XPathNavigator)arguments[0][0];
+                bool matches = context.LocalName == "row";
+                matchAction?.Invoke(context);
+                return matches ? Integer(0) : Array.Empty<XPathItem>();
+            }
         }
 
         private static NativeFunction Function(int arity, Func<IList<XPathItem>[], IList<XPathItem>> body) =>
@@ -99,6 +116,28 @@ public class StreamedForkAccumulatorTests
             Runtime.CloseStreamedSources();
             Input.Dispose();
         }
+    }
+
+    [Fact]
+    public void MatcherCursorMutationDoesNotChangeTheRuleBodyOrCallerFocus()
+    {
+        int matches = 0;
+        using var source = new Source("<doc><row/><row/></doc>", matchAction: context => {
+            matches++;
+            context.MoveToRoot();
+        });
+        Assert.True(source.Focus.MoveToFirstChild());
+        Assert.True(source.Focus.MoveToFirstChild());
+        Assert.Equal("1", source.Value(source.Focus));
+        Assert.Equal("11", source.Value(source.Focus, after: true));
+        Assert.Equal("row", source.Focus.LocalName);
+        Assert.True(source.Focus.MoveToNext());
+        Assert.Equal("12", source.Value(source.Focus));
+        Assert.Equal("22", source.Value(source.Focus, after: true));
+        Assert.Equal("row", source.Focus.LocalName);
+        Assert.Equal(2, source.Starts);
+        Assert.Equal(2, source.Ends);
+        Assert.True(matches >= source.Starts + source.Ends);
     }
 
     [Fact]

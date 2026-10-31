@@ -39,6 +39,7 @@ namespace Xsl3.Runtime
 
         // It is OK to set these properties directly
         private readonly XmlQueryRuntime _runtime;            // The XmlQueryRuntime instance that keeps global state
+        private OnRemoveWriter? _onWriterRemoved;     // Reused when the same output reattaches its attribute cache
         private XmlAttributeCache? _attrCache;        // Cache used to detect duplicate attributes
         private int _depth;                          // Depth of the currently constructing tree
         private int _nestedRoots;                    // Xsl3: document constructors inside content, contributing their children
@@ -172,7 +173,7 @@ namespace Xsl3.Runtime
             {
                 // If new writer might remove itself from pipeline, have it callback on this method when it's ready to go
                 IRemovableWriter? removable = value as IRemovableWriter;
-                removable?.OnRemoveWriterEvent = SetWrappedWriter;
+                if (removable != null) removable.OnRemoveWriterEvent = _onWriterRemoved ??= SetWrappedWriter;
 
                 _xwrt = value;
             }
@@ -1134,6 +1135,31 @@ namespace Xsl3.Runtime
             }
         }
 
+        /// <summary>Copy an attribute with validation="strip", preserving its identity properties.</summary>
+        public void XsltCopyOfStrippedAttribute(XPathNavigator navigator)
+        {
+            Debug.Assert(navigator.NodeType == XPathNodeType.Attribute);
+            if (_xstate == XmlState.WithinSequence && _seqwrt is XmlCachedSequenceWriter)
+            {
+                // A raw result must keep the compact tree's ID/IDREF metadata even when
+                // its destination sequence otherwise uses an unannotated XPathDocument.
+                var copy = (Xsl3.Tree.CompactNavigator)Xsl3.Schema.NodeValidator.Preserve(navigator,
+                    copyNamespaces: true, keepTypes: false);
+                copy.Document.NoDocumentUri = true;
+                _seqwrt.WriteItem(copy);
+                return;
+            }
+            // Check construction state before transferring metadata. Document content
+            // and attributes following child content retain their normal dynamic errors.
+            ConstructInEnumAttrs(XPathNodeType.Attribute);
+            CopyAttributeAnnotation(navigator, typedCopy: null);
+            WriteStartAttribute(navigator.Prefix, navigator.LocalName, navigator.NamespaceURI);
+            string value = navigator.Value;
+            WriteString(navigator.LocalName == "id" && navigator.NamespaceURI == XmlReservedNs.NsXml
+                ? Xdm.Lexical.Collapse(value) : value);
+            WriteEndAttribute();
+        }
+
         private void XsltCopyOfCore(XPathNavigator navigator)
         {
             RtfNavigator? navRtf = navigator as RtfNavigator;
@@ -1449,24 +1475,21 @@ namespace Xsl3.Runtime
         /// </summary>
         private void CopyAttributeAnnotation(XPathNavigator attribute, Xsl3.Schema.IAnnotatingWriter? typedCopy)
         {
-            if (attribute is not Xsl3.Tree.CompactNavigator compact)
+            if (typedCopy != null && Xsl3.Schema.SchemaTypes.TypeOf(attribute) is { } type)
             {
-                return;
-            }
-            if (typedCopy != null && compact.Typed && Xsl3.Schema.SchemaTypes.TypeOf(compact) is { } type)
-            {
-                typedCopy.AnnotateAttribute(compact.NamespaceURI, compact.LocalName, type);
+                typedCopy.AnnotateAttribute(attribute.NamespaceURI, attribute.LocalName, type);
             }
             else if (_runtime.IsXslt2)
             {
                 // (Its is-idrefs property too: copy-5034.)
-                if (compact.IsIdAttribute)
+                var (id, idref) = Xsl3.Schema.SchemaTypes.AttributeIdentity(attribute);
+                if (id)
                 {
-                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(compact.NamespaceURI, compact.LocalName);
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(attribute.NamespaceURI, attribute.LocalName);
                 }
-                if (compact.IsIdrefAttribute)
+                if (idref)
                 {
-                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdrefAttribute(compact.NamespaceURI, compact.LocalName);
+                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdrefAttribute(attribute.NamespaceURI, attribute.LocalName);
                 }
             }
         }

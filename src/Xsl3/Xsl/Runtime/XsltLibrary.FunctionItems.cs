@@ -108,12 +108,44 @@ namespace Xsl3.Runtime
         public PendingCall(FunctionItem function)
         {
             Function = function;
-            Arguments = new(function.Arity);
+            if (function.Arity > 2) _additional = new IList<XPathItem>[function.Arity - 2];
         }
 
         public FunctionItem Function { get; }
 
-        public List<IList<XPathItem>> Arguments { get; }
+        // Most dynamic calls have at most two arguments. Keep those slots on the
+        // call rather than allocating a List and its separate backing array.
+        private IList<XPathItem>? _first, _second;
+        private IList<XPathItem>[]? _additional;
+        public int ArgumentCount { get; private set; }
+
+        public IList<XPathItem> GetArgument(int index) => (uint)index >= (uint)ArgumentCount
+            ? throw new ArgumentOutOfRangeException(nameof(index))
+            : index == 0 ? _first! : index == 1 ? _second! : _additional![index - 2];
+
+        public void AddArgument(IList<XPathItem> argument)
+        {
+            if (ArgumentCount == 0) _first = argument;
+            else if (ArgumentCount == 1) _second = argument;
+            else
+            {
+                int index = ArgumentCount - 2;
+                if (_additional == null) _additional = new IList<XPathItem>[1];
+                else if (index == _additional.Length) Array.Resize(ref _additional, checked(index * 2));
+                _additional[index] = argument;
+            }
+            ArgumentCount++;
+        }
+
+        public IList<XPathItem>[] GetArguments()
+        {
+            if (ArgumentCount == 0) return Array.Empty<IList<XPathItem>>();
+            var result = new IList<XPathItem>[ArgumentCount];
+            result[0] = _first!;
+            if (ArgumentCount > 1) result[1] = _second!;
+            if (ArgumentCount > 2) Array.Copy(_additional!, 0, result, 2, ArgumentCount - 2);
+            return result;
+        }
 
         internal List<XPathItem>? Argument;
 
@@ -159,8 +191,8 @@ namespace Xsl3.Runtime
         {
             var c = (PendingCall)call;
             // The function conversion rules to the declared parameter type (XPath 3.1 §3.1.5.2).
-            int i = c.Arguments.Count;
-            c.Arguments.Add(Coercion.CoerceArgument(Copy(value), c.Function.ParameterType(i), c.Function, i));
+            int i = c.ArgumentCount;
+            c.AddArgument(Coercion.CoerceArgument(Copy(value), c.Function.ParameterType(i), c.Function, i));
             return c;
         }
 
@@ -169,7 +201,7 @@ namespace Xsl3.Runtime
         {
             var c = (PendingCall)call;
             var argument = c.Argument ??= new List<XPathItem>();
-            if (value is not AtomicValue && c.Function.ParameterType(c.Arguments.Count).Item is AtomicTypeTest or NumericTest or UnionTypeTest)
+            if (value is not AtomicValue && c.Function.ParameterType(c.ArgumentCount).Item is AtomicTypeTest or NumericTest or UnionTypeTest)
                 argument.AddRange(Sequences.Atomize(Sequences.One(value)));
             else
                 argument.Add(Unshare(value));
@@ -182,8 +214,8 @@ namespace Xsl3.Runtime
         {
             var c = (PendingCall)call;
             IList<XPathItem> argument = count == 0 ? Sequences.Empty : c.Argument!;
-            int index = c.Arguments.Count;
-            c.Arguments.Add(Coercion.CoerceArgument(argument, c.Function.ParameterType(index), c.Function, index));
+            int index = c.ArgumentCount;
+            c.AddArgument(Coercion.CoerceArgument(argument, c.Function.ParameterType(index), c.Function, index));
             c.Argument = null;
             return c;
         }
@@ -209,7 +241,7 @@ namespace Xsl3.Runtime
 
         public IList<XPathItem> X31CallCaptured(XPathItem call, double index) => ((CompiledFunction)((PendingCall)call).Function).Captured[(int)index];
 
-        public IList<XPathItem> X31CallArg(XPathItem call, double index) => ((PendingCall)call).Arguments[(int)index];
+        public IList<XPathItem> X31CallArg(XPathItem call, double index) => ((PendingCall)call).GetArgument((int)index);
 
         /// <summary>A call the run-time library makes: of a map, an array or a built-in function.</summary>
         public IList<XPathItem> X31CallRuntime(XPathItem call)
@@ -218,19 +250,19 @@ namespace Xsl3.Runtime
             switch (c.Function)
             {
                 case MapItem map:
-                    return map.Get(Sequences.AtomizeOptional(c.Arguments[0], "a map key") ?? throw Err.XPTY0004("A map is called with an empty key")) ?? Sequences.Empty;
+                    return map.Get(Sequences.AtomizeOptional(c.GetArgument(0), "a map key") ?? throw Err.XPTY0004("A map is called with an empty key")) ?? Sequences.Empty;
                 case ArrayItem array:
-                    AtomicValue? index = Sequences.AtomizeOptional(c.Arguments[0], "an array index");
+                    AtomicValue? index = Sequences.AtomizeOptional(c.GetArgument(0), "an array index");
                     return index is IntegerValue i ? array.Get(i.Integer) : throw Err.XPTY0004("An array is called with an integer");
                 case LibraryFunction lf:
                     FunctionContext context = lf.Context;
                     if (context.Runtime is { } owner && !ReferenceEquals(owner, _runtime) && _runtime.SharesForkContext(owner))
                         context = context.WithRuntime(_runtime);
-                    return lf.Definition.Invoke(context, c.Arguments.ToArray());
+                    return lf.Definition.Invoke(context, c.GetArguments());
                 case NativeFunction nf:
-                    return nf.Invoke(c.Arguments.ToArray());
+                    return nf.Invoke(c.GetArguments());
                 case CoercedFunction coerced:
-                    return coerced.Invoke(this, c.Arguments.ToArray());
+                    return coerced.Invoke(this, c.GetArguments());
                 case CompiledFunction cf:
                     XmlQueryRuntime runtime = _runtime.SharesForkContext(cf.Owner) ? _runtime : cf.Owner;
                     if (runtime.Dispatcher is { } dispatch) return dispatch(runtime, call);
@@ -247,6 +279,36 @@ namespace Xsl3.Runtime
         /// <summary>Calls a function item from the run-time library: compiled functions through the dispatcher.</summary>
         internal IList<XPathItem> CallFunction(FunctionItem function, params IList<XPathItem>[] arguments) => CallFunction(function, arguments, owned: false);
 
+        // Fixed-arity entry points avoid constructing a temporary params array.
+        // X31CallArgument retains the same copy and function-conversion policy.
+        internal IList<XPathItem> CallFunction(FunctionItem function, IList<XPathItem> argument)
+        {
+            var call = new PendingCall(function);
+            X31CallArgument(call, argument);
+            return InvokeCall(call);
+        }
+
+        internal IList<XPathItem> CallFunction(FunctionItem function, IList<XPathItem> first, IList<XPathItem> second)
+        {
+            var call = new PendingCall(function);
+            X31CallArgument(call, first);
+            X31CallArgument(call, second);
+            return InvokeCall(call);
+        }
+
+        private static void AddOwnedCallArgument(PendingCall call, IList<XPathItem> argument)
+        {
+            int index = call.ArgumentCount;
+            call.AddArgument(Coercion.CoerceArgument(argument, call.Function.ParameterType(index), call.Function, index));
+        }
+
+        private IList<XPathItem> CallFunctionOwned(FunctionItem function, IList<XPathItem> argument)
+        {
+            var call = new PendingCall(function);
+            AddOwnedCallArgument(call, argument);
+            return InvokeCall(call);
+        }
+
         /// <param name="owned">Xsl3 (P4): the argument lists are the callee's to keep (made for this call, their nodes
         /// cloned), so they aren't copied again.</param>
         internal IList<XPathItem> CallFunction(FunctionItem function, IList<XPathItem>[] arguments, bool owned)
@@ -256,7 +318,7 @@ namespace Xsl3.Runtime
             {
                 if (owned)
                 {
-                    call.Arguments.Add(Coercion.CoerceArgument(argument, function.ParameterType(call.Arguments.Count), function, call.Arguments.Count));
+                    AddOwnedCallArgument(call, argument);
                 }
                 else
                 {
@@ -461,7 +523,18 @@ namespace Xsl3.Runtime
         }
 
         /// <summary>A captured number (a position) back as a double.</summary>
-        public double X31CapturedNumber(IList<XPathItem> value) => System.Xml.XmlConvert.ToDouble(value[0].Value);
+        public double X31CapturedNumber(IList<XPathItem> value) => CapturedNumber(value[0]);
+
+        // These compiler-owned values are already numeric. Preserve the lexical
+        // conversion for other items (notably float, whose string-to-double result
+        // differs from widening its binary value), including its existing errors.
+        private static double CapturedNumber(XPathItem item) => item switch
+        {
+            DoubleValue value => double.IsNaN(value.Double) ? double.NaN : value.Double,
+            IntegerValue value => Numeric.ToDouble(value.Integer),
+            DecimalValue value => Numeric.ToDouble(value.Decimal),
+            _ => System.Xml.XmlConvert.ToDouble(item.Value),
+        };
 
         // The code, description and value of a dynamic error, or null for exceptions that aren't errors.
         internal static (QName, string, IList<XPathItem>)? DynamicError(System.Exception e)
