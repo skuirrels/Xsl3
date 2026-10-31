@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse a streamed accumulator's published before-phase when computing its after-phase,
+  avoiding a redundant locked frame lookup while preserving initialization and cycle/error checks.
 - Check copied accumulator applicability before looking up a corresponding source node. Preserve
   source selection for declared-streamable accumulators and streamed provenance, including schema-created
   text, while retaining the existing grounded nonstreamable validation policy.

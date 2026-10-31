@@ -3000,7 +3000,48 @@ guard reject; frozen hashes survive execution, and six consumer /one generator s
 match their PDBs. The linked runtime equals the full-tested Release engine. The final consumer reads
 its reported runtime flag directly; the earlier guard-derived constant report remains retained.
 
-Evidence: `artifacts/p7-completion/copied-applicability-4c8e203/`. Hosted CI remains required for this
-runtime change. This resolves denied-accumulator lookup for these copies; it does not assign phase
+Evidence: `artifacts/p7-completion/copied-applicability-4c8e203/`. Hosted CI run **41210605246** passes
+all four jobs for `ed818c0`: Ubuntu, Windows, NativeAOT and ordinary performance.
+This resolves denied-accumulator lookup for these copies; it does not assign phase
 values to schema-created nodes when the accumulator is applicable, dispose arbitrary mismatched
 internal provenance, or close the original failed memory/throughput gates.
+
+### Published-phase reuse and independent performance controls, 2026-10-31
+
+Finishing a streamed accumulator phase previously repeated `Before` even when the same frame's
+before-value was already published. Reuse that volatile value's publication proof to avoid the
+redundant locked frame/name lookup. Initialization still runs for an absent before-phase, and
+the existing after-phase cycle, fault, lifetime and publication checks stay in place.
+
+All four full Release/Debug suites pass **7,179 .NET 10 /6,093 .NET 8** cases per configuration,
+with the exact baseline case populations, no failures/skips, unchanged post-test binary hashes
+and 53 runtime PDB source checks. The unchanged saved-style NativeAOT consumer passes **736**
+checks and rejects deliberately incorrect codes, incorrect output and JIT hosting. Its linked
+runtime equals the full-tested Release engine; six consumer PDB sources and saved inputs match.
+
+Thirty-six alternating native controls independently compare this change and a separate inline
+phase-storage candidate against `ed818c0`. All outputs and actual 4 GiB managed guards validate
+on exact 100 MB inputs. This change reduces accumulator elapsed median by **3.89%** with one CPU;
+twelve additional two-CPU observations repeat a **2.09%** reduction. Its RSS benefit is negligible.
+These diagnostic comparisons do not qualify the original memory/throughput matrices.
+Evidence: `artifacts/p7-completion/accumulator-phase-guard-ed818c0/` and `inline-only-ed818c0/`.
+
+The independent inline phase-storage candidate passes 1,890 focused contracts and saves about
+1.55% of actual observer allocation, but only 1.62% of native accumulator elapsed time and 116 KiB
+of median RSS. It is not adopted. A typed saved-binding interface prototype also remains excluded:
+455 managed contracts, 48 native smoke children and 24 paired controls validate, but its complete
+original push matrix still fails merge, fork and source-document at **23,441,408 /23,887,872 /
+22,990,848** bytes. No public interface, budget, input, URI/globalization or GC-policy change enters
+the branch. Evidence: `artifacts/p7-completion/direct-binding-ed818c0/`.
+
+A separate, unadopted compiler-derived name-rejection prototype reduces JIT accumulator streaming
+elapsed median by **26.49%** in a 24-child Linux ARM64 .NET 10.0.14 comparison. All outputs and
+actual 4 GiB guards validate. Its local accumulator stream/tree ratio moves from **1.138970** to
+**0.848977**; identity remains above the original target, and this is only a two-workload diagnostic
+subset. Saved/native filtering, broader contracts and original qualification are still required;
+this prototype makes no support or completion claim. Evidence: `accumulator-filter-ed818c0/`.
+
+The retained native resident-page evidence is now attributed to symbols after verifying its image
+hash. Most resident managed code belongs to framework libraries; symbols on a resident page do not
+prove those methods ran or predict recoverable RSS. This guides the next memory investigation,
+without substituting attribution for operating-system peak counters. Evidence: `resident-symbols-d744911/`.

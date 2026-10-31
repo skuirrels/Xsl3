@@ -419,7 +419,7 @@ public sealed partial class XsltLibrary
             phase.Ending = true;
             try
             {
-                Before(state, node);
+                if (phase.Before == null) Before(state, node);
                 var value = state.HasEndRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
                     end: true, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: true); return state.Current = value; }
