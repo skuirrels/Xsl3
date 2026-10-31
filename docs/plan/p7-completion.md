@@ -2327,3 +2327,51 @@ and its complete retained raw cohorts, failed controls, source snapshots and fro
 The current branch's runtime remains unchanged by this test-isolation repair. The original memory,
 throughput, remaining applicability/state, public integration, complete review, final-source CI,
 merge and release requirements stay open. Full P7 remains active and `supports-streaming` stays `no`.
+
+### Fork reclamation qualification and partial-prefix contracts, 2026-10-31
+
+The projection experiment recorded above is now rejected. Its original-guard single-CPU controls
+retain exact 200 MiB inputs, full original outputs and actual 20 MiB managed/RSS guards. The compact
+candidate uses about 12% more full-child CPU and slightly more RSS; neither variant passes the RSS
+budget. Earlier multicore gains remain recorded and do not establish eligibility. No projection
+compiler/runtime source is adopted. Evidence: `artifacts/p7-completion/fork-projection-79cb441/decision.json`
+and `original-guard-audit.json`.
+
+An independent position-based reclamation experiment also remains unadopted. Twelve alternating Linux
+ARM64 NativeAOT 100 MB controls validate all outputs and original 4 GiB heap guards. Baseline/candidate
+medians are 6,135.450 /6,121.551 ms; the 0.23% elapsed reduction accompanies 32,768 bytes more absolute RSS.
+The initially missing alias reconciliation causes two retained timeouts before correction; corrected
+focused runs pass 340 .NET 10 /301 .NET 8 checks. No useful throughput benefit is established, and its
+runtime source is restored. Evidence: `tee-position-reclaim-ad6a998`.
+
+Fresh CPU/contention traces of the source-verified production engine separate executing samples from
+parked-thread samples. A diagnostic-only counter build records 6,757,348 reclamation calls and 421,103
+waits while forwarding 100 MB. Instrumented traces/counts guide investigation; they cannot replace
+uninstrumented timings or process-memory acceptance. Evidence: `fork-cpu-ad6a998`.
+
+A separate atomic-reclamation prototype clears slots only after the final owner releases them and
+advances the completed prefix without taking the ring gate for every event. Review corrects a
+full-ring wakeup race (two original focused failures retained) and bounds scan work to the captured
+publication boundary. The corrected single-slot variant passes 225 focused checks, but twelve native
+controls show 10.53% more elapsed time and 5.27% more full-child CPU. It is rejected. A bulk-prefix
+variant with atomic slot clearing passes the same 225 checks; its first twelve native controls show
+3.30% lower elapsed time and 3.38% lower CPU, with 67,584 bytes less median reported RSS. Six additional
+single-CPU controls consume exact 209,715,200-byte inputs, validate full original outputs and enforce
+actual 20,971,520-byte heap/RSS guards. CPU medians improve 5.81%, but full-lifetime RSS medians rise
+61,440 bytes (23,552,000 /23,613,440); both variants fail all three RSS controls. The launcher uses a
+streaming hash and stays below 20 MiB before every child. All four source-verified candidate unit
+configurations pass (4,820 .NET 10 /4,388 .NET 8 in each configuration, 50 runtime /five test PDB documents).
+The candidate is nevertheless rejected: the throughput gain does not establish the required memory
+non-regression. All failed controls, raw cohorts, source snapshots and frozen engines are retained;
+production runtime source is restored. Evidence: `tee-lock-free-reclaim-ad6a998`.
+
+The branch adds the [partial-prefix contract](p7-runtime-contracts.md#partial-prefix-reclamation-before-another-read)
+for one and four aliases. Both cases pass on the production tee and fail an isolated delayed-reclamation
+mutation before another read is permitted. The source mutation and all runtime optimization candidates
+remain outside the branch. All original P7 completion, review, merge and release gates remain required.
+
+Final production-source verification passes all four full unit suites: Release/Debug each pass
+4,820 checks on .NET 10 and 4,388 on .NET 8, including both new alias cases. Every actual engine/test
+DLL and PDB is frozen before execution; source checks match 50 runtime /five test documents and
+all four file hashes remain unchanged afterward. Runtime/probe sources, original fixture inventories,
+public APIs and acceptance guards are unchanged. Evidence: `tee-prefix-contract-ad6a998/main-full`.

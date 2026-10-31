@@ -563,6 +563,61 @@ public class StreamTeeTests
         finally { cancellation.Cancel(); tee.Dispose(); foreach (Thread thread in threads) Join(thread); }
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void AliasesReleaseAPartialPrefixBeforeAnyFurtherReadIsRequested(int aliases)
+    {
+        const int readsPerCheckpoint = 13, checkpoints = 128, capacity = 64;
+        int produced = 0;
+        using var cancellation = new CancellationTokenSource(Deadline);
+        using var tee = new StreamTee<Event>(destination => {
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++produced);
+            return new(destination.Length, false);
+        }, 1, capacity, cancellation.Token);
+        using var barrier = new Barrier(aliases + 1);
+        var errors = new ConcurrentQueue<Exception>();
+        var workers = new Thread[aliases];
+        int started = 0;
+        try
+        {
+            for (int i = 0; i < aliases; i++)
+            {
+                workers[i] = Start(() => {
+                    try
+                    {
+                        for (int point = 0; point < checkpoints; point++)
+                        {
+                            for (int read = 0; read < readsPerCheckpoint; read++)
+                                Assert.NotNull(tee.GetReader(0).Read());
+                            barrier.SignalAndWait(cancellation.Token);
+                            barrier.SignalAndWait(cancellation.Token);
+                        }
+                    }
+                    catch { cancellation.Cancel(); throw; }
+                }, errors);
+                started++;
+            }
+            for (int point = 0; point < checkpoints; point++)
+            {
+                barrier.SignalAndWait(cancellation.Token);
+                int consumed = (point + 1) * aliases * readsPerCheckpoint;
+                // Every read has returned and no alias can request another event.
+                // Consumed slots must already be released, including a partial batch.
+                Assert.Equal(Volatile.Read(ref produced) - consumed, tee.BufferedCount);
+                barrier.SignalAndWait(cancellation.Token);
+            }
+            foreach (Thread worker in workers) Join(worker);
+            Assert.Empty(errors);
+            Assert.InRange(tee.HighWaterMark, 1, capacity);
+        }
+        finally
+        {
+            cancellation.Cancel(); tee.Dispose();
+            for (int i = 0; i < started; i++) Join(workers[i]);
+        }
+    }
+
     [Fact]
     public void DetachingDuringConsumptionDoesNotReleaseAnotherReadersEvents()
     {

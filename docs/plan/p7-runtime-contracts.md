@@ -247,3 +247,19 @@ frozen forwarding minimum still independently protects every previously forwardi
 
 Source evidence: `artifacts/p7-completion/evaluation-observation-de179f8/{release,debug}-{api,legacy}.jsonl`,
 their audits and `comparison.json`. Original fixtures and `p7-runtime-inventory.json` are unchanged.
+
+## Partial-prefix reclamation before another read
+
+`StreamTeeTests.AliasesReleaseAPartialPrefixBeforeAnyFurtherReadIsRequested` covers one and four
+aliases of the same logical reader. Every alias reads 13 events, then all aliases stop at a barrier.
+At each of 128 checkpoints, a 64-event tee must report exactly `produced - consumed` buffered events
+before any alias can request another read. This checks an incomplete batch, not just EOF or a full-ring
+refill. The existing exactly-once and payload-byte tests remain separate contracts.
+
+Both cases pass against the unchanged production tee. An isolated mutation omitting fast-read prefix
+reclamation fails both cases at their first checkpoint: expected occupancy 51 /12, observed 64 /64.
+Restoring the production source passes both again. The mutation's actual engine/test PDBs match the
+50 runtime source documents and changed test document; failed and restored runs remain retained in
+`artifacts/p7-completion/tee-prefix-contract-ad6a998`. No timeout, payload assumption, capacity or runtime
+policy changes. This evidence extends S6's ownership contracts without claiming the original process
+memory or throughput gates have passed.
