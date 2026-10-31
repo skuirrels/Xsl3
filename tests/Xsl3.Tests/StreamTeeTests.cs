@@ -570,7 +570,8 @@ public class StreamTeeTests
     {
         const int readsPerCheckpoint = 13, checkpoints = 128, capacity = 64;
         int produced = 0;
-        using var cancellation = new CancellationTokenSource(Deadline);
+        // Each checkpoint has a liveness guard; total elapsed time is not a throughput assertion.
+        using var cancellation = new CancellationTokenSource();
         using var tee = new StreamTee<Event>(destination => {
             for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++produced);
             return new(destination.Length, false);
@@ -590,8 +591,8 @@ public class StreamTeeTests
                         {
                             for (int read = 0; read < readsPerCheckpoint; read++)
                                 Assert.NotNull(tee.GetReader(0).Read());
-                            barrier.SignalAndWait(cancellation.Token);
-                            barrier.SignalAndWait(cancellation.Token);
+                            Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
+                            Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
                         }
                     }
                     catch { cancellation.Cancel(); throw; }
@@ -600,12 +601,12 @@ public class StreamTeeTests
             }
             for (int point = 0; point < checkpoints; point++)
             {
-                barrier.SignalAndWait(cancellation.Token);
+                Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
                 int consumed = (point + 1) * aliases * readsPerCheckpoint;
                 // Every read has returned and no alias can request another event.
                 // Consumed slots must already be released, including a partial batch.
                 Assert.Equal(Volatile.Read(ref produced) - consumed, tee.BufferedCount);
-                barrier.SignalAndWait(cancellation.Token);
+                Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
             }
             foreach (Thread worker in workers) Join(worker);
             Assert.Empty(errors);

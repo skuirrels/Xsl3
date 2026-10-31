@@ -2634,3 +2634,32 @@ exactly 209,715,200 /20,971,520 bytes. Raw children and the independent audit ar
 before/after performance comparison. No original throughput or failed push-memory target closes
 here. Remaining runtime applicability/accounting, public integration, final review/CI, merge and
 release remain required, and streaming support remains unclaimed.
+
+### Hosted throughput and tee checkpoint liveness, 2026-10-31
+
+The completed hosted `42519e9` benchmark in run **41172520570** retains all **126 valid observations**:
+three per mode/workload at exact 1,000,000 /100,000,000 /1,000,000,000-byte inputs with actual
+4,294,967,296-byte managed guards. All raw output fingerprints agree; no observation is failed or
+missing. The archive matches GitHub's digest, the tested driver/engine hashes match the retained
+files, and 53 runtime PDB documents match immutable `42519e9` sources. At 100 MB, the original target
+still fails for identity (**1.185497** stream/tree), accumulator (**1.301764**), fork (**3.503189**) and
+source-document (**1.190550**). Adjacent (**0.851996**), iterate (**0.881842**) and merge (**0.978959**)
+pass. These are `42519e9` measurements, not timings for the later schema repair. Raw trials and the
+independent audit remain under `contracts-linux-benchmark-42519e9`; no display band waives a target.
+
+Hosted `b219c7c` CI passes Ubuntu, NativeAOT and ordinary performance. Windows .NET 8 passes all
+5,245 units; .NET 10 passes 6,046 /fails one existing tee prefix test. Its single ten-second token
+expires at a barrier during 128 independent checkpoints; no reclamation assertion fails. Raw log:
+`artifacts/p7-completion/ci-b219c7c-windows`. The source tee and its original checkpoint populations
+remain unchanged. The test now gives each rendezvous the same ten-second liveness guard, with
+cancellation reserved for failure/cleanup, while retaining every immediate partial-prefix assertion.
+
+A diagnostic-only 100 ms delay at each checkpoint reproduces whole-run cancellation in both alias
+cases on the old fixture. The corrected guard passes the same two slow-progress cases in about
+26 seconds total. This reproduces the timeout condition, not the exact Windows scheduling load.
+Delaying production reclamation still fails both immediate prefix assertions. All 37 tee checks
+pass in Release/Debug .NET 8/10, with frozen engines, 53 runtime /one fixture PDB source checks and
+unchanged binary hashes. The restored runtime DLLs equal the four full-tested schema-fix engines.
+Controls, source snapshots and failures remain under `artifacts/p7-completion/prefix-progress-a844867`.
+Final-head CI, original failed memory/throughput targets, remaining runtime applicability/accounting,
+public integration, complete review, merge and release remain required.
