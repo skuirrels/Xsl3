@@ -2468,3 +2468,37 @@ remain under `contracts-linux-benchmark-cddc819`. This is cddc819 evidence, not 
 Schema-created nodes without source counterparts and arbitrary structural mismatch need an explicit
 applicability disposition. Complete remaining runtime/state qualification, the original memory and
 throughput targets, final-source CI, full review, public integration, merge and release remain open.
+
+### Shared source-frame metadata investigation, 2026-10-31
+
+Fresh profiling of the `711b0b3` runtime attributes about 1.28 GB of weighted allocation samples to
+184-byte streamed nodes while forwarding the unchanged 100 MB identity input. These EventPipe
+samples locate allocation costs; they are not exact allocation totals or acceptance timings.
+An isolated shared-context prototype reduces nodes to 152 bytes and total sampled allocation by
+11.67%. Its focused Release .NET 10 run passes 3,174 checks. Two alternating single-CPU Linux ARM64
+NativeAOT cohorts retain all 48 valid outputs, but gains do not repeat consistently. Same-input,
+warmed exact allocation controls additionally find about 22.9% more allocation for schema-validated
+rows. That design is rejected.
+
+A revision keeps mutable schema snapshots on their individual nodes. Nodes measure 160 bytes and
+all 137 focused navigator, namespace, replay, fork-input and spool checks pass in Release .NET 10.
+Exact allocation controls at 1,024 /8,192 rows improve plain input by about 12.2% and schema input by
+7.2%; repeated language or namespace overrides still cost about 1.5% /1.2% more. A separate 24-child
+native cohort validates every original output. Identity and source-document elapsed medians improve
+3.61% /3.80%, but fork is 2.29% slower and its median absolute peak rises 176,128 bytes. This revision
+is also left unadopted. Neither an allocation-only benefit nor one workload's improvement establishes
+eligibility for the full P7 objective.
+
+All 72 native controls use exact 100,000,000-byte inputs and actual 4,294,967,296-byte managed guards,
+with diagnostic RSS guards disabled. They do not replace the original push/nightly memory matrices
+or seven-workload throughput acceptance. Each native image and frozen unit engine matches 51 runtime
+PDB documents; each native probe matches six probe documents, and all 32 canonical stylesheets remain
+unchanged. Both candidate sources, frozen engines, traces, raw controls and decisions are retained in
+`artifacts/p7-completion/node-header-711b0b3`. A stale expected baseline hash stops the first controller
+before any child launches; a diagnostic constructor-selection failure is also retained separately.
+The corrected controls use the original independently audited baseline image.
+
+No prototype runtime change enters the branch. The isolated source is restored and all 1,312 regular tracked
+source/test files match `711b0b3`. Remaining S3–S6 contracts, original memory/throughput gates, public
+integration, final review/CI, merge and release remain required. These investigations close no original
+acceptance gate and do not authorize a streaming-support claim.
