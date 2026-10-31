@@ -29,6 +29,12 @@ internal sealed partial class StreamedDocument
             _lastChildren[node.Parent.Number] = node;
         }
 
+        internal IEnumerable<Node> Subtree(Node root)
+        {
+            yield return root;
+            for (Node? node = Child(root); node != null; node = NextWithin(node, root)) yield return node;
+        }
+
         internal Node? Child(Node node) => _nodes.GetValueOrDefault(node.FirstChild);
         internal Node? Sibling(Node node) => _nodes.GetValueOrDefault(node.NextSibling);
 

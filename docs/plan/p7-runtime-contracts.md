@@ -263,3 +263,56 @@ Restoring the production source passes both again. The mutation's actual engine/
 `artifacts/p7-completion/tee-prefix-contract-ad6a998`. No timeout, payload assumption, capacity or runtime
 policy changes. This evidence extends S6's ownership contracts without claiming the original process
 memory or throughput gates have passed.
+
+## Copied accumulator graphs and error ownership
+
+`StreamedAccumulatorGraphLifetimeTests` uses an ordinary strict compiled stylesheet, both APIs and
+.NET 10 saved loading, with normal/debug compilation. Its accumulator calls a test-supplied function
+with grounded string/value operands. The function creates either a seven-item window of constructed
+payload nodes, a seven-item window of opaque native functions capturing those nodes, or a map that
+intentionally accumulates every processed row. Actual execution captures require forwarded input.
+
+The 16/128-row cases exercise `xsl:copy-of`, `copy-of()`, `snapshot()`, a copy of a copy, explicit
+annotation stripping and lax validation. A host either discards every copy or explicitly retains the
+first two. Every before/after value, node payload and opaque callable identity is checked. A compiled
+reader function checks the copied values after closing the original source, before invocation cleanup;
+the recorded phases remain readable after the invocation returns. Releasing their owners collects all
+observed payload documents, returned copies, map versions and opaque functions.
+
+Let `W` be the window width and `R` the distinct payloads explicitly retained by the early copies.
+At sampled callbacks the node/opaque windows retain at most `W + 1 + R` payload documents; the extra
+item accounts for overlapping before/after windows. The growing map legitimately retains `N` payloads
+after `N` rows, but at most two current map versions plus the explicitly retained earlier versions.
+Logical payload characters count node text and its `id` attribute separately from map keys, object/array
+overhead, name tables, parser buffers and fixture/probe storage. These are graph-lifetime measurements,
+not heap/RSS acceptance or a constant-byte claim for arbitrary user-owned opaque graphs.
+
+The first regression retains two early copies and observes 128 payload documents instead of two.
+The fix stores corresponding recorded phases on the copy, with no source navigator or execution link.
+Capture requires a completed immutable replay and corresponding content-node names, kinds and relative
+depths. Open replays and structurally changed copies keep the existing live provenance path; their
+complete lifetime qualification remains required. Fork-copy and structural-mismatch guards are separate
+regressions. Attribute/namespace nodes remain outside accumulator applicability.
+
+Cycle invalidation uses a small shared notification token. Complete phases do not subscribe to future
+ordinary errors or their optional error payloads. Missing phases preserve the error known when copied.
+A later error carrying a 127-node map initially exposes another retention bug in the prototype: early
+copies keep that unrelated payload. The corrected contract retains only their two requested payloads.
+Conversely, explicitly retaining a copy with an unavailable end phase must retain and return its
+127-node error payload, including its identity. Original error codes and applicability errors survive
+source closure. This required error graph is intentional state, not an omitted memory cost.
+
+All four full candidate suites pass: 5,285 .NET 10 /4,699 .NET 8 checks in Release and Debug. Actual
+engine/test DLLs and PDBs are frozen before execution; source hashes match 51 runtime /seven test
+documents and remain unchanged afterward. An isolated mutation reconnecting snapshots to the source
+fails all six selected API/debug/saved controls with 128 retained payloads instead of two; restoration
+passes all six. Raw failures, source snapshots and engines are retained in
+`artifacts/p7-completion/accumulator-graphs-138fcee`.
+
+A separate NativeAOT development consumer extracts the exact tested stylesheet text and compiles twelve
+saved styles through the public compiler. Its 72 cases independently use 32/256 rows, three-item
+windows and 128-character payloads. All verify actual forwarded execution, values after closing the
+source, two retained early payloads and collection after releasing their owners. It uses the existing
+`Xsl3.Dev` friend assembly for graph observation, with trimming/AOT warnings treated as errors. Its
+startup check rejects JIT hosting. These functional checks do not alter the 32 canonical native styles,
+original process-memory budgets or the complete P7 throughput requirements.

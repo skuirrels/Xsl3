@@ -2375,3 +2375,35 @@ Final production-source verification passes all four full unit suites: Release/D
 DLL and PDB is frozen before execution; source checks match 50 runtime /five test documents and
 all four file hashes remain unchanged afterward. Runtime/probe sources, original fixture inventories,
 public APIs and acceptance guards are unchanged. Evidence: `tee-prefix-contract-ad6a998/main-full`.
+
+### Copied accumulator value-graph ownership, 2026-10-31
+
+The preceding branch head `138fcee` passes every required hosted CI job in run **41156042431**.
+The next S5 qualification finds an actual retention defect: copies of two early rows keep all 128
+later payload documents through their source-navigator provenance. Completed, corresponding copied
+subtrees now own their recorded accumulator phases instead of retaining the source execution.
+Ordinary copy chains and validation preserve those phases; cycle notifications remain shared without
+subscribing early copies to later ordinary error payloads. An initial prototype does retain a later
+127-node error value; its six failures remain recorded beside the corrected results.
+
+The [graph contracts](p7-runtime-contracts.md#copied-accumulator-graphs-and-error-ownership) cover node
+windows, opaque functions, intentionally growing maps, explicit copies and required error objects.
+All four complete source-verified unit suites pass: **5,285 .NET 10 /4,699 .NET 8** in both Release and
+Debug. A source-retention mutation fails all six selected controls and the restored implementation
+passes all six. A separate strictly trimmed NativeAOT consumer passes **72** saved-style graph cases
+with actual forwarded sources. The canonical native generator still emits all **32 unchanged styles**;
+actual native PDB checks verify **51 runtime /six probe** source documents. Evidence:
+`artifacts/p7-completion/accumulator-graphs-138fcee`.
+
+This fixes completed-copy ownership, not all S3–S6 applicability and retained-state obligations.
+Open replay captures and structural changes retain their existing provenance behavior and need further
+qualification. Original exact-size native memory/throughput gates, complete review, final-source CI,
+public integration, merge and release remain required. Streaming support stays unclaimed.
+
+The same candidate completes the unchanged local Linux ARM64 push matrix: all **48 children**
+validate original outputs and **13/16** measured workloads meet the exact 209,715,200-byte input /
+20,971,520-byte absolute RSS and managed guard. Merge (**23,597,056**), fork (**24,051,712**) and
+source-document (**22,917,120**) exceed the original budget. The 48-child small-input zero-limit smoke
+also passes, as functional evidence only. Reviewed main files match the frozen tested and native
+sources byte-for-byte. These results do not close the original memory gate. Raw children and audits:
+`accumulator-graphs-138fcee/canonical-push` and `canonical-push-audit.json`.

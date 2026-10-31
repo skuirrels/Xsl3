@@ -35,7 +35,7 @@ public class CopyOriginRegistryTests
         Assert.True(registry.TryGet(child, out CopyOriginRegistry.Origin? origin));
         Assert.True(origin.Validated);
         Assert.True(origin.Top.IsSamePosition(copy));
-        Assert.True(origin.Original.IsSamePosition(original));
+        Assert.True(origin.Original!.IsSamePosition(original));
     }
 
     [Fact]
@@ -73,12 +73,12 @@ public class CopyOriginRegistryTests
         a.Set(copy, second, validated: true);
         GC.Collect();
         Assert.True(a.TryGet(copy.Clone(), out var originA)); Assert.True(originA.Validated);
-        Assert.True(originA.Original.IsSamePosition(second));
+        Assert.True(originA.Original!.IsSamePosition(second));
         Assert.True(b.TryGet(copy, out var originB)); Assert.True(originB.Validated);
-        Assert.True(originB.Original.IsSamePosition(first));
+        Assert.True(originB.Original!.IsSamePosition(first));
         a.Set(copy, first);
         Assert.True(a.TryGet(copy, out originA)); Assert.False(originA.Validated);
-        Assert.True(originA.Original.IsSamePosition(first));
+        Assert.True(originA.Original!.IsSamePosition(first));
         Assert.True(b.TryGet(copy, out originB)); Assert.True(originB.Validated);
     }
 
@@ -95,7 +95,7 @@ public class CopyOriginRegistryTests
         for (int i = 0; i < registries.Length; i++)
         {
             Assert.True(registries[i].TryGet(copy, out var origin));
-            Assert.Equal(i % 2 == 0, origin.Validated); Assert.True(origin.Original.IsSamePosition(original));
+            Assert.Equal(i % 2 == 0, origin.Validated); Assert.True(origin.Original!.IsSamePosition(original));
         }
     }
 
@@ -109,11 +109,11 @@ public class CopyOriginRegistryTests
         XPathNavigator first = Tree("<first/>"), second = Tree("<second/>");
         registry.Set(first, original); registry.Set(second, first);
         GC.Collect();
-        Assert.True(registry.TryGet(second, out var middle)); Assert.True(middle.Original.IsSamePosition(first));
-        Assert.True(registry.TryGet(middle.Original, out var source)); Assert.True(source.Original.IsSamePosition(original));
+        Assert.True(registry.TryGet(second, out var middle)); Assert.True(middle.Original!.IsSamePosition(first));
+        Assert.True(registry.TryGet(middle.Original!, out var source)); Assert.True(source.Original!.IsSamePosition(original));
         document.Dispose();
-        Assert.True(registry.TryGet(second, out middle)); Assert.True(registry.TryGet(middle.Original, out source));
-        Assert.Equal("source", source.Original.LocalName);
+        Assert.True(registry.TryGet(second, out middle)); Assert.True(registry.TryGet(middle.Original!, out source));
+        Assert.Equal("source", source.Original!.LocalName);
     }
 
     [Fact]
@@ -187,9 +187,9 @@ public class CopyOriginRegistryTests
         var (obsolete, borrowedOrigin) = ReplaceStreamedSource(a, b, copy);
         Collect(); Assert.False(obsolete.IsAlive);
         // A caller holding B's payload must not pin A's obsolete scope through storage links.
-        Assert.Equal("replacement", borrowedOrigin.Original.LocalName); GC.KeepAlive(borrowedOrigin);
+        Assert.Equal("replacement", borrowedOrigin.Original!.LocalName); GC.KeepAlive(borrowedOrigin);
         Assert.True(a.TryGet(copy, out var originA)); Assert.True(b.TryGet(copy, out var originB));
-        Assert.Equal("replacement", originA.Original.LocalName); Assert.Equal("replacement", originB.Original.LocalName);
+        Assert.Equal("replacement", originA.Original!.LocalName); Assert.Equal("replacement", originB.Original!.LocalName);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -204,6 +204,48 @@ public class CopyOriginRegistryTests
         Assert.True(b.TryGet(copy, out var borrowedOrigin));
         a.Set(copy, after);
         return (new(first), borrowedOrigin);
+    }
+
+    [Fact]
+    public void AccumulatorCaptureRequiresCorrespondingSubtreeDepths()
+    {
+        using var source = new StreamedForkAccumulatorTests.Source("<doc><row><a><a/></a></row></doc>");
+        Assert.True(source.Focus.MoveToFirstChild()); Assert.True(source.Focus.MoveToFirstChild());
+        source.Library.X31BufferForkItem(source.Focus);
+        XPathNavigator copy = Tree("<row><a/><a/></row>"); Assert.True(copy.MoveToFirstChild());
+        var registry = new CopyOriginRegistry(); registry.Set(copy, source.Focus);
+        Assert.True(registry.TryGet(copy, out var origin));
+        Assert.Null(origin.Accumulators);
+        Assert.NotNull(origin.Original); Assert.True(origin.Original!.IsSamePosition(source.Focus));
+    }
+
+    [Fact]
+    public void ForkCopiesCaptureTheOriginalFramesPublishedPhases()
+    {
+        using var source = new StreamedForkAccumulatorTests.Source("<doc><row id='first'/><row id='second'/></doc>");
+        XPathNavigator? copy = null;
+        source.Run(source.Focus, view => {
+            Assert.True(view.MoveToFirstChild()); Assert.True(view.MoveToFirstChild());
+            copy = (XPathNavigator)Assert.Single(source.Library.X31CopyWithAccumulators(new XPathItem[] { view }));
+            Assert.Equal("1", source.Value(copy)); Assert.Equal("11", source.Value(copy, after: true));
+        });
+        source.Close();
+        Assert.NotNull(copy); Assert.Equal("1", source.Value(copy!)); Assert.Equal("11", source.Value(copy!, after: true));
+    }
+
+    [Fact]
+    public void OpenReplayCapturesKeepTheExistingLiveProvenancePath()
+    {
+        using var source = new StreamedForkAccumulatorTests.Source("<doc><row/><row/></doc>");
+        using (source.Focus.BeginConsumption(replay: true, accumulators: true))
+        {
+            Assert.True(source.Focus.MoveToFirstChild()); Assert.True(source.Focus.MoveToFirstChild());
+            XPathNavigator copy = Tree("<row/>"); Assert.True(copy.MoveToFirstChild());
+            var registry = new CopyOriginRegistry(); registry.Set(copy, source.Focus);
+            Assert.True(registry.TryGet(copy, out var origin));
+            Assert.Null(origin.Accumulators); Assert.NotNull(origin.Original);
+            Assert.True(origin.Original!.IsSamePosition(source.Focus));
+        }
     }
 
 }

@@ -50,8 +50,10 @@ namespace Xsl3.Runtime
             (long Before, long After)? phases = (root as Tree.CompactNavigator)?.TraversalPhases;
             root.MoveToRoot();
             bool validatedCopy = false;
-            while (_runtime.Documents.TryGetCopy(root, out var copied) && Original(node, copied.Top, copied.Original) is XPathNavigator original)
+            while (_runtime.Documents.TryGetCopy(root, out var copied))
             {
+                if (copied.Accumulators?.TryValue(node, key, after, out var recorded) == true) return recorded!;
+                if (copied.Original is not XPathNavigator source || Original(node, copied.Top, source) is not XPathNavigator original) break;
                 // A copy made with copy-accumulators="yes": the original node's values. Applicable as they are to the
                 // original's tree (copy-3002, XTDE3362), unless validation made the copy: a new temporary tree, to which
                 // every accumulator applies (accumulator-073).

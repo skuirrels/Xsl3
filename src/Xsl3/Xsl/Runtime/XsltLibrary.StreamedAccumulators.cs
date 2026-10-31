@@ -7,14 +7,18 @@ using System.Runtime.ExceptionServices;
 using System.Xml;
 using System.Xml.XPath;
 using Xsl3.Streaming;
+using Xsl3.Tree;
 using Xsl3.Xdm;
 
 namespace Xsl3.Runtime;
 
 public sealed partial class XsltLibrary
 {
-    private sealed class StreamedAccumulators : IStreamedNodeObserver
+    private sealed class StreamedAccumulators : IStreamedNodeObserver, IStreamedAccumulatorCopyProvider
     {
+        // Copies must observe a later detected cycle without retaining Current or the source document.
+        private sealed class CycleState { internal volatile ExceptionDispatchInfo? Fault; }
+
         private sealed class State(string name, AccumulatorInfo info)
         {
             internal readonly string Name = name;
@@ -23,7 +27,17 @@ public sealed partial class XsltLibrary
             internal readonly bool HasEndRules = Array.IndexOf(info.EndPhases, true) >= 0;
             internal IList<XPathItem>? Current;
             internal bool Initialized, Initializing;
-            internal volatile ExceptionDispatchInfo? Fault;
+            internal readonly CycleState Cycles = new();
+            private volatile ExceptionDispatchInfo? _fault;
+            internal ExceptionDispatchInfo? Fault
+            {
+                get => _fault;
+                set
+                {
+                    _fault = value;
+                    if (value != null && IsAccumulatorCycle(value.SourceException)) Cycles.Fault = value;
+                }
+            }
         }
 
         private sealed class Phase
@@ -156,6 +170,78 @@ public sealed partial class XsltLibrary
                 }
                 return snapshot;
             }
+        }
+
+        private readonly record struct CopyError(CycleState Cycles, ExceptionDispatchInfo? Fault);
+
+        private sealed class CopiedValues(CompactDocument document, object owner,
+            Dictionary<long, NodeValues?> nodes, Dictionary<string, CopyError> errors) : IStreamedAccumulatorCopy
+        {
+            public bool Contains(XPathNavigator node) => node is CompactNavigator compact
+                && node.NodeType is not (XPathNodeType.Attribute or XPathNodeType.Namespace)
+                && ReferenceEquals(compact.Document, document) && nodes.ContainsKey(compact.TraversalPhases.Before);
+
+            public bool TryValue(XPathNavigator node, string name, bool after, out IList<XPathItem>? value)
+            {
+                value = null;
+                if (node is not CompactNavigator compact || node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace
+                    || !ReferenceEquals(compact.Document, document) || !nodes.TryGetValue(compact.TraversalPhases.Before, out var recorded)) return false;
+                if (!errors.TryGetValue(name, out var error))
+                    throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
+                if (error.Cycles.Fault is { } cycle) cycle.Throw();
+                lock (owner)
+                    if (recorded != null && recorded.TryGetValue(name, out var phase))
+                        value = after ? phase.After : phase.Before;
+                if (value != null) return true;
+                error.Fault?.Throw();
+                throw StreamedDocument.PositionError();
+            }
+        }
+
+        public IStreamedAccumulatorCopy? CaptureCopy(XPathNavigator copy, StreamedNavigator original)
+        {
+            StreamedDocument.Node boundary = original.PositionNode;
+            if (copy is not CompactNavigator compact || !StreamedDocument.CanReplay(boundary)) return null;
+            StreamedDocument.ReplayBuffer replay = boundary.Replay!;
+            var nodes = new Dictionary<long, NodeValues?>();
+            var cursor = (CompactNavigator)compact.Clone();
+            using var source = replay.Subtree(boundary).GetEnumerator();
+            int depth = 0;
+            do
+            {
+                if (!source.MoveNext() || source.Current.Depth - boundary.Depth != depth || source.Current.Kind != cursor.NodeType
+                    || source.Current.LocalName != cursor.LocalName || source.Current.Namespace != cursor.NamespaceURI) return null;
+                lock (_valuesGate)
+                    nodes.Add(cursor.TraversalPhases.Before,
+                        source.Current.ObserverValues is NodeValues values && ReferenceEquals(values.Owner, _valuesGate) ? values
+                            : source.Current.Original?.ObserverValues is NodeValues originalValues && ReferenceEquals(originalValues.Owner, _valuesGate) ? originalValues : null);
+            } while (NextCopiedNode(cursor, compact, ref depth));
+            if (source.MoveNext()) return null;
+            var errors = new Dictionary<string, CopyError>(StringComparer.Ordinal);
+            lock (_valuesGate)
+                foreach (var (name, state) in _states)
+                {
+                    bool missing = false;
+                    foreach (var recorded in nodes.Values)
+                        if (recorded == null || !recorded.TryGetValue(name, out var phase) || phase.Before == null || phase.After == null)
+                        { missing = true; break; }
+                    // Complete phases need no later ordinary error or its optional payload.
+                    // Missing phases preserve the failure already known when this copy was made.
+                    errors.Add(name, new(state.Cycles, missing ? state.Fault : null));
+                }
+            return new CopiedValues(compact.Document, _valuesGate, nodes, errors);
+        }
+
+        private static bool NextCopiedNode(XPathNavigator cursor, XPathNavigator boundary, ref int depth)
+        {
+            if (cursor.MoveToFirstChild()) { depth++; return true; }
+            while (!cursor.IsSamePosition(boundary))
+            {
+                if (cursor.MoveToNext()) return true;
+                if (!cursor.MoveToParent()) return false;
+                depth--;
+            }
+            return false;
         }
 
         private XsltLibrary? _owner;

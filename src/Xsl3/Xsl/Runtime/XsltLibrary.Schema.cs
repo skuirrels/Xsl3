@@ -158,9 +158,11 @@ namespace Xsl3.Runtime
                 if (items[i] is XPathNavigator originalNode && !ReferenceEquals(result[i], items[i]))
                 {
                     // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.
-                    if (_runtime.Documents.TryGetCopy(originalNode, out var copied) && Original(originalNode, copied.Top, copied.Original) is XPathNavigator original)
+                    if (_runtime.Documents.TryGetCopy(originalNode, out var copied))
                     {
-                        _runtime.Documents.RecordCopy((XPathNavigator)result[i], original, validated: true);
+                        XPathNavigator? original = copied.Accumulators?.Contains(originalNode) == true ? originalNode
+                            : copied.Original is { } source ? Original(originalNode, copied.Top, source) : null;
+                        if (original != null) _runtime.Documents.RecordCopy((XPathNavigator)result[i], original, validated: true);
                     }
                 }
             }
