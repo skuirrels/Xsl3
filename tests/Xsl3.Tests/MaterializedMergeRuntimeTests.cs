@@ -16,6 +16,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class MaterializedMergeRuntimeTests
 {
     private static (XsltLibrary Library, XPathItem State) State(params XPathItem[] rows)

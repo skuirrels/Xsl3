@@ -23,6 +23,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class ForkRuntimeTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);

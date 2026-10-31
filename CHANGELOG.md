@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Isolate unit tests that force process-wide garbage collections, including in-process streaming
+  probes, from other test collections. Keep their assertions, inputs and cancellation limits intact.
 - Reduce dynamic-call allocations by storing the first two arguments directly on each call.
   Avoid temporary one/two-argument arrays and accumulator matcher argument arrays while preserving
   argument copying, conversion, larger arities and saved/native execution.

@@ -13,6 +13,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class CopyOriginRegistryTests
 {
     private static XPathNavigator Tree(string xml)

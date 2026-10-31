@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedFrameFactsTests
 {
     [Fact]

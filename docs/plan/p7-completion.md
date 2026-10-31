@@ -2920,3 +2920,45 @@ Source-document remains 24,555,520 bytes and fork 25,411,584 bytes, above the or
 budget. The publishing/profile pipeline is not adopted: it does not resolve the failed memory
 gates or the complete throughput requirement. No hosted qualification is dispatched. Evidence:
 `artifacts/p7-completion/native-layout-v3-87c40e7/pgo-decision.json`, with raw controls alongside it.
+
+### Current-source throughput and remaining GC-isolation gaps, 2026-10-31
+
+Commit `1525beb` passes all four ordinary hosted CI jobs in run **41198559468**: Ubuntu, Windows,
+NativeAOT and ordinary performance. The micro-suite time geometric mean is **1.003** against main;
+the 1 MB identity allocation ratio is **0.723**. Those results do not qualify full streaming support.
+
+A fresh local Linux ARM64 cohort runs all seven canonical 100,000,000-byte workloads, three
+observations per mode, on .NET **10.0.14** with actual **4,294,967,296-byte** managed guards.
+All 42 children validate their original outputs. The unchanged controller's stream/tree elapsed
+median ratios are identity **0.973225**, adjacent **0.743690**, accumulator **1.126988**, iterate
+**0.817793**, merge **0.640277**, fork **4.122444** and source-document **1.036856**. The target fails
+for accumulator, fork and source-document. This is a local 100 MB subset, not a rerun of the entire
+126-observation matrix. Frozen binaries and source checks remain under
+`call-arguments-87c40e7/v3-jit-seven-100mb`.
+
+The retained managed-memory diagnostic is rerun with streaming binary hashing and launcher RSS
+recorded. All eight original-size diagnostic children validate outputs and actual 20 MiB managed
+guards. The launcher peaks at 15,667,200 bytes. At 200 MiB input, native peaks are identity
+17,215,488, merge 22,855,680, fork 23,031,808 and source-document 22,089,728 bytes. Last-completed-GC
+committed snapshots remain about 3.17 /3.30 /3.69 /3.17 MB across small and large inputs. The earlier
+uniform 29 MB peak was launcher-contaminated; the corrected observations still exceed three
+original RSS budgets. These extra snapshot fields remain absent from production. Raw observations
+and the interpretation limits are retained under
+`call-arguments-87c40e7/managed-commit-diagnostic/streaming-hash-control`.
+
+An additional compiled-method review finds 25 unit-test classes whose tests can force collections
+without the repository's existing nonparallel collection, including helper calls from in-process
+streaming probes. This leaves 496 .NET 10 cases able to interfere with unrelated timed tests.
+The baseline TRX contains an unconditional GC test wholly inside a timed fork test; it does not
+establish a new timeout. The [contract map](p7-runtime-contracts.md#process-wide-collection-isolation)
+records the expanded isolation rule. Only collection attributes are changed; test bodies, inputs,
+assertions, deadlines, runtime/probe code and original acceptance gates remain unchanged.
+All four full configurations pass: **6,927 .NET 10 /5,925 .NET 8** cases in both Release and Debug,
+with no failures or skips and the exact previous case populations preserved. Normalized method
+bodies are identical; only the 25 intended collection memberships change. All 32 classes with
+reachable forced-collection calls are isolated in the compiled metadata. Each run has **zero**
+GC-test overlaps with other collections while ordinary tests still overlap. Runtime DLL/PDB bytes
+are unchanged from the baseline, frozen test/runtime hashes survive execution, and PDB checks cover
+53 runtime /38 test sources. All 1,319 tracked source/test files match the final verification tree.
+Evidence: `artifacts/p7-completion/gc-isolation-1525beb/`. Hosted CI for the new commit remains required;
+these scheduling checks do not close the failed original runtime memory or throughput targets.

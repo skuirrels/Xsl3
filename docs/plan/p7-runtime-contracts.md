@@ -203,6 +203,24 @@ Evidence: `artifacts/p7-completion/fork-projection-79cb441/full-net8-gc-diagnost
 `artifacts/p7-completion/suite-gc-isolation-79cb441/`. Native memory and throughput qualification
 continues under its original independent processes, inputs and limits.
 
+A subsequent compiled-call audit finds 25 additional classes whose tests reach forced collection
+without that isolation, including `StreamingProbeTests` through the shared `StreamingProbe.Run`
+helper. They contain 496 .NET 10 cases. All 32 classes with reachable collection calls now use the
+same existing collection; `CompactTreeMemoryTests` keeps its separate child-process measurement.
+The retained Release baseline places the unconditional collection in
+`CopyOriginRegistryTests.UnreferencedCopiesAndTheirOriginsAreNotKeptByTheRegistry` entirely inside
+`ForkProngsTests.EveryProngRunsOnItsOwnThreadAndSeesTheSameInput`. This is evidence of overlapping
+test execution, not a new reproduced timeout or a measurement of pause duration.
+
+Only collection attributes change. Validation compares normalized IL bodies and test populations,
+checks the actual compiled collection metadata, and checks TRX intervals for collection-test overlap
+while preserving ordinary parallel execution. Concurrency exercised inside each individual test,
+including explicit fork threads, remains unchanged. Evidence: `artifacts/p7-completion/gc-isolation-1525beb/`.
+All four full Release/Debug suites pass **6,927 .NET 10 /5,925 .NET 8** cases per configuration,
+with the previous case populations preserved, no GC-test overlaps with other collections, and
+ordinary test parallelism retained. Runtime DLL/PDB bytes and normalized method bodies are unchanged.
+These scheduling checks do not qualify the original P7 runtime memory or throughput targets.
+
 ## Non-forwarding case review
 
 The retained runtime inventory still contains all 2,712 cases. The four latest strict captures preserve
