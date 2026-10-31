@@ -3045,3 +3045,58 @@ The retained native resident-page evidence is now attributed to symbols after ve
 hash. Most resident managed code belongs to framework libraries; symbols on a resident page do not
 prove those methods ran or predict recoverable RSS. This guides the next memory investigation,
 without substituting attribution for operating-system peak counters. Evidence: `resident-symbols-d744911/`.
+
+### Resolved accumulator rejection proofs, 2026-10-31
+
+The forward observer now rejects a rule phase only when every rule has a compiler-resolved pure
+element-kind/expanded-name test that cannot match the current frame. It reads the existing QIL
+test rather than reparsing patterns or inferring names from fixtures. Complex or unknown tests
+keep the full matcher; matching phases retain its original priorities and deferred errors. Initial
+values, unchanged phase publication and cancellation between rejection checks remain intact.
+
+Optional filtered constant tables use envelope **7**, explicitly retaining payload layout **3–6**.
+Schema-free tables stay schema-free; schema type identities and typed-node aliases use their
+original layouts. Tables without usable proofs keep their legacy serialized format. Older formats
+remain readable; malformed rule/filter cardinality and unsupported payloads reject.
+
+All four final Release/Debug suites pass **7,200 .NET 10 /6,114 .NET 8** cases per configuration,
+preserving every baseline case plus 21 new contracts. All 1,322 source/test files match the verified
+tree, frozen hashes survive execution, and 53 runtime PDB sources match. The ordinary accumulator
+set preserves all **71** outcomes and details, including its existing permissive wrong-code case.
+The strict suite retains **2,695/16/1**, zero wrong codes and the audited 2,712-case inventory.
+
+Old saved styles pass the unchanged **736** native checks and rejection controls. Newly generated
+styles pass **739** native checks: the same schema/applicability checks plus typed-node alias/type
+identity and malformed-envelope controls. The 144 schema /84 applicability sources are unchanged;
+the linked runtime equals the full-tested Release engine, with eight consumer /two generator PDB
+source checks. Typed expectations come from the independent BCL schema reader.
+
+Twenty-four native controls repeat accumulator median reductions of **22.16% /23.04%** with
+one/two CPUs. The final seven-workload JIT 100 MB subset retains **42 valid observations**, actual
+4 GiB guards and independent outputs. Stream/tree ratios are identity **1.009652**, adjacent
+**0.719973**, accumulator **0.822222**, iterate **0.777044**, merge **0.644658**, fork **4.018782**
+and source-document **1.011386**. The original throughput target still fails; the full 126-observation
+matrix has not been rerun for this candidate.
+
+The complete original local Linux ARM64 push matrix has all 48 correct outputs and **13/16**
+budget passes. Merge **23,834,624**, fork **23,838,720** and source-document **22,958,080** bytes
+still exceed **20,971,520**. Exact 200 MiB measured inputs, 10 MiB controls and the actual 20 MiB
+managed guard are preserved. No memory qualification or public streaming claim follows from the
+accumulator speedup. Evidence: `artifacts/p7-completion/accumulator-filter-saved-9a7e258/`.
+
+The first Debug run exposed a pre-existing assertion when the new fixture explicitly declared an
+empty `xpath-default-namespace`. The unchanged baseline reproduces it. The final fixture uses the
+equivalent implicit empty namespace, retaining all ten patterns and independent counts; both
+baseline and candidate pass. The compiler issue is deferred. A copied conformance-runner layout
+also initially lacked its baseline directory after executing all strict cases; the unchanged files
+were restored and its complete final harness/inventory checks pass. Initial failures remain retained.
+
+A distinct private literal-header/delegate-field loader with an SDK-generated version source passes
+56 managed and 48 native smoke checks, but its full push matrix still fails the same three budgets
+at **23,687,168 /23,719,936 /23,109,632** bytes. It is rejected; no loader, build-version or public
+API change from that experiment enters the branch. Evidence: `saved-fields-9a7e258/`.
+
+Hosted CI run **41217612327** passes all four jobs on the preceding `9a7e258` phase-lookup fix.
+Final-source hosted CI, remaining original memory/throughput gates, public integration, full-branch
+review and deployment readiness remain required. Publishing remains outside the owner's latest
+stopping point.

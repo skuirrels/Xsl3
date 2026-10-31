@@ -29,7 +29,7 @@ namespace Xsl3.XPath31
             }
         }
 
-        private const int FormatVersion = 6;
+        private const int FormatVersion = 7; // Resolved accumulator name filters; legacy payload layouts remain explicit.
 
         private enum Kind : byte
         {
@@ -53,16 +53,22 @@ namespace Xsl3.XPath31
             EmptySchemaSet,
             SchemaSet,
             SchemaSetReference,
+            FilteredAccumulators,
         }
 
         public static void Write(XmlQueryDataWriter w, ConstantTable table)
         {
             SchemaConstantContext context = SchemaConstantContext.Collect(table);
-            int version = context.NodeAnnotations ? FormatVersion : context.Required ? 5 : 3;
+            int version = context.NodeAnnotations ? 6 : context.Required ? 5 : 3;
             if (!context.Required)
                 for (int i = 0; i < table.Count; i++)
                     if (table.Get(i) is System.Xml.Schema.XmlSchemaSet { Count: > 0 }) version = 4;
-            w.Write(version);
+            bool filters = false;
+            for (int i = 0; i < table.Count; i++)
+                if (table.Get(i) is Dictionary<string, AccumulatorInfo> accumulators)
+                    filters |= HasAccumulatorFilters(accumulators);
+            w.Write(filters ? FormatVersion : version);
+            if (filters) w.Write(version);
             w.Write(table.Count);
             if (context.Required) context.Write(w);
             using var scoped = context.Required ? new SchemaConstantWriter(w, context) : null;
@@ -75,12 +81,18 @@ namespace Xsl3.XPath31
             int version = r.ReadInt32();
             if (version < 1 || version > FormatVersion)
                 throw new System.NotSupportedException("The compiled stylesheet's constants were saved in a format this version of Xsl3 doesn't read");
+            bool filters = version == 7;
+            if (filters)
+            {
+                version = r.ReadInt32();
+                if (version is < 3 or > 6) throw new InvalidDataException("Invalid saved constant payload format");
+            }
             int count = r.ReadInt32();
             SchemaConstantContext? context = version >= 5 ? SchemaConstantContext.Read(r) : null;
             using var scoped = context == null ? null : new SchemaConstantReader(r, context, version);
             BinaryReader values = scoped == null ? r : scoped;
             var table = new ConstantTable { SchemaContext = context?.Primary };
-            for (int i = 0; i < count; i++) table.Add(ReadValue(values, version)!);
+            for (int i = 0; i < count; i++) table.Add(ReadValue(values, version, filters)!);
             return table;
         }
 
@@ -205,7 +217,8 @@ namespace Xsl3.XPath31
                     else NoSchema(e.Schemas != null);
                     break;
                 case Dictionary<string, AccumulatorInfo> accumulators:
-                    w.Write((byte)Kind.Accumulators);
+                    bool filters = HasAccumulatorFilters(accumulators);
+                    w.Write((byte)(filters ? Kind.FilteredAccumulators : Kind.Accumulators));
                     w.Write(accumulators.Count);
                     foreach (var (name, info) in accumulators)
                     {
@@ -220,6 +233,19 @@ namespace Xsl3.XPath31
                         }
                         w.Write(info.OnPrincipal);
                         w.Write(info.Streamable);
+                        if (filters)
+                        {
+                            w.Write(info.Filters != null);
+                            if (info.Filters != null)
+                            {
+                                w.Write(info.Filters.Length);
+                                foreach (var filter in info.Filters)
+                                {
+                                    w.Write(filter != null);
+                                    if (filter != null) { w.Write(filter.LocalName); w.Write(filter.Namespace); }
+                                }
+                            }
+                        }
                     }
                     break;
                 case IList<XPathItem> items:
@@ -257,7 +283,7 @@ namespace Xsl3.XPath31
             }
         }
 
-        private static object? ReadValue(BinaryReader r, int version = FormatVersion)
+        private static object? ReadValue(BinaryReader r, int version = FormatVersion, bool filtersSupported = false)
         {
             var kind = (Kind)r.ReadByte();
             switch (kind)
@@ -376,6 +402,7 @@ namespace Xsl3.XPath31
                     { Schemas = r is SchemaConstantReader evaluateReader ? evaluateReader.Context.ReadSet(r) : null };
                 }
                 case Kind.Accumulators:
+                case Kind.FilteredAccumulators when filtersSupported:
                 {
                     var accumulators = new Dictionary<string, AccumulatorInfo>();
                     for (int i = r.ReadInt32(); i > 0; i--)
@@ -389,7 +416,17 @@ namespace Xsl3.XPath31
                         }
                         SequenceTypeTest? type = r.ReadBoolean() ? ReadSequenceType(r) : null;
                         bool principal = r.ReadBoolean();
-                        accumulators[name] = new AccumulatorInfo(offset, phases, type, principal, version >= 2 && r.ReadBoolean());
+                        bool streamable = version >= 2 && r.ReadBoolean();
+                        AccumulatorNodeFilter?[]? filters = null;
+                        if (kind == Kind.FilteredAccumulators && r.ReadBoolean())
+                        {
+                            int length = r.ReadInt32();
+                            if (length != phases.Length) throw new InvalidDataException("An accumulator filter must correspond to each rule");
+                            filters = new AccumulatorNodeFilter?[length];
+                            for (int j = 0; j < length; j++)
+                                if (r.ReadBoolean()) filters[j] = new(r.ReadString(), r.ReadString());
+                        }
+                        accumulators[name] = new AccumulatorInfo(offset, phases, type, principal, streamable, filters);
                     }
                     return accumulators;
                 }
@@ -407,6 +444,19 @@ namespace Xsl3.XPath31
                 default:
                     throw new System.NotSupportedException($"Unknown constant kind {kind} in a compiled stylesheet");
             }
+        }
+
+        private static bool HasAccumulatorFilters(Dictionary<string, AccumulatorInfo> accumulators)
+        {
+            bool found = false;
+            foreach (var info in accumulators.Values)
+            {
+                if (info.Filters == null) continue;
+                if (info.Filters.Length != info.EndPhases.Length)
+                    throw new InvalidDataException("An accumulator filter must correspond to each rule");
+                foreach (var filter in info.Filters) found |= filter != null;
+            }
+            return found;
         }
 
         // ------------------------------------------------------------ items

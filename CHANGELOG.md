@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject impossible simple accumulator rule matches directly from forward node headers using
+  compiler-resolved element names. Preserve namespace semantics, rule ordering, phase values,
+  cancellation and the general matcher for complex patterns and older saved styles. Optional
+  saved filter metadata retains the legacy schema and typed-node payload layouts.
 - Reuse a streamed accumulator's published before-phase when computing its after-phase,
   avoiding a redundant locked frame lookup while preserving initialization and cycle/error checks.
 - Check copied accumulator applicability before looking up a corresponding source node. Preserve

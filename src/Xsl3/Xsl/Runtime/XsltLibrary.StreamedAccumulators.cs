@@ -28,6 +28,16 @@ public sealed partial class XsltLibrary
             internal readonly bool HasEndRules = Array.IndexOf(info.EndPhases, true) >= 0;
             internal IList<XPathItem>? Current;
             internal bool Initialized, Initializing;
+            internal bool MayMatch(StreamedDocument.Node node, bool end)
+            {
+                for (int r = 0; r < Info.EndPhases.Length; r++)
+                {
+                    // Rejecting many simple rules must retain a cancellation rendezvous.
+                    XmlQueryRuntime.CheckCancellation();
+                    if (Info.EndPhases[r] == end && (Info.Filters?[r] is not { } filter || filter.Matches(node))) return true;
+                }
+                return false;
+            }
             internal readonly CycleState Cycles = new();
             private volatile ExceptionDispatchInfo? _fault;
             internal ExceptionDispatchInfo? Fault
@@ -395,7 +405,7 @@ public sealed partial class XsltLibrary
             {
                 Initialize(state);
                 // Even a phase without rules must initialize and publish its unchanged value.
-                var value = state.HasStartRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                var value = state.HasStartRules && state.MayMatch(node, end: false) ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
                     end: false, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: false); return state.Current = value; }
             }
@@ -420,7 +430,7 @@ public sealed partial class XsltLibrary
             try
             {
                 if (phase.Before == null) Before(state, node);
-                var value = state.HasEndRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                var value = state.HasEndRules && state.MayMatch(node, end: true) ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
                     end: true, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: true); return state.Current = value; }
             }

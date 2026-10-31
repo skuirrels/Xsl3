@@ -16,7 +16,14 @@ namespace Xsl3.Runtime
     /// phases (end: true) are in <paramref name="EndPhases"/>. <paramref name="OnPrincipal"/>: whether it is
     /// applicable to the principal source document (the initial mode's use-accumulators, §18.2.2).
     /// </summary>
-    internal sealed record AccumulatorInfo(int Offset, bool[] EndPhases, SequenceTypeTest? Type, bool OnPrincipal = true, bool Streamable = false);
+    internal sealed record AccumulatorNodeFilter(string LocalName, string Namespace)
+    {
+        internal bool Matches(Streaming.StreamedDocument.Node node) => node.Kind == XPathNodeType.Element
+            && node.LocalName == LocalName && node.Namespace == Namespace;
+    }
+
+    internal sealed record AccumulatorInfo(int Offset, bool[] EndPhases, SequenceTypeTest? Type, bool OnPrincipal = true, bool Streamable = false,
+        AccumulatorNodeFilter?[]? Filters = null);
 
     public sealed partial class XsltLibrary
     {

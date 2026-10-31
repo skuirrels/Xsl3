@@ -2298,6 +2298,7 @@ namespace Xsl3.Xslt
                 EnterScope(decl);
                 EnterComponent31(decl);
                 var phases = new List<bool>();
+                var filters = new List<AccumulatorNodeFilter?>();
                 int offset = items.Count;
                 items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () => CompileXPath31(decl.Select!)), 1));
                 // The rules, in decreasing order of preference among equal priorities: the last one wins.
@@ -2306,7 +2307,9 @@ namespace Xsl3.Xslt
                     XslNode rule = decl.Content[i];
                     EnterScope(rule);
                     phases.Add(rule.V2!.Phase == "end");
-                    items.Add(Lift31(own => AccumulatorMatch31(rule.V2!.Match!, own[0]), 1));
+                    AccumulatorNodeFilter? filter = null;
+                    items.Add(Lift31(own => AccumulatorMatch31(rule.V2!.Match!, own[0], out filter), 1));
+                    filters.Add(filter);
                     items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () =>
                     {
                         _scope.EnterScope();
@@ -2340,16 +2343,17 @@ namespace Xsl3.Xslt
                 var (applicable, principalPackage) = PrincipalAccumulators31();
                 bool onPrincipal = applicable?.Contains(eqName) ?? (!principalPackage.HasValue || PackageComponents.Demangle(name.NamespaceUri).Package == principalPackage.Value);
                 table[eqName] = new AccumulatorInfo(offset, phases.ToArray(), type, onPrincipal,
-                    decl.V2?.Streamable == TriState.True);
+                    decl.V2?.Streamable == TriState.True, filters.ToArray());
                 ExitScope();
             }
             _accumulatorItems31.Binding = Box(items);
         }
 
         // The pattern of an accumulator rule: the priority of the best alternative the node matches, else nothing.
-        private QilNode AccumulatorMatch31(string pattern, QilParameter node)
+        private QilNode AccumulatorMatch31(string pattern, QilParameter node, out AccumulatorNodeFilter? filter)
         {
             QilNode compiled = CompilePattern31(pattern);
+            filter = SimpleAccumulatorFilter31(compiled);
             var alternatives = new List<QilLoop>();
             if (compiled.NodeType == QilNodeType.Sequence)
             {
@@ -2372,6 +2376,21 @@ namespace Xsl3.Xslt
                 result = _f.Conditional(condition, Box(_f.Double(XPathPatternBuilder.GetPriority(alternative))), result);
             }
             return _f.Loop(subject, result);
+        }
+
+        // A pure leading name test can reject a node before allocating a dynamic matcher call.
+        // Read the compiler's resolved QIL names; complex patterns keep the general path.
+        private static AccumulatorNodeFilter? SimpleAccumulatorFilter31(QilNode compiled)
+        {
+            if (compiled is QilLoop { NodeType: QilNodeType.Filter } loop
+                && loop.Body is QilBinary { NodeType: QilNodeType.And,
+                    Left: QilBinary { NodeType: QilNodeType.IsType } kind,
+                    Right: QilBinary { NodeType: QilNodeType.Eq } name }
+                && kind.Left == loop.Variable && kind.Right.XmlType!.NodeKinds == XmlNodeKindFlags.Element
+                && name.Left is QilUnary { NodeType: QilNodeType.NameOf } named && named.Child == loop.Variable
+                && name.Right is QilName qname)
+                return new(qname.LocalName, qname.NamespaceUri);
+            return null;
         }
 
         // Compiles with the item as the focus (position and size 1), as the body of xsl:iterate does.
