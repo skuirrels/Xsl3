@@ -486,6 +486,33 @@ navigator passes all twelve controls. No namespace runtime optimization or thres
 introduced. Raw CI logs, controls and source-verified engines remain under
 `artifacts/p7-completion/ci-65423ee-ubuntu` and `namespace-warmup-65423ee`.
 
-The final full-source suites, including that measurement-only test correction, and fresh hosted CI
-remain required. The original memory/throughput gates, remaining runtime qualification, public
-integration, full review, merge and release remain open.
+The final full-source suites, including that measurement-only test correction, pass in all four
+Release/Debug .NET 10/8 configurations: 5,990 /5,188 checks per configuration. Actual engine/test DLLs
+and PDBs are frozen before testing; 52 runtime /11 test documents are source-verified and all four
+binary hashes remain unchanged afterward. The audit is retained in
+`artifacts/p7-completion/disposed-current-65423ee/final-full-audit.json`.
+
+Fresh hosted CI remains required. The original failed push-memory and throughput gates, remaining
+runtime qualification, public integration, full review, merge and release remain open.
+
+## Fork string-value consumption
+
+`StreamedForkValueTests` adds 57 contracts over capacities 1 /7 /64. Two independently advancing
+prongs consume empty and mixed element content, coalesced CDATA, comments/processing instructions and
+preserved whitespace. A separate `XmlDocument` supplies expected string values. Header lookahead,
+identity, attributes, namespace bindings, language and following-sibling navigation are preserved.
+
+Bounded scans must continue to following sibling matches; unbounded value scans must preserve nested
+matches through value replay. Forced enclosing replay retains consumed descendants. Consumption-header
+and match observations see every absorbed descendant. Malformed input, prong failure and external
+cancellation preserve their existing errors and borrowed-reader ownership. The cancellation fixture
+advances both prongs to the selected value before coordinating failure, so it does not deadlock a
+capacity-one tee by keeping an unread sibling input attached.
+
+All 57 pass against unchanged `42519e9` runtime sources in Release/Debug .NET 8/10, with actual DLL/PDB
+hashes frozen before testing and unchanged afterward. Source checks cover 52 runtime documents and the
+new fixture per build. A rejected batching prototype passes broader 1,667 /1,278 focused checks in each
+configuration. Its deliberately omitted observation/replay guards cause nine failures /48 passes;
+restoring the baseline passes all 57. These checks preserve existing semantics and do not establish
+original absolute memory or throughput acceptance. Evidence and failed fixture controls remain under
+`artifacts/p7-completion/fork-values-42519e9`.

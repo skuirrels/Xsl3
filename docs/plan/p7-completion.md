@@ -2547,8 +2547,10 @@ and Debug, with frozen binaries and source checks. A separate warning-free Nativ
 also warms its cached path before the unchanged 10,000-traversal /4,096-byte measurement; all twelve
 per-enumeration allocation controls fail and all twelve restored checks pass. This follows the
 retained Ubuntu CI failure in run **41169823881**, not a runtime namespace change. Its exact 98,352-byte
-Linux observation has not been reproduced locally. Final full suites including the measurement-only
-correction and fresh hosted CI remain pending.
+Linux observation has not been reproduced locally. The final full suites including the measurement-only
+correction also pass all four configurations with the same counts. Every actual engine/test DLL and PDB
+is frozen before testing, 52 runtime /11 test source documents are checked per configuration, and all
+four binary hashes remain unchanged afterward. Fresh hosted CI remains pending.
 
 The unchanged original local Linux ARM64 push matrix finishes all **48 children** with correct output
 and **13/16 budgets**. Merge **23,707,648**, fork **24,096,768** and source-document **23,048,192 bytes**
@@ -2557,6 +2559,44 @@ an actual 20,971,520-byte managed guard; all 32 canonical stylesheets are unchan
 small-input zero-limit smoke passes all 48 children as functional evidence only. Source/runtime/probe
 PDB checks and all failed fixture/adapter/control runs remain under `disposed-current-65423ee`.
 
-No original acceptance gate closes here. Complete final-source CI, current-source hosted memory and
-throughput qualification, remaining S3–S6 accounting and public integration are still required before
-full review, merge and release. Streaming support remains unclaimed.
+Hosted Linux x64 qualification of committed **42519e9** in run **41172520570** completes both original
+memory matrices. Push retains **13/16** budget passes: merge **24,506,368**, fork **24,768,512** and
+source-document **24,043,520** bytes exceed the unchanged 20,971,520-byte limit. Nightly passes all
+**16/16**, with maximum absolute RSS **39,432,192** bytes under 209,715,200. All **96 children** validate
+original outputs; measured inputs and actual managed guards match the original exact sizes/limits.
+Both downloaded archives match GitHub artifact digests, all 32 canonical stylesheet sources are
+unchanged, and 52 runtime PDB documents match the committed sources. Raw children and independent
+audits remain under `contracts-linux-{push,nightly}-42519e9`.
+
+The current-source nightly memory gate passes; push still fails. Final-source CI and hosted throughput
+qualification, remaining S3–S6 accounting and public integration are still required before full review,
+merge and release. Streaming support remains unclaimed.
+
+### Fork string-value batching investigation, 2026-10-31
+
+An isolated prototype reuses the tee's existing buffered-event predicate to collect an element's
+string value without constructing unneeded descendant frames. It conservatively preserves the
+ordinary event path for observers, replay captures, consumption proofs and interested descendant
+cursors. A correction checks the individual prong's cancellation token between collected events.
+The source-verified diagnostic JIT engine confirms that all 9,121 string-value calls in the unchanged
+1 MiB canonical fork probe, including warmup, qualify for batching.
+
+The first native prototype has a 1.91% lower elapsed median with one CPU. The corrected prototype
+has a 2.01% lower median with one CPU, but a **0.26% higher** median with two CPUs. Absolute peak RSS
+is unchanged within each cohort. All **21 native children** validate identical original outputs on
+exact 100,000,000-byte inputs with actual 4,294,967,296-byte managed guards. Diagnostic RSS guards
+are disabled; these are controlled comparisons, not original acceptance passes. Each candidate's
+runtime/probe PDB checks cover 52 /six source documents, and all 32 canonical stylesheets are unchanged.
+The modest gain does not repeat in the two-CPU cohort, so neither prototype is adopted.
+
+The [fork value contracts](p7-runtime-contracts.md#fork-string-value-consumption) remain useful without
+the optimization. All 57 pass against the unchanged `42519e9` runtime in Release/Debug .NET 8/10.
+The guarded candidate also passes 1,667 .NET 10 /1,278 .NET 8 focused checks in each configuration.
+Removing its observer/replay/cursor guards fails nine contracts while 48 controls pass. Frozen actual
+engines, source checks, raw failed controls, all three native cohorts and the rejection decision remain
+under `artifacts/p7-completion/fork-values-42519e9`. The initial fixture-only compile, replay-setup and
+tiny-capacity synchronization failures are retained separately. None establishes a production defect.
+
+Production runtime, fork threads/capacity, fixtures, original budgets and public streaming claims are
+unchanged. Original failed push/throughput targets, remaining runtime accounting and public integration,
+final review/CI, merge and release remain required.
