@@ -50,6 +50,7 @@ The original exact-size NativeAOT matrices and paired benchmarks remain separate
 | Tee | `StreamTeeTests`: ordered single-source reads, bounded high-water mark, partial reservations, source-fault prefix, detach/dispose/cancellation, collectible events and concurrent reader aliases. `StreamTeePayloadTests`: measured live payload bytes with explicit payload assumptions and an isolated retention mutation | Complete full S6 acceptance mapping and original process-memory qualification |
 | Fork callers | `ForkCallerTests`: input/output ownership, lost-wakeup protection, full-ring output progress, partial-ring refill and active callback lifetime. `ForkProngsTests`: declaration-order failures, cancellation and joining | Original absolute RSS and throughput targets still fail |
 | Nested fork frames | `StreamedForkInputTests.NestedEventsDoNotRetainConsumedProngFrameState`: after the source advances past an intermediate prong frame, a slow nested reader may retain its published event without retaining that frame's private runtime state | A focused lifetime contract; complete variable-payload, ancestor and replay accounting remains required |
+| Fork frame graphs | `StreamedForkFrameLifetimeTests`: variable text/attribute payloads, fixed ancestor chains, per-prong projections, quiescent graph bounds, normal/error/cancellation cleanup and released owners | The specified ungrounded input shape; explicit replay graphs, parser buffers, schema objects, array/object overhead and buffered output remain separate accounting obligations |
 | Observer and matcher cursors | `StreamedObservationTests.ObserverCallbacksKeepIndependentPositionsAfterTheSourceAdvances` retains ordinary callback positions through completion. `StreamedForkAccumulatorTests.MatcherCursorMutationDoesNotChangeTheRuleBodyOrCallerFocus` moves each matcher cursor while checking body and caller focus; omitting its required clone fails the isolated regression | Cursor ownership evidence; complete construct/state accounting and original performance qualification remain required |
 
 A tee capacity counts events, not bytes. The ring and unpublished staged payloads share its capacity;
@@ -396,3 +397,55 @@ qualification, not an absolute process-memory or throughput pass.
 Arbitrary structurally mismatched provenance and accumulator applicability for schema-created nodes
 without copied counterparts still need explicit disposition. These cases do not declare all S3–S6
 contracts complete or change the original P7 acceptance gates.
+
+
+## Fork frame graphs with variable header payloads
+
+`StreamedForkFrameLifetimeTests` records weak references to every original source frame and every
+projected content/ancestor frame visited by its prongs. The source runs on the invoking thread;
+each prong owns its navigation view and private name table. The generated, non-seekable input keeps
+one record plus a fixed envelope. Record text and metadata alternate between one-quarter and the
+configured maximum width; every prong checks the actual ID, text, attribute, namespace, language and
+base URI while consuming each row.
+
+At a checkpoint all workers have finished the same row and rendezvous before requesting another.
+The invoking thread measures after any current production batch has finished. For ancestor count
+`A` (including the document, outer element, nested levels and fork boundary), event capacity `C` and
+prong count `R`, the measured distinct source/projected frames must stay within:
+
+`(R + 1) * A + 3 * C + 2 * R + 3`.
+
+Each queued event may retain its three-frame row/value/text chain. Each document has its ancestor
+chain; each prong can additionally own its current row and corresponding source row. The source
+can keep its current three row frames. The bound depends on these configured dimensions and not
+on the total number of input rows. Every source and prong frame is observed; the test also checks
+the completed population and interrupted prefixes, so omitted observations cannot satisfy the measurement.
+
+| Capacity | Prongs | Ancestor frames per document | Rows, short /long | Maximum record payload width | Maximum ancestor attribute width | Frame bound |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 2 | 4 | 8 /32 | 256 | 1,024 | 22 |
+| 7 | 3 | 11 | 32 /128 | 2,048 | 4,096 | 74 |
+| 64 | 4 | 27 | 260 /1,040 | 8,192 | 16,384 | 338 |
+
+The graph measurement also counts distinct referenced header strings by identity, including text,
+attribute metadata and resolved namespace scopes. Its logical-character bound is the frame bound
+multiplied by a per-frame allowance calculated from the fixture's bounded vocabulary, URI/language,
+identifier width and configured payload maxima. These counts are UTF-16 code units, not allocated
+bytes or process RSS. Detached strings, parser/encoding buffers, name-table implementation storage,
+schema objects, arrays/object overhead and the recorder's weak-reference lists are outside this
+frame-graph measurement. Explicit replays are excluded by assertions and remain covered separately.
+
+Each shape runs to completion, fails in the first declared prong, and stops through external
+cancellation. Error identity and the original cancellation token remain observable. After source
+disposal, an interrupted document may still own its current row chain; that allowance is at most
+three row frames plus the fixed ancestors. Borrowed readers and streams remain open. Releasing the
+document and fork owners must collect every observed frame and all frame-reachable characters.
+
+The eighteen graph cases and three independently parsed generator/EOF controls pass in all four full
+Release/Debug suites: 5,970 .NET 10 /5,168 .NET 8 checks per configuration. A source-verified retained-frame-history mutation
+fails all eighteen graph cases while the three generator controls pass; restoration passes all 21.
+The same fixture passes 21 checks in an independent NativeAOT consumer, with eight assertion-failure
+controls, JIT-host rejection, a warning-free build and 51 runtime /three consumer PDB source checks.
+All failed initial fixture and mutation runs remain under
+`artifacts/p7-completion/fork-frame-graphs-beee608`. These contracts do not close the original absolute
+process-memory or throughput gates or declare every S3–S6 state obligation complete.

@@ -2502,3 +2502,30 @@ No prototype runtime change enters the branch. The isolated source is restored a
 source/test files match `711b0b3`. Remaining S3–S6 contracts, original memory/throughput gates, public
 integration, final review/CI, merge and release remain required. These investigations close no original
 acceptance gate and do not authorize a streaming-support claim.
+
+
+### Fork frame-graph lifetime contracts, 2026-10-31
+
+The preceding committed contract head `711b0b3` passes all four hosted CI jobs in run **41165601804**.
+The new [fork graph contracts](p7-runtime-contracts.md#fork-frame-graphs-with-variable-header-payloads)
+measure original and projected frames with variable text/attribute payloads, fixed ancestor chains,
+namespace scopes and quiescent source/prong checkpoints. Three capacity/prong/depth models run at two
+input lengths, each with normal completion, first-prong failure and external cancellation. Closed
+sources account for their final current frame chain; all observed frames collect after owners release.
+Three independent parser/EOF controls cover the generated non-seekable input. The initial repeated-EOF
+fixture failures remain retained and do not establish a production defect.
+
+All four full source-verified unit suites pass: **5,970 .NET 10 /5,168 .NET 8** checks in both Release
+and Debug. Every actual engine/test DLL and PDB is frozen before testing, source checks cover 51 runtime
+/nine test documents, and all four binary hashes remain unchanged afterward. A retained-frame-history
+mutation fails all eighteen graph cases /passes the three generator controls; restoration passes all
+21. An independent warning-free NativeAOT consumer passes the same 21 checks and eight assertion-failure
+controls, with JIT-host rejection and exact fixture/engine/PDB verification. Evidence:
+`artifacts/p7-completion/fork-frame-graphs-beee608`.
+
+Production runtime, tee capacity/thread model, canonical fixtures, original RSS/heap limits, static
+analysis inventories and public APIs are unchanged. The graph's logical-character counts exclude
+parser/name-table implementation storage, schema objects, array/object overhead, explicit replays and
+buffered output; those remain separate accounting obligations. Original memory/throughput acceptance,
+remaining S3–S6 qualification, public integration, complete review, final-source CI, merge and release
+remain required. No streaming-support claim is made.
