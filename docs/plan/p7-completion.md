@@ -2901,3 +2901,22 @@ fixture, before that independent suite runs. Evidence: `call-arguments-87c40e7/v
 The separate Release upstream suite passes **1,654 .NET 10 /1,654 .NET 8** cases with zero
 failures/skips under the unchanged CI filter (`category!=failing`); all original fixture bytes are
 present. Its runtime/test binaries are retained separately from the four `Xsl3.Tests` runs.
+
+A measured-profile native layout control collects the same sixteen 100,000,000-byte streaming
+fixtures through an explicitly diagnostic JIT harness, using the exact V3 managed engine and
+unchanged saved assemblies. The pinned .NET 10 PGO reader ignores the raw managed EventPipe
+sample type; an isolated adapter applies its existing stack/count algorithm to those samples.
+The original tool, source patch, all traces and all sixteen profiles are retained. A separate
+JSON-exporter repair permits call-weight auditing; original method/instrumentation data remain
+identical in the adapter control. These are managed stack samples, not exclusive CPU-time
+measurements, and no synthetic weights or reachability restrictions are introduced.
+
+The compiler response verifies the real MIBC input. The native image preserves the Size
+preference, all methods, all 53 runtime /six probe sources and the original runtime policies.
+All 24 isolated parent/candidate children validate their outputs and actual 4 GiB heap guards.
+Elapsed median ratios are identity 0.850229, source-document 0.830887, accumulator 0.896171 and
+fork 0.916056. Absolute RSS medians fall only 131,072 /196,608 /266,240 /65,536 bytes, respectively.
+Source-document remains 24,555,520 bytes and fork 25,411,584 bytes, above the original 20 MiB
+budget. The publishing/profile pipeline is not adopted: it does not resolve the failed memory
+gates or the complete throughput requirement. No hosted qualification is dispatched. Evidence:
+`artifacts/p7-completion/native-layout-v3-87c40e7/pgo-decision.json`, with raw controls alongside it.
