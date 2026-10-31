@@ -157,5 +157,51 @@ public class StreamedAccumulatorOpenReplayTests
         return new XPathItem[] { map.Put(AtomicValue.OfString(node.GetAttribute("id", "")), new XPathItem[] { payload }) };
     }
 
+    [Theory]
+    [InlineData(16, 1)]
+    [InlineData(128, 1)]
+    [InlineData(16, 2)]
+    [InlineData(128, 2)]
+    public void ProngCopiesReleaseSourceGraphsAfterTheirEnclosingReplayEnds(int rows, int prongs)
+    {
+        var (copies, payloads) = CopyRowsInProngReplays(rows, prongs);
+        Collect();
+        Assert.Equal(2, payloads.Count(reference => reference.TryGetTarget(out _)));
+        foreach (var prong in copies) prong.Clear();
+        Collect();
+        Assert.All(payloads, reference => Assert.False(reference.TryGetTarget(out _)));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (List<XPathNavigator>[] Copies, List<WeakReference<CompactDocument>> Payloads) CopyRowsInProngReplays(int rows, int prongs)
+    {
+        var payloads = new List<WeakReference<CompactDocument>>();
+        var copies = Enumerable.Range(0, prongs).Select(_ => new List<XPathNavigator>()).ToArray();
+        using var input = XmlReader.Create(new StringReader("<doc>" + string.Concat(Enumerable.Range(1, rows).Select(row => "<row id='" + row + "'/>")) + "</doc>"));
+        using var source = new StreamedForkAccumulatorTests.Source(input, initialValue: Array.Empty<XPathItem>(), rule: (node, previous, after) =>
+            after ? AppendPayload(node, previous, payloads) : previous);
+        source.Run(source.Focus, copies.Select<List<XPathNavigator>, Action<StreamedNavigator>>(saved => view => {
+            using (view.BeginConsumption(replay: true, accumulators: true))
+            {
+                Assert.True(view.MoveToFirstChild()); Assert.True(view.MoveToFirstChild());
+                int row = 0;
+                do
+                {
+                    row++;
+                    var copy = Assert.IsAssignableFrom<XPathNavigator>(Assert.Single(source.Library.X31CopyWithAccumulators(new XPathItem[] { view })));
+                    Assert.Equal(row, Assert.IsType<MapItem>(Assert.Single(source.Items(copy, after: true))).Count);
+                    if (row <= 2) saved.Add(copy);
+                } while (view.MoveToNext());
+                Assert.Equal(rows, row);
+                view.Document.CompleteSubtree(view.Document.Root);
+            }
+        }).ToArray());
+        source.Close();
+        foreach (var prong in copies)
+            for (int i = 0; i < prong.Count; i++)
+                Assert.Equal(i + 1, Assert.IsType<MapItem>(Assert.Single(source.Items(prong[i], after: true))).Count);
+        return (copies, payloads);
+    }
+
     private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
 }

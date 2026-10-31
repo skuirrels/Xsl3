@@ -2442,3 +2442,29 @@ Pending-copy validation chains, fork-specific lifetime and structural-mismatch a
 need complete qualification. Original memory/throughput targets, remaining S3–S6 contracts, public
 integration, full review, final-source CI, merge and release remain required. Streaming support stays
 unclaimed and the full P7 objective remains active.
+
+### Pending-copy validation and fork graph contracts, 2026-10-31
+
+The [additional copied-graph contracts](p7-runtime-contracts.md#pending-copy-chains-validation-and-fork-views)
+qualify pending copy chains, lax validation, schema-added default text on copied parents and enclosing
+replays in one or two fork prongs. The committed `a2998a2` runtime requires no change. All new checks
+pass in Release/Debug on both frameworks: 508 .NET 10 /340 .NET 8 per configuration. The preceding full
+unit results remain 5,441 /4,807; the new figures describe additional focused checks. Actual engines
+and PDBs are frozen, with 51 runtime /two changed test documents checked. All 1,314 tracked source/test
+files match the base except those two tests. The retention mutation fails forty controls /passes
+forty-eight; restored source passes all 88. Independent NativeAOT passes 180 saved-style cases plus
+four supplemental runtime fork lifetime cases. Evidence: `accumulator-pending-forms-a2998a2`.
+
+The completed hosted **cddc819** benchmark in run **41161002015** preserves all **126 valid
+observations**, exact 1,000,000 /100,000,000 /1,000,000,000-byte inputs and actual 4,294,967,296-byte
+managed guards in both modes. All output fingerprints agree; no observation is failed or missing.
+The downloaded archive matches GitHub's digest, engine/driver hashes match the tested files, and
+51 runtime PDB documents match the immutable commit. The original 100 MB throughput target still
+fails for identity (**1.080878** stream/tree), accumulator (**1.191722**), fork (**2.974394**) and
+source-document (**1.074152**). Adjacent (**0.806387**), iterate (**0.840719**) and merge (**0.890579**)
+pass. The 5% display band does not waive any target. Raw trials, first-output observations and audit
+remain under `contracts-linux-benchmark-cddc819`. This is cddc819 evidence, not a later-head timing claim.
+
+Schema-created nodes without source counterparts and arbitrary structural mismatch need an explicit
+applicability disposition. Complete remaining runtime/state qualification, the original memory and
+throughput targets, final-source CI, full review, public integration, merge and release remain open.

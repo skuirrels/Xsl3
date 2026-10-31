@@ -356,3 +356,43 @@ under `artifacts/p7-completion/accumulator-open-replay-cddc819`.
 The unchanged original native push matrix validates all 48 outputs and retains 13/16 budget passes.
 This ownership repair does not close process-memory, throughput, pending-copy validation/fork lifetime,
 structurally changed copy applicability or the remaining full P7 qualification requirements.
+
+## Pending copy chains, validation and fork views
+
+The same `a2998a2` runtime passes additional contracts without production changes. Completed and
+interrupted enclosing captures now exercise a copy of a pending copy and lax validation of a pending
+copy. Both APIs, normal/debug compilation, supported saved loading, node/opaque windows, growing maps,
+retained early owners and discarded copies retain the existing value/identity and collection checks.
+
+Three additional forms validate against an imported schema that supplies default text to empty rows:
+ordinary, completed enclosing replay and interrupted enclosing replay. The schema defines the added
+content; tests verify the actual text node and its type annotation. The copied parent's before/after
+values still come from its corresponding source node, consistent with
+[XSLT 3.0 section 18.2.10](https://www.w3.org/TR/xslt-30/#copying-accumulators), rather than running its
+accumulator rules again on the validated tree. These assertions concern the copied parent, not an
+invented corresponding source for newly created text nodes.
+
+One- and two-prong runtime cases consume 16/128 rows while each prong owns an enclosing replay.
+Retaining its first two copies preserves values after source closure but only two distinct payload
+graphs, shared across prongs. Releasing the copies collects every observed payload. Rules execute on
+the original caller thread exactly once; the existing fork thread model and tee capacity are unchanged.
+
+The new checks pass in all four Release/Debug configurations: 508 .NET 10 /340 .NET 8 checks per
+configuration. Earlier full runtime verification remains 5,441 /4,807; these are additional focused
+contracts, not a claim that a new full suite has run. Engine hashes and 51 runtime /two changed test
+PDB documents are verified. Comparing all 1,314 tracked source/test files finds only the two intended
+test edits. An isolated omitted-notification mutation causes 40 ownership failures, while 48 controls
+still pass; restoring source passes all 88. Raw sources, failed controls and frozen engines are retained
+under `artifacts/p7-completion/accumulator-pending-forms-a2998a2`.
+
+A separate NativeAOT consumer passes 180 saved-style cases from thirty styles and four supplemental
+runtime-level fork graph cases, using 32/256 rows. The saved styles come from the exact tested fixture;
+inputs, window width and payload size remain independent. Startup rejects JIT hosting. The supplemental
+manual metadata builder checks that early-bound types are absent and narrowly documents that
+precondition for trimming analysis; production annotations and global trimming/AOT error policies are
+unchanged. Source PDB checks cover 51 runtime /three consumer documents. This is functional ownership
+qualification, not an absolute process-memory or throughput pass.
+
+Arbitrary structurally mismatched provenance and accumulator applicability for schema-created nodes
+without copied counterparts still need explicit disposition. These cases do not declare all S3–S6
+contracts complete or change the original P7 acceptance gates.

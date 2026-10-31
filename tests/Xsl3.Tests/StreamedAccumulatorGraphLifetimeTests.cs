@@ -26,7 +26,9 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     {
         foreach (int delivery in Deliveries())
         foreach (bool debug in new[] { false, true })
-        foreach (string copy in new[] { "instruction", "copy-of", "snapshot", "recopy", "strip", "lax", "open-replay", "interrupted-replay" })
+        foreach (string copy in new[] { "instruction", "copy-of", "snapshot", "recopy", "strip", "lax", "open-replay", "interrupted-replay",
+            "open-replay-recopy", "interrupted-replay-recopy", "open-replay-lax", "interrupted-replay-lax",
+            "default-lax", "open-replay-default-lax", "interrupted-replay-default-lax" })
         foreach (string kind in new[] { "nodes", "maps", "opaque" })
         foreach (int rows in new[] { 16, 128 })
         foreach (bool retain in new[] { false, true })
@@ -46,7 +48,8 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     [MemberData(nameof(Cases))]
     public void AccumulatorGraphsHaveOnlyTheRequestedOwners(int delivery, bool debug, string copy, string kind, int rows, bool retain)
     {
-        using var probe = new Probe(kind, retain, stopAt: copy == "interrupted-replay" ? rows : 0);
+        using var probe = new Probe(kind, retain, stopAt: copy.StartsWith("interrupted-replay", StringComparison.Ordinal) ? rows : 0,
+            defaults: copy.Contains("default-lax", StringComparison.Ordinal));
         Execute(rows, probe, delivery, debug, copy);
         Assert.Equal(rows, probe.Rows);
         probe.VerifyAndRelease();
@@ -80,17 +83,26 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             "instruction" or "open-replay" or "interrupted-replay" => "<xsl:copy-of select='.' copy-accumulators='yes'/>",
             "copy-of" => "<xsl:sequence select='copy-of(.)'/>",
             "snapshot" => "<xsl:sequence select='snapshot(.)'/>",
-            "recopy" => "<xsl:variable name='first' as='element(row)'><xsl:copy-of select='.' copy-accumulators='yes'/></xsl:variable><xsl:sequence select='copy-of($first)'/>",
+            "recopy" or "open-replay-recopy" or "interrupted-replay-recopy" => "<xsl:variable name='first' as='element(row)'><xsl:copy-of select='.' copy-accumulators='yes'/></xsl:variable><xsl:sequence select='copy-of($first)'/>",
             "strip" => "<xsl:copy-of select='.' copy-accumulators='yes' validation='strip'/>",
-            "lax" => "<xsl:copy-of select='.' copy-accumulators='yes' validation='lax'/>",
+            "lax" or "open-replay-lax" or "interrupted-replay-lax" or "default-lax" or "open-replay-default-lax" or "interrupted-replay-default-lax"
+                => "<xsl:copy-of select='.' copy-accumulators='yes' validation='lax'/>",
             _ => throw new ArgumentOutOfRangeException(nameof(copy)),
         };
         string read = ending == "not-applicable" ? "$node ! accumulator-before('unused')"
             : "[$node ! accumulator-before('n'), $node ! accumulator-after('n')]";
-        string open = copy is "open-replay" or "interrupted-replay"
+        string open = copy.Contains("replay", StringComparison.Ordinal)
             ? "<xsl:sequence select=\"$probe('open', '" + copy + "', (), (), function($node) { " + read + " })\"/>" : "";
+        string schema = copy.Contains("default-lax", StringComparison.Ordinal) ? """
+            <xsl:import-schema><xs:schema>
+              <xs:element name="row" default="schema-provided"><xs:complexType><xs:simpleContent><xs:extension base="xs:string">
+                <xs:attribute name="id" type="xs:string" use="required"/>
+              </xs:extension></xs:simpleContent></xs:complexType></xs:element>
+            </xs:schema></xsl:import-schema>
+            """ : "";
         return $$"""
             <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:err="http://www.w3.org/2005/xqt-errors">
+              {{schema}}
               <xsl:mode streamable="yes" use-accumulators="n"/><xsl:output method="text"/>
               <xsl:param name="probe" as="function(*)" required="yes"/>
               <xsl:accumulator name="n" streamable="yes" initial-value="()">
@@ -116,8 +128,8 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Execute(int rows, Probe probe, int delivery, bool debug, string copy)
     {
-        var settings = new XsltSettings { StreamedExecution = true, IncludeDebugInformation = debug, SchemaAware = copy == "lax" };
-        string xml = "<doc>" + string.Concat(Enumerable.Range(1, copy == "interrupted-replay" ? rows + 16 : rows).Select(row => "<row id='" + Id(row) + "'/>")) + "</doc>";
+        var settings = new XsltSettings { StreamedExecution = true, IncludeDebugInformation = debug, SchemaAware = copy.EndsWith("lax", StringComparison.Ordinal) };
+        string xml = "<doc>" + string.Concat(Enumerable.Range(1, copy.StartsWith("interrupted-replay", StringComparison.Ordinal) ? rows + 16 : rows).Select(row => "<row id='" + Id(row) + "'/>")) + "</doc>";
         using var input = XmlReader.Create(new StringReader(xml));
         using var sink = new StringWriter(CultureInfo.InvariantCulture);
         var function = new NativeFunction(Enumerable.Repeat(SequenceTypeTest.AnySequence, 5).ToArray(), SequenceTypeTest.AnySequence,
@@ -160,7 +172,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         Assert.True(probe.Finished);
     }
 
-    private sealed class Probe(string kind, bool retain, string ending = "complete", int stopAt = 0) : IDisposable
+    private sealed class Probe(string kind, bool retain, string ending = "complete", int stopAt = 0, bool defaults = false) : IDisposable
     {
         private const int Width = 7, Characters = 256;
         private readonly List<(WeakReference<CompactDocument> Document, int Characters)> _payloads = new();
@@ -188,7 +200,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             {
                 var reader = Assert.IsType<CompiledFunction>(Assert.Single(arguments[4]));
                 _replaySource = Assert.IsType<StreamedNavigator>(reader.Owner.ExternalContext.InitialSelection(accumulators: false));
-                _completeReplay = id == "open-replay";
+                _completeReplay = id.StartsWith("open-replay", StringComparison.Ordinal);
                 _replay = _replaySource.BeginConsumption(replay: true, accumulators: true);
                 return Sequences.Empty;
             }
@@ -268,6 +280,13 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
                 _copiedRows++;
                 Assert.Equal(Id(_copiedRows), id);
                 var copy = Assert.IsType<CompactNavigator>(Assert.Single(arguments[4]));
+                if (defaults)
+                {
+                    Assert.Equal("schema-provided", copy.Value);
+                    Assert.NotNull(copy.SchemaInfo?.SchemaType);
+                    var child = copy.Clone(); Assert.True(child.MoveToFirstChild());
+                    Assert.Equal(XPathNodeType.Text, child.NodeType); Assert.False(child.MoveToNext());
+                }
                 _copies.Add(new(copy.Document));
                 if (retain && (ending == "retain-error" ? _copiedRows == 128 : _copiedRows <= 2))
                 { _saved.Add(copy.Clone()); _savedRows.Add(_copiedRows); }
