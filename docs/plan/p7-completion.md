@@ -2407,3 +2407,38 @@ source-document (**22,917,120**) exceed the original budget. The 48-child small-
 also passes, as functional evidence only. Reviewed main files match the frozen tested and native
 sources byte-for-byte. These results do not close the original memory gate. Raw children and audits:
 `accumulator-graphs-138fcee/canonical-push` and `canonical-push-audit.json`.
+
+Hosted Linux x64 qualification of committed **cddc819** in run **41161002015** completes both original
+memory matrices. Push retains **13/16** budget passes: merge **24,363,008**, fork **24,907,776** and
+source-document **23,941,120** bytes exceed 20,971,520. Nightly passes **16/16**, with maximum absolute
+RSS **39,391,232 bytes** under 209,715,200. All **96 children** validate outputs; measured input sizes
+are exactly 209,715,200 /2,147,483,648 bytes and their actual managed guards match the original limits.
+All 32 canonical stylesheet sources remain unchanged. Downloaded archives match GitHub artifact
+digests; raw children and audits remain under `contracts-linux-{push,nightly}-cddc819`. This is
+committed-source evidence; it does not qualify a later prototype or close the failed push gate.
+
+### Deferred copied phases at replay completion, 2026-10-31
+
+The [enclosing-replay contracts](p7-runtime-contracts.md#copies-made-during-an-enclosing-replay) extend
+the preceding completed-copy repair. An isolated `cddc819` regression retains all 16 /128 payloads
+through two early copies. The fix keeps live lookup while a capture is open, then atomically hands
+matching completed subtree phases to the copy through a weak completion notification. An interrupted
+capture becomes immutable without being declared complete or replayable. Source closure, rule-error
+payloads, cycle propagation, cancellation and collection of discarded copies have explicit controls.
+
+Full source-verified Release/Debug suites pass 5,441 .NET 10 /4,807 .NET 8 checks per configuration.
+The compiled graph matrix adds 144 /96 cases; an independent NativeAOT consumer passes all 96 saved
+cases. All 1,313 tracked source/test files match the committed base except the five candidate files.
+The retention mutation fails eleven controls and restoration passes all twelve. Evidence and all
+failed fixture/prototype controls: `artifacts/p7-completion/accumulator-open-replay-cddc819`.
+
+The same candidate completes the original local Linux ARM64 native push matrix, with all 48 outputs
+correct and 13/16 budget passes. Merge **23,683,072**, fork **23,773,184** and source-document
+**23,064,576** bytes exceed the unchanged 20,971,520-byte limit. Exact measured inputs and actual heap
+guards remain 209,715,200 /20,971,520 bytes, and all 32 canonical stylesheets are unchanged. These
+observations do not establish a controlled performance improvement or qualify the failed memory gate.
+
+Pending-copy validation chains, fork-specific lifetime and structural-mismatch applicability still
+need complete qualification. Original memory/throughput targets, remaining S3–S6 contracts, public
+integration, full review, final-source CI, merge and release remain required. Streaming support stays
+unclaimed and the full P7 objective remains active.

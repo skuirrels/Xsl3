@@ -234,7 +234,7 @@ public class CopyOriginRegistryTests
     }
 
     [Fact]
-    public void OpenReplayCapturesKeepTheExistingLiveProvenancePath()
+    public void OpenReplayCopiesKeepTheirLiveValuesUntilTheirCaptureEnds()
     {
         using var source = new StreamedForkAccumulatorTests.Source("<doc><row/><row/></doc>");
         using (source.Focus.BeginConsumption(replay: true, accumulators: true))
@@ -243,8 +243,11 @@ public class CopyOriginRegistryTests
             XPathNavigator copy = Tree("<row/>"); Assert.True(copy.MoveToFirstChild());
             var registry = new CopyOriginRegistry(); registry.Set(copy, source.Focus);
             Assert.True(registry.TryGet(copy, out var origin));
-            Assert.Null(origin.Accumulators); Assert.NotNull(origin.Original);
-            Assert.True(origin.Original!.IsSamePosition(source.Focus));
+            Assert.NotNull(origin.Accumulators); Assert.Null(origin.Original);
+            Assert.True(origin.Accumulators!.TryValue(copy, "Q{}n", false, out var before));
+            Assert.Equal("1", Assert.Single(before!).Value);
+            Assert.True(origin.Accumulators.TryValue(copy, "Q{}n", true, out var after));
+            Assert.Equal("11", Assert.Single(after!).Value);
         }
     }
 

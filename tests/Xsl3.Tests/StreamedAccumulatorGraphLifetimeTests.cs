@@ -26,7 +26,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     {
         foreach (int delivery in Deliveries())
         foreach (bool debug in new[] { false, true })
-        foreach (string copy in new[] { "instruction", "copy-of", "snapshot", "recopy", "strip", "lax" })
+        foreach (string copy in new[] { "instruction", "copy-of", "snapshot", "recopy", "strip", "lax", "open-replay", "interrupted-replay" })
         foreach (string kind in new[] { "nodes", "maps", "opaque" })
         foreach (int rows in new[] { 16, 128 })
         foreach (bool retain in new[] { false, true })
@@ -46,7 +46,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     [MemberData(nameof(Cases))]
     public void AccumulatorGraphsHaveOnlyTheRequestedOwners(int delivery, bool debug, string copy, string kind, int rows, bool retain)
     {
-        var probe = new Probe(kind, retain);
+        using var probe = new Probe(kind, retain, stopAt: copy == "interrupted-replay" ? rows : 0);
         Execute(rows, probe, delivery, debug, copy);
         Assert.Equal(rows, probe.Rows);
         probe.VerifyAndRelease();
@@ -67,7 +67,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     [MemberData(nameof(ErrorCases))]
     public void CopiedPhasesPreserveErrorsAfterClosingTheSource(int delivery, bool debug, string ending)
     {
-        var probe = new Probe("maps", true, ending);
+        using var probe = new Probe("maps", true, ending);
         Execute(128, probe, delivery, debug, "instruction");
         Assert.Equal(ending == "not-applicable" ? 128 : ending is "late-rule-error" or "retain-error" ? 127 : 2, probe.Rows);
         probe.VerifyAndRelease();
@@ -77,7 +77,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     private static string Sheet(string copy, string ending)
     {
         string constructor = copy switch {
-            "instruction" => "<xsl:copy-of select='.' copy-accumulators='yes'/>",
+            "instruction" or "open-replay" or "interrupted-replay" => "<xsl:copy-of select='.' copy-accumulators='yes'/>",
             "copy-of" => "<xsl:sequence select='copy-of(.)'/>",
             "snapshot" => "<xsl:sequence select='snapshot(.)'/>",
             "recopy" => "<xsl:variable name='first' as='element(row)'><xsl:copy-of select='.' copy-accumulators='yes'/></xsl:variable><xsl:sequence select='copy-of($first)'/>",
@@ -87,6 +87,8 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         };
         string read = ending == "not-applicable" ? "$node ! accumulator-before('unused')"
             : "[$node ! accumulator-before('n'), $node ! accumulator-after('n')]";
+        string open = copy is "open-replay" or "interrupted-replay"
+            ? "<xsl:sequence select=\"$probe('open', '" + copy + "', (), (), function($node) { " + read + " })\"/>" : "";
         return $$"""
             <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:err="http://www.w3.org/2005/xqt-errors">
               <xsl:mode streamable="yes" use-accumulators="n"/><xsl:output method="text"/>
@@ -96,6 +98,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
               </xsl:accumulator>
               <xsl:accumulator name="unused" streamable="yes" initial-value="0"><xsl:accumulator-rule match="unused" select="$value"/></xsl:accumulator>
               <xsl:template match="/">
+                {{open}}
                 <xsl:try>
                   <xsl:for-each select="doc/row">
                     <xsl:variable name="copy" as="element(row)">{{constructor}}</xsl:variable>
@@ -114,7 +117,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
     private static void Execute(int rows, Probe probe, int delivery, bool debug, string copy)
     {
         var settings = new XsltSettings { StreamedExecution = true, IncludeDebugInformation = debug, SchemaAware = copy == "lax" };
-        string xml = "<doc>" + string.Concat(Enumerable.Range(1, rows).Select(row => "<row id='" + Id(row) + "'/>")) + "</doc>";
+        string xml = "<doc>" + string.Concat(Enumerable.Range(1, copy == "interrupted-replay" ? rows + 16 : rows).Select(row => "<row id='" + Id(row) + "'/>")) + "</doc>";
         using var input = XmlReader.Create(new StringReader(xml));
         using var sink = new StringWriter(CultureInfo.InvariantCulture);
         var function = new NativeFunction(Enumerable.Repeat(SequenceTypeTest.AnySequence, 5).ToArray(), SequenceTypeTest.AnySequence,
@@ -157,7 +160,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         Assert.True(probe.Finished);
     }
 
-    private sealed class Probe(string kind, bool retain, string ending = "complete")
+    private sealed class Probe(string kind, bool retain, string ending = "complete", int stopAt = 0) : IDisposable
     {
         private const int Width = 7, Characters = 256;
         private readonly List<(WeakReference<CompactDocument> Document, int Characters)> _payloads = new();
@@ -169,6 +172,9 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         private int _copiedRows;
         private readonly List<CopyOriginRegistry.Origin> _origins = new();
         private bool _caught;
+        private StreamedNavigator? _replaySource;
+        private StreamedDocument.ConsumptionScope? _replay;
+        private bool _completeReplay;
         internal string Ending => ending;
         internal int Rows, Samples, MaximumPayloads, MaximumMaps;
         internal long MaximumCharacters;
@@ -178,6 +184,14 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         internal IList<XPathItem> Invoke(IList<XPathItem>[] arguments)
         {
             string operation = Assert.Single(arguments[0]).Value, id = Assert.Single(arguments[1]).Value;
+            if (operation == "open")
+            {
+                var reader = Assert.IsType<CompiledFunction>(Assert.Single(arguments[4]));
+                _replaySource = Assert.IsType<StreamedNavigator>(reader.Owner.ExternalContext.InitialSelection(accumulators: false));
+                _completeReplay = id == "open-replay";
+                _replay = _replaySource.BeginConsumption(replay: true, accumulators: true);
+                return Sequences.Empty;
+            }
             if (operation == "next")
             {
                 if (id == Id(ending is "late-rule-error" or "retain-error" ? 128 : 3) && ending is "rule-error" or "cycle" or "late-rule-error" or "retain-error")
@@ -204,6 +218,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             }
             if (operation == "caught")
             {
+                if (stopAt > 0) { Assert.Equal("TESTSTOP", id); _caught = true; return Sequences.Empty; }
                 Assert.Equal(ending == "cycle" ? "XTDE3400" : "TEST0001", id);
                 Assert.True(ending is "rule-error" or "cycle" or "late-rule-error" or "retain-error");
                 _caught = true;
@@ -211,8 +226,15 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             }
             if (operation == "finish")
             {
-                Assert.Equal(ending is "rule-error" or "cycle" or "late-rule-error" or "retain-error", _caught);
+                Assert.Equal(stopAt > 0 || ending is "rule-error" or "cycle" or "late-rule-error" or "retain-error", _caught);
                 var reader = Assert.IsType<CompiledFunction>(Assert.Single(arguments[4]));
+                if (_replaySource is { } source)
+                {
+                    if (_completeReplay) source.Document.CompleteSubtree(source.Document.Root);
+                    _replay!.Value.Dispose(); _replay = null;
+                    Assert.Equal(_completeReplay, StreamedDocument.CanReplay(source.Document.Root));
+                    _replaySource = null;
+                }
                 reader.Owner.ExternalContext.CloseInitialSource();
                 for (int i = 0; i < _saved.Count; i++)
                 {
@@ -256,6 +278,7 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             Assert.Equal(Id(Rows), id);
             VerifyPhase(arguments[2], Rows - 1); VerifyPhase(arguments[3], Rows);
             if (Rows % 8 == 0) Sample();
+            if (Rows == stopAt) throw new XdmException("TESTSTOP", "Stop the explicit outer replay before EOF");
             return Sequences.Empty;
         }
 
@@ -294,11 +317,13 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
         {
             Collect();
             var (count, characters) = LivePayloads();
-            int bound = kind == "maps" ? Rows : Width + 1 + _saved.Count;
+            // An explicitly owned outer grounding legitimately retains the source's earlier phases.
+            // Its release is checked separately after the capture ends.
+            int bound = _replay != null ? Rows + 1 : kind == "maps" ? Rows : Width + 1 + _saved.Count;
             int maximumCharacters = _payloads.Max(item => item.Characters);
             Assert.InRange(count, 1, bound); Assert.InRange(characters, 0, (long)bound * maximumCharacters);
             int maps = _maps.Count(reference => reference.TryGetTarget(out _));
-            Assert.InRange(maps, 0, kind == "maps" ? 2 + _saved.Count : 0);
+            Assert.InRange(maps, 0, kind == "maps" ? _replay != null ? Rows + 1 : 2 + _saved.Count : 0);
             Assert.InRange(_copies.Count(reference => reference.TryGetTarget(out _)), 1, 1 + _saved.Count);
             MaximumPayloads = Math.Max(MaximumPayloads, count); MaximumCharacters = Math.Max(MaximumCharacters, characters);
             MaximumMaps = Math.Max(MaximumMaps, maps); Samples++;
@@ -339,6 +364,12 @@ public class StreamedAccumulatorGraphLifetimeTests(ITestOutputHelper output)
             Assert.Equal(0, _copies.Count(reference => reference.TryGetTarget(out _)));
             Assert.Equal(0, _maps.Count(reference => reference.TryGetTarget(out _)));
             Assert.All(_functions.Values, reference => Assert.False(reference.TryGetTarget(out _)));
+        }
+
+        public void Dispose()
+        {
+            try { _replay?.Dispose(); }
+            finally { _replay = null; _replaySource = null; }
         }
 
         private static NativeFunction Opaque(XPathNavigator payload) => new(Array.Empty<SequenceTypeTest>(), SequenceTypeTest.AnySequence,

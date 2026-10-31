@@ -14,8 +14,15 @@ internal sealed partial class StreamedDocument
     {
         private readonly Dictionary<long, Node> _nodes = new();
         private Dictionary<long, Node>? _lastChildren = new();
+        private object? _completionGate;
+        private List<System.WeakReference<System.Action>>? _completionReaders;
+        private int _pruneReadersAt = 1;
         internal readonly Node Root = root;
-        internal bool Complete, Unrecorded;
+        internal volatile bool Complete;
+        // A stopped capture is immutable even when its enclosing subtree was interrupted.
+        // This does not make that incomplete subtree replayable.
+        internal volatile bool Sealed;
+        internal bool Unrecorded;
         internal int Count => _nodes.Count;
         internal IEnumerable<Node> Nodes => _nodes.Values;
 
@@ -33,6 +40,37 @@ internal sealed partial class StreamedDocument
         {
             yield return root;
             for (Node? node = Child(root); node != null; node = NextWithin(node, root)) yield return node;
+        }
+
+        internal void WhenComplete(System.Action reader)
+        {
+            lock (System.Threading.LazyInitializer.EnsureInitialized(ref _completionGate))
+            {
+                if (!Complete && !Sealed)
+                {
+                    _completionReaders ??= new();
+                    if (_completionReaders.Count >= _pruneReadersAt)
+                    {
+                        _completionReaders.RemoveAll(weak => !weak.TryGetTarget(out _));
+                        _pruneReadersAt = _completionReaders.Count > int.MaxValue / 2
+                            ? int.MaxValue : System.Math.Max(1, _completionReaders.Count * 2);
+                    }
+                    _completionReaders.Add(new(reader));
+                    return;
+                }
+            }
+            reader();
+        }
+
+        internal void NotifyCompleted()
+        {
+            List<System.WeakReference<System.Action>>? readers;
+            object? gate = System.Threading.Volatile.Read(ref _completionGate);
+            if (gate == null) return;
+            lock (gate) { readers = _completionReaders; _completionReaders = null; }
+            if (readers == null) return;
+            foreach (var reader in readers)
+                if (reader.TryGetTarget(out var completed)) completed();
         }
 
         internal Node? Child(Node node) => _nodes.GetValueOrDefault(node.FirstChild);
@@ -90,6 +128,8 @@ internal sealed partial class StreamedDocument
         _capturing = null;
         capture.Complete = capture.Root.Ended && !capture.Unrecorded;
         capture.ReleaseConstructionState();
+        capture.Sealed = true;
+        capture.NotifyCompleted();
         // An interrupted copy must not make an incomplete subtree appear empty to its selection.
         if (!capture.Complete && _descendants != null)
         {

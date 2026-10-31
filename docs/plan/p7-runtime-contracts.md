@@ -289,9 +289,10 @@ not heap/RSS acceptance or a constant-byte claim for arbitrary user-owned opaque
 
 The first regression retains two early copies and observes 128 payload documents instead of two.
 The fix stores corresponding recorded phases on the copy, with no source navigator or execution link.
-Capture requires a completed immutable replay and corresponding content-node names, kinds and relative
-depths. Open replays and structurally changed copies keep the existing live provenance path; their
-complete lifetime qualification remains required. Fork-copy and structural-mismatch guards are separate
+Capture requires an immutable recorded subtree and corresponding content-node names, kinds and relative
+depths. Copies made during an open enclosing replay use the deferred handoff described below.
+Structurally changed copies keep the existing live provenance path; their complete lifetime
+qualification remains required. Fork-copy and structural-mismatch guards are separate
 regressions. Attribute/namespace nodes remain outside accumulator applicability.
 
 Cycle invalidation uses a small shared notification token. Complete phases do not subscribe to future
@@ -302,7 +303,8 @@ Conversely, explicitly retaining a copy with an unavailable end phase must retai
 127-node error payload, including its identity. Original error codes and applicability errors survive
 source closure. This required error graph is intentional state, not an omitted memory cost.
 
-All four full candidate suites pass: 5,285 .NET 10 /4,699 .NET 8 checks in Release and Debug. Actual
+The initial completed-copy candidate passes all four full suites: 5,285 .NET 10 /4,699 .NET 8 checks
+in Release and Debug. Actual
 engine/test DLLs and PDBs are frozen before execution; source hashes match 51 runtime /seven test
 documents and remain unchanged afterward. An isolated mutation reconnecting snapshots to the source
 fails all six selected API/debug/saved controls with 128 retained payloads instead of two; restoration
@@ -316,3 +318,41 @@ source, two retained early payloads and collection after releasing their owners.
 `Xsl3.Dev` friend assembly for graph observation, with trimming/AOT warnings treated as errors. Its
 startup check rejects JIT hosting. These functional checks do not alter the 32 canonical native styles,
 original process-memory budgets or the complete P7 throughput requirements.
+
+## Copies made during an enclosing replay
+
+A completed row can be copied while an explicitly grounded ancestor is still being recorded. On
+`cddc819`, retaining only two early row copies then keeps all 16 /128 later payload documents even
+after source closure. Two source-verified regressions preserve this original failure.
+
+Such copies now temporarily own a deferred provenance handle. The replay registers only a weak
+completion delegate, with dead-reader pruning; discarded copies can collect while the capture is
+open. At capture end, the handle atomically receives the corresponding recorded phases and releases
+its source/observer links. Reading the replay dictionary waits until it is immutable. Completion
+publication does not hold the registration lock across callbacks, source I/O or user code.
+
+A sealed interrupted capture remains incomplete and is not made replayable. Its already completed,
+corresponding child subtrees can nevertheless transfer their recorded phases. Skipped or structurally
+mismatched subtrees retain their previous provenance behavior. Tests close the source both before and
+after capture disposal, stop before EOF, and exercise ordinary errors carrying later map payloads,
+cycle invalidation and cancellation. Early copies keep only their requested payloads; releasing the
+copies collects all observed graphs. An explicit outer grounding legitimately owns earlier source
+phases while it is live; those cases do not assert the rolling-window bound during that grounding.
+
+The compiled graph matrix adds 144 .NET 10 /96 .NET 8 cases through both APIs, normal/debug compilation
+and supported saved loading. The interrupted fixture actually raises a caught early stop with unread
+input; simply omitting a final read had reached EOF and is retained as a failed fixture control. The
+same post-capture owner bounds apply to node windows, growing maps and opaque function graphs.
+A separate strictly trimmed NativeAOT consumer passes 96 cases from sixteen saved styles with
+independent 32/256-row inputs and actual forwarding. Its startup rejects JIT hosting.
+
+All four full suites pass: 5,441 .NET 10 /4,807 .NET 8 checks in Release and Debug. Frozen DLL/PDB hashes
+remain unchanged after execution, with 51 runtime /eight test source documents verified. All 1,313
+tracked source/test files were compared with `cddc819`; only the five intended candidate files differ.
+Omitting completion notification causes 11 retention failures /one discarded-copy pass; restoring the
+reviewed source passes all twelve controls. Raw results, source snapshots and frozen engines remain
+under `artifacts/p7-completion/accumulator-open-replay-cddc819`.
+
+The unchanged original native push matrix validates all 48 outputs and retains 13/16 budget passes.
+This ownership repair does not close process-memory, throughput, pending-copy validation/fork lifetime,
+structurally changed copy applicability or the remaining full P7 qualification requirements.

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Xml;
 using System.Xml.XPath;
 using Xsl3.Streaming;
@@ -201,8 +202,64 @@ public sealed partial class XsltLibrary
         public IStreamedAccumulatorCopy? CaptureCopy(XPathNavigator copy, StreamedNavigator original)
         {
             StreamedDocument.Node boundary = original.PositionNode;
-            if (copy is not CompactNavigator compact || !StreamedDocument.CanReplay(boundary)) return null;
-            StreamedDocument.ReplayBuffer replay = boundary.Replay!;
+            if (copy is not CompactNavigator compact) return null;
+            if (boundary.Replay?.Sealed == true) return CaptureCompletedCopy(compact, original);
+            if (!StreamedDocument.CanReplay(boundary))
+                return boundary.Ended && !boundary.Skipped && boundary.Replay is { } pending
+                    ? new DeferredCopy(this, compact, original, pending) : null;
+            return CaptureCompletedCopy(compact, original);
+        }
+
+        private sealed class DeferredCopy : IStreamedAccumulatorCopy
+        {
+            private sealed record Pending(StreamedAccumulators Observer, CompactNavigator Copy, StreamedNavigator Original);
+            private object _state;
+            // The replay holds only a weak delegate; a discarded copy owns no live subscription.
+            private readonly Action _completed;
+
+            internal DeferredCopy(StreamedAccumulators observer, CompactNavigator copy, StreamedNavigator original,
+                StreamedDocument.ReplayBuffer replay)
+            {
+                _state = new Pending(observer, (CompactNavigator)copy.Clone(), (StreamedNavigator)original.Clone());
+                _completed = Complete;
+                replay.WhenComplete(_completed);
+            }
+
+            private void Complete()
+            {
+                if (Volatile.Read(ref _state) is Pending pending
+                    && pending.Observer.CaptureCompletedCopy(pending.Copy, pending.Original) is { } captured)
+                    Volatile.Write(ref _state, captured);
+            }
+
+            public bool Contains(XPathNavigator node)
+            {
+                object state = Volatile.Read(ref _state);
+                if (state is IStreamedAccumulatorCopy captured) return captured.Contains(node);
+                if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace) return false;
+                var cursor = node.Clone();
+                do { if (cursor.IsSamePosition(((Pending)state).Copy)) return true; } while (cursor.MoveToParent());
+                return false;
+            }
+
+            public bool TryValue(XPathNavigator node, string name, bool after, out IList<XPathItem>? value)
+            {
+                object state = Volatile.Read(ref _state);
+                if (state is IStreamedAccumulatorCopy captured) return captured.TryValue(node, name, after, out value);
+                var pending = (Pending)state;
+                value = null;
+                if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace
+                    || Original(node, pending.Copy, pending.Original) is not StreamedNavigator original) return false;
+                value = pending.Observer.Value(name, original, after);
+                return true;
+            }
+        }
+
+        private IStreamedAccumulatorCopy? CaptureCompletedCopy(CompactNavigator compact, StreamedNavigator original)
+        {
+            StreamedDocument.Node boundary = original.PositionNode;
+            if (boundary.Replay is not { } replay || !replay.Complete
+                && !(replay.Sealed && boundary.Ended && !boundary.Skipped)) return null;
             var nodes = new Dictionary<long, NodeValues?>();
             var cursor = (CompactNavigator)compact.Clone();
             using var source = replay.Subtree(boundary).GetEnumerator();
@@ -210,7 +267,7 @@ public sealed partial class XsltLibrary
             do
             {
                 if (!source.MoveNext() || source.Current.Depth - boundary.Depth != depth || source.Current.Kind != cursor.NodeType
-                    || source.Current.LocalName != cursor.LocalName || source.Current.Namespace != cursor.NamespaceURI) return null;
+                    || source.Current.Skipped || source.Current.LocalName != cursor.LocalName || source.Current.Namespace != cursor.NamespaceURI) return null;
                 lock (_valuesGate)
                     nodes.Add(cursor.TraversalPhases.Before,
                         source.Current.ObserverValues is NodeValues values && ReferenceEquals(values.Owner, _valuesGate) ? values
