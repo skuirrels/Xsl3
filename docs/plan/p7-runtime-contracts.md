@@ -437,9 +437,11 @@ frame-graph measurement. Explicit replays are excluded by assertions and remain 
 
 Each shape runs to completion, fails in the first declared prong, and stops through external
 cancellation. Error identity and the original cancellation token remain observable. After source
-disposal, an interrupted document may still own its current row chain; that allowance is at most
-three row frames plus the fixed ancestors. Borrowed readers and streams remain open. Releasing the
-document and fork owners must collect every observed frame and all frame-reachable characters.
+disposal, the source releases its own current-row reference, including after interruption. Only
+explicitly retained positions may keep those closed headers alive. Borrowed readers and streams remain
+open. Releasing the document and fork owners must collect every observed frame and all frame-reachable
+characters. The initial `65423ee` contracts allowed up to three closed current-row frames; the disposal
+repair below removes that allowance.
 
 The eighteen graph cases and three independently parsed generator/EOF controls pass in all four full
 Release/Debug suites: 5,970 .NET 10 /5,168 .NET 8 checks per configuration. A source-verified retained-frame-history mutation
@@ -449,3 +451,41 @@ controls, JIT-host rejection, a warning-free build and 51 runtime /three consume
 All failed initial fixture and mutation runs remain under
 `artifacts/p7-completion/fork-frame-graphs-beee608`. These contracts do not close the original absolute
 process-memory or throughput gates or declare every S3–S6 state obligation complete.
+
+
+## Disposed source current-frame ownership
+
+`StreamedDocument.Dispose` clears its current-frame reference back to the document root before running
+cleanup callbacks. A retained navigator still owns its position, so names, identity, attributes,
+namespace bindings, base URI and language survive until that caller releases it. Closed downward
+navigation retains its existing `ObjectDisposedException`; reader ownership and callback errors are
+unchanged. No reader is drained or re-opened by this release.
+
+Twenty regressions cover partially visited start/text/end positions, owned and borrowed readers,
+throwing observer cleanup, idempotent disposal, and caller-retained element/attribute/namespace/text
+positions. All twenty fail on `65423ee` solely because a frame remains alive. The initial test draft
+expected the wrong exception for closed navigation; that failed draft is retained separately. Removing
+the release from the corrected runtime fails 32 of the combined 41 disposal/graph checks, with nine
+controls still passing. Restoration passes all 41, and the fork contracts now require zero unrequested
+row frames after source disposal.
+
+The corrected runtime passes full Release/Debug .NET 10 /8 suites, respectively 5,990 /5,188 checks per
+configuration. An independent warning-free NativeAOT consumer passes 46 disposal, graph and namespace
+checks plus nine assertion-failure controls. Native link inputs, fixture sources and PDB checks are
+retained under `artifacts/p7-completion/disposed-current-65423ee`.
+
+### Namespace allocation measurement
+
+Hosted CI for `65423ee` reports 98,352 bytes in the existing repeated-axis check, against its original
+4,096-byte ceiling. A standalone control finds a small first-pass allocation locally; its exact Linux
+CI amount is not reproduced. After a full cached-path warmup, 6,000 ordinary/concurrent-GC observations
+report zero. The unit test now warms that cached path before measuring a separate 10,000 traversals.
+The measured population and 4,096-byte ceiling are unchanged. A per-enumeration allocation mutation
+fails all three namespace scopes in all four Release/Debug .NET 8/10 configurations; the restored
+navigator passes all twelve controls. No namespace runtime optimization or threshold relaxation is
+introduced. Raw CI logs, controls and source-verified engines remain under
+`artifacts/p7-completion/ci-65423ee-ubuntu` and `namespace-warmup-65423ee`.
+
+The final full-source suites, including that measurement-only test correction, and fresh hosted CI
+remain required. The original memory/throughput gates, remaining runtime qualification, public
+integration, full review, merge and release remain open.

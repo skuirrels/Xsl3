@@ -132,10 +132,9 @@ public class StreamedForkFrameLifetimeTests(ITestOutputHelper output)
         Assert.NotEqual(ReadState.Closed, input.ReadState);
         Assert.False(generated.Closed);
         Measurement afterRun = recorder.Measure();
-        // An interrupted document can still own its final current frame and that
-        // frame's two row ancestors; all worker frames must have been released.
-        Assert.InRange(afterRun.RowFrames, 0, exit == "complete" ? 0 : 3);
-        Assert.InRange(afterRun.Frames, 1, ancestors + (exit == "complete" ? 0 : 3));
+        // Closed sources keep no unrequested row frames, including after interruption.
+        Assert.Equal(0, afterRun.RowFrames);
+        Assert.InRange(afterRun.Frames, 1, ancestors);
         GC.KeepAlive(document);
         return recorder;
     }

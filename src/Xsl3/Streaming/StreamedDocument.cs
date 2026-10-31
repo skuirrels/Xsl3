@@ -515,6 +515,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (_disposed) return;
         _disposed = true;
         _open.Clear();
+        // Retained positions own their closed headers; the source needs no current row.
+        _current = Root;
         // Retained source frames/copy provenance need their headers and phases, not
         // the parser or its input buffers. Releasing a borrowed reader does not close it.
         XmlReader reader = _reader;

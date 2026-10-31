@@ -2529,3 +2529,34 @@ parser/name-table implementation storage, schema objects, array/object overhead,
 buffered output; those remain separate accounting obligations. Original memory/throughput acceptance,
 remaining S3–S6 qualification, public integration, complete review, final-source CI, merge and release
 remain required. No streaming-support claim is made.
+
+
+### Disposed current-frame ownership and namespace measurement, 2026-10-31
+
+The closed-source graph review establishes a retention defect: `65423ee` keeps its last row through
+its private current-frame reference after disposal. Releasing that reference to the document root
+fixes all twenty ownership regressions, including callback failure and caller-retained headers. The
+[fork/disposal contracts](p7-runtime-contracts.md#disposed-source-current-frame-ownership) now require
+zero unrequested row frames after disposal. Closed-navigation errors, borrowed-reader ownership,
+identities and header values remain unchanged. The omitted-release control fails 32 combined checks
+/nine pass; restoration passes all 41.
+
+The corrected runtime passes all four full unit suites: **5,990 .NET 10 /5,188 .NET 8** checks in Release
+and Debug, with frozen binaries and source checks. A separate warning-free NativeAOT consumer passes
+46 graph/disposal/namespace checks and nine assertion-failure controls. The namespace allocation test
+also warms its cached path before the unchanged 10,000-traversal /4,096-byte measurement; all twelve
+per-enumeration allocation controls fail and all twelve restored checks pass. This follows the
+retained Ubuntu CI failure in run **41169823881**, not a runtime namespace change. Its exact 98,352-byte
+Linux observation has not been reproduced locally. Final full suites including the measurement-only
+correction and fresh hosted CI remain pending.
+
+The unchanged original local Linux ARM64 push matrix finishes all **48 children** with correct output
+and **13/16 budgets**. Merge **23,707,648**, fork **24,096,768** and source-document **23,048,192 bytes**
+exceed the original 20,971,520-byte RSS limit. Every measured input is exactly 209,715,200 bytes with
+an actual 20,971,520-byte managed guard; all 32 canonical stylesheets are unchanged. The separate
+small-input zero-limit smoke passes all 48 children as functional evidence only. Source/runtime/probe
+PDB checks and all failed fixture/adapter/control runs remain under `disposed-current-65423ee`.
+
+No original acceptance gate closes here. Complete final-source CI, current-source hosted memory and
+throughput qualification, remaining S3–S6 accounting and public integration are still required before
+full review, merge and release. Streaming support remains unclaimed.

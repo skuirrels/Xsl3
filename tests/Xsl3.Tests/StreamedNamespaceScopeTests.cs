@@ -22,6 +22,10 @@ public class StreamedNamespaceScopeTests
         using var document = new StreamedDocument(reader);
         XPathNavigator nav = document.CreateNavigator(); Assert.True(nav.MoveToFirstChild());
         int count = Enumerate(nav, scope); Assert.True(count >= 2);
+        // The first traversal builds the scope; warm its cached path separately.
+        int warmed = 0;
+        for (int i = 0; i < 10000; i++) warmed += Enumerate(nav, scope);
+        Assert.Equal(count * 10000, warmed);
         long start = GC.GetAllocatedBytesForCurrentThread();
         int total = 0;
         for (int i = 0; i < 10000; i++) total += Enumerate(nav, scope);
