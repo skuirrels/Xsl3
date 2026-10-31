@@ -31,6 +31,11 @@ python3 eng/streaming-gate.py \
   --output /tmp/xsl3-stream-native-push-new
 ```
 
+For the internal `linux-x64` / `linux-arm64` probe, also install LLD (`apt-get install lld` on Ubuntu)
+and use glibc 2.36 or newer. These two probe builds store metadata without hydration and pack relative
+relocations. The publisher checks the ELF sections and loader ABI before accepting the executable.
+This affects only the development probe; shipped libraries and consumer projects retain their build settings.
+
 The publish directory must be new and its parent must exist. The script compiles tree and forward versions of all thirteen fixtures into
 saved assemblies, generates direct static references to their entry points, then publishes the consumer with
 trim/AOT warnings treated as errors. Normal globalization is preserved. These two development projects are
@@ -92,8 +97,8 @@ Incremental-emission workloads must be assessed separately. No latency threshold
 The approved 200 MiB/20 MiB push exit remains unmet. The host's absolute startup footprint must fit the stated
 budget; the limit is not reduced to managed live heap or a baseline-subtracted delta. CI is configured to run
 the six controller failure-handling tests and both managed and NativeAOT 2 MiB, zero-limit functional smoke
-matrices on Linux. Its native job also runs the exact 200 MiB/20 MiB push gate, and `perf-nightly.yml` runs the
-2 GiB/200 MiB gate. These gates have no advisory waiver; local failures remain failures. Publish logs and all
+matrices on Linux. The separate `streaming-development.yml` workflow runs the exact 200 MiB/20 MiB push gate
+and the 2 GiB/200 MiB nightly gate on Linux x64. These gates have no advisory waiver; local failures remain failures. Publish logs and all
 controller evidence are retained on failure. The complete 2 GiB/200 MiB matrix now passes locally on Linux arm64;
 no remote CI execution, push-budget pass or complete Phase 7 exit is claimed.
 

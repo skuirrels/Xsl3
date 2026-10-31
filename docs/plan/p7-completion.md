@@ -3134,3 +3134,29 @@ but URI plus saved loading and parsing remains below 20 MiB in that diagnostic i
 establish a platform lower bound or qualify full XSLT execution. Initial controls that inadvertently
 initialized CultureInfo before URI resolution are retained and invalidated for attribution. Evidence:
 `uri-baseline-2f3bc71/`. No resolver, URI, globalization, GC policy, runtime or acceptance limit changes.
+
+
+### Internal Linux probe metadata packing, 2026-10-31
+
+Exact head `e78cbe1` passes all four ordinary hosted CI jobs in run **41229255711**.
+This does not qualify the separate original streaming acceptance workflow.
+
+The internal glibc Linux NativeAOT probe now uses non-hydrated metadata and LLD packed relative
+relocations. The publisher rejects a missing RELR section, retained hydrated metadata or missing
+loader ABI. These settings apply only to this nonpackable probe on `linux-x64` / `linux-arm64`;
+its documented prerequisites are LLD and glibc 2.36+. Libraries and consumer projects do not inherit
+the settings. No runtime features, globalization, GC policy, input sizes, limits or thread model change.
+
+The isolated comparison preserves all 687 tracked C# sources and 65 saved inputs. All 24 original-size
+observations validate, with roughly 2 MiB lower whole-process RSS in source-document, merge and fork.
+The complete local ARM64 push matrix retains all **48 correct outputs**, with **14/16** budget passes.
+Merge **21,057,536** and fork **21,143,552 bytes** remain above **20,971,520**. Failures remain failures;
+ARM64 diagnostic results do not substitute for the original hosted Linux x64 qualification.
+Evidence: `artifacts/p7-completion/no-hydration-relr-e78cbe1/`.
+
+A fresh publication using the actual branch project/publisher passes all **48** native smoke observations.
+All **407 tracked runtime C# files** are unchanged; PDB checks verify 53 runtime and eight probe sources.
+The same 32 source stylesheets and entrypoint are retained; 32 saved DLLs are freshly generated, and their
+new hashes are recorded rather than claiming byte identity. Source verification and ELF evidence are in
+`artifacts/p7-completion/packed-probe-e78cbe1/`. Hosted exact-size memory and complete throughput checks
+remain required. Conservative identical-code folding saves only 1,984 binary bytes and is excluded.

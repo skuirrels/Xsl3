@@ -260,6 +260,9 @@ jobs:
           test "$probe_status" -eq 1
           grep -Fq "Publish this reader bridge probe with NativeAOT" artifacts/reader-bridge-jit-guard.stderr
 
+      - name: Install the internal Linux probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
+
       # Saved versions of all real process workloads. This smoke proves the native
       # artifact and its public legacy result-delivery path; limit 0 is not a budget pass.
       - name: Publish the NativeAOT streaming probe

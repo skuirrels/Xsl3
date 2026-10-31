@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reduce internal Linux NativeAOT streaming-probe metadata overhead with packed relative relocations.
+  Require LLD and glibc 2.36+ for that probe, verify its ELF layout before measurement,
+  and retain the original input sizes, whole-process budgets and runtime features.
+
 - Reduce the native streaming gate's reporting overhead with a direct UTF-8 JSON writer.
   Preserve every computed measurement, output fingerprint, nullable timing and numeric validation;
   keep the original absolute memory and throughput requirements unchanged.

@@ -78,6 +78,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install the internal Linux probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
+
       - name: Publish the NativeAOT streaming probe
         run: |
           mkdir -p artifacts
@@ -118,6 +121,9 @@ jobs:
           dotnet --info > artifacts/p7e-memory/linux/dotnet-info.txt
           uname -a > artifacts/p7e-memory/linux/host.txt
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_streaming_memory_diagnosis.py'
+      - name: Install the internal Linux probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
+
       - name: Publish unchanged controls and separate diagnostic image
         run: |
           bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/p7e-memory/linux/canonical
@@ -164,6 +170,9 @@ jobs:
           dotnet --info > artifacts/p7f-identity/linux/dotnet-info.txt
           uname -a > artifacts/p7f-identity/linux/host.txt
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p 'test_streaming_*.py'
+      - name: Install the internal Linux probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
+
       - name: Publish controls and matching diagnostic images
         run: |
           bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/p7f-identity/linux/baseline-native > artifacts/p7f-identity/linux/baseline-publish.log 2>&1

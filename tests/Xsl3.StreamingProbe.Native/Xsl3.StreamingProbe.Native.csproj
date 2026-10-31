@@ -10,6 +10,15 @@
     <!-- Generate the saved entry points before building; see eng/publish-stream-probe.sh. -->
     <NoWarn>$(NoWarn);CA1305;CA1307;CA1310;CA1311</NoWarn>
   </PropertyGroup>
+  <!-- Internal glibc probe only: avoid hydrated metadata and compress relocation records.
+       Requires LLD and a glibc 2.36+ loader; no library or consumer build inherits these settings. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' Or '$(RuntimeIdentifier)' == 'linux-arm64'">
+    <IlcDehydrate>false</IlcDehydrate>
+    <LinkerFlavor>lld</LinkerFlavor>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' Or '$(RuntimeIdentifier)' == 'linux-arm64'">
+    <LinkerArg Include="-Wl,-z,pack-relative-relocs" />
+  </ItemGroup>
   <Target Name="CheckProbeInputs" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(ProbeStylesheetDirectory)/StreamingProbe.Native.g.cs')" Text="Generate saved probe entry points with eng/publish-stream-probe.sh first." />
   </Target>
