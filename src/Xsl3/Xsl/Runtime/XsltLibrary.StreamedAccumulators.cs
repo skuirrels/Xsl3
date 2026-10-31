@@ -178,6 +178,8 @@ public sealed partial class XsltLibrary
         private sealed class CopiedValues(CompactDocument document, object owner,
             Dictionary<long, NodeValues?> nodes, Dictionary<string, CopyError> errors) : IStreamedAccumulatorCopy
         {
+            public bool Applies(string name) => errors.ContainsKey(name);
+
             public bool Contains(XPathNavigator node) => node is CompactNavigator compact
                 && node.NodeType is not (XPathNodeType.Attribute or XPathNodeType.Namespace)
                 && ReferenceEquals(compact.Document, document) && nodes.ContainsKey(compact.TraversalPhases.Before);
@@ -230,6 +232,13 @@ public sealed partial class XsltLibrary
                 if (Volatile.Read(ref _state) is Pending pending
                     && pending.Observer.CaptureCompletedCopy(pending.Copy, pending.Original) is { } captured)
                     Volatile.Write(ref _state, captured);
+            }
+
+            public bool Applies(string name)
+            {
+                object state = Volatile.Read(ref _state);
+                return state is IStreamedAccumulatorCopy captured ? captured.Applies(name)
+                    : ((Pending)state).Observer.Applies(name);
             }
 
             public bool Contains(XPathNavigator node)
@@ -448,6 +457,8 @@ public sealed partial class XsltLibrary
         public void End(StreamedNavigator node) => Visit(node.PositionNode, end: true);
         void IStreamedNodeObserver.Start(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: false);
         void IStreamedNodeObserver.End(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: true);
+
+        internal bool Applies(string name) => _states.ContainsKey(name);
 
         internal IList<XPathItem> Value(string name, StreamedNavigator node, bool after)
         {

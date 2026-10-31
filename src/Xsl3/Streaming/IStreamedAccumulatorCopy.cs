@@ -8,6 +8,7 @@ namespace Xsl3.Streaming;
 // A completed copy owns recorded phases, not the source execution that computed them.
 internal interface IStreamedAccumulatorCopy
 {
+    bool Applies(string name);
     bool Contains(XPathNavigator node);
     bool TryValue(XPathNavigator node, string name, bool after, out IList<XPathItem>? value);
 }

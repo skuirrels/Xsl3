@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Check copied accumulator applicability before looking up a corresponding source node. Preserve
+  source selection for declared-streamable accumulators and streamed provenance, including schema-created
+  text, while retaining the existing grounded nonstreamable validation policy.
 - Isolate unit tests that force process-wide garbage collections, including in-process streaming
   probes, from other test collections. Keep their assertions, inputs and cancellation limits intact.
 - Reduce dynamic-call allocations by storing the first two arguments directly on each call.

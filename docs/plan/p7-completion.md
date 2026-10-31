@@ -2960,5 +2960,47 @@ reachable forced-collection calls are isolated in the compiled metadata. Each ru
 GC-test overlaps with other collections while ordinary tests still overlap. Runtime DLL/PDB bytes
 are unchanged from the baseline, frozen test/runtime hashes survive execution, and PDB checks cover
 53 runtime /38 test sources. All 1,319 tracked source/test files match the final verification tree.
-Evidence: `artifacts/p7-completion/gc-isolation-1525beb/`. Hosted CI for the new commit remains required;
-these scheduling checks do not close the failed original runtime memory or throughput targets.
+Evidence: `artifacts/p7-completion/gc-isolation-1525beb/`. Hosted CI run **41204348163** passes all four
+jobs on `4c8e203`; its ordinary micro-suite time geometric mean is **1.032**, with **0.723** identity
+allocation at 1 MB. This verifies the scheduling checkpoint, not subsequent runtime changes or the
+failed original runtime memory/throughput targets.
+
+### Copied accumulator applicability before positional lookup, 2026-10-31
+
+A reduced 32-case check of validated copies finds twelve failures: declared-streamable accumulators
+excluded from the source selection become usable in grounded validated copies, while schema-created
+text in a forwarded copy can raise `stream-position` before checking applicability. The source has
+no corresponding text node, but its tree's accumulator selection is still available.
+
+The runtime now checks copied-tree policy independently of position lookup. Completed and pending
+captured copies expose their existing selected names; ordinary provenance follows the original tree.
+The existing fully grounded nonstreamable validation policy remains unchanged. An initial unconditional
+check changed that policy and failed ordinary `accumulator-073`; it is not adopted. No upstream
+fixture, expected XML, baseline or frozen strict inventory changes.
+
+The expanded fixture covers both APIs, normal/debug compilation, actual tree/forward paths, supported
+saved loading, strict/lax validation, copied parents and schema-created text, empty/other-accumulator
+selection, copies of copies, and the legacy nonstreamable policy. On the original runtime, **96 fail
+/156 pass**; the reviewed candidate passes all **252 .NET 10** cases with identical case identities
+and unchanged post-test engine hashes. The ordinary accumulator set retains **71/71** outcomes and
+its one existing permissive wrong-code observation (`accumulator-038`). The final candidate preserves
+the full strict **2,695/16/1**, zero wrong codes, and every frozen forwarding/evaluation requirement.
+
+All four full Release/Debug suites pass **7,179 .NET 10 /6,093 .NET 8** cases per configuration.
+The original case populations are preserved alongside 252 /168 new cases, with no failures or skips.
+Frozen engine/test hashes remain unchanged after execution; PDB checks cover 53 runtime /39 test
+sources, and all 1,320 source/test files match the verification tree. All 32 GC-reachable classes
+remain isolated, with zero overlaps with other collections and ordinary parallelism retained.
+
+A warning-free NativeAOT consumer passes **736** checks: the unchanged 568 schema checks plus 168
+applicability checks from 84 saved styles, generated from the actual full-tested cases and run on
+independent 7/32-row inputs. It verifies exact errors/results, actual forward/tree representations,
+body completion and borrowed-reader ownership. Incorrect-code/output controls and a JIT-hosting
+guard reject; frozen hashes survive execution, and six consumer /one generator source documents
+match their PDBs. The linked runtime equals the full-tested Release engine. The final consumer reads
+its reported runtime flag directly; the earlier guard-derived constant report remains retained.
+
+Evidence: `artifacts/p7-completion/copied-applicability-4c8e203/`. Hosted CI remains required for this
+runtime change. This resolves denied-accumulator lookup for these copies; it does not assign phase
+values to schema-created nodes when the accumulator is applicable, dispose arbitrary mismatched
+internal provenance, or close the original failed memory/throughput gates.

@@ -49,19 +49,22 @@ namespace Xsl3.Runtime
             XPathNavigator root = node.Clone();
             (long Before, long After)? phases = (root as Tree.CompactNavigator)?.TraversalPhases;
             root.MoveToRoot();
+            _runtime.Documents.TryGetCopy(root, out var copied);
+            if (copied != null && !CopiedAccumulatorApplies(copied, info, key, new QName(ns, local).EQName))
+                throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
             bool validatedCopy = false;
-            while (_runtime.Documents.TryGetCopy(root, out var copied))
+            while (copied != null)
             {
                 if (copied.Accumulators?.TryValue(node, key, after, out var recorded) == true) return recorded!;
                 if (copied.Original is not XPathNavigator source || Original(node, copied.Top, source) is not XPathNavigator original) break;
-                // A copy made with copy-accumulators="yes": the original node's values. Applicable as they are to the
-                // original's tree (copy-3002, XTDE3362), unless validation made the copy: a new temporary tree, to which
-                // every accumulator applies (accumulator-073).
+                // Copies keep their source positions. The tree's applicability was checked above,
+                // retaining the legacy grounded, nonstreamable validation policy (accumulator-073).
                 validatedCopy |= copied.Validated;
                 node = original;
                 root = node.Clone();
                 phases = (root as Tree.CompactNavigator)?.TraversalPhases;
                 root.MoveToRoot();
+                _runtime.Documents.TryGetCopy(root, out copied);
             }
             // Validation does not replace copied accumulator values with a new traversal. Streamed
             // origins may already be closed; their observer owns the recorded before/after values.
@@ -150,6 +153,29 @@ namespace Xsl3.Runtime
         /// <summary>fn:copy-of: copies preserve annotations in a schema-aware processor and inherit accumulator values.</summary>
         public IList<XPathItem> X31CopyWithAccumulators(IList<XPathItem> items) =>
             Copies(items, copyNamespaces: true, keepTypes: _runtime.SchemaAware);
+
+        // Applicability belongs to the copied tree, including schema-created nodes that have no
+        // corresponding source position. Resolve it before attempting positional provenance.
+        private bool CopiedAccumulatorApplies(CopyOriginRegistry.Origin origin, AccumulatorInfo info, string key, string name)
+        {
+            bool validated = false;
+            while (true)
+            {
+                validated |= origin.Validated;
+                if (origin.Accumulators is { } captured) return captured.Applies(key);
+                if (origin.Original is not { } source) return false;
+                if (source is Streaming.StreamedNavigator streamed)
+                    return streamed.Document.Identity.Observer is StreamedAccumulators observer && observer.Applies(key);
+                XPathNavigator root = source.Clone();
+                root.MoveToRoot();
+                if (_runtime.Documents.TryGetCopy(root, out var previous)) { origin = previous; continue; }
+                // Preserve the existing grounded, nonstreamable validation policy. Streamed
+                // provenance and declared-streamable accumulators keep their source selection.
+                if (validated && !info.Streamable) return true;
+                return (info.OnPrincipal || !_runtime.ExternalContext.IsInitialSelectionDocument(root))
+                    && (_groundedAccumulators ??= new()).Applies(root, _runtime.GenerateId(root), name);
+            }
+        }
 
         // The node of the original tree at the same place as `node` in the copy of it rooted at `top`.
         private static XPathNavigator? Original(XPathNavigator node, XPathNavigator top, XPathNavigator original)

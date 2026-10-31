@@ -220,6 +220,8 @@ All four full Release/Debug suites pass **6,927 .NET 10 /5,925 .NET 8** cases pe
 with the previous case populations preserved, no GC-test overlaps with other collections, and
 ordinary test parallelism retained. Runtime DLL/PDB bytes and normalized method bodies are unchanged.
 These scheduling checks do not qualify the original P7 runtime memory or throughput targets.
+Hosted CI run **41204348163** passes all four jobs on `4c8e203`: Ubuntu, Windows, NativeAOT and
+ordinary performance. This verifies the scheduling checkpoint, not subsequent runtime edits.
 
 ## Non-forwarding case review
 
@@ -629,3 +631,36 @@ observations. Identity, accumulator, fork and source-document still fail the ori
 target. Those results qualify this correctness checkpoint; they do not complete P7 or authorize
 streaming support, merge or release. The detailed original-limit audit is in
 [P7 completion](p7-completion.md#reviewed-schema-default-checkpoint-and-original-gates-2026-10-31).
+
+## Copied-tree applicability before source-position lookup
+
+`StreamedValidatedAccumulatorCopyTests.Applicability` checks that validation does not silently enable
+a declared-streamable accumulator excluded from its source selection. It tests the copied parent
+and schema-created default text, with no selected accumulator or a different selected accumulator,
+through both APIs, normal/debug compilation, actual tree/forward input and supported saved loading.
+Copies without accumulator inheritance remain ordinary temporary trees. A copy of a validated copy
+retains its source selection as well. Fully grounded nonstreamable validation keeps its legacy policy;
+forwarded provenance still rejects an unavailable accumulator with `XTDE3362`.
+
+The tree's policy is checked before attempting to find a corresponding source node. Completed and
+pending captured copies answer from their existing selection metadata; this adds no ownership index
+or recorded phase values. The rules for applicability and copied values are described separately in
+[XSLT 3.0 sections 18.2.2, 18.2.6 and 18.2.10](https://www.w3.org/TR/xslt-30/).
+
+The original engine fails 96 of the 252 new .NET 10 cases. The candidate passes all 252, preserves
+the ordinary 71-case outcomes (including the existing wrong-code observation for case 038), and
+passes the complete frozen strict inventory and forwarding/evaluation audit at **2,695/16/1** with
+zero unmatched strict codes. An earlier unconditional check that changed ordinary case 073 is
+retained as a rejected candidate. Original fixtures and baselines are unchanged.
+
+All four full Release/Debug suites pass **7,179 .NET 10 /6,093 .NET 8** checks per configuration,
+preserving every original case and verifying frozen hashes, 53 runtime /39 test PDB sources and
+the complete 1,320-file source/test inventory. The warning-free NativeAOT consumer passes the original
+568 schema checks plus 168 applicability checks from 84 saved styles on independent 7/32-row inputs.
+Both incorrect oracle controls and the JIT guard reject; six consumer /one generator PDB documents
+match the retained sources. Its runtime is the full-tested Release engine.
+
+Hosted CI for this runtime change remains required. Values for schema-created nodes with an applicable
+accumulator and arbitrary mismatched provenance remain separate disposition items. Original P7
+memory/throughput gates remain open. Evidence:
+`artifacts/p7-completion/copied-applicability-4c8e203/`.
