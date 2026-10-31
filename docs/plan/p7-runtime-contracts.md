@@ -551,3 +551,55 @@ This repairs phases on corresponding copied nodes. Applicability for newly schem
 without counterparts and arbitrary mismatched internal provenance still needs its explicit
 disposition. Original memory/throughput targets, remaining S3–S6 accounting, public integration,
 final review/CI, merge and release remain required.
+
+## Schema-supplied default and fixed element content
+
+`SchemaDefaultContentTests` compares constructed validation results with an independent BCL
+validating `XmlReader` and `XPathDocument`. The 256 direct cases cross default/fixed constraints,
+eight schema types, eight input shapes and strict/lax validation. Nine compiled forms cover both
+APIs, normal/debug compilation, actual forward/tree execution, supported saved loading and
+accumulator inheritance enabled/disabled. They check copied-parent phases, text/comment/PI order,
+completed bodies and borrowed-reader ownership. Invalid inputs must still fail validation.
+
+Numeric/list/union traces compare atomized values, allowing equivalent lexical spellings; the
+BCL reader's particular canonical spelling is not an XDM requirement. String content retains exact
+comparison. Another 24 direct cases check QName prefixes, date/time timezone components and calendar
+units in durations against explicit values from the same schema declarations. Those semantic
+oracles do not derive expected values from the candidate's default-insertion path. The current
+fixture contains **712 .NET 10 /568 .NET 8** checks.
+
+The current 712-case matrix on immutable `5a53141` fails **556 /passes 156**. Comments and PIs
+incorrectly prevent schema-default insertion, while raw declaration text bypasses whitespace
+normalization. The repair selects `XmlSchemaInfo.IsDefault`, retains assessed strings, and applies
+the assessed type/member's existing whitespace facet to other declaration values. Retaining lexical
+information preserves QName prefixes, timezone components and calendar duration units. This follows
+[XDM's PSVI construction](https://www.w3.org/TR/xpath-datamodel-31/#const-from-psvi), including the
+date/time and qualified-name requirements in sections 3.3.2 and 3.3.3.
+
+Review rejects an earlier candidate using CLR datatype-to-string conversion. Although it passes
+688 original checks, all four full suites and the first native consumer, it fails all **24** newly
+added semantic checks. A separate fifteen-datatype investigation first matches all sixty BCL text
+renderings, but comparison of actual XDM typed values fails twelve QName/dateTime/duration cases.
+The BCL text comparison alone is therefore insufficient evidence. The original fixtures, baseline,
+full/native results and isolated original-budget measurements remain retained for that rejected
+candidate; they do not establish the final revision's qualification.
+
+Five source-verified controls execute all 712 cases each: immutable baseline **556 fail /156 pass**;
+rejected CLR conversion **24 fail /688 pass**; omitted miscellaneous-only default insertion
+**540 fail /172 pass**; omitted normalization **256 fail /456 pass**; restored repair **712 pass**.
+Actual DLL/PDB hashes remain unchanged during each test, with 53 runtime /two fixture PDB documents
+verified. The initial socket-denied zero-case controls are explicitly invalidated; the corrected
+controller requires every case to execute before accepting an outcome. Initial oracle failures for
+mixed content and nil/empty lists are retained separately and are not attributed to runtime defects.
+
+The reviewed revision passes full Release suites: **6,927 .NET 10 /5,925 .NET 8** unit checks, with
+frozen binaries and 53 runtime /16 test PDB source checks. Both Debug suites remain in progress.
+Its warning-free trimmed NativeAOT consumer passes **568** functional checks: 256 direct, 24 typed
+semantic and 288 saved-pipeline checks from 144 styles at independent 7/32-row inputs. The consumer
+rejects JIT hosting and checks actual forwarding, borrowed-reader ownership and two assertion-failure
+controls. Its engine equals the full-tested Release engine; 53 runtime /three consumer source
+documents and the byte-identical shared fixture are verified. The independent fifteen-datatype
+review now passes all sixty semantic comparisons. Evidence remains under
+`artifacts/p7-completion/schema-defaults-5a53141`.
+This work does not assign accumulator phases to schema-created nodes without source counterparts,
+change attribute defaults or close any failed original P7 memory/throughput gate.

@@ -2663,3 +2663,81 @@ unchanged binary hashes. The restored runtime DLLs equal the four full-tested sc
 Controls, source snapshots and failures remain under `artifacts/p7-completion/prefix-progress-a844867`.
 Final-head CI, original failed memory/throughput targets, remaining runtime applicability/accounting,
 public integration, complete review, merge and release remain required.
+
+### Hosted original gates on the tee-guard head, 2026-10-31
+
+Hosted qualification run **41177833642** tests immutable `5a53141`. Both downloaded native memory
+archives match GitHub's published digests. All **96 children** have valid output, the original 32
+stylesheet sources are unchanged, and 53 runtime PDB documents match that commit. The nightly
+matrix passes **16/16**, with exact 2,147,483,648-byte measured inputs, actual 209,715,200-byte managed
+guards and maximum absolute peak **39,497,728 bytes**. The push matrix passes **13/16** with exact
+209,715,200-byte inputs and actual 20,971,520-byte managed guards. Merge **24,354,816**, fork
+**24,702,976** and source-document **23,912,448 bytes** exceed the original absolute RSS budget.
+Raw children, immutable source snapshots and audits remain under
+`artifacts/p7-completion/contracts-linux-{push,nightly}-5a53141`.
+
+The same run's complete paired benchmark retains **126 valid observations**, three per mode in
+all 42 workload/size groups. Inputs are exactly 1,000,000 /100,000,000 /1,000,000,000 bytes, and each
+child reports the actual 4,294,967,296-byte managed guard. All output fingerprints agree; no
+observation is failed or missing. Archive, engine/driver/controller hashes and 53 immutable runtime
+PDB source documents are verified. The original 100 MB target still fails for identity
+(**1.115087** stream/tree), accumulator (**1.165179**), fork (**3.187783**) and source-document
+(**1.137174**). Adjacent (**0.764559**), iterate (**0.792683**) and merge (**0.918490**) pass. The 5%
+display band waives no target. Raw first-output observations and the audit remain under
+`contracts-linux-benchmark-5a53141`.
+
+These are hosted `5a53141` observations, not a controlled comparison with earlier hosts or evidence
+for the subsequent schema-default repair. The failed original push/throughput targets and all
+remaining P7 completion requirements stay open.
+
+### Assessed schema-default element content, 2026-10-31
+
+The [default/fixed-content contracts](p7-runtime-contracts.md#schema-supplied-default-and-fixed-element-content)
+establish default insertion and normalization defects. The reviewed 712-case .NET 10 baseline on
+`5a53141` fails 556 /passes 156. The repair uses the validator's actual default selection, assessed
+strings and existing whitespace facets while preserving QName prefixes, date/time offsets and
+calendar duration units from schema declarations. The new fixture has 712 /568 cases on .NET 10/8,
+covering both APIs, normal/debug compilation, supported saved execution, actual forward/tree paths,
+borrowed-reader ownership and copied-parent phases. Numeric/list lexical alternatives are compared
+by typed value rather than requiring the BCL reader's canonical text representation.
+
+Review rejects the initial CLR datatype-to-string candidate. Its original 688-case, full-unit and
+native passes do not establish XDM value correctness: all 24 newly added semantic cases fail.
+The fifteen-datatype text comparison passes sixty BCL comparisons but fails twelve actual XDM
+QName/dateTime/duration comparisons. Those results, the original fixtures and all 48 original-budget
+native children are retained. That rejected candidate passes 13/16 local push budgets; merge
+23,695,360, fork 24,088,576 and source-document 23,048,192 bytes exceed the unchanged 20,971,520-byte
+RSS limit. Those measurements are not qualification for the reviewed revision.
+
+The corrected five-variant control run executes all 712 cases per variant with source-verified,
+frozen engines: baseline 556 failures; rejected CLR conversion 24; omitted miscellaneous-only
+insertion 540; omitted normalization 256; restored repair zero. Socket-denied zero-case controls are
+explicitly invalidated. Raw evidence remains under `artifacts/p7-completion/schema-defaults-5a53141`.
+The reviewed revision passes full Release .NET 10/8 suites (**6,927 /5,925** checks), with frozen
+binaries and 53 runtime /16 test PDB source checks. Both full Debug suites remain in progress. Its warning-free
+trimmed NativeAOT consumer passes **568** functional checks from the shared fixture, including the
+24 typed-value regressions, 144 saved styles at independent 7/32-row inputs, actual forwarding,
+borrowed-reader ownership and assertion-failure controls. The engine equals the full-tested Release
+engine; 53 runtime /three consumer documents match their sources. The separate fifteen-datatype
+review now passes all sixty semantic comparisons. These functional checks do not qualify performance.
+
+The preceding `5a53141` head passes all four hosted CI jobs in run **41177801476**, including Windows;
+that is not CI evidence for this revision. Remaining schema-created-node applicability, original
+qualification gates, public integration, full review, final-source CI, merge and release are required.
+
+### URI scheme initialization call stack, 2026-10-31
+
+A diagnostic-only `dlopen` tracer records ICU initialization in the reviewed native source-document
+workload. Symbolization against the exact native debug file locates the path in
+`XmlQueryContext.OpenStreamedSource` → configured `XmlResolver.ResolveUri` → `Uri.CheckSchemeSyntax`
+→ `UriHelper.SpanToLowerInvariantString` → `MemoryExtensions.ToLowerInvariant` → globalization/ICU
+initialization. The canonical 209,715,200-byte input and output fingerprint are unchanged; the child
+reports the original 20,971,520-byte managed guard. The tracer disables the RSS status gate explicitly
+and runs concurrently with functional tests, so neither timing nor RSS is acceptance evidence.
+
+This attributes an initialization cause; it does not establish a safe replacement for URI resolution
+or change resolver callbacks, globalization or runtime policy. Source/binary hashes, raw loader
+stacks, symbols and guard/output verification remain under
+`artifacts/p7-completion/icu-callstack-lexical-5a53141`. An initial approval review misreads the original
+hexadecimal GC setting as decimal; read-only controller/child evidence verifies its actual 20 MiB
+meaning before the unchanged diagnostic is approved and run. No original guard is relaxed.

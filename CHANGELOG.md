@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Insert schema-supplied default/fixed element text alongside comments and processing instructions.
+  Apply assessed whitespace normalization while preserving QName prefixes, timezone components
+  and calendar duration units from schema declarations.
 - Preserve inherited accumulator phases when `xsl:copy-of` combines
   `type="xs:untypedAtomic"` with `copy-accumulators="yes"`. Reuse the existing validated-copy
   provenance policy so copied values keep their positions in the original source. Cover
