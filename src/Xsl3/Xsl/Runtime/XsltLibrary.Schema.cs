@@ -130,6 +130,7 @@ namespace Xsl3.Runtime
                     {
                         annotated[i] = items[i] is XPathNavigator { NodeType: XPathNodeType.Element } element
                             ? NodeValidator.Validate(element, schemas, strict: true, SchemaTypes.UntypedAtomic) : items[i];
+                        RecordValidatedCopy(items[i], annotated[i]);
                     }
                     return annotated;
                 }
@@ -155,18 +156,22 @@ namespace Xsl3.Runtime
                     // element or document stays XTTE1540, si-copy-of-110).
                     throw new XdmException("XTTE1510", e.Message);
                 }
-                if (items[i] is XPathNavigator originalNode && !ReferenceEquals(result[i], items[i]))
-                {
-                    // A copy made with copy-accumulators="yes" keeps its original's accumulator values once validated.
-                    if (_runtime.Documents.TryGetCopy(originalNode, out var copied))
-                    {
-                        XPathNavigator? original = copied.Accumulators?.Contains(originalNode) == true ? originalNode
-                            : copied.Original is { } source ? Original(originalNode, copied.Top, source) : null;
-                        if (original != null) _runtime.Documents.RecordCopy((XPathNavigator)result[i], original, validated: true);
-                    }
-                }
+                RecordValidatedCopy(items[i], result[i]);
             }
             return result;
+        }
+
+        private void RecordValidatedCopy(XPathItem item, XPathItem result)
+        {
+            if (item is not XPathNavigator originalNode || ReferenceEquals(result, item)) return;
+            // Validation changes annotations, not inherited accumulator phases. Both
+            // ordinary schema assessment and xs:untypedAtomic use the same provenance policy.
+            if (_runtime.Documents.TryGetCopy(originalNode, out var copied))
+            {
+                XPathNavigator? original = copied.Accumulators?.Contains(originalNode) == true ? originalNode
+                    : copied.Original is { } source ? Original(originalNode, copied.Top, source) : null;
+                if (original != null) _runtime.Documents.RecordCopy((XPathNavigator)result, original, validated: true);
+            }
         }
 
         private static XmlSchemaType? FindValidationType(XmlSchemaSet schemas, XmlQualifiedName name) => name.Namespace == XmlSchema.Namespace

@@ -516,3 +516,38 @@ configuration. Its deliberately omitted observation/replay guards cause nine fai
 restoring the baseline passes all 57. These checks preserve existing semantics and do not establish
 original absolute memory or throughput acceptance. Evidence and failed fixture controls remain under
 `artifacts/p7-completion/fork-values-42519e9`.
+
+## Explicit simple-type validation and copied phases
+
+`StreamedValidatedAccumulatorCopyTests` qualifies six copy forms: preserve, strip, lax, strict,
+`xs:anyType` and `xs:untypedAtomic`. Three empty source rows carry increasing accumulator phases.
+With `copy-accumulators="yes"`, the copies must keep those source phases; without inheritance,
+each temporary copied tree has its own initial traversal. Both APIs, normal/debug compilation,
+actual forward/tree execution and supported saved loading are covered. Invalid element content
+still raises `XTTE1540` when an explicit simple type is requested.
+
+The valid .NET 10 baseline on `b219c7c` fails twelve inherited `xs:untypedAtomic` cases: the
+reported phases restart at one for each copy instead of retaining source positions one, two and
+three. The special simple-type branch returned before recording copy provenance. It now shares
+the existing validated-copy provenance helper with ordinary schema assessment. This follows
+[XSLT 3.0 section 18.2.10](https://www.w3.org/TR/xslt-30/#copying-accumulators): corresponding copied
+nodes inherit their original phases rather than starting another accumulator traversal.
+
+All four full Release/Debug .NET 10/8 suites pass, respectively **6,215 /5,357** checks per
+configuration. The new fixture contributes 168 /112 cases. Actual DLL/PDB files are frozen before
+execution and unchanged afterward, with 53 runtime /14 test documents source-verified. Removing
+only the new simple-type provenance handoff fails twelve cases /passes 156; restoring it passes
+all 168. The initial attribute-bearing simple-type fixture was invalid and its validation failures
+are retained separately, without attributing them to this defect.
+
+An independent warning-free NativeAOT consumer loads 48 saved styles generated from the shared
+fixture. It passes 96 phase checks using independent 7/32-row inputs and eight schema-error checks,
+with two assertion-failure controls, actual forwarding checks and borrowed-reader ownership.
+The actual frozen engine matches 53 runtime PDB documents; three consumer documents are checked,
+including the byte-identical shared stylesheet/input/oracle source. Evidence:
+`artifacts/p7-completion/validated-copy-b219c7c`.
+
+This repairs phases on corresponding copied nodes. Applicability for newly schema-created nodes
+without counterparts and arbitrary mismatched internal provenance still needs its explicit
+disposition. Original memory/throughput targets, remaining S3–S6 accounting, public integration,
+final review/CI, merge and release remain required.

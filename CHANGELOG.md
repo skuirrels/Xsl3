@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve inherited accumulator phases when `xsl:copy-of` combines
+  `type="xs:untypedAtomic"` with `copy-accumulators="yes"`. Reuse the existing validated-copy
+  provenance policy so copied values keep their positions in the original source. Cover
+  both APIs, normal/debug compilation, supported saved loading and NativeAOT execution.
 - Measure rolling string-valued accumulator lifetimes across window widths, payload sizes and
   input lengths. Verify shared empty-sequence reuse, collection of evicted values and sensitivity
   to retained prior states without changing the runtime or original acceptance limits.

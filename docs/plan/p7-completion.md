@@ -2600,3 +2600,37 @@ tiny-capacity synchronization failures are retained separately. None establishes
 Production runtime, fork threads/capacity, fixtures, original budgets and public streaming claims are
 unchanged. Original failed push/throughput targets, remaining runtime accounting and public integration,
 final review/CI, merge and release remain required.
+
+### Explicit simple-type copy provenance, 2026-10-31
+
+The next schema-copy review establishes a runtime defect in `b219c7c`: the `xs:untypedAtomic`
+validation branch returns before preserving copied accumulator provenance. On three source rows,
+inherited before/after values restart at one for every copy instead of retaining their source
+positions. Twelve valid .NET 10 baseline cases fail; the other 132 controls pass. The corrected
+branch reuses the existing schema-copy provenance helper after successful validation.
+
+The [six-form copy contracts](p7-runtime-contracts.md#explicit-simple-type-validation-and-copied-phases)
+cover both APIs, normal/debug compilation, actual forward/tree paths, supported saved loading,
+inheritance enabled/disabled and unchanged `XTTE1540` errors. All four full unit suites pass:
+**6,215 .NET 10 /5,357 .NET 8** checks in both Release and Debug. The new fixture adds 168 /112 cases;
+actual binaries are frozen and source checks cover 53 runtime /14 test documents. An isolated
+omitted-handoff control fails twelve cases /passes 156; restoration passes all 168.
+
+A separate strictly trimmed NativeAOT consumer passes 104 phase/error cases from 48 saved styles,
+with independent 7/32-row inputs, two assertion-failure controls, source-verified engines and actual
+forwarding. All three consumer PDB documents, including the exact shared fixture source, are checked.
+Raw failures, the invalid initial fixture, frozen engines, native sources and all controls remain
+under `artifacts/p7-completion/validated-copy-b219c7c`.
+
+The unchanged complete canonical NativeAOT probe is rebuilt with 53 runtime /six probe source checks
+and all 32 original stylesheet sources. Its generator uses the installed JIT host; the measurement
+binary retains pinned 10.0.14 runtime/reference/compiler packs. The initial generator requested an
+unavailable JIT host and stops before generating styles; that tooling failure is retained separately.
+The original local Linux ARM64 push matrix finishes all **48 children** with correct outputs and
+**13/16** budgets. Merge **23,605,248**, fork **23,941,120** and source-document **23,093,248** bytes
+exceed the unchanged 20,971,520-byte RSS limit. Measured input sizes and actual managed guards are
+exactly 209,715,200 /20,971,520 bytes. Raw children and the independent audit are retained under
+`validated-copy-b219c7c/canonical-push`. This is current-source qualification, not a controlled
+before/after performance comparison. No original throughput or failed push-memory target closes
+here. Remaining runtime applicability/accounting, public integration, final review/CI, merge and
+release remain required, and streaming support remains unclaimed.
