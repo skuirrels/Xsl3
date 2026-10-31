@@ -21,6 +21,7 @@ using Xunit.Abstractions;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedMergeLifetimeTests(ITestOutputHelper output)
 {
     public static IEnumerable<object[]> RetentionCases()

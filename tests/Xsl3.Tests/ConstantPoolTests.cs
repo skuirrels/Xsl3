@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
-/// <summary>Tests that read process-wide state, so they don't run alongside the others.</summary>
+/// <summary>Tests that inspect or deliberately change process-wide state run apart from other collections.</summary>
 [CollectionDefinition("Process-wide state", DisableParallelization = true)]
 public sealed class ProcessWideState
 {

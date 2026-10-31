@@ -2277,3 +2277,53 @@ additional actionable defect in those reviewed areas; full-branch review remains
 Current-source hosted CI, remaining applicability/state accounting, original absolute memory and
 throughput targets, public integration, complete review, merge and release remain required. Full P7
 is not complete, and `supports-streaming` stays `no`.
+
+### Process-wide GC isolation and fork projection investigation, 2026-10-31
+
+The retained full-suite fork timeout now has direct process evidence. A fresh .NET 8 run of the
+frozen prototype engine records **2,927 induced collections** and **77.353 seconds** of paired
+runtime suspension/resumption intervals. Its 4 MiB legacy fork read-boundary failure overlaps
+**1,279 pauses /28.525 seconds** of its **30.319-second** wall time. The same frozen binaries pass
+**100** standalone repetitions of that case and **1,000** accumulator/fork repetitions. Another
+full run retains both fork and merge 30-second timeouts; the Debug .NET 10 run retains one
+10-second accumulator/fork cancellation. Those failures and all stack/GC traces remain recorded.
+
+`StreamedAccumulatorLifetimeTests`, `StreamedMergeLifetimeTests` and `StreamTeePayloadTests` now
+use the repository's existing nonparallel `Process-wide state` collection. Their forced collections,
+input sizes, assertions, case counts and original cancellation deadlines remain intact. Ordinary
+collections retain their parallel execution. The [contract map](p7-runtime-contracts.md#process-wide-collection-isolation)
+records the process-wide mutation and its isolation.
+
+All four current-branch full suites pass: **.NET 10: 4,818 / .NET 8: 4,386**, each in Release and
+Debug. Every actual engine/test DLL and PDB is frozen before its complete `--no-build` run; source
+checks match **50 runtime /four changed test documents**, and hashes still match after execution.
+The independent prototype also passes all four full suites (**4,895 /4,445** per configuration),
+with **54 runtime /five test documents** checked. Its runtime DLLs and PDBs are byte-identical
+before and after the test-isolation fix in all three configurations with a retained earlier engine.
+The repaired test scheduling preserves those runtime binaries and GC policy.
+Evidence: `artifacts/p7-completion/suite-gc-isolation-79cb441/` and
+`fork-projection-79cb441/{full-net8-gc-diagnostic,full-net8-diagnostic,isolation}/`.
+
+Fork input projection remains an **isolated, unadopted prototype**. The compiler derives a union
+of required child paths, retains complete selected values and structural headers, and falls back
+to the existing full input for unproven shapes. Review/tests expose and repair missing writer
+classification, inherited expanded-text dependencies (**18 failing controls before repair**) and
+unbounded filtering behind a partial batch. The corrected producer counts original logical source
+events toward its existing batch capacity, preserving bounded lookahead, cancellation and early
+prong completion. Source parsing and validation continue for omitted events.
+
+The initial unbounded candidate's faster result is ineligible. Both corrected macOS cohorts remain
+retained: the second does not reproduce the first's elapsed-time benefit. Fresh Linux ARM64 native
+baseline/candidate controls use pinned runtime **10.0.14**, two CPUs, exact **100,000,000-byte** inputs
+and the original **4,294,967,296-byte** heap guard. All **12** controls validate original output
+fingerprints and all **32 stylesheet sources** remain unchanged. Runtime PDB checks match **50 /54**
+source documents and each probe matches its six source documents. Candidate/baseline medians are
+**5,656.942 /6,087.893 ms** elapsed and **6,642.715 /7,094.642 ms** full-child CPU, respectively:
+about **7.1% /6.4%** lower. Median absolute RSS rises **135,168 bytes**, from **25,331,712** to
+**25,466,880**. The footprint cost requires further work before adoption. These are controlled
+local diagnostics, not full hosted P7 acceptance. Evidence: `fork-projection-79cb441/linux-paired-audit.json`
+and its complete retained raw cohorts, failed controls, source snapshots and frozen engines.
+
+The current branch's runtime remains unchanged by this test-isolation repair. The original memory,
+throughput, remaining applicability/state, public integration, complete review, final-source CI,
+merge and release requirements stay open. Full P7 remains active and `supports-streaming` stays `no`.

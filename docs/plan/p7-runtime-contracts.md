@@ -182,6 +182,26 @@ applying `head()` afterward does not establish an early-termination contract for
 initial eager-result observation is retained. These contracts cover current-group/lookahead retention
 and explicit termination, not arbitrary lazy merge-result consumption or the original RSS/throughput gates.
 
+## Process-wide collection isolation
+
+`StreamedAccumulatorLifetimeTests`, `StreamedMergeLifetimeTests` and `StreamTeePayloadTests`
+force full process collections to measure retained state. They use the existing nonparallel
+`Process-wide state` test collection alongside `ConstantPoolTests`. This keeps their collection
+checkpoints apart from unrelated tests' cancellation deadlines while retaining every case,
+retention assertion and original timeout.
+
+A source-verified .NET 8 full-suite diagnostic records 2,927 induced collections and 77.353 seconds
+of paired runtime suspension/resumption intervals. The failing 4 MiB legacy fork read-boundary
+case overlaps 1,279 such intervals: 28.525 seconds of its 30.319-second wall time. The same frozen
+engine passes 100 standalone repetitions of that case and 1,000 accumulator/fork repetitions.
+The full-suite failures and stack/GC traces remain retained; isolated repetitions alone did not
+establish a runtime remedy.
+
+Evidence: `artifacts/p7-completion/fork-projection-79cb441/full-net8-gc-diagnostic/`, including
+`gc-pause-audit.json`, the original trace and TRX; repaired current-branch suites are retained in
+`artifacts/p7-completion/suite-gc-isolation-79cb441/`. Native memory and throughput qualification
+continues under its original independent processes, inputs and limits.
+
 ## Non-forwarding case review
 
 The retained runtime inventory still contains all 2,712 cases. The four latest strict captures preserve
