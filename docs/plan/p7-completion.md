@@ -3100,3 +3100,37 @@ Hosted CI run **41217612327** passes all four jobs on the preceding `9a7e258` ph
 Final-source hosted CI, remaining original memory/throughput gates, public integration, full-branch
 review and deployment readiness remain required. Publishing remains outside the owner's latest
 stopping point.
+
+### Native report overhead and closed layout investigation, 2026-10-31
+
+Exact head `2f3bc71` passes all four hosted CI jobs in run **41225255029**: Linux, Windows,
+NativeAOT and ordinary performance. This does not qualify the separate original streaming gates.
+
+The native probe now writes its existing result model directly through the BCL UTF-8 JSON writer,
+avoiding source-generated object-serializer initialization in the measured process. Computed fields,
+fingerprints, escaping, finite double round trips, null timings and nonfinite rejection are preserved.
+All **44 focused checks pass on .NET 10 and .NET 8**, including independent ordinary BCL JSON
+comparisons and the existing probe oracles. All **408 runtime C# files are unchanged**; frozen PDB
+checks verify 53 runtime and eight native-consumer sources, with unchanged saved stylesheet inputs.
+
+Twenty-four serial native controls use the original 200 MiB inputs and actual 20 MiB managed guards.
+Every output validates. Median whole-process RSS reductions are identity **667,648**, source-document
+**466,944**, merge **794,624** and fork **352,256 bytes**. These are harness-footprint improvements;
+their timing observations do not replace the original 100 MB throughput qualification.
+
+The complete unchanged local native push matrix retains all **48 correct outputs** and **13/16**
+budget passes. Merge **23,027,712**, fork **23,433,216** and source-document **22,511,616 bytes**
+still exceed **20,971,520**. Inputs, 10 MiB controls, actual guards, output oracles and failures remain
+unchanged. Evidence: `artifacts/p7-completion/direct-report-2f3bc71/`. Final-source hosted CI remains
+required for this harness revision; no new nightly or complete throughput qualification is claimed.
+
+Frame packing is rejected. Two corrected layouts reduce a node from 184 to 176 bytes, but their
+36 valid 100 MB observations show mixed throughput; the simpler variant slows identity copying.
+No node-kind or flag representation change is adopted. Evidence: `packed-flags-2f3bc71/`.
+
+Twenty-seven corrected startup controls separate URI resolution, parsing, saved loading and a tiny
+canonical warmup, using actual 20 MiB managed guards. URI initialization adds sampled ICU/C++ pages,
+but URI plus saved loading and parsing remains below 20 MiB in that diagnostic image. This does not
+establish a platform lower bound or qualify full XSLT execution. Initial controls that inadvertently
+initialized CultureInfo before URI resolution are retained and invalidated for attribution. Evidence:
+`uri-baseline-2f3bc71/`. No resolver, URI, globalization, GC policy, runtime or acceptance limit changes.

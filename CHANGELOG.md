@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reduce the native streaming gate's reporting overhead with a direct UTF-8 JSON writer.
+  Preserve every computed measurement, output fingerprint, nullable timing and numeric validation;
+  keep the original absolute memory and throughput requirements unchanged.
 - Reject impossible simple accumulator rule matches directly from forward node headers using
   compiler-resolved element names. Preserve namespace semantics, rule ordering, phase values,
   cancellation and the general matcher for complex patterns and older saved styles. Optional

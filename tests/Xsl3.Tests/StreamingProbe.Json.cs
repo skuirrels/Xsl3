@@ -16,17 +16,19 @@ internal static partial class StreamingProbe
     {
         public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.GetDouble();
 
-        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options) => WriteReportDouble(writer, value);
+    }
+
+    private static void WriteReportDouble(Utf8JsonWriter writer, double value)
+    {
+        if (!double.IsFinite(value))
         {
-            if (!double.IsFinite(value))
-            {
-                // Preserve the normal JSON writer's rejection of non-finite numbers.
-                writer.WriteNumberValue(value);
-                return;
-            }
-            // Keep reporting from loading CultureInfo through Utf8Formatter. This
-            // remains a validated JSON number with the BCL's round-trip digits.
-            writer.WriteRawValue(value.ToString("R", NumericFormat));
+            // Preserve the normal JSON writer's rejection of non-finite numbers.
+            writer.WriteNumberValue(value);
+            return;
         }
+        // Keep reporting from loading CultureInfo through Utf8Formatter. This
+        // remains a validated JSON number with the BCL's round-trip digits.
+        writer.WriteRawValue(value.ToString("R", NumericFormat));
     }
 }

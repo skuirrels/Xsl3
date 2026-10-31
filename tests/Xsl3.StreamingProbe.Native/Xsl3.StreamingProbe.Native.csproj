@@ -24,5 +24,6 @@
     <Compile Include="../Xsl3.Tests/StreamingProbe.Memory.cs" Link="StreamingProbe.Memory.cs" />
     <Compile Include="../Xsl3.Tests/StreamingProbe.Stylesheets.cs" Link="StreamingProbe.Stylesheets.cs" />
     <Compile Include="../Xsl3.Tests/StreamingProbe.Json.cs" Link="StreamingProbe.Json.cs" />
+    <Compile Include="../Xsl3.Tests/StreamingProbe.Report.cs" Link="StreamingProbe.Report.cs" />
   </ItemGroup>
 </Project>

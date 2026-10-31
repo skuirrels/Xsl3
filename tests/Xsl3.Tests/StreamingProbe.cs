@@ -46,7 +46,7 @@ internal static partial class StreamingProbe
         try
         {
             Result result = Run(args[0], args[1] == "stream", bytes, limit);
-            Console.WriteLine(JsonSerializer.Serialize(result, StreamingProbeJsonContext.Default.Result));
+            Console.WriteLine(SerializeReport(result));
             return result.Status == "ok" ? 0 : result.Status.StartsWith("budget-exceeded", StringComparison.Ordinal) ? 3 : 2;
         }
         catch (Exception error)
