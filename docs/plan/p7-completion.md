@@ -533,6 +533,38 @@ and the incomplete qualification. No version is tagged/published, and no new hos
 is dispatched merely for this selection change while known memory/throughput failures remain.
 Evidence: `artifacts/p7-completion/public-default-e223b2f/compatibility-audit.json`.
 
+### Isolated saved-adapter metadata control, 2026-11-01
+
+A separate control starts from c7da793 and removes the broad reflected-method/field preservation
+requirement from its generated consumer through a dedicated stateless adapter entry. Ordinary saved
+data parsing is separated from early-bound construction; the new entry explicitly rejects early-bound
+classes, including encoded metadata that omits its type array. The old Type loader and early-bound
+constructor remain intact. No new warning suppression, private-runtime reference or publisher policy
+is added. This control is not on the retained P7 branch.
+
+The first test preparation misses a QIL namespace import and stops before running cases; its source
+and failed build are retained. The repaired initial four suites pass **949 /584** checks. Direct C#
+construction of a saved adapter then fails CS0012 before native measurement because the existing saved
+metadata references the runtime core assembly. This is consistent with the [runtime team's reference-
+assembly guidance](https://github.com/dotnet/runtime/issues/103357); no CoreLib dependency is added to the
+consumer and no facade-emitter rewrite is included. Instead the dedicated entry uses the existing
+`typeof(savedStyle)` syntax, direct interface data/execution access and only the constructor preservation
+required by RuntimeHelpers.GetUninitializedObject. Normal direct-object loading remains available for
+adapters constructed by their caller. The emitter, serialized format and normal native publisher stay.
+
+The revised four focused suites pass **952 .NET 10 /587 .NET 8** checks, preserving every earlier
+941 /578 row. New contracts cover normal/debug direct and Type entry execution, null/non-adapter
+Types, incompatible versions, malformed data, absent delegates and both early-bound metadata forms.
+Native publication succeeds without warnings. All **24** original 200 MiB observations validate with
+actual 20 MiB heap guards; original output fingerprints, 32 stylesheet sources, 65 saved-file hashes,
+binary hashes, **69 runtime /eight consumer** PDB checks per variant validate. Only the generated
+consumer's loader call changes. The native image shrinks **48,192 bytes**. Median RSS deltas are
+identity **0**, merge **−110,592**, fork **−102,400** and source-document **−438,272 bytes**. Fork
+elapsed is **1.019031** times baseline, so no throughput improvement is claimed. These are local
+ARM64 diagnostics, not original hosted x64 gate passes. The candidate remains isolated pending
+hosted footprint evidence and complete compatibility; all original failures remain open.
+Evidence: `artifacts/p7-completion/direct-provider-c7da793/audit.json`.
+
 ## Preceding verified checkpoint, 2026-11-01
 
 Commit `709da5b` passes all four [ordinary CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41255492209).
