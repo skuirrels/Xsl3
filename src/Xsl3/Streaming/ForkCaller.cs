@@ -169,11 +169,12 @@ internal sealed class ForkCaller : IDisposable
     // Stack-only budget shared by all three publication/completion waits. No per-wait closure.
     internal struct SpinBudget(long started)
     {
-        private SpinWait _spin;
         internal bool Continue()
         {
             if (Environment.TickCount64 - started >= 1) return false;
-            _spin.SpinOnce(sleep1Threshold: -1);
+            // Poll state between short processor waits instead of exponentially
+            // delaying the next publication check. The outer budget still parks.
+            Thread.SpinWait(1);
             return true;
         }
     }
