@@ -50,7 +50,7 @@ namespace Xsl3.Runtime
         public static (XmlWriterSettings Settings, OutputExtras? Extras, bool Text) Apply(ResultFormat format, string parameters, XsltNameContext names,
             System.Func<string, XmlReader>? open = null)
         {
-            XmlWriterSettings settings = format.Settings.Clone();
+            XmlWriterSettings settings = format.Settings.CloneWithQueryDefaults();
             OutputExtras? extras = format.Extras?.Clone();
             bool text = format.Text;
             OutputExtras Extras() => extras ??= new OutputExtras();
@@ -285,7 +285,7 @@ namespace Xsl3.Runtime
             {
                 var text = new System.IO.StringWriter();
                 ItemSerializer.Write(items, extras, text);
-                XmlWriterSettings s = settings.Clone();
+                XmlWriterSettings s = settings.CloneWithQueryDefaults();
                 s.SetOutputMethod(XmlOutputMethod.Text);
                 s.ConformanceLevel = ConformanceLevel.Fragment;
                 _inner = _factory!(s);
@@ -339,7 +339,7 @@ namespace Xsl3.Runtime
             XmlWriterSettings original = settings;
             if (ownCData)
             {
-                settings = settings.Clone();
+                settings = settings.CloneWithQueryDefaults();
                 settings.CDataSectionElements.Clear();
             }
             // (The factory sees only the settings: an xhtml result keeps "<a />", EmptyTagFilter.)
@@ -349,7 +349,7 @@ namespace Xsl3.Runtime
             {
                 string encoding = extras?.Encoding ?? settings.Encoding.WebName.ToUpperInvariant();
                 string standalone = settings.Standalone switch { XmlStandalone.Yes => " standalone=\"yes\"", XmlStandalone.No => " standalone=\"no\"", _ => "" };
-                XmlWriterSettings s = settings.Clone();
+                XmlWriterSettings s = settings.CloneWithQueryDefaults();
                 if (settings.ConformanceLevel != ConformanceLevel.Fragment)
                 {
                     // The writer's own declaration (raw text before the document element would stop its indentation),
@@ -367,7 +367,7 @@ namespace Xsl3.Runtime
             else if (settings.OutputMethod == XmlOutputMethod.Html)
             {
                 // Xsl3: the html method's own serializer, over a text-method writer that does the encoding.
-                XmlWriterSettings s = settings.Clone();
+                XmlWriterSettings s = settings.CloneWithQueryDefaults();
                 s.SetOutputMethod(XmlOutputMethod.Text);
                 s.ConformanceLevel = ConformanceLevel.Fragment;
                 OutputExtras html = extras ?? new OutputExtras { Encoding = settings.Encoding.WebName.ToUpperInvariant(), MediaType = settings.MediaType ?? "text/html" };
@@ -410,7 +410,7 @@ namespace Xsl3.Runtime
             {
                 // The default method (XSLT 3.0 §26.1): html if the first element is an unprefixed html element, xhtml
                 // if it is XHTML's html element.
-                XmlWriterSettings settings = _settings.Clone();
+                XmlWriterSettings settings = _settings.CloneWithQueryDefaults();
                 bool html = string.IsNullOrEmpty(ns) && string.Equals(localName, "html", System.StringComparison.OrdinalIgnoreCase);
                 settings.SetOutputMethod(html ? XmlOutputMethod.Html : XmlOutputMethod.Xml);
                 if (ns == "http://www.w3.org/1999/xhtml" && localName == "html" && _extras?.Xhtml != true)

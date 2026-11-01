@@ -42,13 +42,38 @@ namespace System.Xml
 
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        [DynamicDependency("Standalone", typeof(XmlWriterSettings))]
-        [DynamicDependency("IndentInternal", typeof(XmlWriterSettings))]
-        private static readonly PropertyInfo s_standalone = typeof(XmlWriterSettings).GetProperty("Standalone", Instance)!;
-        private static readonly PropertyInfo s_indentInternal = typeof(XmlWriterSettings).GetProperty("IndentInternal", Instance)!;
+        // Only the constructor's Omit state is remembered. Public Reset also sets Omit;
+        // remembering Yes/No would become stale when a caller resets a mutable settings object.
+        private static readonly ConditionalWeakTable<XmlWriterSettings, object> s_defaultStandalone = new();
+        private static readonly object s_defaultMarker = new();
+
+        private static class Metadata
+        {
+            [DynamicDependency("Standalone", typeof(XmlWriterSettings))]
+            [DynamicDependency("IndentInternal", typeof(XmlWriterSettings))]
+            internal static readonly PropertyInfo Standalone = typeof(XmlWriterSettings).GetProperty("Standalone", Instance)!;
+            internal static readonly PropertyInfo Indent = typeof(XmlWriterSettings).GetProperty("IndentInternal", Instance)!;
+            static Metadata() { }
+        }
+
+        // Defaults come from the BCL constructor (XmlWriterSettings.Initialize). Tests
+        // compare the real private enum fields on each supported runtime, including NativeAOT.
+        internal static XmlWriterSettings CreateDefaultSettings()
+        {
+            var settings = new XmlWriterSettings();
+            s_defaultStandalone.Add(settings, s_defaultMarker);
+            return settings;
+        }
 
         extension(XmlWriterSettings settings)
         {
+            internal XmlWriterSettings CloneWithQueryDefaults()
+            {
+                XmlWriterSettings clone = settings.Clone();
+                if (s_defaultStandalone.TryGetValue(settings, out _)) s_defaultStandalone.Add(clone, s_defaultMarker);
+                return clone;
+            }
+
             internal bool ReadOnly
             {
                 get => GetReadOnly(settings);
@@ -89,14 +114,28 @@ namespace System.Xml
 
             internal XmlStandalone Standalone
             {
-                get => (XmlStandalone)Convert.ToInt32(s_standalone.GetValue(settings));
-                set => s_standalone.SetValue(settings, Enum.ToObject(s_standalone.PropertyType, (int)value));
+                get => s_defaultStandalone.TryGetValue(settings, out _) ? XmlStandalone.Omit
+                    : (XmlStandalone)Convert.ToInt32(Metadata.Standalone.GetValue(settings));
+                set
+                {
+                    // Retain the original property setter's read-only exception path.
+                    if (value == XmlStandalone.Omit && !settings.ReadOnly && s_defaultStandalone.TryGetValue(settings, out _)) return;
+                    Metadata.Standalone.SetValue(settings, Enum.ToObject(Metadata.Standalone.PropertyType, (int)value));
+                    if (value == XmlStandalone.Omit) s_defaultStandalone.GetValue(settings, static _ => s_defaultMarker);
+                    else s_defaultStandalone.Remove(settings);
+                }
             }
 
             internal TriState IndentInternal
             {
-                get => (TriState)Convert.ToInt32(s_indentInternal.GetValue(settings));
-                set => s_indentInternal.SetValue(settings, Enum.ToObject(s_indentInternal.PropertyType, (int)value));
+                get => (TriState)Convert.ToInt32(Metadata.Indent.GetValue(settings));
+                set
+                {
+                    // The public setter represents both definite states exactly. Preserve
+                    // private auto-setter behavior for Unknown, invalid values and read-only objects.
+                    if (value is TriState.False or TriState.True && !settings.ReadOnly) settings.Indent = value == TriState.True;
+                    else Metadata.Indent.SetValue(settings, Enum.ToObject(Metadata.Indent.PropertyType, (int)value));
+                }
             }
 
             // Mirrors the private XmlWriterSettings.IsQuerySpecific.
@@ -162,7 +201,7 @@ namespace System.Xml
         // Upstream: internal XmlWriterSettings(XmlQueryDataReader reader).
         internal static XmlWriterSettings Create(XmlQueryDataReader reader)
         {
-            var settings = new XmlWriterSettings();
+            var settings = CreateDefaultSettings();
             // Encoding encoding;
             int codePage = reader.ReadInt32();
             bool preamble = reader.ReadBoolean();
@@ -179,7 +218,8 @@ namespace System.Xml
             // string newLineChars;
             settings.NewLineChars = reader.ReadStringQ()!;
             // TriState indent;
-            settings.IndentInternal = (TriState)reader.ReadSByte((sbyte)TriState.Unknown, (sbyte)TriState.True);
+            TriState indent = (TriState)reader.ReadSByte((sbyte)TriState.Unknown, (sbyte)TriState.True);
+            if (indent != TriState.Unknown) settings.IndentInternal = indent;
             // string indentChars;
             settings.IndentChars = reader.ReadStringQ()!;
             // bool newLineOnAttributes;
@@ -233,7 +273,7 @@ namespace System.Xml
             XmlWriterSettings newSettings = settings;
             if (!newSettings.CloseOutput)
             {
-                newSettings = newSettings.Clone();
+                newSettings = newSettings.CloneWithQueryDefaults();
                 newSettings.CloseOutput = true;
             }
 

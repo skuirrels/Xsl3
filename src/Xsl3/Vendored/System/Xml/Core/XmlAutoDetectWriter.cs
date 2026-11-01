@@ -35,7 +35,7 @@ namespace System.Xml
         {
             Debug.Assert(writerSettings.OutputMethod == XmlOutputMethod.AutoDetect);
 
-            _writerSettings = (XmlWriterSettings)writerSettings.Clone();
+            _writerSettings = writerSettings.CloneWithQueryDefaults();
             _writerSettings.ReadOnly = true;
 
             // Start caching all events

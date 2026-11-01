@@ -52,6 +52,37 @@ internal static class ReaderBridgeContracts
         return checks;
     }
 
+    internal static int VerifyDtdMetadata()
+    {
+        int checks = 0;
+        void Check(bool value, string message)
+        {
+            if (!value) throw new InvalidOperationException(message);
+            checks++;
+        }
+        using (var input = XmlReader.Create(new StringReader("<doc/>")))
+        {
+            Check(DtdInfoBridge.GetIdAttributes(input).Count == 0, "DTD-free ID declarations");
+            Check(DtdInfoBridge.GetIdrefAttributes(input).Count == 0, "DTD-free IDREF declarations");
+            Check(DtdInfoBridge.GetElementOnlyElements(input).Count == 0, "DTD-free content declarations");
+        }
+        const string declarations = "<!ATTLIST item key ID #REQUIRED refs IDREFS #IMPLIED>";
+        foreach (bool declaredElements in new[] { true, false })
+        {
+            string elements = declaredElements ? "<!ELEMENT doc (item*)><!ELEMENT item EMPTY>" : "";
+            string xml = "<!DOCTYPE doc [" + elements + declarations + "]><doc><item key='a' refs='a'/></doc>";
+            using var input = XmlReader.Create(new StringReader(xml), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse });
+            while (input.Read() && input.NodeType != XmlNodeType.Element) { }
+            Check(DtdInfoBridge.GetIdAttributes(input, includeUndeclared: true).Contains(("item", "", "key", "")),
+                "Parsed DTD ID declaration, including ATTLIST-only declarations");
+            Check(DtdInfoBridge.GetIdrefAttributes(input, includeUndeclared: true).Contains(("item", "", "refs", "")),
+                "Parsed DTD IDREFS declaration, including ATTLIST-only declarations");
+            if (declaredElements)
+                Check(DtdInfoBridge.GetElementOnlyElements(input).Contains(("doc", "")), "Parsed element-only content declaration");
+        }
+        return checks;
+    }
+
     private static string ReadText(XmlReader reader)
     {
         var text = new StringBuilder();

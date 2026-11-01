@@ -264,6 +264,44 @@ namespace Xsl3.IlGen
         /// Once all methods have been defined, CreateModule must be called in order to "bake" the methods within
         /// this module.
         /// </summary>
+        internal void DefineCompiledProvider(FieldInfo data, FieldInfo types, MethodInfo execute, MethodInfo? dispatcher, string version)
+        {
+            Type contract = typeof(ICompiledStylesheetProvider);
+            _typeBldr!.AddInterfaceImplementation(contract);
+            foreach (PropertyInfo property in contract.GetProperties())
+            {
+                MethodInfo target = property.GetMethod!;
+                MethodBuilder method = _typeBldr.DefineMethod(contract.FullName + "." + target.Name,
+                    MethodAttributes.Private | MethodAttributes.Final | MethodAttributes.Virtual | MethodAttributes.HideBySig
+                    | MethodAttributes.NewSlot | MethodAttributes.SpecialName, target.ReturnType, Type.EmptyTypes);
+                ILGenerator il = method.GetILGenerator();
+                switch (property.Name)
+                {
+                    case nameof(ICompiledStylesheetProvider.CompilerVersion):
+                        il.Emit(OpCodes.Ldstr, version); break;
+                    case nameof(ICompiledStylesheetProvider.QueryData):
+                        il.Emit(OpCodes.Ldsfld, data); il.Emit(OpCodes.Castclass, typeof(byte[]));
+                        il.Emit(OpCodes.Newobj, typeof(ReadOnlyMemory<byte>).GetConstructor(new[] { typeof(byte[]) })!); break;
+                    case nameof(ICompiledStylesheetProvider.EarlyBoundTypes):
+                        il.Emit(OpCodes.Ldsfld, types); break;
+                    case nameof(ICompiledStylesheetProvider.Execute):
+                        il.Emit(OpCodes.Ldnull); il.Emit(OpCodes.Ldftn, execute);
+                        il.Emit(OpCodes.Newobj, target.ReturnType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })!); break;
+                    case nameof(ICompiledStylesheetProvider.Dispatcher):
+                        il.Emit(OpCodes.Ldnull);
+                        if (dispatcher != null)
+                        {
+                            il.Emit(OpCodes.Ldftn, dispatcher);
+                            il.Emit(OpCodes.Newobj, target.ReturnType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })!);
+                        }
+                        break;
+                    default: throw new InvalidOperationException("Unknown compiled provider property");
+                }
+                il.Emit(OpCodes.Ret);
+                _typeBldr.DefineMethodOverride(method, target);
+            }
+        }
+
         public void BakeMethods()
         {
             Type typBaked;

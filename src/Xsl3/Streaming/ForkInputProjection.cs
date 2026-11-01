@@ -22,8 +22,11 @@ internal sealed class ForkInputProjection
     private readonly Shape[] _shapes;
     private readonly int[] _children;
 
-    internal ForkInputProjection(string?[] data)
+    internal bool AllowCompactProducer { get; }
+
+    internal ForkInputProjection(string?[] data, bool allowCompactProducer = false)
     {
+        AllowCompactProducer = allowCompactProducer;
         if (data.Length == 0 || data.Length % 4 != 0) throw new ArgumentException("Invalid fork projection", nameof(data));
         _shapes = new Shape[data.Length / 4];
         var parents = new int[_shapes.Length];
@@ -74,6 +77,7 @@ internal sealed class ForkInputProjection
 
     internal sealed class Matcher
     {
+        internal readonly bool AllowCompactProducer;
         private readonly Shape[] _shapes;
         private readonly int[] _children;
         private readonly List<int> _path = new() { 0 };
@@ -81,6 +85,7 @@ internal sealed class ForkInputProjection
 
         internal Matcher(ForkInputProjection projection, StreamedDocument.Node boundary)
         {
+            AllowCompactProducer = projection.AllowCompactProducer;
             _shapes = projection._shapes;
             _children = projection._children;
             _boundary = boundary;
@@ -89,12 +94,17 @@ internal sealed class ForkInputProjection
         internal bool Keep(StreamedDocument.Node node, bool end)
         {
             if (node == _boundary) return true;
-            int depth = node.Depth - _boundary.Depth;
+            return Keep(node.Depth, node.Kind, node.LocalName, node.Namespace, end);
+        }
+
+        internal bool Keep(int sourceDepth, XPathNodeType kind, string local, string ns, bool end)
+        {
+            int depth = sourceDepth - _boundary.Depth;
             if (depth < 1) throw new InvalidOperationException("A fork projection left its boundary");
             if (end) return _path[depth] >= 0;
             int parent = _path[depth - 1];
             bool whole = parent >= 0 && _shapes[parent].Whole;
-            if (node.Kind != XPathNodeType.Element) return whole;
+            if (kind != XPathNodeType.Element) return whole;
             int shape = -1;
             if (whole) shape = parent;
             else if (parent >= 0)
@@ -103,7 +113,7 @@ internal sealed class ForkInputProjection
                 while (first <= last)
                 {
                     int middle = first + (last - first) / 2, child = _children[middle];
-                    int comparison = CompareName(_shapes[child], node.LocalName, node.Namespace);
+                    int comparison = CompareName(_shapes[child], local, ns);
                     if (comparison == 0) { shape = child; break; }
                     if (comparison < 0) first = middle + 1;
                     else last = middle - 1;

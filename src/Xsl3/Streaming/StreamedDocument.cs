@@ -60,7 +60,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private readonly long _created;
     internal long Created => Identity._created;
     internal XmlNameTable NameTable { get; }
-    internal int RetainedNodeCount => _open.Count + (_open[^1] == _current ? 0 : 1);
+    internal int RetainedNodeCount => System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported && _compactProducer != null
+        ? _compactProducer.RetainedFrames : _open.Count + (_open[^1] == _current ? 0 : 1);
 
     internal StreamedDocument(XmlReader reader, bool ownsReader = false, XmlSpace space = XmlSpace.Preserve,
         CancellationToken cancellation = default, bool completeValidation = false)
@@ -327,9 +328,10 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     }
 
     private static bool IsText(XPathNodeType kind) => kind is XPathNodeType.Text or XPathNodeType.SignificantWhitespace or XPathNodeType.Whitespace;
-    private bool KeepText() => _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA
+    private bool KeepText() => KeepText(_open.Count > 1);
+    private bool KeepText(bool insideElement) => _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA
         || _reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve
-        || _space == XmlSpace.Preserve && _open.Count > 1;
+        || _space == XmlSpace.Preserve && insideElement;
 
     private void ReadNext()
     {
@@ -374,41 +376,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     node.Namespace = _reader.NamespaceURI;
                     node.Prefix = _reader.Prefix;
                     node.EmptyElement = node.Ended = _reader.IsEmptyElement;
-                    // Reader headers give an upper bound including namespace declarations. Keep
-                    // the final attribute array directly; ordinary elements need no temporary lists.
-                    int headerAttributeCount = _reader.AttributeCount;
-                    Attribute[] attributes = headerAttributeCount == 0 ? Array.Empty<Attribute>() : new Attribute[headerAttributeCount];
-                    int attributeCount = 0;
-                    List<Namespace>? namespaces = null;
-                    if (_reader.MoveToFirstAttribute())
-                    {
-                        do
-                        {
-                            string localName = _reader.LocalName, ns = _reader.NamespaceURI, prefix = _reader.Prefix;
-                            if (ns == "http://www.w3.org/2000/xmlns/")
-                                (namespaces ??= new()).Add(new(prefix == "xmlns" ? localName : "", _reader.Value, node.Number));
-                            else
-                            {
-                                IXmlSchemaInfo? schema = Schema(_reader.SchemaInfo);
-                                string value = Normalize(_reader.Value, schema?.SchemaType);
-                                if (localName == "id" && ns == QName.Ns.Xml) value = Lexical.Collapse(value);
-                                attributes[attributeCount++] = new(localName, ns, prefix, value, schema);
-                            }
-                        } while (_reader.MoveToNextAttribute());
-                        _reader.MoveToElement();
-                    }
-                    node.Schema = Schema(_reader.SchemaInfo);
-                    if (node.Parent == Root && _reader is IXmlNamespaceResolver resolver)
-                    {
-                        var declared = new HashSet<string>(StringComparer.Ordinal) { "xml" };
-                        if (namespaces != null)
-                            foreach (Namespace ns in namespaces) declared.Add(ns.Prefix);
-                        foreach (var ns in resolver.GetNamespacesInScope(XmlNamespaceScope.All))
-                            if (ns.Value.Length != 0 && declared.Add(ns.Key)) (namespaces ??= new()).Add(new(ns.Key, ns.Value, node.Number));
-                    }
-                    if (attributeCount != attributes.Length) Array.Resize(ref attributes, attributeCount);
-                    node.Attributes = attributes;
-                    node.Namespaces = namespaces?.ToArray() ?? Array.Empty<Namespace>();
+                    ReadElementHeaders(node.Number, node.Parent == Root, out node.Attributes, out node.Namespaces, out node.Schema);
                     _open.Add(node);
                     _current = node;
                     return;
@@ -442,14 +410,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                             else if (_reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve && text.Kind == XPathNodeType.Whitespace)
                                 text = ReplaceTextKind(text, XPathNodeType.SignificantWhitespace);
                         }
-                        _cancellation.ThrowIfCancellationRequested();
-                        _ready = _reader.Read();
-                        while (_ready && _reader.NodeType is XmlNodeType.EntityReference or XmlNodeType.EndEntity)
-                        {
-                            if (_reader.NodeType == XmlNodeType.EntityReference) _reader.ResolveEntity();
-                            _cancellation.ThrowIfCancellationRequested();
-                            _ready = _reader.Read();
-                        }
+                        AdvanceTextReader();
                     } while (_ready && _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace);
                     if (text == null)
                     {
@@ -484,6 +445,58 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     break;
             }
         }
+    }
+
+    private void AdvanceTextReader()
+    {
+        _cancellation.ThrowIfCancellationRequested();
+        _ready = _reader.Read();
+        while (_ready && _reader.NodeType is XmlNodeType.EntityReference or XmlNodeType.EndEntity)
+        {
+            if (_reader.NodeType == XmlNodeType.EntityReference) _reader.ResolveEntity();
+            _cancellation.ThrowIfCancellationRequested();
+            _ready = _reader.Read();
+        }
+    }
+
+    private void ReadElementHeaders(long number, bool documentElement, out Attribute[] headerAttributes,
+        out Namespace[] headerNamespaces, out IXmlSchemaInfo? schemaInfo)
+    {
+        // Reader headers give an upper bound including namespace declarations. Keep
+        // the final attribute array directly; ordinary elements need no temporary lists.
+        int headerAttributeCount = _reader.AttributeCount;
+        Attribute[] attributes = headerAttributeCount == 0 ? Array.Empty<Attribute>() : new Attribute[headerAttributeCount];
+        int attributeCount = 0;
+        List<Namespace>? namespaces = null;
+        if (_reader.MoveToFirstAttribute())
+        {
+            do
+            {
+                string localName = _reader.LocalName, ns = _reader.NamespaceURI, prefix = _reader.Prefix;
+                if (ns == "http://www.w3.org/2000/xmlns/")
+                    (namespaces ??= new()).Add(new(prefix == "xmlns" ? localName : "", _reader.Value, number));
+                else
+                {
+                    IXmlSchemaInfo? schema = Schema(_reader.SchemaInfo);
+                    string value = Normalize(_reader.Value, schema?.SchemaType);
+                    if (localName == "id" && ns == QName.Ns.Xml) value = Lexical.Collapse(value);
+                    attributes[attributeCount++] = new(localName, ns, prefix, value, schema);
+                }
+            } while (_reader.MoveToNextAttribute());
+            _reader.MoveToElement();
+        }
+        schemaInfo = Schema(_reader.SchemaInfo);
+        if (documentElement && _reader is IXmlNamespaceResolver resolver)
+        {
+            var declared = new HashSet<string>(StringComparer.Ordinal) { "xml" };
+            if (namespaces != null)
+                foreach (Namespace ns in namespaces) declared.Add(ns.Prefix);
+            foreach (var ns in resolver.GetNamespacesInScope(XmlNamespaceScope.All))
+                if (ns.Value.Length != 0 && declared.Add(ns.Key)) (namespaces ??= new()).Add(new(ns.Key, ns.Value, number));
+        }
+        if (attributeCount != attributes.Length) Array.Resize(ref attributes, attributeCount);
+        headerAttributes = attributes;
+        headerNamespaces = namespaces?.ToArray() ?? Array.Empty<Namespace>();
     }
 
     private Node Child(XPathNodeType kind)
