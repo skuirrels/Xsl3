@@ -151,7 +151,7 @@ namespace Xsl3.Xdm
                         case DecimalValue d: return new DecimalValue(AtomicTypes.Decimal, d.Decimal);
                         case IntegerValue i: return AtomicValue.OfDecimal(IntegerToDecimal(i.Integer));
                         case DoubleValue d: return AtomicValue.OfDecimal(DoubleToDecimal(d.Double, d.Value));
-                        case FloatValue f: return AtomicValue.OfDecimal(DoubleToDecimal(f.Float, f.Float.ToString("R", CultureInfo.InvariantCulture)));
+                        case FloatValue f: return AtomicValue.OfDecimal(DoubleToDecimal(f.Float, f.Float.ToString("R", InvariantNumberFormat.Info)));
                         case BooleanValue b: return AtomicValue.OfDecimal(b.Boolean ? 1 : 0);
                     }
                     break;
@@ -260,7 +260,7 @@ namespace Xsl3.Xdm
         {
             if (i > new BigInteger(decimal.MaxValue) || i < new BigInteger(decimal.MinValue))
             {
-                throw Err.FOCA0001(i.ToString(CultureInfo.InvariantCulture));
+                throw Err.FOCA0001(i.ToString(InvariantNumberFormat.Info));
             }
             return (decimal)i;
         }
@@ -276,7 +276,7 @@ namespace Xsl3.Xdm
             {
                 throw Err.FOCA0001(roundTrip);
             }
-            if (decimal.TryParse(roundTrip, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal result))
+            if (decimal.TryParse(roundTrip, NumberStyles.Float, InvariantNumberFormat.Info, out decimal result))
             {
                 return result;
             }

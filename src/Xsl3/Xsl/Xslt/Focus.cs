@@ -171,19 +171,21 @@ namespace Xsl3.Xslt
     internal struct LoopFocus : IFocus
     {
         private readonly XPathQilFactory _f;
-        private QilIterator? _current, _cached, _last;
+        private QilIterator? _current, _cached, _last, _sizeOverride;
 
         public LoopFocus(XPathQilFactory f)
         {
             _f = f;
-            _current = _cached = _last = null;
+            _current = _cached = _last = _sizeOverride = null;
         }
 
         public void SetFocus(QilIterator current)
         {
             _current = current;
-            _cached = _last = null;
+            _cached = _last = _sizeOverride = null;
         }
+
+        public void SetContextSize(QilIterator size) => _sizeOverride = size;
 
         public bool IsFocusSet
         {
@@ -202,7 +204,7 @@ namespace Xsl3.Xslt
 
         public QilNode GetLast() =>
             // Create a let that will be fixed up later in ConstructLoop or by LastFixupVisitor
-            _last ??= _f.Let(_f.Double(0));
+            _sizeOverride ?? (_last ??= _f.Let(_f.Double(0)));
 
         public void EnsureCache()
         {

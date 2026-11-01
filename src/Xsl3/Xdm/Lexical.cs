@@ -89,7 +89,7 @@ namespace Xsl3.Xdm
                 }
             }
             if (wide)
-                value = BigInteger.Parse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+                value = BigInteger.Parse(s, NumberStyles.AllowLeadingSign, InvariantNumberFormat.Info);
             else
             {
                 value = new BigInteger(magnitude);
@@ -108,7 +108,7 @@ namespace Xsl3.Xdm
             }
             try
             {
-                value = decimal.Parse(s, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+                value = decimal.Parse(s, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, InvariantNumberFormat.Info);
                 return true;
             }
             catch (OverflowException)
@@ -186,7 +186,7 @@ namespace Xsl3.Xdm
             {
                 return false;
             }
-            value = double.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture);
+            value = double.Parse(s, NumberStyles.Float, InvariantNumberFormat.Info);
             return true;
         }
 
@@ -203,7 +203,7 @@ namespace Xsl3.Xdm
             {
                 return false;
             }
-            value = float.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture);
+            value = float.Parse(s, NumberStyles.Float, InvariantNumberFormat.Info);
             return true;
         }
 
@@ -238,11 +238,11 @@ namespace Xsl3.Xdm
 
         /// <summary>xs:decimal canonical form: no exponent, no trailing zeros, no point for integral values.</summary>
         public static string DecimalToString(decimal d) =>
-            d.ToString("0.############################", CultureInfo.InvariantCulture);
+            d.ToString("0.############################", InvariantNumberFormat.Info);
 
-        public static string DoubleToString(double d) => FloatingToString(d, d.ToString("R", CultureInfo.InvariantCulture));
+        public static string DoubleToString(double d) => FloatingToString(d, d.ToString("R", InvariantNumberFormat.Info));
 
-        public static string FloatToString(float f) => FloatingToString(f, f.ToString("R", CultureInfo.InvariantCulture));
+        public static string FloatToString(float f) => FloatingToString(f, f.ToString("R", InvariantNumberFormat.Info));
 
         /// <summary>
         /// Casting xs:double/xs:float to xs:string (F&amp;O 3.1 §19.1.2.1): positional notation for
@@ -264,7 +264,7 @@ namespace Xsl3.Xdm
             int ePos = s.IndexOfAny(new[] { 'E', 'e' });
             if (ePos >= 0)
             {
-                exponent = int.Parse(s[(ePos + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+                exponent = int.Parse(s[(ePos + 1)..], NumberStyles.AllowLeadingSign, InvariantNumberFormat.Info);
                 s = s[..ePos];
             }
             int point = s.IndexOf('.');
@@ -298,7 +298,7 @@ namespace Xsl3.Xdm
             else
             {
                 sb.Append(digits[0]).Append('.').Append(digits.Length > 1 ? digits[1..] : "0");
-                sb.Append('E').Append(pow.ToString(CultureInfo.InvariantCulture));
+                sb.Append('E').Append(pow.ToString(InvariantNumberFormat.Info));
             }
             return sb.ToString();
         }

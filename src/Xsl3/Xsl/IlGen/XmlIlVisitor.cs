@@ -3289,6 +3289,8 @@ namespace Xsl3.IlGen
             else if ((object)typBase == (object)TypeFactory.String) codeBase = XmlTypeCode.String;
             else if ((object)typBase == (object)TypeFactory.Boolean) codeBase = XmlTypeCode.Boolean;
             else if ((object)typBase == (object)TypeFactory.Node) codeBase = XmlTypeCode.Node;
+            // An unconstrained atomic test needs only the item kind, not a saved schema/type descriptor.
+            else if ((object)typBase == (object)TypeFactory.AnyAtomicType) codeBase = XmlTypeCode.AnyAtomicType;
             else codeBase = XmlTypeCode.None;
 
             if (codeBase != XmlTypeCode.None)
@@ -3695,6 +3697,10 @@ namespace Xsl3.IlGen
         {
             if (ndInvoke.ClrMethod.DeclaringType == typeof(XsltLibrary))
             {
+                if (ndInvoke.ClrMethod.Name is nameof(XsltLibrary.X31Call0) or nameof(XsltLibrary.X31Call1)
+                    or nameof(XsltLibrary.X31Call2) or nameof(XsltLibrary.X31Call3)
+                    or nameof(XsltLibrary.X31Call4) or nameof(XsltLibrary.X31Call5))
+                    _helper.StaticData.UsesBuiltinFunctionIds = true;
                 if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31ForkPush))
                 {
                     _helper.InitializeCurrentOutput();
@@ -3703,12 +3709,14 @@ namespace Xsl3.IlGen
                     _iterCurr.Storage = StorageDescriptor.Stack(typeof(XPathItem), true);
                     return ndInvoke;
                 }
-                if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31Fork))
+                if (ndInvoke.ClrMethod.Name is nameof(XsltLibrary.X31Fork) or nameof(XsltLibrary.X31ForkProjected))
                 {
                     _helper.LoadXsltLibrary();
                     NestedVisitEnsureStack(ndInvoke.Arguments[0], typeof(XPathItem), true);
                     NestedVisitEnsureStack(ndInvoke.Arguments[1], typeof(XPathItem), false);
                     NestedVisitEnsureStack(ndInvoke.Arguments[2], typeof(double), false);
+                    if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31ForkProjected))
+                        NestedVisitEnsureStack(ndInvoke.Arguments[3], typeof(double), false);
                     _helper.Call(ndInvoke.ClrMethod);
                     _iterCurr.Storage = StorageDescriptor.None();
                     return ndInvoke;
@@ -3905,7 +3913,8 @@ namespace Xsl3.IlGen
 
             // XmlQueryOutput.XsltCopyOf(navigator);
             NestedVisitEnsureStack(ndCopyOf.Child);
-            _helper.Call(XmlILMethods.CopyOf);
+            _helper.Call(OptimizerPatterns.Read(ndCopyOf).MatchesPattern(OptimizerPatternName.StripAttributeCopy)
+                ? XmlILMethods.CopyOfStrippedAttribute : XmlILMethods.CopyOf);
 
             _iterCurr.Storage = StorageDescriptor.None();
             return ndCopyOf;

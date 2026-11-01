@@ -78,8 +78,8 @@ namespace Xsl3.XPath31.Functions
                 }
                 return Str(sb.ToString());
             });
-            Define("fn:string-join($arg1 as xs:anyAtomicType*) as xs:string", (c, a) => Str(string.Concat(a[0].Select(i => ((AtomicValue)i).Value))));
-            Define("fn:string-join($arg1 as xs:anyAtomicType*, $arg2 as xs:string) as xs:string", (c, a) => Str(string.Join(S(a[1]), a[0].Select(i => ((AtomicValue)i).Value))));
+            Define("fn:string-join($arg1 as xs:anyAtomicType*) as xs:string", (c, a) => Str(Sequences.JoinAtomicValues(a[0], "")));
+            Define("fn:string-join($arg1 as xs:anyAtomicType*, $arg2 as xs:string) as xs:string", (c, a) => Str(Sequences.JoinAtomicValues(a[0], S(a[1]))));
             Define("fn:string-length($arg as xs:string?) as xs:integer", (c, a) => Int(CodePoints.Length(S(a[0]))));
             Define("fn:normalize-space($arg as xs:string?) as xs:string", (c, a) => Str(Lexical.Collapse(S(a[0]))));
             Define("fn:upper-case($arg as xs:string?) as xs:string", (c, a) => Str(CaseMapping.ToUpper(S(a[0]))));

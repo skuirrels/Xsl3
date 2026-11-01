@@ -148,6 +148,9 @@ namespace Xsl3.XPath31
         /// and abstract ones not at all (function-lookup in a used package); null if the host has no such components.
         /// </summary>
         System.IDisposable? DeclaredComponents() => null;
+
+        /// <summary>Isolates host dynamic context that is not part of a function value's closure.</summary>
+        System.IDisposable? FunctionBody() => null;
     }
 
     internal delegate QilNode CompileXPathArgument(Expr expression, ItemTest? requiredType = null);
@@ -231,7 +234,7 @@ namespace Xsl3.XPath31
         }
 
         internal static QilNode AtomizeSimpleContent(QilNode value, XPathStaticContext sc, QilPatternFactory f, IXPath31Environment env) =>
-            new XPath31Compiler(sc, f, env).AtomizeEach(new ContextItemExpr(), value, preserveTextNodes: true);
+            new XPath31Compiler(sc, f, env).AtomizeEach(value, preserveTextNodes: true);
 
         /// <summary>
         /// Xsl3 (P4): a value template's expression as a native string: directly when it is one string or one node,
@@ -252,7 +255,7 @@ namespace Xsl3.XPath31
                 QilIterator i = f.For(built);
                 return f.BaseFactory.StrConcat(f.String(" "), f.Loop(i, f.XPathNodeValue(compiler.ValueReplayOperand(i, built))));
             }
-            if (sc.ForwardOnly) built = compiler.AtomizeEach(ast, built, preserveTextNodes: true);
+            if (sc.ForwardOnly) built = compiler.AtomizeEach(built, preserveTextNodes: true);
             return compiler.Call(nameof(XsltLibrary.X31AvtString), T.StringX, compiler.Items(built));
         }
 
@@ -1241,7 +1244,12 @@ namespace Xsl3.XPath31
                         // A native double is an xs:integer to Items (as positions are).
                         return _f.XsltConvert(_f.Length(Items(built[0])), T.DoubleX);
                     case ("data", 1) when _sc.ForwardOnly:
-                        return AtomizeEach(call, built[0]);
+                        return AtomizeEach(built[0]);
+                    case ("string-join", 1) when _sc.ForwardOnly:
+                        // F&O 3.1 §5.4.2 defines the omitted separator as "".
+                        return ForwardStringJoin(built[0], _f.String(""));
+                    case ("string-join", 2) when _sc.ForwardOnly && !built[1].XmlType!.IsNode && NativeString(built[1]) is QilNode separator:
+                        return ForwardStringJoin(built[0], separator);
                     case ("string", 1) when _sc.ForwardOnly && !AtomicItems(built[0]):
                         return CallLibrary(call, name, new List<QilNode> { StringArguments(built[0]) });
                     case ("avg" or "min" or "max", 1) when _sc.ForwardOnly && UntypedNumericNodes(built[0])
@@ -1270,6 +1278,10 @@ namespace Xsl3.XPath31
 
         private bool UntypedNumericNodes(QilNode nodes) => _sc.Schemas == null && nodes.XmlType!.IsSubtypeOf(T.NodeNotRtfS)
             && (nodes.XmlType.NodeKinds & (XmlNodeKindFlags.Comment | XmlNodeKindFlags.PI | XmlNodeKindFlags.Namespace)) == 0;
+
+        private QilNode ForwardStringJoin(QilNode values, QilNode separator) =>
+            Call(nameof(XsltLibrary.X31StringJoin), T.StringX,
+                AtomicItems(values) ? Items(values) : AtomizeEach(values), separator);
 
         private QilNode UntypedDoubles(QilNode nodes)
         {
@@ -1425,7 +1437,7 @@ namespace Xsl3.XPath31
                 for (int i = 0; i < args.Count; i++)
                     if (def.ParameterType(i).Item is AtomicTypeTest or NumericTest or UnionTypeTest && !AtomicItems(args[i]))
                     {
-                        args[i] = AtomizeEach(call, args[i]);
+                        args[i] = AtomizeEach(args[i]);
                     }
             }
             string method = args.Count switch

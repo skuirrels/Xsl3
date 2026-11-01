@@ -23,6 +23,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class ForkRuntimeTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
@@ -265,6 +266,74 @@ public class ForkRuntimeTests
             Assert.Same(parentPrincipal, XmlQueryRuntime.Principal);
             Assert.Equal(3, XmlQueryRuntime.Depth);
         });
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void CultureTransferPreservesOtherAmbientValuesAndSuppressedFlow(bool suppressFlow, bool fail)
+    {
+        OnThread(() => {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
+            var ambient = new AsyncLocal<string?> { Value = "owner" };
+            XmlQueryRuntime child;
+            if (suppressFlow)
+            {
+                using (ExecutionContext.SuppressFlow()) child = Runtime().CreateForkRuntime(new XmlCachedSequenceWriter());
+            }
+            else child = Runtime().CreateForkRuntime(new XmlCachedSequenceWriter());
+            var expected = new InvalidOperationException("prong failure");
+            OnThread(() => {
+                CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+                CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+                ambient.Value = "worker";
+                Exception? actual = Record.Exception(() => child.RunFork(_ => {
+                    Assert.Equal("fr-FR", CultureInfo.CurrentCulture.Name);
+                    Assert.Equal("de-DE", CultureInfo.CurrentUICulture.Name);
+                    Assert.Equal("worker", ambient.Value);
+                    ambient.Value = "body";
+                    CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+                    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+                    if (fail) throw expected;
+                }, default, null));
+                if (fail) Assert.Same(expected, actual); else Assert.Null(actual);
+                Assert.Equal(CultureInfo.InvariantCulture, CultureInfo.CurrentCulture);
+                Assert.Equal(CultureInfo.InvariantCulture, CultureInfo.CurrentUICulture);
+                Assert.Equal("body", ambient.Value);
+                Assert.False(ExecutionContext.IsFlowSuppressed());
+            });
+            Assert.Equal("owner", ambient.Value);
+            Assert.Equal("fr-FR", CultureInfo.CurrentCulture.Name);
+            Assert.Equal("de-DE", CultureInfo.CurrentUICulture.Name);
+            Assert.False(ExecutionContext.IsFlowSuppressed());
+        });
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (XmlQueryRuntime Runtime, WeakReference Ambient) CompleteForkWithAmbientValue()
+    {
+        XmlQueryRuntime? child = null;
+        WeakReference? reference = null;
+        OnThread(() => {
+            var ambient = new AsyncLocal<object?> { Value = new object() };
+            reference = new WeakReference(ambient.Value);
+            child = Runtime().CreateForkRuntime(new XmlCachedSequenceWriter());
+            child.RunFork(_ => { }, default, null);
+            ambient.Value = null;
+        });
+        return (child!, reference!);
+    }
+
+    [Fact]
+    public void CompletedProngsDoNotRetainTheOwnersAmbientObjects()
+    {
+        var completed = CompleteForkWithAmbientValue();
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        Assert.False(completed.Ambient.IsAlive);
+        GC.KeepAlive(completed.Runtime);
     }
 
     [Theory]

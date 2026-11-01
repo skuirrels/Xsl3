@@ -4,6 +4,9 @@
     <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Each framework owns fork workers and process-memory probes. Run the complete
+         framework suites sequentially so their deadlines do not compete for the same CPUs. -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
     <NoWarn>$(NoWarn);CA1305;CA1307;CA1310;CA1311;CS0436</NoWarn>
     <!-- Program.cs: the assembly runs memory measurements in a process of their own (CompactTreeMemoryTests). -->
     <GenerateProgramFile>false</GenerateProgramFile>

@@ -803,6 +803,22 @@ namespace Xsl3.Xslt
         /// <summary>The string value of simple content (attribute, comment, PI, value-of): atomised items joined by <paramref name="separator"/>.</summary>
         private QilNode SimpleContent31(QilNode items, QilNode separator)
         {
+            // A single constructed text node has exactly its content's string value.
+            // A constant separator has no observable evaluation to preserve here.
+            // Keep other sequences on the canonical merge/atomization path.
+            if (separator.NodeType == QilNodeType.LiteralString)
+            {
+                QilNode single = items;
+                while (single.NodeType == QilNodeType.Sequence && single.Count == 1) single = single[0];
+                if (single.NodeType is QilNodeType.TextCtor or QilNodeType.RawTextCtor
+                    && ((QilUnary)single).Child.NodeType == QilNodeType.LiteralString)
+                {
+                    QilNode text = ((QilUnary)single).Child;
+                    // Retain the streamed constructor's cancellation checkpoint and
+                    // keep it at this instruction, rather than hoisting it from a loop.
+                    return StreamedCompilation31 ? Stateful31(nameof(XsltLibrary.X31SimpleContentText), T.StringX, text) : text;
+                }
+            }
             if (StreamedCompilation31) items = XPath31Compiler.AtomizeSimpleContent(items, StaticContext31(), _f, this);
             QilNode content = X31(nameof(XsltLibrary.X31SimpleContent), T.StringX, Box(items), separator);
             if (StreamedCompilation31) Xsl3.IlGen.OptimizerPatterns.Write(content).AddPattern(Xsl3.IlGen.OptimizerPatternName.StreamedSimpleContent);
@@ -1653,6 +1669,16 @@ namespace Xsl3.Xslt
             XslNodeV2? options = node.V2;
             string validation = options?.Validation ?? _compiler.DefaultValidation ?? "strip";
             bool validating = validation is "strict" or "lax" || options?.ValidationType != null;
+            if (StreamedCompilation31 && !validating && validation == "strip" && select.XmlType!.IsSubtypeOf(T.AttributeS))
+            {
+                // Construction can insert an attribute directly. When a sequence is needed, the
+                // same construction machinery supplies a fresh, parentless attribute instead.
+                // Namespace and accumulator copy options have no effect on attribute nodes.
+                QilIterator attribute = _f.For(select);
+                QilNode copy = _f.XsltCopyOf(attribute);
+                IlGen.OptimizerPatterns.Write(copy).AddPattern(IlGen.OptimizerPatternName.StripAttributeCopy);
+                return _f.Loop(attribute, copy);
+            }
             if (StreamedCompilation31 || options?.CopyAccumulators == true || options?.CopyNamespaces == TriState.False || options?.Validation is "strip" or "preserve" || validating)
             {
                 return CopyEach31(select, item =>
@@ -2228,8 +2254,8 @@ namespace Xsl3.Xslt
             if (sources.Count == 0 || action == null) return _f.Sequence();
             var (names, spec) = MergeDeclaration31(sources);
             QilIterator plan = _f.Let(CompileMergePlan31(sources, spec));
-            QilNode result = StreamedCompilation31 && sources.Any(source => source.V2?.Streamable == TriState.True)
-                ? CompileStreamedMerge31(sources, action, names, plan)
+            QilNode result = sources.Any(source => source.V2?.Streamable == TriState.True)
+                ? CompilePullMerge31(sources, action, names, plan)
                 : CompileMaterializedMerge31(sources, action, names, plan);
             return _f.Loop(plan, result);
         }
@@ -2272,6 +2298,7 @@ namespace Xsl3.Xslt
                 EnterScope(decl);
                 EnterComponent31(decl);
                 var phases = new List<bool>();
+                var filters = new List<AccumulatorNodeFilter?>();
                 int offset = items.Count;
                 items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () => CompileXPath31(decl.Select!)), 1));
                 // The rules, in decreasing order of preference among equal priorities: the last one wins.
@@ -2280,7 +2307,9 @@ namespace Xsl3.Xslt
                     XslNode rule = decl.Content[i];
                     EnterScope(rule);
                     phases.Add(rule.V2!.Phase == "end");
-                    items.Add(Lift31(own => AccumulatorMatch31(rule.V2!.Match!, own[0]), 1));
+                    AccumulatorNodeFilter? filter = null;
+                    items.Add(Lift31(own => AccumulatorMatch31(rule.V2!.Match!, own[0], out filter), 1));
+                    filters.Add(filter);
                     items.Add(Lift31(own => WithFixedFocus31(_f.TypeAssert(own[0], T.Item), () =>
                     {
                         _scope.EnterScope();
@@ -2314,16 +2343,17 @@ namespace Xsl3.Xslt
                 var (applicable, principalPackage) = PrincipalAccumulators31();
                 bool onPrincipal = applicable?.Contains(eqName) ?? (!principalPackage.HasValue || PackageComponents.Demangle(name.NamespaceUri).Package == principalPackage.Value);
                 table[eqName] = new AccumulatorInfo(offset, phases.ToArray(), type, onPrincipal,
-                    decl.V2?.Streamable == TriState.True);
+                    decl.V2?.Streamable == TriState.True, filters.ToArray());
                 ExitScope();
             }
             _accumulatorItems31.Binding = Box(items);
         }
 
         // The pattern of an accumulator rule: the priority of the best alternative the node matches, else nothing.
-        private QilNode AccumulatorMatch31(string pattern, QilParameter node)
+        private QilNode AccumulatorMatch31(string pattern, QilParameter node, out AccumulatorNodeFilter? filter)
         {
             QilNode compiled = CompilePattern31(pattern);
+            filter = SimpleAccumulatorFilter31(compiled);
             var alternatives = new List<QilLoop>();
             if (compiled.NodeType == QilNodeType.Sequence)
             {
@@ -2346,6 +2376,21 @@ namespace Xsl3.Xslt
                 result = _f.Conditional(condition, Box(_f.Double(XPathPatternBuilder.GetPriority(alternative))), result);
             }
             return _f.Loop(subject, result);
+        }
+
+        // A pure leading name test can reject a node before allocating a dynamic matcher call.
+        // Read the compiler's resolved QIL names; complex patterns keep the general path.
+        private static AccumulatorNodeFilter? SimpleAccumulatorFilter31(QilNode compiled)
+        {
+            if (compiled is QilLoop { NodeType: QilNodeType.Filter } loop
+                && loop.Body is QilBinary { NodeType: QilNodeType.And,
+                    Left: QilBinary { NodeType: QilNodeType.IsType } kind,
+                    Right: QilBinary { NodeType: QilNodeType.Eq } name }
+                && kind.Left == loop.Variable && kind.Right.XmlType!.NodeKinds == XmlNodeKindFlags.Element
+                && name.Left is QilUnary { NodeType: QilNodeType.NameOf } named && named.Child == loop.Variable
+                && name.Right is QilName qname)
+                return new(qname.LocalName, qname.NamespaceUri);
+            return null;
         }
 
         // Compiles with the item as the focus (position and size 1), as the body of xsl:iterate does.
@@ -3882,7 +3927,8 @@ namespace Xsl3.Xslt
             }
             IList<XslNode> content = node.Content;
             int varScope = _varHelper.StartVariables();
-            bool forward = StreamedCompilation31 && v2.GroupBy == null && !content.Any(child => child.NodeType == XslNodeType.Sort);
+            bool sorted = content.Any(child => child.NodeType == XslNodeType.Sort);
+            bool forward = StreamedCompilation31 && v2.GroupBy == null && !sorted;
 
             // 1. The population, each item with its grouping key, evaluated with the item as the focus.
             QilNode population = CompileXPath31(node.Select);
@@ -3929,11 +3975,20 @@ namespace Xsl3.Xslt
             QilNode collation = v2.Collation != null ? CompileStringAvt(v2.Collation)!
                 : _f.String(defaultCollation == null || defaultCollation == Collation.CodepointUri ? "" : defaultCollation);
             QilNode groupSelection;
+            QilIterator? groupCount = null;
             if (forward)
             {
                 QilIterator producer = _f.Let(Stateful31(nameof(XsltLibrary.X31PullNew), T.Item, Lift31(_ => tuples, 1, pull: true)));
                 QilIterator state = _f.Let(Stateful31(nameof(XsltLibrary.X31ForwardGroupsNew), T.Item, producer, _f.Double(kind), collation, _f.Boolean(v2.Composite)));
                 groupSelection = _f.Loop(producer, _f.Loop(state, PullSequence31(nameof(XsltLibrary.X31ForwardGroupNext), T.ItemS, state)));
+            }
+            else if (v2.GroupAdjacent != null && !sorted)
+            {
+                QilIterator state = _f.Let(Stateful31(nameof(XsltLibrary.X31AdjacentGroupsNew), T.Item, tuples, collation, _f.Boolean(v2.Composite)));
+                _varHelper.AddVariable(state);
+                groupCount = _f.Let(Stateful31(nameof(XsltLibrary.X31AdjacentGroupCount), T.DoubleX, state));
+                _varHelper.AddVariable(groupCount);
+                groupSelection = PullSequence31(nameof(XsltLibrary.X31AdjacentGroupNext), T.ItemS, state);
             }
             else
             {
@@ -3947,6 +4002,7 @@ namespace Xsl3.Xslt
             var savedKey = _currentGroupingKeyFactory;
             QilIterator g = _f.For(groupSelection);
             _curLoop.SetFocus(g);
+            if (groupCount != null) _curLoop.SetContextSize(groupCount);
             _focusOverrides[g] = it => X31(nameof(XsltLibrary.X31GroupFirst), T.Item, it);
             // Sort keys see the group being sorted as current-group(). Groups of a population of child steps are nodes
             // in document order at one depth (Xsl3 P4), which steps from current-group() can use.

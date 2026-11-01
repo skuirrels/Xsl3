@@ -162,6 +162,7 @@ namespace Xsl3.XPath31
             QilNode result;
             try
             {
+                using var functionBody = _env?.FunctionBody();
                 result = Items(body());
                 if (returnType != null)
                 {

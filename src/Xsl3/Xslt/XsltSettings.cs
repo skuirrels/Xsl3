@@ -43,6 +43,7 @@ namespace Xsl3
         private XsltStreamabilityMode _streamability;
 
         // P7 development switch. Tests can select it per compiler without mutating process-wide state.
+        // Static Strict analysis does not enable an execution backend that is still unqualified.
         internal bool? StreamedExecution { get; set; }
         internal bool UseStreamedExecution => StreamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
 

@@ -14,7 +14,7 @@ namespace Xsl3.Runtime;
 /// <summary>A copy keeps its original's accumulator provenance for as long as the copy is live.</summary>
 internal sealed class CopyOriginRegistry
 {
-    internal sealed record Origin(XPathNavigator Top, XPathNavigator Original, bool Validated);
+    internal sealed record Origin(XPathNavigator Top, XPathNavigator? Original, bool Validated, IStreamedAccumulatorCopy? Accumulators = null);
     private sealed record StreamedOrigins(object Scope, Origin Value, StreamedOrigins? Next);
 
     // This token cannot keep the registry or invocation alive through a retained copy.
@@ -32,7 +32,10 @@ internal sealed class CopyOriginRegistry
         {
             // A long-lived weak table builds collection pressure for short-lived merge
             // copies. Copy-owned cycles can be collected with the copies themselves.
-            var value = new Origin(copy.Clone(), original.Clone(), validated);
+            IStreamedAccumulatorCopy? captured = original is StreamedNavigator streamedOriginal
+                && streamedOriginal.Document.Identity.Observer is IStreamedAccumulatorCopyProvider provider
+                ? provider.CaptureCopy(copy, streamedOriginal) : null;
+            var value = new Origin(copy.Clone(), captured == null ? original.Clone() : null, validated, captured);
             while (true)
             {
                 var previous = (StreamedOrigins?)Volatile.Read(ref compact.Document.StreamedCopyOrigins);

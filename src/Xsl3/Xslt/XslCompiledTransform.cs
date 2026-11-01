@@ -41,8 +41,59 @@ namespace Xsl3
     {
         internal const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
 
-        // Version for GeneratedCodeAttribute
-        private static readonly Version? s_version = typeof(XslCompiledTransform).Assembly.GetName().Version;
+        // Version text for GeneratedCodeAttribute
+        private static readonly string? s_version = GetAssemblyVersionText();
+
+        private static string? GetAssemblyVersionText()
+        {
+            // The SDK writes this from the same effective AssemblyVersion used in
+            // the assembly header. Reading it avoids constructing a culture merely
+            // to retrieve a version from Assembly.GetName().
+            return ReadAssemblyVersionText(typeof(XslCompiledTransform).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>());
+        }
+
+        internal static string? ReadAssemblyVersionText(System.Collections.Generic.IEnumerable<AssemblyMetadataAttribute> attributes)
+        {
+            string? candidate = null;
+            int matches = 0, sources = 0;
+            bool sdkGenerated = false;
+            foreach (AssemblyMetadataAttribute metadata in attributes)
+            {
+                if (metadata.Key == "Xsl3.RuntimeAssemblyVersion.Source")
+                {
+                    if (++sources > 1) break;
+                    sdkGenerated = metadata.Value == "SDK";
+                }
+                else if (metadata.Key == "Xsl3.RuntimeAssemblyVersion")
+                {
+                    if (++matches > 1) break;
+                    candidate = metadata.Value;
+                }
+            }
+            if (sources == 1 && sdkGenerated && matches == 1 && IsCanonicalAssemblyVersion(candidate)) return candidate;
+            // The assembly header remains authoritative for ambiguous, invalid or
+            // non-SDK metadata and for compiler-normalized short/wildcard versions.
+            return typeof(XslCompiledTransform).Assembly.GetName().Version?.ToString();
+        }
+
+        private static bool IsCanonicalAssemblyVersion(string? text)
+        {
+            if (text == null) return false;
+            string[] components = text.Split('.');
+            if (components.Length != 4) return false;
+            foreach (string component in components)
+            {
+                if (component.Length == 0 || component.Length > 1 && component[0] == '0') return false;
+                int value = 0;
+                foreach (char c in component)
+                {
+                    if (!char.IsAsciiDigit(c)) return false;
+                    value = value * 10 + c - '0';
+                    if (value > ushort.MaxValue) return false;
+                }
+            }
+            return true;
+        }
 
         // Options of compilation
         private readonly bool _enableDebug;
@@ -388,7 +439,7 @@ namespace Xsl3
             TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
             type.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
-                new object[] { typeof(XslCompiledTransform).FullName!, s_version?.ToString() ?? "0.0.0.0" }));
+                new object[] { typeof(XslCompiledTransform).FullName!, s_version ?? "0.0.0.0" }));
             bool symbols = _qil!.IsDebug;
             if (symbols)
             {
@@ -461,9 +512,14 @@ namespace Xsl3
             // If GeneratedCodeAttribute is not there, it is not a compiled stylesheet class
             if (generatedCodeAttr != null && generatedCodeAttr.Tool == typeof(XslCompiledTransform).FullName)
             {
-                if (s_version < Version.Parse(generatedCodeAttr.Version!))
+                // Identical canonical version strings prove compatibility without
+                // parsing or initializing the BCL's invariant culture. All other
+                // versions retain the original Version comparison and exceptions.
+                if (s_version == null || !string.Equals(s_version, generatedCodeAttr.Version, StringComparison.Ordinal))
                 {
-                    throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, generatedCodeAttr.Version, s_version), nameof(compiledStylesheet));
+                    Version? version = s_version == null ? null : Version.Parse(s_version);
+                    if (version < Version.Parse(generatedCodeAttr.Version!))
+                        throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, generatedCodeAttr.Version, version), nameof(compiledStylesheet));
                 }
 
                 FieldInfo? fldData = compiledStylesheet.GetField(XmlQueryStaticData.DataFieldName, BindingFlags.Static | BindingFlags.NonPublic);

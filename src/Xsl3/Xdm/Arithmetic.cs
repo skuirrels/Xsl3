@@ -29,16 +29,16 @@ namespace Xsl3.Xdm
 
         // Correctly rounded conversions: the CLR's BigInteger and decimal conversions can be off by an ulp.
         public static double ToDouble(System.Numerics.BigInteger i) =>
-            i >= long.MinValue && i <= long.MaxValue ? (long)i : double.Parse(i.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+            i >= long.MinValue && i <= long.MaxValue ? (long)i : double.Parse(i.ToString(InvariantNumberFormat.Info), InvariantNumberFormat.Info);
 
         public static float ToFloat(System.Numerics.BigInteger i) =>
-            i >= long.MinValue && i <= long.MaxValue ? (long)i : float.Parse(i.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+            i >= long.MinValue && i <= long.MaxValue ? (long)i : float.Parse(i.ToString(InvariantNumberFormat.Info), InvariantNumberFormat.Info);
 
         public static double ToDouble(decimal d) => decimal.Truncate(d) == d && d >= long.MinValue && d <= long.MaxValue
             ? (long)d
-            : double.Parse(d.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+            : double.Parse(d.ToString(InvariantNumberFormat.Info), InvariantNumberFormat.Info);
 
-        public static float ToFloat(decimal d) => float.Parse(d.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+        public static float ToFloat(decimal d) => float.Parse(d.ToString(InvariantNumberFormat.Info), InvariantNumberFormat.Info);
 
         public static float ToFloat(AtomicValue v) => v switch
         {

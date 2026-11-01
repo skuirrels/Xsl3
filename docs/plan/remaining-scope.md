@@ -1,12 +1,17 @@
 # Remaining scope: everything after P5
 
+> **Full P7 resumed, 2026-10-29:** the owner resumed implementation through complete qualification,
+> review, merge and release on `feature/p7-completion`. The [completion plan](p7-completion.md)
+> records current requirements and evidence. Every original runtime, memory and throughput gate
+> remains required. Streaming is still unsupported; the bounded release records below are historical.
+
 > **P7H bounded implementation and local close-out complete:** the
 > [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original
 > bare-variable expressions for all six P7G contracts, with passing metadata, diagnostic,
 > Release/Debug, saved/native, regression and performance gates. See the
 > [close-out](../p7h-debug-source-lines-2026-10-29.md). [PR #26](https://github.com/skuirrels/Xsl3/pull/26)
 > is merged with all required CI checks passing. Release version: 1.1.6;
-> full P7 and streaming support remain deferred.
+> full P7 was outside that release and streaming remains unsupported.
 
 > **P7G bounded implementation complete:** the [copied-attribute identity phase](p7g-attribute-identity-contracts.md)
 > resolves DTD ID/IDREF/IDREFS × preserve/strip, with source, detached-copy and reconstructed-document
@@ -494,10 +499,11 @@ identical across packages (override-v-005, override-f-031).
 
 ### 7. Phase 7: streaming (§17; 6–12 person-months)
 
-**Current bounded status:** P7A shipped in 1.1.0; [P7B is complete](p7b-analysis-closeout.md#p7b-completion)
-with reviewed S1 1,000/0/0 and reviewed S2 155/0/0. Original raw profiles remain retained separately.
-Full P7 remains deferred. The following progress entries are historical; they do not reopen runtime,
-memory or throughput work or claim streaming support.
+**Current status:** full P7 has resumed on `feature/p7-completion`; use the
+[completion plan](p7-completion.md) for current runtime, qualification and delivery evidence.
+P7A shipped in 1.1.0; [P7B is complete](p7b-analysis-closeout.md#p7b-completion) with reviewed
+S1 1,000/0/0 and reviewed S2 155/0/0. Original raw profiles remain retained separately.
+The following progress entries are historical and do not claim streaming support.
 
 **State.** Started (2026-10-22): S1 adds internal U-types, expression analysis and separate
 `strm` and `sandp` runner profiles. The analysis profile runs all 919 cases, including sets commented out of the

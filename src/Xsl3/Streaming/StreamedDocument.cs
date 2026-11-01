@@ -336,9 +336,9 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (_notifying) throw PositionError(); // observer rules cannot consume the reader recursively
         long previous = _number;
         ReadNextCore();
-        ObserveCurrent(previous);
+        if (_observer != null) ObserveCurrent(previous);
         if (_current.Number > previous) _capturing?.Add(_current);
-        ObserveValueReplays(_current.Number > previous);
+        if (_valueReplays != null) ObserveValueReplays(_current.Number > previous);
         if (_consuming != 0 && _current.Number > previous) Consumed(_current);
     }
 
@@ -347,6 +347,11 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         Check();
         if (Root.Ended) throw PositionError();
         if (_open.Count > 1 && _open[^1].Ended) _open.RemoveAt(_open.Count - 1);
+        if (_reader is ForkEventReader fork)
+        {
+            ReadForkEvent(fork);
+            return;
+        }
         while (true)
         {
             bool read = _ready || _reader.Read();
@@ -510,6 +515,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (_disposed) return;
         _disposed = true;
         _open.Clear();
+        // Retained positions own their closed headers; the source needs no current row.
+        _current = Root;
         // Retained source frames/copy provenance need their headers and phases, not
         // the parser or its input buffers. Releasing a borrowed reader does not close it.
         XmlReader reader = _reader;

@@ -35,6 +35,8 @@ if case == 'missing-host-evidence':
     del result['HasTrustedPlatformAssemblies']
 if case == 'ignored-heap-limit':
     result['AvailableManagedBytes'] = limit + 1
+if case == 'live-heap-exceeds-limit' and size == 4096:
+    result['LiveManagedBytes'] = limit + 1
 if case == 'missing-output' and size == 4096:
     del result['Outputs']
 if case == 'nan-time' and size == 4096:
@@ -99,6 +101,16 @@ class StreamingGateTests(unittest.TestCase):
     def test_an_ignored_heap_cap_cannot_pass(self):
         result, report = self.run_gate('ignored-heap-limit', limit=1024 * 1024 * 1024)
         self.assertNotEqual(0, result.returncode)
+        self.assertTrue(report['failures'])
+
+    def test_reported_live_heap_cannot_exceed_the_verified_cap(self):
+        result, report = self.run_gate('live-heap-exceeds-limit', limit=1024 * 1024 * 1024)
+        measured = report['runs'][-1]
+        self.assertEqual('ok', measured['result']['Status'])
+        self.assertEqual(measured['result']['LimitBytes'], measured['result']['AvailableManagedBytes'])
+        self.assertGreater(measured['result']['LiveManagedBytes'], measured['result']['LimitBytes'])
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(measured['passed'])
         self.assertTrue(report['failures'])
 
     def test_a_hung_child_fails_even_after_printing_valid_json(self):

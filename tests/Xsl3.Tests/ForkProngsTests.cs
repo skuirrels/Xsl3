@@ -9,6 +9,9 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+// These capacity-one scheduling deadlines need the process's worker allowance.
+// Other fork-heavy test classes must not consume that allowance concurrently.
+[Collection("Process-wide state")]
 public class ForkProngsTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);

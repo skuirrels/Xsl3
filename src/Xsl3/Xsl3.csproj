@@ -46,6 +46,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Xsl3.Tests" />
+    <InternalsVisibleTo Include="Xsl3.ReaderBridgeProbe" />
     <InternalsVisibleTo Include="Xsl3.W3C" />
     <InternalsVisibleTo Include="Xsl3.Dev" />
   </ItemGroup>
@@ -62,5 +63,13 @@
     <!-- The .p files are the optimizer's original pattern-language sources; documentation only (SPEC §3.2.1). -->
     <None Include="Xsl\**\*.p" />
   </ItemGroup>
+
+  <Target Name="AddRuntimeAssemblyVersionMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="GetAssemblyVersion"
+          Condition="'$(GenerateAssemblyInfo)' == 'true' And '$(GenerateAssemblyVersionAttribute)' == 'true'">
+    <ItemGroup>
+      <AssemblyMetadata Include="Xsl3.RuntimeAssemblyVersion" Value="$(AssemblyVersion)" />
+      <AssemblyMetadata Include="Xsl3.RuntimeAssemblyVersion.Source" Value="SDK" />
+    </ItemGroup>
+  </Target>
 
 </Project>

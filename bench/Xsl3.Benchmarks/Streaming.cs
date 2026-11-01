@@ -16,6 +16,7 @@ internal static class Streaming
             Framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
             OS = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             Architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+            ProcessorCount = Environment.ProcessorCount,
         }));
         return 0;
     }

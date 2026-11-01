@@ -69,17 +69,17 @@ internal sealed partial class XPath31Compiler
     internal static QilNode AtomicArgument(QilNode value, ItemTest? required, XPathStaticContext sc, QilPatternFactory factory, IXPath31Environment environment)
     {
         var compiler = new XPath31Compiler(sc, factory, environment);
-        return compiler.AtomicArgument(new ContextItemExpr(), compiler.Items(value), required);
+        return compiler.AtomicArgument(compiler.Items(value), required);
     }
 
-    private QilNode AtomicArgument(Expr expression, QilNode value, ItemTest? required) =>
+    private QilNode AtomicArgument(QilNode value, ItemTest? required) =>
         _sc.ForwardOnly && required is AtomicTypeTest or NumericTest or UnionTypeTest && !AtomicItems(value)
-            ? AtomizeEach(expression, value) : value;
+            ? AtomizeEach(value) : value;
 
     private QilNode AtomicOperand(Expr expression)
     {
         QilNode value = Items(_sc.ForwardOnly ? BuildValueSource(expression) : Build(expression));
-        return _sc.ForwardOnly && !AtomicItems(value) ? AtomizeEach(expression, value) : value;
+        return _sc.ForwardOnly && !AtomicItems(value) ? AtomizeEach(value) : value;
     }
 
     private QilNode FunctionArgument(Expr expression, ItemTest? required)
@@ -92,7 +92,7 @@ internal sealed partial class XPath31Compiler
             _ => GroundedSetOperand(input),
         };
         if (_sc.ForwardOnly && Grounded(expression)) s_groundedFunctionArguments.AddOrUpdate(value, GroundedSetBindings.Marker);
-        return AtomicArgument(expression, value, required);
+        return AtomicArgument(value, required);
     }
 
     private QilNode Cast(Expr operand, QilNode target, bool allowEmpty)
@@ -270,13 +270,16 @@ internal sealed partial class XPath31Compiler
         return _f.Loop(item, text);
     }
 
-    private QilNode AtomizeEach(Expr call, QilNode value, bool preserveTextNodes = false)
+    private QilNode AtomizeEach(QilNode value, bool preserveTextNodes = false)
     {
         QilIterator item = _f.For(Items(value));
         QilNode operand = ValueReplayOperand(item, value);
         if (preserveTextNodes)
             return _f.Loop(item, Call(nameof(Xsl3.Runtime.XsltLibrary.X31SimpleContentItem), T.Item, operand));
-        QilNode atomized = CallLibrary(call, new QName(QName.Ns.Fn, "data"), new List<QilNode> { operand });
+        // Atomization needs neither a static context nor a numeric function-registry
+        // entry. Keep the canonical list-valued operation for arrays and schema lists.
+        QilNode atomized = Call(nameof(Xsl3.Runtime.XsltLibrary.X31Data), T.ItemS, operand);
+        s_atomicItems.AddOrUpdate(atomized, AtomicTypes.AnyAtomicType);
         return _f.Loop(item, atomized);
     }
 

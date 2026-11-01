@@ -252,13 +252,17 @@ namespace Xsl3.Schema
             {
                 _error = $"{element.Name} could not be validated";
             }
-            if (empty && info.SchemaElement is { } declaration && (declaration.DefaultValue ?? declaration.FixedValue) is { } defaultValue && !info.IsNil)
+            if (info.IsDefault && !info.IsNil)
             {
-                // An empty element with a default value has it as its content.
-                _builder.Text(defaultValue, XPathNodeType.Text);
+                // CLR typed values can lose QName prefixes, timezones and calendar duration units.
+                // Retain the declaration's lexical form with the assessed type's whitespace facet.
+                string value = typed as string ?? info.SchemaElement?.DefaultValue ?? info.SchemaElement?.FixedValue
+                    ?? throw new InvalidOperationException("A schema default must have a declaration value");
+                if (typed is not string && (info.MemberType ?? type) is { } valueType && SchemaTypes.Normalization(valueType) is { } facet)
+                    value = Lexical.ApplyWhitespace(value, facet);
+                _builder.Text(value, XPathNodeType.Text);
                 empty = false;
             }
-            _ = typed;
             AnnotateOpenElement(type, info.IsNil);
             _builder.EndElement(emptyTag: empty);
             _scope = parentScope;
@@ -472,11 +476,7 @@ namespace Xsl3.Schema
 
         private static void CopyAttributeIdentity(CompactDocument.Builder builder, XPathNavigator attribute, XmlSchemaType? copiedType)
         {
-            XmlSchemaType? originalType = SchemaTypes.TypeOf(attribute);
-            bool id = attribute is CompactNavigator { IsIdAttribute: true } or Streaming.StreamedNavigator { IsIdAttribute: true }
-                || originalType != null && SchemaTypes.IsId(originalType);
-            bool idref = attribute is CompactNavigator { IsIdrefAttribute: true } or Streaming.StreamedNavigator { IsIdrefAttribute: true }
-                || originalType != null && SchemaTypes.IsIdref(originalType);
+            var (id, idref) = SchemaTypes.AttributeIdentity(attribute);
             // Stripping annotations leaves these identity properties unchanged (§25.4.1.1). An annotated
             // ID/IDREF already marked itself in the builder; avoid adding its IDREF index twice.
             if (id && (copiedType == null || !SchemaTypes.IsId(copiedType))) builder.MarkAttributeId(attribute.Value);

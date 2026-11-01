@@ -313,6 +313,17 @@ namespace Xsl3.Schema
             (type as XmlSchemaSimpleType ?? (type is XmlSchemaComplexType { ContentType: XmlSchemaContentType.TextOnly } complex ? SimpleContent(complex) : null))
                 is { } simple && AtomicTypeOf(simple)?.DerivesFrom(AtomicTypes.ID) == true;
 
+        /// <summary>Attribute identity survives stripping its type annotation (XSLT 3.0 §25.4.1.1).</summary>
+        internal static (bool Id, bool Idref) AttributeIdentity(XPathNavigator attribute)
+        {
+            XmlSchemaType? type = TypeOf(attribute);
+            bool id = attribute is CompactNavigator { IsIdAttribute: true } or Streaming.StreamedNavigator { IsIdAttribute: true }
+                || type != null && IsId(type);
+            bool idref = attribute is CompactNavigator { IsIdrefAttribute: true } or Streaming.StreamedNavigator { IsIdrefAttribute: true }
+                || type != null && IsIdref(type);
+            return (id, idref);
+        }
+
         /// <summary>Whether a type's values are IDREFs (xs:IDREF, xs:IDREFS, or a type derived from or a list of them).</summary>
         public static bool IsIdref(XmlSchemaType type)
         {

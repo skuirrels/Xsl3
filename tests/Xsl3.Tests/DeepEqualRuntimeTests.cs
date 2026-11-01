@@ -16,6 +16,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class DeepEqualRuntimeTests
 {
     private static XsltLibrary Runtime()

@@ -117,7 +117,7 @@ namespace Xsl3.Xdm
 
         public BigInteger Integer { get; }
 
-        public override string Value => Integer.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        public override string Value => Integer.ToString(InvariantNumberFormat.Info);
         public override object ClrValue => Integer;
         public override long ValueAsLong => (long)Integer;
         public override double ValueAsDouble => Numeric.ToDouble(Integer);

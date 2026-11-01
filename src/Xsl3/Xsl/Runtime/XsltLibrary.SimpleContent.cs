@@ -80,6 +80,13 @@ public sealed partial class XsltLibrary
         }
     }
 
+    /// <summary>The value of a single literal text constructor, preserving its cancellation checkpoint.</summary>
+    public string X31SimpleContentText(string value)
+    {
+        XmlQueryRuntime.CheckCancellation();
+        return value;
+    }
+
     public XPathItem X31SimpleContentNew(string separator, XmlQueryOutput output, bool raw)
     {
         XmlQueryRuntime.CheckCancellation();
