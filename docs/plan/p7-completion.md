@@ -164,7 +164,99 @@ The nine independent fork continuation/observation contracts are retained in
 `tests/Xsl3.Tests/ForkContinuationContractsTests.cs` on the unchanged runtime. Their final source
 passes all **nine** checks in Release/Debug on .NET 8 and .NET 10, with bounded cancellation and the
 existing nonparallel process-state collection. No rejected runtime, parser or report control is
-adopted. The documentation/contract head needs its own terminal hosted CI result.
+adopted. Exact contract/documentation head `9a4af5d` passes all four ordinary hosted CI jobs in
+[run 41278354134](https://github.com/skuirrels/Xsl3/actions/runs/41278354134).
+
+The [hosted native mapping diagnostic](https://github.com/skuirrels/Xsl3/actions/runs/41278605367)
+completes twelve correct 200 MiB observations using the unchanged `f63305b` runtime, real NativeAOT
+hosting and actual 20 MiB managed guards. All original fingerprints, 48 snapshot hashes, both
+source/host records, 58 runtime PDB sources and 33 stylesheet/entrypoint sources validate. The
+artifact lacks the native consumer portable PDB for a second independent consumer checksum audit.
+The first diagnostic stops at setup because this runner has no cgroup-v2 `cpu.max`; the replacement
+records that absence and .NET's actual x64/four-processor allowance instead of inventing a quota.
+
+Late instantaneous snapshots show about **10.5–11.2 MiB** in native executable mappings and
+**3.1–3.7 MiB** in anonymous mappings. URI workloads additionally show about **4.34 MiB** in ICU,
+C++ and unwind-library mappings. These are not a decomposition of historical peaks. The diagnostic
+launcher is below the original RSS threshold; it sets an inherited floor for the identity counters.
+No peak is subtracted or adjusted. All three original memory gaps remain unqualified. Evidence:
+`artifacts/p7-completion/hosted-native-mappings-f63305b/`.
+
+A narrowly lazy DTD-metadata control moves nine private reflection bindings behind the null-DTD
+check without changing their member preservation. Existing focused contracts pass **165** checks.
+A deliberate metadata-initializer failure still permits the no-DTD identity path and fails the real
+DTD binding test, proving that the cache is actually deferred. All 24 native 200 MiB observations
+preserve outputs and actual 20 MiB guards; 59 runtime PDB sources include the newly changed bridge.
+There is no useful RSS reduction: identity/source-document medians are unchanged, merge rises
+4,096 bytes and fork rises 24,576 bytes. The standalone lazy-cache control is rejected. Evidence:
+`artifacts/p7-completion/lazy-dtd-metadata-9a4af5d/`.
+
+A separate .NET 10 reference-accessor control (`6cf57db`) replaces three private reader reflection
+lookups and defers DTD bindings until a DTD exists; .NET 8 keeps its reflection path. It preserves
+private enum bridges, resolvers, whitespace policy, trimming roots and the existing public API.
+Eight additional native DTD assertions cover absent, parsed and ATTLIST-only declarations alongside
+the original nine reader assertions. All **17** native checks and the real JIT guard pass.
+
+The candidate passes all four complete unit suites: **7,328 .NET 10 /6,218 .NET 8** cases in each
+Release/Debug configuration, with every preceding case-row multiplicity retained and exactly ten
+new rows per configuration. Frozen test-engine hashes remain unchanged. The saved native consumer
+passes **739** checks with all **456** input files and eight consumer sources unchanged, real
+NativeAOT execution, rejected wrong-code/wrong-output/JIT controls, and **59 runtime /eight consumer**
+PDB source checks. Evidence: `reference-reader-accessors-9a4af5d/` and `reference-reader-full-6cf57db/`.
+
+The local ARM64 original push matrix passes all **16 budgets /48 outputs**, but this does not qualify
+hosted x64. The candidate's [original hosted run](https://github.com/skuirrels/Xsl3/actions/runs/41282119610)
+still passes only **13/16** push budgets, preserving all 48 canonical outputs and original sizes/guards.
+Merge **22,048,768**, fork **22,155,264** and source-document **21,340,160 bytes** exceed **20,971,520**.
+All 59 runtime PDB sources validate. The same hosted run's original nightly matrix passes all
+**16 budgets /48 outputs**, at exact 2,147,483,648-byte inputs and actual 209,715,200-byte guards;
+maximum whole-process RSS is **36,900,864 bytes**. All 126 throughput observations preserve their
+canonical outputs, original sizes and actual 4 GiB guards. Four of seven targets pass: ratios are
+identity **1.058915**, adjacent **0.760057**, accumulator **0.947313**, iterate **0.851638**, merge
+**0.888849**, fork **1.249870** and source-document **1.103680**. Runtime/benchmark hashes,
+controller hash and **59 runtime /eight benchmark** PDB sources validate. Separate hosted cohorts
+are not a causal before/after comparison. No full-P7 pass or release readiness follows; this runtime
+control is still isolated.
+Evidence: `artifacts/p7-completion/qualification-6cf57db/`.
+
+A separate SDK-version-only control leaves the saved loader and reader bridges unchanged. It
+uses the actual SDK assembly version only when the SDK generates a canonical four-part assembly
+header; short, padded, wildcard and manual-header builds keep the existing authoritative fallback.
+All **18** original build/header matrix cases and **64** focused saved-version/probe checks pass.
+All **24** NativeAOT observations preserve correct outputs, original 200 MiB inputs, actual 20 MiB
+heap guards and 58 runtime PDB source checks. Median RSS deltas are identity **0**, merge **−53,248**,
+fork **+4,096** and source-document **+192,512 bytes**. This isolated control is rejected for lack of
+a consistent footprint or elapsed improvement. No generated-version target is adopted, and the
+older rejected loader/field experiment is not revived. Evidence: `sdk-version-only-9a4af5d/`.
+
+An isolated ring-index control (`bea6c23`) replaces division only when the configured ring capacity
+is a power of two; arbitrary capacities keep the original remainder operation. Capacity, event
+ownership, publication, cancellation and scheduling remain unchanged. All four focused case
+multisets are preserved: **370 .NET 10 /335 .NET 8** checks per configuration. Six local 100 MB JIT
+observations show a **3.26%** lower fork median; 24 native 200 MiB controls retain correct outputs
+and actual 20 MiB guards, with no original budget qualification inferred.
+
+The [hosted x64 paired comparison](https://github.com/skuirrels/Xsl3/actions/runs/41283847049)
+retains all twelve valid original 100 MB outputs and actual 4 GiB guards. Fork streaming medians
+are **3,290.198 /2,976.823 ms**, a **9.52%** reduction. Candidate stream/tree is still **1.469389**,
+so the original target fails. Both 492-file source manifests, binary hashes, **58 runtime /eight
+benchmark** PDB sources per variant and all original fingerprints verify. The reviewed index change is retained on the P7 branch after this controlled hosted gain;
+complete final-source compatibility and original qualification remain required. Evidence: `tee-slot-index-9a4af5d/` and `hosted-slot-index-bea6c23/`.
+
+An opt-in [hosted native CPU diagnostic](https://github.com/skuirrels/Xsl3/actions/runs/41284157433)
+profiles the unchanged `9a4af5d` runtime with matching executable/debug-symbol build IDs. Both
+100 MB NativeAOT outputs, actual 4 GiB guards, native/managed binary hashes, **58 runtime /eight
+consumer** PDB sources and original fingerprints validate. All nine controller contracts pass;
+original jobs are equivalent when the new option is disabled. The first local YAML check lacks
+PyYAML; standard Ruby YAML verifies the complete old-job equivalence instead.
+
+Of **1,133** whole-child user CPU samples, **418 /36.89%** resolve to the native spin loop. Recorded
+callers attribute **26.39%** to reader publication waits and **10.06%** to caller-pump waits; **0.44%**
+remains unresolved. These are CPU shares including startup/warmup/oracle work, not removable elapsed
+time or acceptance results. They support one isolated short-poll control that retains the same
+1 ms ceiling, spare-CPU guard, parking fallback, threads and ownership. The earlier rejected
+no-yield control resets the BCL's exponential backoff; the new control tests checking state between
+short processor waits instead. Its outcome remains unmeasured. Evidence: `native-cpu-diagnosis-4ba7d3b/`.
 
 Full P7 remains active. Original failed memory/throughput targets, remaining contract accounting,
 public integration, final review/CI, merge and deployment handoff remain required. PR #27 stays draft,
