@@ -15,6 +15,9 @@ complete full P7.
 
 ## Latest verified state
 
+**Phase A, from 1 November 2026:** baseline of 1.1.7 and S3–S6 acceptance accounting. The current
+stage exits, obligation map, failure dispositions and owner decisions are in [phase A](p7-phase-a.md).
+
 **1.1.7 is released and further P7 work is paused at the owner's request.**
 [PR #27](https://github.com/skuirrels/Xsl3/pull/27) merged at
 `b0bf3bb3464e319048c230191577f86c326b5cdb`, the commit tagged `v1.1.7`.

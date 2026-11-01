@@ -259,10 +259,33 @@ public sealed class TestEnvironment
 
     /// <summary>Parts of the environment the runner can't honour yet; tests that use them aren't run.</summary>
     public IEnumerable<string> UnsupportedParts =>
-        Element.Elements().Select(e => e.Name.LocalName).Where(n => n is "collection" || n == "schema" && !SchemaAware)
+        Element.Elements().Where(e => e.Name.LocalName is "collection" && !DirectoryCollection(e) || e.Name.LocalName == "schema" && !SchemaAware)
+            .Select(e => e.Name.LocalName)
             .Concat(Schemas.Where(s => SchemaAware && (s.XsdVersion != "1.0" || s.File == null)).Select(s => s.File == null ? "schema without a file" : "schema: XSD " + s.XsdVersion))
             .Concat(Sources.Where(s => !SchemaAware && s.Validation is "strict" or "lax").Select(_ => "validation"))
             .Distinct();
+
+    /// <summary>
+    /// A collection the engine already resolves as declared: fn:collection and fn:uri-collection map a relative URI to a
+    /// directory whose .xml files, in name order, are its documents. Only a collection listing exactly those files is honoured.
+    /// </summary>
+    private bool DirectoryCollection(XElement collection)
+    {
+        if ((string?)collection.Attribute("uri") is not { Length: > 0 } uri || Uri.TryCreate(uri, UriKind.Absolute, out _))
+        {
+            return false;
+        }
+        string directory = Path.Combine(BaseDirectory, uri);
+        if (!Directory.Exists(directory))
+        {
+            return false;
+        }
+        string[] declared = collection.Elements(Catalog.Ns + "source")
+            .Select(s => (string?)s.Attribute("file") == (string?)s.Attribute("uri") ? (string?)s.Attribute("file") : null)
+            .Select(f => f == null ? "" : Path.GetFullPath(Path.Combine(BaseDirectory, f))).ToArray();
+        string[] actual = Directory.GetFiles(directory, "*.xml").Select(Path.GetFullPath).Order(StringComparer.Ordinal).ToArray();
+        return declared.SequenceEqual(actual, StringComparer.Ordinal);
+    }
 
     public IReadOnlyList<Schema> Schemas { get; }
 

@@ -2,8 +2,9 @@
 
 Verified 1 November 2026. The owner requested a stopping point and release of completed work.
 The bounded runtime correctness and allocation checkpoint is closed and published as **1.1.7**.
-Further P7 implementation is **paused**. Do not resume the earlier open-ended goal without a new
-owner instruction. Full streaming remains experimental and unsupported; `supports-streaming` is `no`.
+Further P7 implementation was paused here. On 1 November 2026 the owner resumed it in bounded phases:
+a fresh baseline of 1.1.7, then phase A (S3–S6 acceptance accounting); see [phase A](p7-phase-a.md).
+Do not resume the earlier open-ended goal. Full streaming remains experimental and unsupported; `supports-streaming` is `no`.
 
 ## Released baseline
 
