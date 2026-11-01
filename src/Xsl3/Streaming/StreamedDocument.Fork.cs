@@ -13,6 +13,7 @@ namespace Xsl3.Streaming;
 internal sealed partial class StreamedDocument
 {
     private readonly Node? _forkBoundary;
+    private ForkSource? _discardingFork;
     private readonly long _forkFirstChild = -1;
 
     // Binding projection reads only this prong's navigation state. The source may already
@@ -154,6 +155,10 @@ internal sealed partial class StreamedDocument
         private ConsumptionScope _consumption;
         private bool _entered, _first = true, _complete, _disposed, _ran;
         private readonly ForkInputProjection.Matcher? _projection;
+        private Node? _discarding;
+        private int _discardDepth;
+        private bool _discardText, _discardEnd;
+        private bool _canDiscardFrames;
 
         internal ForkSource(StreamedDocument source, Node boundary, ForkInputProjection? projection = null)
         {
@@ -200,9 +205,73 @@ internal sealed partial class StreamedDocument
 
         private ForkProngs.SourceRead<ForkEvent> ReadProjected()
         {
+            if (_discarding != null) return DiscardOneToken();
             Node? node = ReadNode(out bool end);
             if (node == null) return new(null, true);
-            return _projection!.Keep(node, end) ? new(new(node, end), false) : default;
+            bool keep = _projection!.Keep(node, end);
+            if (_canDiscardFrames && !end && node.Kind == XPathNodeType.Element && !node.EmptyElement
+                && (!keep || _projection.OmitsContent(node)))
+            {
+                _discarding = node;
+                _discardDepth = _source._reader.Depth;
+                _discardText = false;
+                _discardEnd = keep;
+            }
+            return keep ? new(new(node, end), false) : default;
+        }
+
+        // One raw token per scan credit, never XmlReader.Skip(): even omitted content
+        // retains read-time validation/cancellation and cannot hide an unbounded scan.
+        private ForkProngs.SourceRead<ForkEvent> DiscardOneToken()
+        {
+            _source.Check();
+            XmlReader reader = _source._reader;
+            if (!reader.Read())
+            {
+                _source.Root.Ended = _source.Root.ChildrenStarted = true;
+                _source._current = _source.Root;
+                _discarding = null;
+                _complete = _boundary == _source.Root;
+                return new(null, _complete);
+            }
+            switch (reader.NodeType)
+            {
+                case XmlNodeType.Text: case XmlNodeType.CDATA:
+                case XmlNodeType.Whitespace: case XmlNodeType.SignificantWhitespace:
+                    if (_source.KeepText() && !_discardText)
+                    {
+                        _source._number++;
+                        _discardText = true;
+                    }
+                    break;
+                case XmlNodeType.EntityReference:
+                    reader.ResolveEntity();
+                    break;
+                case XmlNodeType.EndEntity:
+                    break;
+                default:
+                    _discardText = false;
+                    if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                        _source._number++;
+                    else if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == _discardDepth)
+                    {
+                        Node node = _discarding!;
+                        node.Ended = node.ChildrenStarted = true;
+                        _source._current = node;
+                        _discarding = null;
+                        if (node == _boundary) _complete = true;
+                        if (_discardEnd) return new(new(node, true), false);
+                    }
+                    break;
+            }
+            return default;
+        }
+
+        internal void FinishDiscardedContent()
+        {
+            // Prongs have finished; no caller callback can be withheld here. Resume
+            // the discarded reader segment before ordinary frame navigation returns.
+            while (_discarding != null) DiscardOneToken();
         }
 
         internal void Run(IReadOnlyList<Action<StreamedNavigator, CancellationToken>> bodies, int capacity,
@@ -212,6 +281,12 @@ internal sealed partial class StreamedDocument
             ArgumentNullException.ThrowIfNull(bodies);
             if (_ran) throw new InvalidOperationException("A forward fork source can only run once");
             _ran = true;
+            // Hooks may be registered after Fork() but before Run(). Keep their full
+            // annotation/replay/consumption path; prune only an untyped plain source.
+            _canDiscardFrames = _projection != null && _source._reader.Settings is { ValidationType: ValidationType.None }
+                && _source._reader.SchemaInfo == null && !_source._completeValidation
+                && _source._observer == null && _source._capturing == null && _source._valueReplays == null
+                && _source._descendants == null && _source._consumedHeaders == null && _source._consumptionMatches == null;
             var prongs = new Action<StreamTee<ForkEvent>.Reader, CancellationToken>[bodies.Count];
             for (int i = 0; i < prongs.Length; i++)
             {
@@ -238,6 +313,14 @@ internal sealed partial class StreamedDocument
         {
             if (_disposed) return;
             _disposed = true;
+            if (_discarding != null)
+            {
+                // Preserve a partially read discarded segment without consuming any
+                // extra input during fork cleanup. Finish() must not Skip from the
+                // reader's interior position as though it were still on this header.
+                _discarding.ChildrenStarted = true;
+                _source._discardingFork = this;
+            }
             if (_entered) _consumption.Dispose();
         }
     }

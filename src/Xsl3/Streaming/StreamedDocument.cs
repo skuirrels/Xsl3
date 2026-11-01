@@ -346,6 +346,12 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     {
         Check();
         if (Root.Ended) throw PositionError();
+        if (_discardingFork is { } pending)
+        {
+            pending.FinishDiscardedContent();
+            _discardingFork = null;
+            return;
+        }
         if (_open.Count > 1 && _open[^1].Ended) _open.RemoveAt(_open.Count - 1);
         if (_reader is ForkEventReader fork)
         {
@@ -515,6 +521,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (_disposed) return;
         _disposed = true;
         _open.Clear();
+        _discardingFork = null;
         // Retained positions own their closed headers; the source needs no current row.
         _current = Root;
         // Retained source frames/copy provenance need their headers and phases, not

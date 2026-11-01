@@ -86,6 +86,13 @@ internal sealed class ForkInputProjection
             _boundary = boundary;
         }
 
+        internal bool OmitsContent(StreamedDocument.Node node)
+        {
+            int depth = node.Depth - _boundary.Depth;
+            int shape = _path[depth];
+            return shape >= 0 && !_shapes[shape].Whole && _shapes[shape].ChildCount == 0;
+        }
+
         internal bool Keep(StreamedDocument.Node node, bool end)
         {
             if (node == _boundary) return true;
