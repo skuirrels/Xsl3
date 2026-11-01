@@ -1,9 +1,9 @@
 # P7: streaming
 
-> **Full objective resumed, 2026-10-29:** the owner has resumed this entire plan through qualification,
-> review, merge and release. See [P7 completion](p7-completion.md) for the current evidence matrix.
-> The release boundaries and progress records below are historical. Original gates remain unchanged,
-> and streaming support cannot be claimed until they pass.
+> **Current handoff, 2026-11-01:** the bounded [1.1.7 checkpoint](p7-runtime-checkpoint.md) is merged
+> and published. The owner stopped further optimization; full P7 is paused and streaming remains unsupported.
+> Read the [agent handoff](p7-handoff.md) before resuming. This file retains the original design and
+> acceptance targets; its older release boundaries and progress records do not override the current stop.
 
 > **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.

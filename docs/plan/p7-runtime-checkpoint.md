@@ -4,6 +4,13 @@ On 1 November 2026 the owner requested a stopping point and release of the work 
 This supersedes the earlier instruction to continue optimization until every original P7 gate passes.
 It closes a bounded release checkpoint; it does not complete full P7 or change its acceptance targets.
 
+**Closed and published:** PR #27 merged at `b0bf3bb3464e319048c230191577f86c326b5cdb`,
+tagged `v1.1.7`. GitHub and all three NuGet packages are public. Reviewed-source CI, post-merge
+Linux/Windows/NativeAOT CI, tagged release checks, public-package consumers and 576 saved-style
+contracts passed; ordinary performance passed on the PR and was skipped on the main push.
+Further P7 work is paused. See the [agent handoff](p7-handoff.md) for exact verification links,
+remaining gates and evidence availability.
+
 ## Release boundary
 
 Use the retained `feature/p7-completion` changes reviewed in PR #27, plus the release corrections

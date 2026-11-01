@@ -26,7 +26,8 @@ tree-based; forward execution requires the explicit development opt-in. The orig
 and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
 See the [changelog](CHANGELOG.md), [1.1.7 release notes](docs/releases/1.1.7.md) and
-[checkpoint boundary](docs/plan/p7-runtime-checkpoint.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
+[checkpoint boundary](docs/plan/p7-runtime-checkpoint.md). Further P7 work is paused; see the
+[agent handoff](docs/plan/p7-handoff.md) before resuming. Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
 
 ## What works
