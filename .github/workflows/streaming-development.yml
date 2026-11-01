@@ -336,8 +336,17 @@ jobs:
           dotnet --info > artifacts/hosted-native-mappings/dotnet-info.txt
           uname -a > artifacts/hosted-native-mappings/host.txt
           nproc > artifacts/hosted-native-mappings/processors.txt
-          cat /sys/fs/cgroup/cpu.max > artifacts/hosted-native-mappings/cpu-max.txt
+          if test -r /sys/fs/cgroup/cpu.max
+          then
+            cat /sys/fs/cgroup/cpu.max > artifacts/hosted-native-mappings/cpu-max.txt
+          else
+            printf 'unavailable: this runner does not expose cgroup-v2 cpu.max\n' > artifacts/hosted-native-mappings/cpu-max.txt
+          fi
           getconf PAGESIZE > artifacts/hosted-native-mappings/page-size.txt
+      - name: Record the actual benchmark runtime allowance
+        run: |
+          dotnet build mapping-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1 -nr:false -p:UseSharedCompilation=false > artifacts/hosted-native-mappings/runtime-info-build.log
+          dotnet mapping-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll streaming-info > artifacts/hosted-native-mappings/runtime.json
       - name: Install the canonical native probe linker
         run: sudo apt-get update && sudo apt-get install -y lld
       - name: Publish the unchanged canonical probe
