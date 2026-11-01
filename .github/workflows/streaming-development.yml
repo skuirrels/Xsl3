@@ -12,6 +12,10 @@ on:
         description: Collect hosted x64 fork CPU samples only (never acceptance)
         type: boolean
         default: false
+      native_cpu_profile:
+        description: Profile the canonical NativeAOT fork with matching native symbols (never acceptance)
+        type: boolean
+        default: false
       comparison_ref:
         description: Optional immutable candidate ref for an unprofiled paired fork diagnostic
         type: string
@@ -40,7 +44,7 @@ jobs:
   # S7 uses fresh paired processes so source parsing and first output are measured.
   # The benchmark heap guard is separate from the exact memory gates below.
   streaming-benchmark:
-    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -70,7 +74,7 @@ jobs:
   # P7 decision 6: exact generated-input size and absolute process/managed limits.
   # A failed or incomplete matrix is a failed job; retained artifacts expose it.
   streaming-memory:
-    if: ${{ inputs.memory_diagnosis != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -113,7 +117,7 @@ jobs:
 
   # P7E is an explicitly selected diagnostic job. Scheduled/default acceptance is unchanged.
   identity-memory-diagnosis:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -160,7 +164,7 @@ jobs:
 
   # P7F comparisons use the same saved entrypoints on both runtime versions.
   identity-allocation-comparison:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison && inputs.fork_cpu_diagnosis != true && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -210,7 +214,7 @@ jobs:
 
   # Explicit diagnostic selection leaves scheduled/default original acceptance unchanged.
   fork-cpu-diagnosis:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fork_cpu_diagnosis && inputs.comparison_ref == '' && inputs.native_mapping_diagnosis != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fork_cpu_diagnosis && inputs.comparison_ref == '' && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -254,7 +258,7 @@ jobs:
             profile-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/*.json
 
   fork-wait-comparison:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fork_cpu_diagnosis && inputs.comparison_ref != '' && inputs.native_mapping_diagnosis != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fork_cpu_diagnosis && inputs.comparison_ref != '' && inputs.native_mapping_diagnosis != true && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -302,7 +306,7 @@ jobs:
             candidate-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/*.json
 
   native-memory-mappings:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.native_mapping_diagnosis }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.native_mapping_diagnosis && inputs.native_cpu_profile != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -368,3 +372,63 @@ jobs:
         with:
           name: hosted-native-memory-mappings
           path: artifacts/hosted-native-mappings
+
+  native-fork-cpu-diagnosis:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.native_cpu_profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: profile-source
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 10.0.x
+      - name: Validate exclusive native diagnostic selection
+        env:
+          FORK_CPU: ${{ inputs.fork_cpu_diagnosis }}
+          MEMORY_DIAGNOSIS: ${{ inputs.memory_diagnosis }}
+          ALLOCATION_COMPARISON: ${{ inputs.allocation_comparison }}
+          NATIVE_MAPPING: ${{ inputs.native_mapping_diagnosis }}
+          COMPARISON_REF: ${{ inputs.comparison_ref }}
+        run: |
+          test "$FORK_CPU" = true
+          test "$MEMORY_DIAGNOSIS" != true
+          test "$ALLOCATION_COMPARISON" != true
+          test "$NATIVE_MAPPING" != true
+          test -z "$COMPARISON_REF"
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s eng/tests -p test_streaming_cpu_profile.py
+      - name: Install the unchanged probe linker and Linux sampler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld-18 linux-tools-common linux-tools-generic
+          echo /usr/lib/llvm-18/bin >> "$GITHUB_PATH"
+      - name: Publish the canonical native probe and retain portable consumer symbols
+        run: |
+          mkdir -p artifacts
+          bash profile-source/eng/publish-stream-probe.sh linux-x64 artifacts/hosted-native-fork-publish
+          cp profile-source/tests/Xsl3.StreamingProbe.Native/obj/Release/net10.0/linux-x64/Xsl3.StreamingProbe.Native.pdb artifacts/hosted-native-fork-publish/consumer.pdb
+      - name: Profile unchanged native tree and streaming fork children
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          perf_binary=$(find /usr/lib -maxdepth 3 -path '*/linux-tools*/perf' -type f | sort | head -n 1)
+          test -n "$perf_binary"
+          python3 eng/profile-streaming-cpu.py --source profile-source --native artifacts/hosted-native-fork-publish/bin/Xsl3.StreamingProbe.Native --perf "$perf_binary" --bytes 100000000 --heap-limit 4294967296 --output artifacts/hosted-native-fork-cpu
+          git -C profile-source status --porcelain --untracked-files=no > artifacts/hosted-native-fork-cpu/source-status-after.txt
+          test ! -s artifacts/hosted-native-fork-cpu/source-status-after.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: hosted-native-fork-cpu-diagnosis
+          path: |
+            artifacts/hosted-native-fork-cpu
+            artifacts/hosted-native-fork-publish
+            profile-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/*.dll
+            profile-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/*.pdb
+            profile-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/*.json

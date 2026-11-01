@@ -22,13 +22,15 @@ def environment(original, heap_limit):
     return result
 
 
-def validate_pair(results, gate, size, heap_limit):
+def validate_pair(results, gate, size, heap_limit, native=False):
     for mode, result in results.items():
-        if not gate.valid_measurement(result, 'fork', mode, size, 0, False):
+        if not gate.valid_measurement(result, 'fork', mode, size, 0, native):
             raise ValueError('Profiled child returned an invalid result: ' + mode)
         if result['AvailableManagedBytes'] != heap_limit:
             raise ValueError('Profiled child did not use the requested managed guard')
-        if not result['DynamicCodeSupported'] or not result['HasTrustedPlatformAssemblies']:
+        if native and (result['DynamicCodeSupported'] or result['HasTrustedPlatformAssemblies']):
+            raise ValueError('The native CPU control requires an actual NativeAOT host')
+        if not native and (not result['DynamicCodeSupported'] or not result['HasTrustedPlatformAssemblies']):
             raise ValueError('The CPU control requires the actual managed benchmark child')
     if set(results) != {'tree', 'stream'} or results['tree']['Outputs'] != results['stream']['Outputs']:
         raise ValueError('Profiled tree/stream fingerprints differ or coverage is incomplete')
@@ -41,6 +43,7 @@ def main():
     parser.add_argument('--source', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--perf', required=True, type=Path)
+    parser.add_argument('--native', type=Path, help='Existing canonical NativeAOT probe, with adjacent .dbg symbols')
     parser.add_argument('--bytes', type=int, default=100_000_000)
     parser.add_argument('--heap-limit', type=int, default=4_294_967_296)
     args = parser.parse_args()
@@ -90,16 +93,34 @@ def main():
     spec = importlib.util.spec_from_file_location('gate', script)
     gate = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gate)
+    native = args.native.resolve() if args.native else None
+    if native:
+        symbols = native.with_name(native.name + '.dbg')
+        if not native.is_file() or not symbols.is_file():
+            raise RuntimeError('Native executable and adjacent debug symbols are required')
+        report['nativeBinaryHashes'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                       for p in (native, symbols)}
+        def build_id(path):
+            import re
+            notes = run(path.name + '-notes', ['readelf', '-n', str(path)], True)
+            matches = re.findall(r'Build ID: ([0-9a-f]+)', notes)
+            if len(matches) != 1:
+                raise RuntimeError('Native executable/symbol build identity is missing or ambiguous')
+            return matches[0]
+        report['nativeBuildId'] = build_id(native)
+        if build_id(symbols) != report['nativeBuildId']:
+            raise RuntimeError('Native symbols do not match the executable')
     results = {}
     for mode in ('tree', 'stream'):
         data = output / (mode + '.perf.data')
         # GNU timeout owns and terminates the entire privileged profiling process group.
         # Perf maps alone provide symbols without adding a second jitdump recorder.
+        child = ([str(native), 'stream-probe'] if native else [dotnet, str(assembly), 'streaming-child'])
         run(mode, ['sudo', '-n', '/usr/bin/timeout', '--kill-after=5s', '120s', str(args.perf),
                    'record', '-e', 'cpu-clock:u', '-F', '199', '--call-graph', 'dwarf,16384',
                    '-o', str(data), '--', '/usr/bin/env',
                    'DOTNET_GCHeapHardLimit=' + f'{args.heap_limit:X}', 'DOTNET_TieredCompilation=0',
-                   'DOTNET_PerfMapEnabled=3', dotnet, str(assembly), 'streaming-child',
+                   'DOTNET_PerfMapEnabled=' + ('0' if native else '3'), *child,
                    'fork', mode, str(args.bytes), '0'])
         run(mode + '-readability', ['sudo', '-n', 'chmod', 'a+r', str(data)])
         results[mode] = json.loads((output / (mode + '.stdout')).read_text())
@@ -114,12 +135,16 @@ def main():
                 path = Path('/tmp') / name
                 if path.is_file():
                     shutil.copy2(path, symbols / name)
-        if not list(symbols.glob('perf-*.map')):
+        if not native and not list(symbols.glob('perf-*.map')):
             raise RuntimeError('Managed perf maps were not retained; no symbolication claim')
         run(mode + '-exclusive', [str(args.perf), 'report', '-i', str(data), '--stdio',
                                   '--no-children', '--sort', 'symbol,dso', '--percent-limit', '0.5'])
         run(mode + '-stacks', [str(args.perf), 'script', '-i', str(data)])
-    validate_pair(results, gate, args.bytes, args.heap_limit)
+    validate_pair(results, gate, args.bytes, args.heap_limit, native=native is not None)
+    if native:
+        after = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (native, native.with_name(native.name + '.dbg'))}
+        if after != report['nativeBinaryHashes']:
+            raise RuntimeError('Native binary or symbols changed during profiling')
     report.update(complete=True, results=results, profiledOutputsValidated=True)
     save()
 

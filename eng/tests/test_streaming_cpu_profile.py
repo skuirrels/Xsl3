@@ -42,6 +42,22 @@ class CpuProfileContracts(unittest.TestCase):
     def test_matching_complete_children_are_accepted(self):
         profile.validate_pair(pair(), gate, 1000, 4096)
 
+    def test_matching_native_children_are_accepted(self):
+        results = pair()
+        for result in results.values():
+            result.update(DynamicCodeSupported=False, HasTrustedPlatformAssemblies=False)
+        profile.validate_pair(results, gate, 1000, 4096, native=True)
+
+    def test_native_control_rejects_managed_hosts_and_invalid_guards(self):
+        for field, value in [('DynamicCodeSupported', True), ('HasTrustedPlatformAssemblies', True),
+                             ('AvailableManagedBytes', 8192), ('ValidOutput', False)]:
+            results = pair()
+            for result in results.values():
+                result.update(DynamicCodeSupported=False, HasTrustedPlatformAssemblies=False)
+            results['stream'][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                profile.validate_pair(results, gate, 1000, 4096, native=True)
+
     def test_missing_mode_is_rejected(self):
         results = pair()
         del results['stream']
