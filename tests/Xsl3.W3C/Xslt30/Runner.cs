@@ -26,6 +26,11 @@ public sealed partial class Runner
 {
     private static readonly TimeSpan s_timeout = TimeSpan.FromSeconds(30);
 
+    // Conformance selects execution independently from static streamability analysis.
+    // Preserve the original tree/strict profile protocol after the public execution
+    // default changes, sharing the choice across modern, legacy and saved compilation.
+    private static bool ForwardExecution => Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+
     // Preserve the actual exception for the separate exact static-diagnostic audit. Ordinary
     // conformance keeps its established assertion/error-code accounting.
     internal Action<TestCase, Exception?>? ExecutionCompleted { get; init; }
@@ -84,6 +89,7 @@ public sealed partial class Runner
         {
             Settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
             {
+                StreamedExecution = ForwardExecution,
                 EnableEvaluate = true,
                 VersionMode = XsltVersionMode.BackwardsCompatible,
                 EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),
@@ -480,6 +486,7 @@ public sealed partial class Runner
                 using var compilationStage = Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Compilation);
                 var settings = new XsltSettings(enableDocumentFunction: true, enableScript: false)
                 {
+                    StreamedExecution = ForwardExecution,
                     EnableEvaluate = true,
                     VersionMode = XsltVersionMode.BackwardsCompatible,
                     EnableAssertions = !test.EffectiveDependencies.Any(d => d.Type == "enable_assertions" && !d.Satisfied),

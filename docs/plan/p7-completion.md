@@ -13,8 +13,9 @@ historical evidence are retained. An audit or another bounded increment does not
 ## Latest verified state
 
 The preceding retained performance head `e223b2f` passes all four ordinary CI jobs, independently
-of streaming qualification. The public-default follow-up below is locally validated; its final
-hosted CI remains required. Isolated startup composition `c7da793` is not adopted: its complete hosted original
+of streaming qualification. The public-default follow-up below is pushed and locally validated. Its hosted CI passes Windows,
+NativeAOT and ordinary performance; Ubuntu exposes the harness regression described below. The
+narrower harness repair passes the complete local qualification described below; its hosted CI remains required. Isolated startup composition `c7da793` is not adopted: its complete hosted original
 run passes **13/16 push budgets**, **16/16 nightly budgets**, and **4/7 throughput targets** with
 all **126 benchmark observations** valid. Merge/fork/source-document RSS and identity/fork/source-document
 throughput remain failed. Their original inputs, limits, oracles and failed observations are retained.
@@ -24,7 +25,7 @@ because neither produces a consistent useful RSS reduction. The public Strict/Fa
 follow-up now passes all four full unit suites (**7,339 .NET 10 /6,229 .NET 8** per configuration)
 and the unchanged **739-check** NativeAOT consumer. Every previous row, all 456 saved inputs and eight
 consumer sources remain. Four regressions fail on unchanged source; all twelve new cases pass after
-the fix. The source and matching README/package-readme/migration/changelog updates are retained locally.
+the fix. The source and matching README/package-readme/migration/changelog updates are pushed at `468ea7f`.
 No merge, package readiness or publication is claimed.
 
 ## Requirements and evidence
@@ -629,6 +630,68 @@ captures, so this neither locates the later difference nor establishes an operat
 defect. It supplies no justification for changing report transport, subtracting counters or relaxing a
 budget. The control stays outside the branch. All local controllers are terminal and no hosted
 qualification is active. Evidence: `artifacts/p7-completion/report-stages-c7da793/audit.json`.
+
+### Current allocation controls and ordinary-profile regression, 2026-11-01
+
+A fresh trace uses retained head `468ea7f`, the original 100 MB fork fixture/oracle and an actual 4 GiB
+managed guard. All output fingerprints, binary hashes and **59 runtime /eight benchmark** PDB sources
+validate. On .NET 10.0.14 /macOS ARM64, weighted allocation ticks still place source-frame creation
+first; they also identify scalar-cast result arrays. These samples include startup, warmup and oracle
+work and are not exact allocation totals or hosted timing/RSS qualification.
+Evidence: `artifacts/p7-completion/current-allocation-468ea7f/audit.json`.
+
+Two isolated scalar-cast controls share the existing conversion rules and preserve list/schema casts.
+The first removes a singleton result array but caches the optional input; the second uses an opaque
+optional-result protocol instead. Correctness alone does not justify either. Four final focused suites
+retain **295 /263** earlier rows and add **30 /28** contracts, passing **325 .NET 10 /291 .NET 8** per
+configuration. The unchanged-source negative control fails exactly six scalar-codegen expectations;
+all seventeen initial semantic/fallback cases pass. Initial test-string and test-interface/visitor
+preparation failures remain retained. No earlier failed attempt is presented as a runtime regression.
+
+All **27** exact-allocation controls validate their original generated input/output, identical consumer
+binary, frozen engines and actual 4 GiB guards. At 100 MB, baseline streaming allocates a median
+**3,125,192,312 bytes**; the controls allocate **3,180,859,896 /3,180,860,368 bytes**, about **1.78% more**.
+The same regression appears at 10 MB; tree allocation remains effectively unchanged. Sequence-valued
+arithmetic consumers still materialize the optional scalar result. Both controls are excluded; no new
+runtime ABI, compiler change or opaque token enters the branch. All **60** selected runtime PDB sources
+match. No throughput/RSS gain or original gate pass is inferred from allocation correctness.
+Evidence: `artifacts/p7-completion/scalar-casts-468ea7f/audit.json`.
+
+The pushed retained head's [ordinary CI run](https://github.com/skuirrels/Xsl3/actions/runs/41307200620)
+passes Windows, NativeAOT and ordinary performance. Ubuntu retains one new W3C failure: `merge-051`
+requests an accumulator without `streamable="yes"`, and the newly active forward path correctly rejects
+it with `XTSE3300`. The [XSLT applicability rule](https://www.w3.org/TR/xslt-30/#accumulator-applicability)
+requires that restriction for streamed sources; relaxing the runtime to satisfy an ordinary tree-profile
+case would be incorrect. The failed job and original failure stay retained.
+
+The first harness repair explicitly selects public `Fallback` for ordinary/unstreamed runs. It passes
+58 selected checks in six modern/legacy/saved Release/Debug combinations, but the complete ordinary
+suite catches a new failure in `streamable-141`: that policy also disables a required `XTSE3430` static
+check. The failed full suite remains retained and that broader policy change is not adopted.
+
+The narrower repair explicitly sets the existing per-compiler execution flag from the original
+`XSL3_STREAM_STRICT` request in both modern and legacy/saved compilation. Static streamability policy
+remains Strict in every profile. This restores the harness's original tree/strict protocol after the
+public default changes. No fixture, oracle, profile selection, known-failure baseline, original
+acceptance command or runtime code changes. Thirteen behavioral contracts cover tree/strict execution,
+actual source forwarding and required static errors in ordinary, unstreamed and S1/S2 profiles. The
+final source-negative run has **five failures /eight passes** on unchanged source. All **63** focused
+checks pass in each of six Release/Debug modern/legacy/saved runs. The complete ordinary suite passes
+**97** harness tests. A digest-verified download of the failed hosted run proves that every previous
+**84** W3C case remains and passes, adding exactly the thirteen new contracts. Ordinary conformance
+returns to **8,850 passed /18 known failures /41 not run**.
+
+Release/Debug reviewed S1 and S2 retain **1,000 /155** passing cases. Raw S1 retains **919** cases and
+**66,643** expressions, with no independent reference disagreement; raw S2's two original conflicts
+remain visible. Release, Debug and legacy/saved strict inventories each retain **2,695 passed /16
+failed /one not run**, zero unmatched strict codes, and all 2,712 selected cases. Each original
+inventory/forwarding/evaluation audit passes. The explicitly unstreamed inventory retains **2,693
+passed /18 failed /one not run**. No baseline changes or original memory/throughput passes are inferred.
+
+Both configurations verify **59 runtime /three harness** PDB sources. Production runtime sources are
+unchanged. All local controllers are terminal. Final-source hosted CI remains required.
+Evidence: `artifacts/p7-completion/profile-policy-468ea7f/` (failed public-Fallback attempt) and
+`v2/audit.json` (final execution-only repair).
 
 ## Preceding verified checkpoint, 2026-11-01
 
