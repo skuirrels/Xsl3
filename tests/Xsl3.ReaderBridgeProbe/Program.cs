@@ -12,4 +12,5 @@ if (RuntimeFeature.IsDynamicCodeSupported || AppContext.GetData("TRUSTED_PLATFOR
     return 1;
 }
 Console.WriteLine($"Reader bridge contracts passed: {ReaderBridgeContracts.Verify()} checks; dynamic code supported: {RuntimeFeature.IsDynamicCodeSupported}");
+Console.WriteLine($"DTD metadata contracts passed: {ReaderBridgeContracts.VerifyDtdMetadata()} checks");
 return 0;
