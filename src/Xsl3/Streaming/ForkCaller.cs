@@ -101,7 +101,7 @@ internal sealed class ForkCaller : IDisposable
     // therefore notify this pump while holding its own ring lock without a lock cycle.
     internal void NotifyProduction() => Wake();
 
-    internal void Pump(Func<bool>? produce = null)
+    internal void Pump(Func<bool>? produce = null, Func<bool>? canSpin = null)
     {
         if (Environment.CurrentManagedThreadId != _thread) throw new InvalidOperationException("A fork must pump on its invoking thread");
         while (true)
@@ -128,6 +128,9 @@ internal sealed class ForkCaller : IDisposable
             if (work == null)
             {
                 if (produce?.Invoke() == true) continue;
+                // A tee may take its own lock while producing/notifying this pump.
+                // Evaluate this advisory hint outside the caller gate as well.
+                bool spinAllowed = canSpin?.Invoke() ?? true;
                 lock (_gate)
                 {
                     // Production requests can arrive between checking the source and
@@ -135,7 +138,7 @@ internal sealed class ForkCaller : IDisposable
                     if (version == _wakeVersion && _pending.Count == 0 && _workers != 0 && !_closed)
                     {
                         _cancellation.ThrowIfCancellationRequested();
-                        if (produce != null && HasSpareProcessor(_initialWorkers))
+                        if (produce != null && spinAllowed && HasSpareProcessor(_initialWorkers))
                         {
                             Monitor.Exit(_gate);
                             try

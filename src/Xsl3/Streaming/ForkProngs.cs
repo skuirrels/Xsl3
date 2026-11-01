@@ -124,7 +124,7 @@ internal static class ForkProngs
                 workers[i].Start();
                 started++;
             }
-            caller.Pump(tee.ProduceRequested);
+            caller.Pump(tee.ProduceRequested, tee.CanOptimisticallyWait);
             for (int i = 0; i < started; i++) workers[i].Join();
             joined = true;
             // Cancellation by an earlier failed prong only creates faults at greater indices.

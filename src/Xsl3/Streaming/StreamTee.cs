@@ -232,7 +232,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         {
             // Only spend a bounded optimistic wait when caller plus prongs fit the
             // effective processor allowance. Oversubscribed forks retain parking.
-            if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length))
+            if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length) && _next - _first < _events.Length)
             {
                 long publication = _publicationVersion;
                 Monitor.Exit(_gate);
@@ -258,6 +258,11 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             if (waitingForSpace) _waitingForSpace--;
         }
     }
+
+    // Advisory only: a full ring needs another reader to release capacity before
+    // publication is possible. Cross-snapshot reads may conservatively skip a spin;
+    // the pump still uses its wake version and queue checks before parking.
+    internal bool CanOptimisticallyWait() => Volatile.Read(ref _next) - Volatile.Read(ref _first) < _events.Length;
 
     // Called by the invoking thread's pump, without its queue lock. Consumers only
     // signal demand; a refill needs no queued closure or blocked callback request.
