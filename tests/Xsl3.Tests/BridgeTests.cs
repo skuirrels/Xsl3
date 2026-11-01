@@ -27,6 +27,11 @@ namespace Xsl3.Tests;
 public class BridgeTests
 {
     [Fact]
+    public void WriterDefaultsAndPublicMutationsPreserveBclState() => Assert.Equal(42, WriterBridgeContracts.Verify());
+    [Fact]
+    public void ReaderDtdMetadataPreservesParsedDeclarations() => Assert.Equal(8, ReaderBridgeContracts.VerifyDtdMetadata());
+
+    [Fact]
     public void EngineIsXsl3()
     {
         Assert.Equal("Xsl3", typeof(XslCompiledTransform).Assembly.GetName().Name);

@@ -75,7 +75,7 @@ namespace Xsl3
             Justification = "This method will generate the IL methods using RefEmit at runtime, which will then try to call them " +
             "using methods that are annotated as RequiresUnreferencedCode. In this case, these uses can be suppressed as the " +
             "trimmer won't be able to trim any IL that gets generated at runtime.")]
-        public XmlILCommand? Generate(QilExpression query, TypeBuilder? typeBldr)
+        public XmlILCommand? Generate(QilExpression query, TypeBuilder? typeBldr, string? providerVersion = null)
         {
             _qil = query;
 
@@ -189,7 +189,12 @@ namespace Xsl3
                 {
                     staticData.DispatcherName = saved.Name; // Xsl3: bound by Load(MethodInfo, …)
                 }
-                CreateTypeInitializer(staticData);
+                var fields = CreateTypeInitializer(staticData);
+                if (providerVersion != null)
+                {
+                    MethodInfo? dispatcher = _qil.Dispatcher == null ? null : XmlILAnnotation.Write(_qil.Dispatcher).FunctionBinding as MethodInfo;
+                    _module.DefineCompiledProvider(fields.Data, fields.Types, methExec, dispatcher, providerVersion);
+                }
 
                 // Finish up creation of the type
                 _module.BakeMethods();
@@ -378,7 +383,7 @@ namespace Xsl3
         /// <summary>
         /// Create static constructor that initializes XmlQueryStaticData instance at runtime.
         /// </summary>
-        public void CreateTypeInitializer(XmlQueryStaticData staticData)
+        public (FieldInfo Data, FieldInfo Types) CreateTypeInitializer(XmlQueryStaticData staticData)
         {
             byte[] data;
             Type[]? ebTypes;
@@ -459,6 +464,7 @@ namespace Xsl3
             }
 
             _helper.MethodEnd();
+            return (fldData, fldTypes);
         }
     }
 }

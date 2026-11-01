@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Xsl3/Xsl3.csproj" />
     <Compile Include="../Xsl3.Tests/ReaderBridgeContracts.cs" Link="ReaderBridgeContracts.cs" />
+    <Compile Include="../Xsl3.Tests/WriterBridgeContracts.cs" Link="WriterBridgeContracts.cs" />
   </ItemGroup>
 </Project>

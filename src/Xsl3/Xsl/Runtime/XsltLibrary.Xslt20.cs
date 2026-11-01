@@ -452,7 +452,7 @@ namespace Xsl3.Runtime
                     }
                     else
                     {
-                        System.Xml.XmlWriterSettings s = settings.Clone();
+                        System.Xml.XmlWriterSettings s = settings.CloneWithQueryDefaults();
                         s.CloseOutput = false;
                         ItemSerializer.WriteSequence(document, s, extras ?? new OutputExtras(), ws => System.Xml.XmlWriter.Create(EmptyTagFilter.Wrap(output, ws, extras), ws));
                     }

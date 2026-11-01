@@ -51,7 +51,7 @@ namespace Xsl3.Runtime
         {
             OutputExtras plain = extras.Clone();
             plain.RawMethod = null;
-            XmlWriterSettings s = settings.Clone();
+            XmlWriterSettings s = settings.CloneWithQueryDefaults();
             s.ConformanceLevel = ConformanceLevel.Fragment;
             if (extras.ItemSeparator is { } separator && separator.AsSpan().IndexOfAny('\r', '\n') >= 0)
             {

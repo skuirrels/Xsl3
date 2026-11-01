@@ -137,7 +137,7 @@ namespace System.Xml
         {
             get
             {
-                XmlWriterSettings settings = new XmlWriterSettings();
+                XmlWriterSettings settings = XmlWriterSettingsInternals.CreateDefaultSettings();
 
                 settings.Encoding = _encoding;
                 settings.OmitXmlDeclaration = _omitXmlDeclaration;

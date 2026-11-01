@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using MS.Internal.Xml.Cache;
 
 namespace System.Xml
@@ -20,16 +21,50 @@ namespace System.Xml
         private const string Asm = "System.Private.Xml";
         private const DynamicallyAccessedMemberTypes Members = DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties;
 
-        private static readonly PropertyInfo? s_dtdInfo = typeof(XmlReader).GetProperty("DtdInfo", BindingFlags.Instance | BindingFlags.NonPublic);
-        // Xsl3: annotated, so the trimmer keeps the members looked up below (a literal type name is analyzable).
-        [DynamicallyAccessedMembers(Members)]
-        private static readonly Type? s_iDtdInfo = Type.GetType("System.Xml.IDtdInfo, System.Private.Xml");
-        [DynamicallyAccessedMembers(Members)]
-        private static readonly Type? s_iAttrList = Type.GetType("System.Xml.IDtdAttributeListInfo, System.Private.Xml");
-        [DynamicallyAccessedMembers(Members)]
-        private static readonly Type? s_iAttr = Type.GetType("System.Xml.IDtdAttributeInfo, System.Private.Xml");
+#if NET10_0_OR_GREATER
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_DtdInfo")]
+        [return: UnsafeAccessorType("System.Xml.IDtdInfo, System.Private.Xml")]
+        private static extern object? GetDtdInfoCore(XmlReader reader);
 
+        private static object? GetDtdInfo(XmlReader reader)
+        {
+            try { return GetDtdInfoCore(reader); }
+            catch (MissingMethodException) { return null; } // same absent-member result as the reflection bridge
+            catch (TypeLoadException) { return null; }
+        }
+#else
+        private static readonly PropertyInfo? s_dtdInfo = typeof(XmlReader).GetProperty("DtdInfo", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static object? GetDtdInfo(XmlReader reader) => s_dtdInfo?.GetValue(reader);
+#endif
+        // A missing DTD needs only the reader's DtdInfo property. Keep schema-
+        // internal type/property bindings cold until an actual DTD is encountered.
+        private static class Metadata
+        {
+            // Literal type identities and annotations preserve only the requested bridge members.
+            [DynamicallyAccessedMembers(Members)]
+            internal static readonly Type? s_iDtdInfo = Type.GetType("System.Xml.IDtdInfo, System.Private.Xml");
+            [DynamicallyAccessedMembers(Members)]
+            internal static readonly Type? s_iAttrList = Type.GetType("System.Xml.IDtdAttributeListInfo, System.Private.Xml");
+            [DynamicallyAccessedMembers(Members)]
+            internal static readonly Type? s_iAttr = Type.GetType("System.Xml.IDtdAttributeInfo, System.Private.Xml");
+            // Xsl3: the attribute declarations of an element's attribute list, and an attribute's tokenized type (IDREF, IDREFS).
+            internal static readonly PropertyInfo? s_attDefs = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("AttDefs", BindingFlags.Instance | BindingFlags.NonPublic);
+            internal static readonly PropertyInfo? s_tokenizedType = Type.GetType("System.Xml.Schema.SchemaAttDef, System.Private.Xml")?.GetProperty("TokenizedType", BindingFlags.Instance | BindingFlags.NonPublic);
+            internal static readonly PropertyInfo? s_undeclaredElementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?
+                .GetProperty("UndeclaredElementDecls", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            // Xsl3: the DTD's element declarations (SchemaInfo.ElementDecls) and an element's content model.
+            internal static readonly PropertyInfo? s_elementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?.GetProperty("ElementDecls", BindingFlags.Instance | BindingFlags.NonPublic);
+            internal static readonly PropertyInfo? s_contentValidator = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("ContentValidator", BindingFlags.Instance | BindingFlags.NonPublic);
+            internal static readonly PropertyInfo? s_contentType = Type.GetType("System.Xml.Schema.ContentValidator, System.Private.Xml")?.GetProperty("ContentType", BindingFlags.Instance | BindingFlags.Public);
+
+            // Precise initialization prevents beforefieldinit from hoisting the
+            // reflection bindings ahead of the caller's null-DTD check.
+            static Metadata() { }
+        }
+
+#if !NET10_0_OR_GREATER
         [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+#endif
         [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeListInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
@@ -41,8 +76,8 @@ namespace System.Xml
                 reader = wrapping.InnerReader;
             }
 
-            object? dtdInfo = s_dtdInfo?.GetValue(reader);
-            if (dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null)
+            object? dtdInfo = GetDtdInfo(reader);
+            if (dtdInfo == null || Metadata.s_iDtdInfo == null || Metadata.s_iAttrList == null || Metadata.s_iAttr == null)
             {
                 return;
             }
@@ -51,7 +86,9 @@ namespace System.Xml
         }
 
         /// <summary>Xsl3: the ID attributes the reader's DTD declares, as (element local name, element prefix, attribute local name, attribute prefix).</summary>
+#if !NET10_0_OR_GREATER
         [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+#endif
         [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeListInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
@@ -61,23 +98,20 @@ namespace System.Xml
             {
                 reader = wrapping.InnerReader;
             }
-            object? dtdInfo = s_dtdInfo?.GetValue(reader);
-            return dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null
+            object? dtdInfo = GetDtdInfo(reader);
+            return dtdInfo == null || Metadata.s_iDtdInfo == null || Metadata.s_iAttrList == null || Metadata.s_iAttr == null
                 ? new List<(string, string, string, string)>()
                 : GetIdAttributes(dtdInfo, includeUndeclared);
         }
 
-        // Xsl3: the attribute declarations of an element's attribute list, and an attribute's tokenized type (IDREF, IDREFS).
-        private static readonly PropertyInfo? s_attDefs = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("AttDefs", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly PropertyInfo? s_tokenizedType = Type.GetType("System.Xml.Schema.SchemaAttDef, System.Private.Xml")?.GetProperty("TokenizedType", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly PropertyInfo? s_undeclaredElementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?
-            .GetProperty("UndeclaredElementDecls", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         /// <summary>
         /// Xsl3: the IDREF and IDREFS attributes the reader's DTD declares, as (element local name, element prefix,
         /// attribute local name, attribute prefix), for fn:idref. Empty when the DTD's internals can't be reached.
         /// </summary>
+#if !NET10_0_OR_GREATER
         [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+#endif
         [DynamicDependency(Members, "System.Xml.IDtdInfo", Asm)]
         [DynamicDependency(Members, "System.Xml.IDtdAttributeInfo", Asm)]
         [DynamicDependency("get_AttDefs", "System.Xml.Schema.SchemaElementDecl", Asm)]
@@ -89,23 +123,23 @@ namespace System.Xml
             {
                 reader = wrapping.InnerReader;
             }
-            object? dtdInfo = s_dtdInfo?.GetValue(reader);
-            if (dtdInfo == null || s_iDtdInfo == null || s_iAttrList == null || s_iAttr == null || s_attDefs == null || s_tokenizedType == null)
+            object? dtdInfo = GetDtdInfo(reader);
+            if (dtdInfo == null || Metadata.s_iDtdInfo == null || Metadata.s_iAttrList == null || Metadata.s_iAttr == null || Metadata.s_attDefs == null || Metadata.s_tokenizedType == null)
             {
                 return result;
             }
             var attrLists = AttributeLists(dtdInfo, includeUndeclared);
-            PropertyInfo listLocalName = s_iAttrList.GetProperty("LocalName")!, listPrefix = s_iAttrList.GetProperty("Prefix")!;
-            PropertyInfo attrLocalName = s_iAttr.GetProperty("LocalName")!, attrPrefix = s_iAttr.GetProperty("Prefix")!;
+            PropertyInfo listLocalName = Metadata.s_iAttrList.GetProperty("LocalName")!, listPrefix = Metadata.s_iAttrList.GetProperty("Prefix")!;
+            PropertyInfo attrLocalName = Metadata.s_iAttr.GetProperty("LocalName")!, attrPrefix = Metadata.s_iAttr.GetProperty("Prefix")!;
             foreach (object attrList in attrLists)
             {
-                if (s_attDefs.GetValue(attrList) is not System.Collections.IDictionary attDefs)
+                if (Metadata.s_attDefs.GetValue(attrList) is not System.Collections.IDictionary attDefs)
                 {
                     continue;
                 }
                 foreach (object attDef in attDefs.Values)
                 {
-                    if (s_tokenizedType.GetValue(attDef) is XmlTokenizedType.IDREF or XmlTokenizedType.IDREFS)
+                    if (Metadata.s_tokenizedType.GetValue(attDef) is XmlTokenizedType.IDREF or XmlTokenizedType.IDREFS)
                     {
                         result.Add(((string)listLocalName.GetValue(attrList)!, (string)listPrefix.GetValue(attrList)!,
                                     (string)attrLocalName.GetValue(attDef)!, (string)attrPrefix.GetValue(attDef)!));
@@ -115,17 +149,15 @@ namespace System.Xml
             return result;
         }
 
-        // Xsl3: the DTD's element declarations (SchemaInfo.ElementDecls) and an element's content model.
-        private static readonly PropertyInfo? s_elementDecls = Type.GetType("System.Xml.Schema.SchemaInfo, System.Private.Xml")?.GetProperty("ElementDecls", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly PropertyInfo? s_contentValidator = Type.GetType("System.Xml.Schema.SchemaElementDecl, System.Private.Xml")?.GetProperty("ContentValidator", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly PropertyInfo? s_contentType = Type.GetType("System.Xml.Schema.ContentValidator, System.Private.Xml")?.GetProperty("ContentType", BindingFlags.Instance | BindingFlags.Public);
 
         /// <summary>
         /// Xsl3: the elements the reader's DTD declares with element-only content, as (local name, prefix): their
         /// whitespace children are element content whitespace, which the data model leaves out (XDM 3.1 §6.7.3).
         /// Empty when the DTD's internals can't be reached.
         /// </summary>
+#if !NET10_0_OR_GREATER
         [DynamicDependency("get_DtdInfo", typeof(XmlReader))]
+#endif
         [DynamicDependency("get_ElementDecls", "System.Xml.Schema.SchemaInfo", Asm)]
         [DynamicDependency("get_ContentValidator", "System.Xml.Schema.SchemaElementDecl", Asm)]
         [DynamicDependency("get_ContentType", "System.Xml.Schema.ContentValidator", Asm)]
@@ -136,17 +168,17 @@ namespace System.Xml
             {
                 reader = wrapping.InnerReader;
             }
-            object? dtdInfo = s_dtdInfo?.GetValue(reader);
-            if (dtdInfo == null || s_elementDecls == null || s_contentValidator == null || s_contentType == null ||
-                s_elementDecls.GetValue(dtdInfo) is not System.Collections.IDictionary decls)
+            object? dtdInfo = GetDtdInfo(reader);
+            if (dtdInfo == null || Metadata.s_elementDecls == null || Metadata.s_contentValidator == null || Metadata.s_contentType == null ||
+                Metadata.s_elementDecls.GetValue(dtdInfo) is not System.Collections.IDictionary decls)
             {
                 return result;
             }
             foreach (System.Collections.DictionaryEntry decl in decls)
             {
                 // A DTD's names have no namespace: the qualified name's namespace slot holds the prefix.
-                if (decl.Key is XmlQualifiedName name && decl.Value != null && s_contentValidator.GetValue(decl.Value) is object validator &&
-                    s_contentType.GetValue(validator) is Schema.XmlSchemaContentType.ElementOnly)
+                if (decl.Key is XmlQualifiedName name && decl.Value != null && Metadata.s_contentValidator.GetValue(decl.Value) is object validator &&
+                    Metadata.s_contentType.GetValue(validator) is Schema.XmlSchemaContentType.ElementOnly)
                 {
                     result.Add((name.Name, name.Namespace));
                 }
@@ -155,17 +187,17 @@ namespace System.Xml
         }
 
         /// <summary>Xsl3: whether the bridge to the DTD's attribute types binds on this runtime (BridgeTests).</summary>
-        internal static bool IdrefBridgeBinds => s_attDefs != null && s_tokenizedType != null;
+        internal static bool IdrefBridgeBinds => Metadata.s_attDefs != null && Metadata.s_tokenizedType != null;
 
         [DynamicDependency("get_UndeclaredElementDecls", "System.Xml.Schema.SchemaInfo", Asm)]
         private static List<object> AttributeLists(object dtdInfo, bool includeUndeclared)
         {
             var attrLists = new List<object>();
-            foreach (object declaration in (System.Collections.IEnumerable)s_iDtdInfo!.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!)
+            foreach (object declaration in (System.Collections.IEnumerable)Metadata.s_iDtdInfo!.GetMethod("GetAttributeLists")!.Invoke(dtdInfo, null)!)
                 attrLists.Add(declaration);
             // An ATTLIST can declare an ID without a separate ELEMENT declaration. The parser
             // retains those attribute lists separately; they are still authoritative ID metadata.
-            if (includeUndeclared && s_undeclaredElementDecls?.GetValue(dtdInfo) is System.Collections.IDictionary undeclared)
+            if (includeUndeclared && Metadata.s_undeclaredElementDecls?.GetValue(dtdInfo) is System.Collections.IDictionary undeclared)
                 foreach (object declaration in undeclared.Values) attrLists.Add(declaration);
             return attrLists;
         }
@@ -174,9 +206,9 @@ namespace System.Xml
         {
             var result = new List<(string, string, string, string)>();
             var attrLists = AttributeLists(dtdInfo, includeUndeclared);
-            MethodInfo lookupId = s_iAttrList!.GetMethod("LookupIdAttribute")!;
-            PropertyInfo listLocalName = s_iAttrList.GetProperty("LocalName")!, listPrefix = s_iAttrList.GetProperty("Prefix")!;
-            PropertyInfo attrLocalName = s_iAttr!.GetProperty("LocalName")!, attrPrefix = s_iAttr.GetProperty("Prefix")!;
+            MethodInfo lookupId = Metadata.s_iAttrList!.GetMethod("LookupIdAttribute")!;
+            PropertyInfo listLocalName = Metadata.s_iAttrList.GetProperty("LocalName")!, listPrefix = Metadata.s_iAttrList.GetProperty("Prefix")!;
+            PropertyInfo attrLocalName = Metadata.s_iAttr!.GetProperty("LocalName")!, attrPrefix = Metadata.s_iAttr.GetProperty("Prefix")!;
 
             foreach (object attrList in attrLists)
             {

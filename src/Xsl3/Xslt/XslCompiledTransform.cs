@@ -42,7 +42,7 @@ namespace Xsl3
         internal const string CompilesIL = "Loading a stylesheet from source generates IL at run time. Under NativeAOT, load a stylesheet precompiled with Xsl3.Build (Load(Type)).";
 
         // Version text for GeneratedCodeAttribute
-        private static readonly string? s_version = GetAssemblyVersionText();
+        private static readonly string? s_version = RuntimeBuildVersion.Value ?? GetAssemblyVersionText();
 
         private static string? GetAssemblyVersionText()
         {
@@ -436,7 +436,7 @@ namespace Xsl3
             }
             var assembly = new PersistedAssemblyBuilder(new AssemblyName(assemblyName), typeof(object).Assembly);
             ModuleBuilder module = assembly.DefineDynamicModule(assemblyName);
-            TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract | TypeAttributes.Class);
+            TypeBuilder type = module.DefineType(typeName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
             type.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor(new[] { typeof(string), typeof(string) })!,
                 new object[] { typeof(XslCompiledTransform).FullName!, s_version ?? "0.0.0.0" }));
@@ -447,7 +447,7 @@ namespace Xsl3
                     typeof(System.Diagnostics.DebuggableAttribute).GetConstructor(new[] { typeof(System.Diagnostics.DebuggableAttribute.DebuggingModes) })!,
                     new object[] { System.Diagnostics.DebuggableAttribute.DebuggingModes.Default | System.Diagnostics.DebuggableAttribute.DebuggingModes.DisableOptimizations }));
             }
-            new XmlILGenerator().Generate(_qil!, type);
+            new XmlILGenerator().Generate(_qil!, type, s_version ?? "0.0.0.0");
             _qil = null;
             if (!symbols)
             {
@@ -506,6 +506,30 @@ namespace Xsl3
         {
             Reset();
             ArgumentNullException.ThrowIfNull(compiledStylesheet);
+            if (!compiledStylesheet.IsAbstract && compiledStylesheet.IsSealed
+                && typeof(ICompiledStylesheetProvider).IsAssignableFrom(compiledStylesheet))
+            {
+                // Emitted adapters have no instance state. Allocate without running a user
+                // constructor; their static data initializes when the generated getters run.
+                var provider = (ICompiledStylesheetProvider)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(compiledStylesheet);
+                string versionText = provider.CompilerVersion;
+                if (s_version == null || !string.Equals(s_version, versionText, StringComparison.Ordinal))
+                {
+                    Version? version = s_version == null ? null : Version.Parse(s_version);
+                    if (version < Version.Parse(versionText))
+                        throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, versionText, version), nameof(compiledStylesheet));
+                }
+                ReadOnlyMemory<byte> memory = provider.QueryData;
+                byte[] bytes = System.Runtime.InteropServices.MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
+                    && segment.Offset == 0 && segment.Array is byte[] array && segment.Count == array.Length
+                    ? array : memory.ToArray();
+                var data = new XmlQueryStaticData(bytes, provider.EarlyBoundTypes) { Dispatcher = provider.Dispatcher };
+                Action<XmlQueryRuntime> execute = provider.Execute;
+                ArgumentNullException.ThrowIfNull(execute);
+                _command = new XmlILCommand(execute.Invoke, data);
+                OutputSettings = data.DefaultWriterSettings;
+                return;
+            }
             object[] customAttrs = compiledStylesheet.GetCustomAttributes(typeof(GeneratedCodeAttribute), false);
             GeneratedCodeAttribute? generatedCodeAttr = customAttrs.Length > 0 ? (GeneratedCodeAttribute)customAttrs[0] : null;
 
@@ -617,7 +641,7 @@ namespace Xsl3
             {
                 return settings;
             }
-            XmlWriterSettings s = settings.Clone();
+            XmlWriterSettings s = settings.CloneWithQueryDefaults();
             s.Encoding = new NamedEncoding(settings.Encoding, data.OutputExtras?.Encoding ?? settings.Encoding.WebName.ToUpperInvariant());
             return s;
         }
@@ -1008,7 +1032,7 @@ namespace Xsl3
             {
                 if (extras.RawMethod == "sequence")
                 {
-                    XmlWriterSettings s = settings.Clone();
+                    XmlWriterSettings s = settings.CloneWithQueryDefaults();
                     s.CloseOutput = false;
                     Xsl3.Runtime.ItemSerializer.WriteSequence(items, s, extras,
                         ws => text != null ? XmlWriter.Create(text, ws) : XmlWriter.Create(stream!, ws));

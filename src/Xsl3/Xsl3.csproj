@@ -72,4 +72,19 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="GenerateRuntimeBuildVersion" BeforeTargets="CoreCompile" DependsOnTargets="GetAssemblyVersion">
+    <PropertyGroup>
+      <_Xsl3RuntimeVersionExpression>null</_Xsl3RuntimeVersionExpression>
+      <_Xsl3RuntimeVersionExpression Condition="'$(GenerateAssemblyInfo)' == 'true' And '$(GenerateAssemblyVersionAttribute)' == 'true' And $([System.Text.RegularExpressions.Regex]::IsMatch('$(AssemblyVersion)', '^((0|[1-9][0-9]*)\.){3}(0|[1-9][0-9]*)$'))">&quot;$(AssemblyVersion)&quot;</_Xsl3RuntimeVersionExpression>
+      <_Xsl3RuntimeVersionFile>$(IntermediateOutputPath)Xsl3.RuntimeBuildVersion.g.cs</_Xsl3RuntimeVersionFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_Xsl3RuntimeVersionLines Include="// &lt;auto-generated/&gt;" />
+      <_Xsl3RuntimeVersionLines Include="#nullable enable" />
+      <_Xsl3RuntimeVersionLines Include="namespace Xsl3 { internal static class RuntimeBuildVersion { internal const string%3F Value = $(_Xsl3RuntimeVersionExpression)%3B } }" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(_Xsl3RuntimeVersionFile)" Lines="@(_Xsl3RuntimeVersionLines)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup><Compile Include="$(_Xsl3RuntimeVersionFile)" /></ItemGroup>
+  </Target>
+
 </Project>
