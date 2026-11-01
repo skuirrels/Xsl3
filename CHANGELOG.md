@@ -2,14 +2,19 @@
 
 ## Unreleased
 
+## [1.1.7](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.7) — 2026-11-01
+
+This bounded P7 checkpoint retains published tree-based execution by default. Full streaming remains
+experimental and unsupported; its original memory and throughput gates remain unchanged and unmet.
+
+
 - Avoid division when indexing a fork tee whose configured capacity is a power of two. Retain
   remainder indexing for arbitrary positive capacities, the same buffer bounds and atomic ownership.
 
-- Select forward execution for declared-streamable reader, stream and URI inputs through the default
-  `XsltSettings.Streamability = Strict` in both APIs. `Fallback` retains tree execution; compiled
-  settings are copied and saved styles retain their recorded mode. Keep the existing explicit
-  development tree control, original qualification gates and `supports-streaming = no` while
-  streaming memory and throughput acceptance remains incomplete.
+- Keep forward execution an explicit development opt-in through both APIs. `Streamability = Strict`
+  controls static analysis without changing published default execution. Compiled settings are copied
+  and saved styles retain their recorded mode. Preserve the original qualification gates and
+  `supports-streaming = no` while streaming memory and throughput acceptance remains incomplete.
 
 - Reduce fork handoff delays with a bounded optimistic wait when the effective CPU allowance
   has a spare processor beyond the caller and prongs. Retain parking on lower CPU allowances,
@@ -147,8 +152,8 @@
 - Avoid initializing default cultures when fork workers already inherit the captured execution
   context. Preserve explicit cultures, suppressed-flow behavior and worker state, and release
   captured ambient objects when a prong finishes.
-- Full [Phase 7 qualification](docs/plan/p7-completion.md) remains in progress. Streaming support
-  is not yet claimed; original memory, throughput and release gates remain required.
+- Close the [bounded P7 runtime checkpoint](docs/plan/p7-runtime-checkpoint.md) for release. Full
+  [Phase 7 qualification](docs/plan/p7-completion.md) remains deferred with original gates intact.
 
 ## [1.1.6](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.6) — 2026-10-29
 

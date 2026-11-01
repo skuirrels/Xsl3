@@ -4,21 +4,29 @@ The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review 
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
 1.1.6, `588f2b6c7f050d47087f67b1fd2ef9630f6e19cf`.
 
-The owner's current stopping point is **deployment readiness**. Complete the original technical
-qualification, review and merge, then stop before tagging or publication.
+On 1 November 2026 the owner requested a stopping point and release of the completed work.
+The [1.1.7 checkpoint boundary](p7-runtime-checkpoint.md) supersedes the earlier full-gate/deployment-only
+stopping instruction for this release. Full P7 remains incomplete; every original requirement below is
+retained for resumption. The checkpoint keeps experimental execution opt-in and excludes unadopted controls.
 
 This resumes the original [P7 plan](p7-streaming.md); the completed P7A–P7H increments and their
 historical evidence are retained. An audit or another bounded increment does not complete this objective.
 
 ## Latest verified state
 
-The preceding retained performance head `e223b2f` passes all four ordinary CI jobs, independently
-of streaming qualification. The public-default follow-up below is pushed and locally validated. Its hosted CI passes Windows,
-NativeAOT and ordinary performance; Ubuntu exposes the harness regression described below. The
-narrower harness repair passes the complete local qualification described below; its hosted CI remains required. Isolated startup composition `c7da793` is not adopted: its complete hosted original
+Retained head `42e5a73` passes all four ordinary CI jobs in
+[run 41311886937](https://github.com/skuirrels/Xsl3/actions/runs/41311886937), including the repaired
+Ubuntu W3C profiles. This is independent of streaming qualification. Isolated startup composition
+`c7da793` is not adopted: its complete hosted original
 run passes **13/16 push budgets**, **16/16 nightly budgets**, and **4/7 throughput targets** with
 all **126 benchmark observations** valid. Merge/fork/source-document RSS and identity/fork/source-document
 throughput remain failed. Their original inputs, limits, oracles and failed observations are retained.
+
+A newer isolated combined candidate, `b2316fd` on `feature/p7-composed-compact`, completes all
+**27,200** full Release/Debug .NET 8/10 checks and the unchanged **739-check** NativeAOT consumer.
+Its original local push matrix passes 16/16, but its independently audited hosted x64 push matrix
+still passes **13/16**. It is not adopted into PR #27; its full original throughput/nightly
+qualification is incomplete. The detailed results and remaining controls are retained below.
 
 The canonical schema-relation and direct native reporter controls are now fully audited and excluded
 because neither produces a consistent useful RSS reduction. The public Strict/Fallback default
@@ -689,9 +697,217 @@ inventory/forwarding/evaluation audit passes. The explicitly unstreamed inventor
 passed /18 failed /one not run**. No baseline changes or original memory/throughput passes are inferred.
 
 Both configurations verify **59 runtime /three harness** PDB sources. Production runtime sources are
-unchanged. All local controllers are terminal. Final-source hosted CI remains required.
+unchanged. The pushed repair `42e5a73` passes all four final-source ordinary CI jobs in
+[run 41311886937](https://github.com/skuirrels/Xsl3/actions/runs/41311886937). The ordinary W3C,
+reviewed S1/S2, strict Release/Debug, legacy/saved and unstreamed steps all pass. This does not qualify
+the original memory or throughput gates.
 Evidence: `artifacts/p7-completion/profile-policy-468ea7f/` (failed public-Fallback attempt) and
 `v2/audit.json` (final execution-only repair).
+
+### Compact projected-fork producer controls, 2026-11-01
+
+An isolated producer uses an open-ancestor value stack instead of allocating navigation nodes for
+every source token. Published events retain immutable metadata; normal, early and failed fork exits
+restore source navigation state. It applies only to compiler-proven projections over fresh untyped
+stock readers, with ordinary fallback for observers, custom readers, DTDs and validation. Ring
+capacity, threads, source lookahead, fixtures, oracles and publication settings stay unchanged.
+
+Both the initial and in-place-parent refinement pass **367 .NET 10 /333 .NET 8** focused contracts
+in Release and Debug, retaining every previous selected row and adding ten producer contracts.
+The initial producer reduces exact 100 MB fork allocation from **3,125,192,312 to 2,109,538,568 bytes**
+(32.5%) under the actual 4 GiB guard. Allocation reduction alone does not establish a gate pass.
+
+A balanced Linux ARM64 four-CPU comparison retains **36 correct observations**, unchanged original
+100 MB inputs and actual 4 GiB guards. Initial/refined fork streaming medians are **22.9% /6.9% slower**
+than the baseline; identity also has no gain. Both remain excluded from the general execution path.
+
+The refined producer's separately published NativeAOT comparison retains **16 original 10 MiB output
+controls and 24 exact 200 MiB observations**, with actual 20 MiB managed guards. Runtime PDB checks
+cover **59 baseline /60 candidate** sources and eight consumer sources per image. All outputs match.
+Native fork is **11.4% slower**; median full-lifetime RSS increases **20,480 bytes**, from **21,139,456
+to 21,159,936**, and all six fork observations exceed **20,971,520**. Merge/source-document median RSS
+also increases **77,824 /204,800 bytes**. The zero report limit disables diagnostic RSS rejection only;
+the actual managed cap remains 20 MiB, and no observation is an original acceptance pass. Neither
+producer nor a NativeAOT specialization is adopted. ARM64 controls do not qualify hosted Linux x64.
+
+Evidence: `artifacts/p7-completion/compact-producer-42e5a73/`,
+`compact-producer-byref-42e5a73/`, `compact-producer-linux-42e5a73/` and
+`compact-producer-native-42e5a73/audit.json`. Initial test-interface, test-assumption, verifier-count,
+nullable scratch-build and local sandbox failures remain retained; none is hidden by a passing rerun.
+
+A final isolated refinement passes the large metadata constructor arguments by readonly reference.
+All four focused suites again retain **367 /333** passing cases. Its balanced 18-observation Linux
+comparison still has a **1.1012** streaming elapsed ratio against the unchanged baseline (only **0.9925**
+against the earlier refinement). All outputs and actual 4 GiB guards validate. Constructor copies do
+not explain enough of the slowdown, so the entire producer experiment is closed without adoption;
+no further native publication of this refinement is justified. Evidence:
+`artifacts/p7-completion/compact-producer-inref-42e5a73/` and `compact-producer-inref-linux-42e5a73/audit.json`.
+
+### Retained-path sampling and reader-guard review, 2026-11-01
+
+Fresh four-CPU Linux thread-stack profiles validate the original 100 MB output and actual 4 GiB
+heap guards. The first informational-metadata traces cannot resolve engine method names and are
+explicitly uninterpretable. Separate verbose JIT/NGen traces resolve the retained fork, identity and
+source-document paths and the rejected producer. DLL/PDB hashes match their previously verified
+59 /60 runtime and eight benchmark source documents. Samples include startup, warmup and blocked
+stacks: they are neither CPU milliseconds nor acceptance timings. Tee publication/reclamation stacks
+remain prominent; previously rejected polling and padding controls are not repeated.
+Evidence: `artifacts/p7-completion/current-sampling-42e5a73/audit.json` and
+`current-sampling-verbose-42e5a73/audit.json`.
+
+An isolated input-reader control bypasses repeated DTD inspection when its reader is configured to
+prohibit DTDs. Its first guard accepts BCL readers under known project wrappers. All four focused
+suites pass **296 .NET 10 /294 .NET 8** checks, adding eight contracts. All **84** paired seven-workload
+100 MB observations validate. Candidate/baseline streaming ratios are identity **0.987843**, adjacent
+**0.992748**, accumulator **0.934884**, iterate **0.996333**, merge **0.995419**, fork **0.996205** and
+source-document **0.977773**. Identity/fork still miss no-slowdown targets at **1.001941 /1.173326**.
+These small/mixed controls do not establish hosted qualification.
+
+Review finds that a BCL wrapper can conceal a custom `XmlTextReader` subclass with misreported
+Prohibit settings. The broad guard then incorrectly preserves DTD element-content whitespace.
+A new regression fails that isolated prototype; its original passing controls did not cover this
+case. The control is not adopted. A narrower guard requires the actual BCL text-parser identity,
+using the existing authoritative `XmlReaderInternals` type name. Cancellation, read-error translation,
+borrowed ownership, custom readers, DTD parsing and input settings must retain their original behavior.
+Evidence: `artifacts/p7-completion/prohibited-dtd-read-42e5a73/`,
+`prohibited-dtd-read-linux-42e5a73/audit.json` and `prohibited-dtd-parser-42e5a73/`.
+
+The unchanged reader passes all **13** contracts on both frameworks, including the new BCL-wrapper
+case. The narrowed type-name guard passes **297 .NET 10 /295 .NET 8** focused checks in both
+configurations. Its complete local original-size NativeAOT comparison retains **96 correct outputs**:
+48 children per variant, all sixteen workloads, exact 200 MiB measured inputs, original 10 MiB
+controls, actual 20 MiB managed guards and the unchanged absolute 20 MiB RSS gate. Both images verify
+**60 runtime /eight consumer** PDB sources, including the changed reader, and all 33 original
+stylesheet/entrypoint sources. Baseline passes **15/16** budgets; candidate **14/16**. Candidate merge
+is **20,983,808 bytes** against **20,865,024** baseline; fork remains over budget in both. The
+full-lifetime counter retains failures even when the earlier in-process sample reports `ok`.
+The narrowed type-name guard is excluded; no causal gain is inferred from these sequential ARM64
+matrices. A controller syntax failure occurs before measurements and remains retained; completed
+binaries are reused after the syntax correction. Evidence:
+`artifacts/p7-completion/prohibited-dtd-parser-native-42e5a73/audit.json`.
+
+A separate refinement reuses the bridge's existing cached parser `Type`, already initialized by
+`QueryReaderSettings`, instead of formatting `Type.FullName`. All four **297 /295** focused suites
+pass. Its complete 96-child local original-size NativeAOT comparison retains correct outputs and
+**15/16** budgets in each variant; fork still fails, at **21,405,696 bytes** for the candidate.
+Its balanced **84-observation** seven-workload 100 MB comparison is mixed: identity **1.006997**,
+accumulator **1.010825**, iterate **1.065483** and source-document **0.997304** streaming elapsed
+ratios against baseline. Fork improves to **0.949758** of baseline but still misses its original
+target at **1.123687** stream/tree. Native and benchmark binary hashes and all **60 runtime /eight
+consumer** PDB sources per variant validate. No useful memory improvement is established. The entire reader
+fast-path experiment is closed without adoption; its new regression, unsafe broad guard, narrowed
+controls and failed preparation evidence remain retained. Evidence: `prohibited-dtd-cache-42e5a73/`,
+`prohibited-dtd-cache-native-42e5a73/audit.json` and `prohibited-dtd-cache-linux-42e5a73/audit.json`
+under the P7 completion artifacts.
+
+### Reference-count reclamation-token control, 2026-11-01
+
+A separate control retains atomic reader-position claims and canonical per-event reference counts.
+An extra count reserves a last-release token while clearing the consumed payload, then publishes
+zero before the producer may reuse that epoch. Head cleanup stays under the gate before reservation
+and at full-ring release. Capacity, threads, ownership and source scan bounds remain unchanged.
+This differs from the previously rejected position-based reclamation and polling controls.
+
+All **357 .NET 10 /323 .NET 8** existing focused lifecycle/alias/cancellation/prefix cases pass in
+Release and Debug. Twelve balanced Linux ARM64 fork observations preserve original 100 MB inputs,
+actual 4 GiB guards, output fingerprints and **59 runtime /eight benchmark** PDB source checks.
+Streaming medians are **2,275.597 /2,283.851 ms** baseline/candidate, a **1.003627** ratio with
+overlapping ranges. No useful gain justifies the added protocol, so it is excluded and no native
+publication/RSS result is claimed. Review also notes that its metric getter can notify the caller;
+a future implementation would need a pure observation path before any adoption. Evidence:
+`artifacts/p7-completion/tee-reclaim-token-42e5a73/` and `tee-reclaim-token-linux-42e5a73/audit.json`.
+
+### Numeric-cast/arithmetic fusion control, 2026-11-01
+
+A distinct compiler control keeps two forward numeric cast results scalar until their arithmetic
+consumer, avoiding the sequence rematerialization that made the earlier cast-only controls worse.
+Canonical atomization, casting and arithmetic remain shared. Sequential lets retain left conversion
+before right evaluation; optional emptiness stays opaque only between the two helpers. Compatibility
+mode, list/schema/non-numeric casts and partial constructor functions retain ordinary compilation.
+No function registry IDs, saved-data layout, fixtures, oracles, publisher or GC policy change.
+
+All **392 .NET 10 /356 .NET 8** focused cases pass in Release and Debug, preserving every prior
+selected row and adding **34 /32** semantic cases for promotion, emptiness, errors, operand evaluation,
+live readers, both APIs and saved normal/debug styles. An initial saved-test syntax failure is retained;
+it precedes all test execution. Eighteen balanced exact-allocation observations use the identical
+consumer and actual 4 GiB guards. At 100 MB, fork streaming allocation falls **3,125,192,248 →
+3,069,540,776 bytes** (**1.78%**); tree allocation stays effectively unchanged. All outputs match and
+all **62** selected candidate runtime PDB sources validate, including the frozen allocation engine.
+
+The separate uninstrumented Linux four-CPU comparison retains twelve correct original 100 MB
+observations. Fork streaming medians are **2,318.456 /2,298.025 ms** baseline/candidate, only **0.88%**
+lower with overlapping ranges; candidate stream/tree is still **1.221308**. Baseline/candidate runtime
+PDB checks cover **60 /62** sources and eight benchmark sources each. Instrumented Mac timing worsens.
+The small allocation saving establishes no useful throughput/RSS improvement to justify the new ABI
+and compiler path, so the control is excluded and no native publication is claimed. Evidence:
+`artifacts/p7-completion/cast-arithmetic-fusion-42e5a73/`,
+`cast-arithmetic-fusion-allocation-42e5a73/audit.json` and `cast-arithmetic-fusion-linux-42e5a73/audit.json`.
+
+### Ref-addressed compact frame slots, 2026-11-01
+
+A new storage model removes the per-token `List<Frame>` indexer and copied-current-frame state left
+in the earlier compact producer. Reusable array slots are addressed by reference; no reference
+survives array growth or enters published metadata. Only open ancestors and one current leaf/closed
+element retain references. Parent transitions and disposal clear dead slots. Exact parser identity
+reuses the existing bridge cache, excluding custom DTD parsers hidden by BCL wrappers. Ring capacity,
+threads, source scan bounds, publisher, inputs, oracles and GC/globalization policies stay unchanged.
+
+Initial four focused suites pass **367 .NET 10 /333 .NET 8** cases. Review adds real DTD ID identity
+fallback through a BCL wrapper and 100-level ignored namespace/language scopes, with full/early
+completion, canonical numbers and ordinary continuation. All four reviewed suites pass **370 /336**
+cases, retaining every previous row. Eighteen balanced Linux four-CPU fork observations validate
+original 100 MB inputs, actual 4 GiB guards and output fingerprints. Streaming medians are baseline
+**2,265.762**, previous compact **2,413.569**, slots **2,171.649 ms**. Slots are **4.15% faster** than
+baseline in this cohort, but still miss the original no-slowdown target. No hosted gain is inferred.
+
+Eighteen separate exact-allocation controls use the unchanged consumer. At 100 MB, streaming median
+allocation falls **3,125,192,312 →2,109,538,288 bytes** (**32.5%**); tree median allocation is identical
+at **1,284,879,976 bytes**. All outputs and actual 4 GiB guards validate. The complete local native
+comparison retains **96 correct outputs** over all sixteen original workloads, exact 200 MiB measured
+inputs, original 10 MiB controls, actual 20 MiB managed guards and unchanged absolute RSS limits.
+Baseline/candidate pass **15/16 /14/16** budgets: merge is **20,865,024 /21,078,016 bytes**, fork
+**21,020,672 /21,254,144** and source-document **20,209,664 /20,414,464**. All 33 stylesheet/entrypoint
+sources and **59 /60 runtime /eight consumer** PDB sources validate. The general-backend design is
+not adoptable: the JIT gains do not waive the additional native failure. A backend-specific variant
+is not implemented or qualified. All original hosted qualification obligations remain. Evidence:
+`artifacts/p7-completion/compact-slots-42e5a73/`, `compact-slots-linux-42e5a73/audit.json`,
+`compact-slots-allocation-42e5a73/audit.json` and `compact-slots-native-42e5a73/`.
+
+### Backend-specific slots and immutable event coallocation, 2026-11-01
+
+A private backend-specific variant enables compact slots only when `RuntimeFeature.IsDynamicCodeSupported`
+is true. NativeAOT retains the original forward navigator producer; the real NativeAOT/TPA probe guard,
+consumer, publisher and original inputs/limits are unchanged. All four **370 /336** focused suites pass.
+Its complete local native comparison preserves **96 correct outputs**, with **15/16** budgets in each
+variant. Candidate fork remains over budget at **21,360,640 bytes**. Native image size is **1,176 bytes**
+above baseline, versus **11,200** for general compact slots. Compact event/namespace/header-data symbols
+are absent; `Read`/`Dispose` producer symbols remain. This is code-pruning evidence, not complete metadata
+or RSS equivalence, and no original hosted gate pass is inferred.
+
+All **84** balanced seven-workload Linux 100 MB observations validate under actual 4 GiB guards.
+Candidate/baseline streaming ratios are identity **0.998611**, adjacent **1.007347**, accumulator
+**1.012863**, iterate **1.017352**, merge **0.991786**, fork **0.954754** and source-document **1.002523**.
+Fork is consistently faster locally, but candidate stream/tree remains **1.093928**; identity also
+misses its target at **1.029979**. The variant stays isolated pending original qualification.
+Evidence: `artifacts/p7-completion/jit-compact-slots-42e5a73/`,
+`jit-compact-slots-native-42e5a73/audit.json`, `symbols-audit.json` and
+`jit-compact-slots-linux-42e5a73/audit.json`.
+
+A separate coallocation control makes the immutable start event own its metadata; end events reference
+that owner, never mutable frame slots. It preserves the backend selection and all original bounds.
+All four **370 /336** focused suites pass. Eighteen exact-allocation observations retain the identical
+consumer, original inputs/oracles and actual 4 GiB guards. The 100 MB streaming median falls from
+**3,125,192,312 to 2,046,929,408 bytes** (**34.5%**), with effectively unchanged tree allocation. The
+initial launcher stops before any work because it names the wrong completed contract-report file;
+that correction is retained and no passed tests are repeated. Eighteen uninstrumented Linux four-CPU
+fork observations retain original inputs/oracles and actual 4 GiB guards. Streaming medians are baseline
+**2,322.609**, prior slots **2,283.036**, coallocated **2,197.859 ms**: about **5.37% /3.73%** faster,
+respectively, while the original fork no-slowdown target still fails. All **59 /60 /60 runtime /eight
+benchmark** PDB sources validate. Complete frozen unit validation is in progress: .NET 10 Release passes
+**7,352** cases, preserving every previous row and adding exactly thirteen; other configurations and the
+unchanged saved/NativeAOT consumer remain required. No adoption or new native/RSS result is claimed. Evidence:
+`artifacts/p7-completion/jit-coallocated-headers-42e5a73/` and
+`jit-coallocated-headers-allocation-42e5a73/audit.json`.
 
 ## Preceding verified checkpoint, 2026-11-01
 
@@ -4035,3 +4251,237 @@ The unchanged saved/native consumer passes **739 checks**, preserving all 456 in
 consumer sources. Wrong-code, wrong-output and real JIT-intermediate controls reject. Its linked engine
 matches the full-tested Release engine; 53 runtime and eight consumer PDB checks match. Consumer build
 settings retain their defaults. Evidence: `artifacts/p7-completion/spare-core-full-b812ea1/`.
+
+### Coallocated compact producer: completed compatibility and native exclusion check
+
+The private coallocated candidate completes all **27,188** full unit rows (7,352 .NET 10 and
+6,242 .NET 8 in each configuration) and all **739** unchanged saved/NativeAOT consumer checks.
+Source/PDB audits preserve all previous cases, all 456 saved inputs and eight consumer sources.
+The fresh local ARM64 NativeAOT comparison has 96 correct observations, but the baseline meets
+16/16 original push budgets while the candidate meets 15/16: fork peaks at **21,622,784** bytes
+against **20,971,520**. No adoption or hosted acceptance is claimed. The native image still
+contains two compact-producer method symbols despite the creation guard. An isolated follow-up
+guards every producer access with the same backend invariant to investigate code elimination;
+all original publisher, inputs, oracles, limits and acceptance requirements remain unchanged.
+Evidence: `artifacts/p7-completion/jit-coallocated-headers-42e5a73/compatibility-audit.json`,
+`jit-coallocated-headers-native-42e5a73/comparison.json` and its `symbols-audit.json`.
+
+The all-access backend guard follow-up passes **370 /336** focused checks per configuration
+and removes every compact-producer/event/header method symbol from the native image. It does
+not establish RSS equivalence: both full 48-child matrices have correct outputs, the baseline
+passes 16/16, and the candidate passes 15/16 (fork **21,422,080** bytes). The internal fork peak
+also exceeds the limit (**21,037,056**), so this is not solely an outer-observer difference.
+The follow-up remains unadopted. Evidence: `artifacts/p7-completion/jit-guarded-headers-native-42e5a73/`.
+
+### Backend metadata inlining and combined startup control
+
+The direct-accessor refinement passes **370 /336** focused cases in each configuration.
+Its guarded IL nevertheless leaves nine out-of-line native metadata getters; the original
+native image has none. Explicit getter inlining restores that original code shape and removes
+the nine getter symbols while retaining the same complete focused population.
+
+Each refinement completes the two original 48-child local NativeAOT push matrices with correct
+outputs, exact input sizes and actual 20 MiB guards. Both variants pass 15/16 budgets in each
+of those cohorts. Direct-accessor fork peaks are baseline **21,381,120** /candidate **21,233,664**;
+inlined-accessor peaks are baseline **21,147,648** /candidate **21,012,480 bytes**. The latter
+candidate still exceeds the unchanged **20,971,520-byte** limit. Variability between cohorts
+and a smaller native image do not establish an RSS pass or causal memory improvement.
+
+The inlined candidate's balanced **84-observation** seven-workload 100 MB comparison retains
+all original outputs and effective **4,294,967,296-byte** heap guards. Its stream/tree ratios
+are identity **1.017317**, adjacent **0.720864**, accumulator **0.815854**, iterate **0.840741**,
+merge **0.619244**, fork **1.125669** and source-document **0.985387**. Identity and fork remain
+failed. All source/PDB and frozen binary checks pass: 59 baseline /60 candidate runtime sources
+and eight benchmark sources. These local ARM64 subsets do not replace the full hosted 126-observation gate.
+Evidence: `jit-direct-headers-native-42e5a73/audit.json`,
+`jit-inline-headers-native-42e5a73/audit.json` and `jit-inline-headers-linux-42e5a73/audit.json`
+under the P7 completion artifacts. The initial post-auditor assumed every refinement republished
+the baseline; it fails before writing results. The repaired audit verifies the shared frozen
+baseline against its retained original premeasurement source/PDB/binary hashes. Measurements do not repeat.
+
+A separate 27-path private composition combines the already-tested startup binding changes from
+`c7da793` with the compact source and native metadata inlining. Both earlier failed qualification
+records remain. Its initial patch check stops at the parser bridge without applying anything;
+the non-overlapping twenty files then apply cleanly and the bridge preserves the compact producer's
+exact cached parser-identity helper. The combined candidate passes **807 .NET 10 /430 .NET 8**
+focused checks per configuration, retaining the union of all previous saved, provider, bridge,
+version and fork cases. Its own native publication/qualification is pending. No production runtime
+change, hosted acceptance, merge, deployment readiness or streaming-support claim follows from
+these experiments. Evidence: `composed-compact-42e5a73/` and `composed-compact-native-42e5a73/`.
+
+
+The combined source is frozen at **b2316fd** on `feature/p7-composed-compact`; PR #27 stays at
+`42e5a73`. All four full suites pass **27,200 checks** (7,356 .NET 10 /6,244 .NET 8 per
+configuration), retaining the complete previous population union. The unchanged NativeAOT consumer
+passes **739** checks, preserves all 456 saved inputs/eight consumer sources, and rejects the
+original bad-code, bad-output and JIT-intermediate controls. Frozen-source/binary audits pass,
+including the complete **71-source** runtime PDB union and all changed test sources. No publisher
+warning occurs. Evidence: `composed-compact-42e5a73/compatibility-audit.json`.
+
+Its local original NativeAOT push matrix passes **16/16 budgets /48 outputs**, maximum **20,717,568
+bytes**. The complete hosted x64 original push matrix in
+[run 41335503127](https://github.com/skuirrels/Xsl3/actions/runs/41335503127) still passes **13/16**:
+merge **21,798,912**, fork **21,835,776**, source-document **21,311,488 bytes**. All 48 outputs,
+original fingerprints, inputs, actual 20 MiB guards, artifact digest, exact source tree and complete
+71-source runtime/eight-source consumer PDB checks verify. The dispatch controller is retained
+`29e1152`; its separately checked immutable tested source is `b2316fd`. This diagnostic run does not
+qualify ordinary CI, nightly memory or throughput. Evidence:
+`composed-compact-hosted-b2316fd/hosted-audit.json` and `runtime-pdb-complete-union.json`.
+
+JIT assembly inspection proves compact generic fresh-node creation dispatches separately through
+nine metadata accessors and calls the existing node constructor. A separate sealed-header fresh-node
+projection control is prepared without changing the frozen candidate. Another isolated one-file
+control tests obtaining the actual parser type through the existing typed BCL implementation getter
+instead of parsing its assembly-qualified name; missing bindings retain the original lookup, and
+.NET 8 is unchanged. Neither control has a performance or memory claim. Full original P7 qualification
+and deployment readiness remain open; no tag or package publication occurs.
+
+
+The separate parser-type-origin control passes **807 /430** focused checks per configuration and
+both complete local original push matrices (**96 correct outputs**, 16/16 budgets per variant).
+Three alternating repetitions of merge/fork/source-document preserve another **54 original-size
+outputs**, the actual 20 MiB guards, source/binary hashes and **71 runtime /eight consumer** PDB
+sources per variant. Median absolute RSS deltas are merge **−274,432**, fork **−188,416** and
+source-document **−143,360 bytes**. These are local ARM64 control results, not a hosted pass or a
+claim that every type-name lookup is cold. Existing single-cohort observations remain. Its first
+post-replicate auditor has a Python syntax typo and does not run; the corrected stored auditor checks
+the same observations without repeating them. Evidence: `reader-type-origin-native-b2316fd/audit.json`
+and `replicates/audit.json`. No adoption follows before remaining qualification.
+
+A constructor-inlining hint is now under broader existing streaming/lifetime/saved/bridge contracts.
+The first complete Release configurations pass **4,438 .NET 10 /3,480 .NET 8** checks; Debug remains
+in progress. A separate combined fresh-header projection/constructor control is prepared but untested.
+Its planned three-variant benchmark has 126 **100 MB-only diagnostic** observations; that population
+is explicitly different from the required original 126 observations at 1 MB /100 MB /1 GB. The
+original full multi-size qualification remains required.
+
+
+The constructor hint completes all **15,836** broader existing streaming/lifetime/saved/bridge
+checks (4,438 .NET 10 /3,480 .NET 8 per configuration). The one-dispatch header projection with
+that hint also passes all **807 /430** selected checks per configuration. A balanced three-variant
+**100 MB-only** diagnostic validates all 126 observations, original outputs, actual 4 GiB guards,
+71 runtime/eight benchmark PDB sources per variant and every frozen source/binary hash.
+
+Against its same-cohort baseline, constructor-only fork elapsed is **0.952349** and combined
+projection/constructor elapsed is **0.937817**. Fork stream/tree remains **1.063152** and
+**1.019498**, respectively. The combined identity ratio is **1.040074**. Neither variant meets all
+seven original targets; no 5% display band or cross-cohort combination changes that result. Evidence:
+`fresh-constructor-linux-b2316fd/audit.json`. This is not the original multi-size 126-observation gate.
+
+Captured JIT code verifies a specialized fresh-header projection of **336 bytes**, compared with
+**1,036 bytes** for generic creation after constructor inlining. Literal assign-reference helper
+counts alone do not measure all barrier work. The specialized code still initializes six empty
+strings/default arrays before assigning real metadata. A separate direct-metadata constructor
+control preserves every node field/default and field declaration order, and passes **807 /430**
+focused checks per configuration. Its balanced timing comparison is pending; no improvement or
+native RSS equivalence is claimed. The JIT section parser initially fails on an empty leading split
+section; corrected analysis verifies the same captured files without rerunning execution. Evidence:
+`fresh-constructor-jit-inspection-b2316fd/assembly-audit.json` and `direct-node-metadata-b2316fd/`.
+
+Review also checks the untyped eligibility boundary against the [.NET 10 baseline parser source](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.Xml/src/System/Xml/Core/XmlTextReaderImpl.cs#L2812):
+parser-context DTD information follows `DtdProcessing`, including rejection under `Prohibit`.
+This supports the guard review; installed-runtime contracts and source checks remain the evidence
+for the actual .NET 10.0.14 runs.
+
+
+The direct metadata constructor completes all **807 /430** focused checks per configuration.
+Its balanced three-variant **100 MB-only** comparison retains all **126 correct observations**,
+original fingerprints, actual 4 GiB guards, 71 runtime/eight benchmark PDB checks per variant and
+all frozen hashes. In that cohort direct/baseline streaming elapsed ratios are identity **0.996482**,
+adjacent **1.007302**, accumulator **0.961996**, iterate **0.981463**, merge **1.007105**, fork
+**0.983063** and source-document **1.001629**. Direct stream/tree ratios remain failed for identity
+(**1.059437**) and fork (**1.100169**). The preceding fresh-header variant also fails both in the
+same cohort; its fork/baseline elapsed ratio is **0.985785**, retaining the variability from the
+previous cohort rather than selecting only its earlier favorable observations.
+
+The optimized direct projection is **312 bytes /nine literal assign-reference helper sites**,
+compared with **336 bytes /ten sites** for the preceding fresh projection. Those instruction
+reductions do not establish a reliable elapsed-time gain. The constructor refactor stays unadopted;
+no NativeAOT publication is justified for this timing control. All original multi-size, hosted
+memory and throughput gates remain required. Evidence: `direct-node-linux-b2316fd/audit.json` and
+`direct-node-jit-inspection-b2316fd/assembly-audit.json`.
+
+### Composed fork CPU attribution and hosted reader-type check, 2026-11-01
+
+Six alternating original 100 MB fork-stream diagnostics retain canonical outputs, frozen binaries,
+actual 4 GiB managed guards and four effective CPUs. External per-thread scheduler counters show
+no cgroup CPU throttling. The three busiest observed threads consume roughly 2.1–2.8 CPU seconds;
+two spend less than 2 ms on the runnable queue. These sampled cumulative counters include the full
+invocation and do not identify useful work versus busy waiting. Evidence:
+`artifacts/p7-completion/fork-thread-cpu-b2316fd/audit.json`.
+
+A disposable diagnostic image adds only Linux perf tools to the existing toolchain. User-mode CPU
+sampling needs the container's `PERFMON` capability; host settings, production binaries, original
+runtime policy, source ownership, capacities and gates remain unchanged. The first DWARF captures
+cannot unwind above ReadyToRun `SpinOnceCore`. Their missing `-k 1` also prevents perf JIT injection;
+that failure and original data remain retained. An offline jitdump decoder recovers the managed
+names without disabling ReadyToRun. A separate frame-pointer capture resolves the full callers.
+
+The runtime module's recorded and actual build IDs match. Recorded mappings and ELF segments map
+the hot file offset `0x44b9b0` to virtual address `0x45b9b0`, whose instructions form a processor
+spin loop. Of **1,510** full-invocation CPU samples, **462** hit that instruction: **342** in reader
+publication waits, **119** in the caller pump and **one** in caller invocation. **554** have
+`SpinOnceCore` as their first resolved managed frame. All **1,326** optimized engine code ranges
+cross-check against the independent text perf map; outputs, binary hashes and actual heap guards
+verify. These are ARM64 CPU diagnostics, not removable elapsed time or hosted acceptance. Earlier
+wait-policy controls remain closed; this attribution does not justify repeating them. Evidence:
+`fork-perf-cpu-b2316fd/`, `fork-perf-cpu-r2r-b2316fd/` and `fork-perf-fp-b2316fd/audit.json`.
+
+The independently tested reader-type lookup control is frozen at `b3be00fc` on
+`feature/p7-reader-type-origin`, one runtime file beyond `b2316fd`. It obtains the same exact BCL
+parser type through the existing typed accessor, retaining the original lookup fallback and .NET 8
+path. No runtime change enters PR #27. The unchanged original complete push matrix finishes in
+[hosted run 41344662345](https://github.com/skuirrels/Xsl3/actions/runs/41344662345), using the existing
+`29e1152` diagnostic controller. All **48 outputs** match prior canonical fingerprints, but only
+**13/16 budgets** pass. Merge peaks at **21,823,488**, fork **21,868,544** and source-document
+**21,291,008 bytes**, above the unchanged **20,971,520-byte** limit. The artifact digest, exact source
+tree, clean source state, original publisher/fixtures/entrypoint, actual native/heap guards and
+**71 runtime /eight consumer** PDB sources verify. The local reduction does not establish a hosted
+gate improvement; the control remains excluded. Separate hosted cohorts do not establish a causal
+before/after RSS difference. All controllers are terminal; no passed measurements need restarting.
+Evidence: `reader-type-origin-hosted-b3be00f/hosted-audit.json`. Deployment readiness remains incomplete.
+
+### Native first-touch attribution and complete hosted throughput check, 2026-11-01
+
+An external minor-fault trace uses the unchanged, previously source-audited `b2316fd` NativeAOT
+image, original **209,715,200-byte** inputs and actual **20,971,520-byte** managed guards on four
+Linux ARM64 CPUs. All four identity/source-document/merge/fork outputs match prior canonical
+fingerprints. Frozen image/source hashes and image/debug/recorded build IDs match; no sample losses
+are reported. The four captures contain **1,723 /1,894 /1,923 /1,970** minor-fault events. The offline
+parser initially omits thread names containing spaces; its corrected result accounts for every
+event without repeating workloads.
+
+Source-document and merge each have **164** fault stacks in ICU loading through
+`XmlQueryContext.OpenStreamedSource`; fork has **164** through `DocumentResources.ClaimWrite`.
+Identity has none. Ordinary node allocations account for many remaining resolved engine callers.
+Faults are not resident bytes: read-ahead, repeated faults and data allocation prevent treating
+these counts as removable RSS. This does not establish a new source fix or a dependency lower bound;
+existing URI/globalization behavior and original counters stay intact. Evidence:
+`artifacts/p7-completion/native-page-faults-b2316fd/audit.json`.
+
+The combined candidate has not yet had the original complete hosted throughput measurement.
+A separate manual controller, `c69b8186` on `feature/p7-canonical-benchmark-diagnosis`, checks out
+immutable source `b2316fd` and runs the original benchmark arguments exactly, with source/artifact
+path prefixes only. It retains source-tree and before/after binary hashes, actual runtime provenance,
+raw observations and both engine/benchmark PDBs. The primary branch and original workflow stay
+unchanged. It selects only this outstanding measurement, avoiding another known-failing push rerun.
+
+[Hosted run 41345905819](https://github.com/skuirrels/Xsl3/actions/runs/41345905819) is executing the
+original **126 observations**: all seven workloads, 1/100/1,000 decimal MB, three rounds per mode,
+actual **4 GiB** heap guard and the strict no-slowdown target. Results and the artifact audit remain
+pending; an observation timeout must not restart the live run. A separate auditor is prepared to
+validate every original fingerprint, all 126 rows, source/binary hashes and **71 runtime /eight
+benchmark** PDB sources, then independently recompute all seven medians. No timing result or P7
+completion is inferred. Evidence: `canonical-benchmark-controller-b2316fd/dispatch.json` and
+`composed-compact-hosted-benchmark-b2316fd/audit.py`.
+
+### Owner-directed release boundary, 2026-11-01
+
+The owner requested a release with completed work rather than further full-P7 optimization.
+The bounded 1.1.7 checkpoint uses retained PR #27 source plus release corrections. It restores
+published opt-in execution instead of enabling the unqualified backend through default Strict analysis.
+The unsuccessful private compositions remain excluded. Their hosted benchmark was cancelled at the
+owner's stopping request; partial observations cannot qualify acceptance. All three private combined
+strict profiles finished before the stop (unadopted source, not release evidence). Original gates and
+negative results remain intact. Final release-source review, CI and package/publication checks are
+tracked in [the checkpoint boundary](p7-runtime-checkpoint.md).

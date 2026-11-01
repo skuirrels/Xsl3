@@ -4,27 +4,23 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.6: P7H Debug compiler source-line contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
-> higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
-> awareness (opt-in, `XsltSettings.SchemaAware`).
+> **1.1.7: P7 runtime correctness and allocation checkpoint.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> XSLT 3.0 works apart from supported streaming. Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
-Streaming remains in development, with static analysis, forward execution and process probes. It is not
-claimed as a supported package feature and `supports-streaming` remains `no`. The unreleased P7 default
-selects forward execution for declared-streamable reader, stream and URI inputs through
-`XsltSettings.Streamability = Strict`; `Fallback` retains tree execution. Ordinary non-streamable
-stylesheets and existing XDM trees retain tree execution. Original performance and memory qualification
-must pass before the feature is claimed.
-Version **1.1.6** fixes the Debug compiler assertion for repeated bare-variable `xsl:sequence`
-instructions. Each use retains its own source location without cloning or re-evaluating the binding.
-Normal/debug source and saved styles retain all six P7G copied-attribute identity contracts.
-P7G identity, P7F allocation and P7D/P7C correctness fixes remain included. XSLT 1.0 keeps its stock
-compatibility policy. The strict 20 MiB target and the separate stylesheet-reader mapping issue remain deferred.
-No public API or saved-format change is introduced.
-See the [1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
+Version **1.1.7** includes accumulator/copy provenance and schema-default fixes, fork ownership and
+cancellation corrections, lower allocation in dynamic calls and temporary trees, and stronger saved/native
+and conformance checks. P7H's Debug compiler source-line correction remains included.
 
-Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
-motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.6 and regenerate saved stylesheets with matching packages.
+Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
+static checking and does not enable forward execution by itself. Published default execution stays
+tree-based; forward execution requires the explicit development opt-in. The original streaming memory
+and throughput gates remain unchanged and unmet; this release does not complete full P7.
+
+See the [1.1.7 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.7/docs/releases/1.1.7.md) and
+[checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.1.7/docs/plan/p7-runtime-checkpoint.md).
+Strict analysis rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
+motionless instructions. Select `XsltStreamabilityMode.Fallback` when strict static checking is not intended.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.7 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

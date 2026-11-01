@@ -24,7 +24,7 @@ public class StreamedInitialModeTests
         + $"<xsl:mode {(mode.Length == 0 ? "" : $"name='{mode}' ")}streamable='{(streamable ? "yes" : "no")}'/>"
         + "<xsl:output method='text'/>" + declarations + templates + "</xsl:stylesheet>";
 
-    private static Xslt30Transformer Transformer(string sheet, bool? forward = null) =>
+    private static Xslt30Transformer Transformer(string sheet, bool forward = true) =>
         new XsltCompiler { Settings = new() { StreamedExecution = forward } }.Compile(new StringReader(sheet)).CreateTransformer();
 
     [Theory]
@@ -40,7 +40,7 @@ public class StreamedInitialModeTests
     [InlineData("fallback", true, false)]
     [InlineData("fallback", false, true)]
     [InlineData("fallback", false, false)]
-    public void PublicSettingsSelectForwardOrTreeExecution(string policy, bool streamable, bool legacy)
+    public void PublicStaticPolicyKeepsForwardExecutionOptIn(string policy, bool streamable, bool legacy)
     {
         var settings = new XsltSettings();
         if (policy != "default") settings.Streamability = policy == "strict"
@@ -66,7 +66,7 @@ public class StreamedInitialModeTests
             executable.CreateTransformer().ApplyTemplates(input, writer);
         }
         Assert.Equal("123", text.ToString());
-        Assert.Equal(streamable && policy != "fallback", firstWriteBeforeEof);
+        Assert.Equal(streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1", firstWriteBeforeEof);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
     }
 
@@ -101,7 +101,7 @@ public class StreamedInitialModeTests
         if (legacy)
         {
             var transform = new XslCompiledTransform();
-            transform.Load(XmlReader.Create(new StringReader(sheet)), new(), null);
+            transform.Load(XmlReader.Create(new StringReader(sheet)), new() { StreamedExecution = true }, null);
             transform.Transform(reader, null, writer);
         }
         else Transformer(sheet).ApplyTemplates(reader, writer);

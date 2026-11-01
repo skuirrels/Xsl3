@@ -10,32 +10,23 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.1.6: P7H Debug compiler source-line contracts.** XSLT 1.0 behaves exactly as stock `System.Xml.Xsl`; XSLT 2.0 is complete; XPath 3.1
-> with maps, arrays and higher-order functions is in; XSLT 3.0 works apart from streaming, and schema awareness is in
-> behind `XsltSettings.SchemaAware`. Packages are available on NuGet ([Xsl3](https://www.nuget.org/packages/Xsl3),
-> [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build), [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli),
-> [releases](https://github.com/skuirrels/Xsl3/releases)). See [what works](#what-works) and
-> [what's outstanding](#whats-outstanding).
+> **1.1.7: P7 runtime correctness and allocation checkpoint.** XSLT 1.0 behaves as stock `System.Xml.Xsl`;
+> XSLT 2.0 and XPath 3.1 are implemented. XSLT 3.0 works apart from supported streaming; schema awareness
+> remains opt-in through `XsltSettings.SchemaAware`. Packages are available on NuGet
+> ([Xsl3](https://www.nuget.org/packages/Xsl3), [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build),
+> [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli), [releases](https://github.com/skuirrels/Xsl3/releases)).
 
-**1.1.6 closes P7H**, the bounded Debug compiler source-line phase. Repeated bare-variable
-`xsl:sequence` instructions receive distinct source locations while retaining one shared binding
-and the declaration's metadata. The Debug compiler assertion is fixed with its check retained.
-The six P7G identity contracts pass with their original bare-variable expressions, alongside
-source-location, once-only evaluation, diagnostic and saved/native consumer controls.
-No public API or saved-format change is introduced.
+**1.1.7 closes a bounded P7 progress checkpoint.** It includes accumulator provenance and schema-default
+corrections, fork ownership/cancellation fixes, lower allocation in dynamic calls and temporary trees,
+and stronger saved/native and conformance checks. The earlier P7H Debug source-line correction remains included.
 
-P7G's DTD ID/IDREF/IDREFS identity corrections and P7F's ordinary-attribute optimization remain
-included. The P7F workload measured **23.55% less allocation** at 10 MiB, 200 MiB and 2 GiB on
-Linux/macOS; that historical measurement does not establish general memory bounds. P7H's unchanged
-ordinary performance gate passes separately against 1.1.5.
-Streaming qualification remains incomplete and `supports-streaming` remains `no`. The unreleased P7 code
-uses forward execution for declared-streamable reader, stream and URI inputs under the default
-`XsltSettings.Streamability = Strict`; select `Fallback` for tree execution. Ordinary non-streamable
-stylesheets and existing XDM trees retain tree execution.
-The original 20 MiB target remains open under the full P7 objective; the separate stylesheet-reader source-mapping finding remains deferred.
+Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
+static checking and does not enable forward execution by itself. Published default execution stays
+tree-based; forward execution requires the explicit development opt-in. The original streaming RSS
+and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
-See the [changelog](CHANGELOG.md), [1.1.6 release notes](docs/releases/1.1.6.md) and
-[P7H close-out](docs/p7h-debug-source-lines-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
+See the [changelog](CHANGELOG.md), [1.1.7 release notes](docs/releases/1.1.7.md) and
+[checkpoint boundary](docs/plan/p7-runtime-checkpoint.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
 
 ## What works
@@ -137,12 +128,11 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
   (P7) has completed P7A foundations, P7B analysis, bounded [P7C input-boundary correctness](docs/plan/p7c-runtime-correctness.md) and
   [P7D schema-validation contracts](docs/plan/p7d-validation-contracts.md). It has expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
-  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). The unreleased P7 default selects
-  forward execution for declared-streamable inputs; `Fallback` retains tree execution. Forward paths include source-document schema validation, streamable
+  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Forward execution remains an explicit development opt-in; `Streamability` controls static analysis. Forward paths include source-document schema validation, streamable
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.1.6. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.1.7. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.

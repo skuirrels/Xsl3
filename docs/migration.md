@@ -33,17 +33,17 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
-## Unreleased P7: execution follows the streamability setting
+## 1.1.7: bounded P7 runtime checkpoint
 
-`XsltSettings.Streamability = Strict` now selects forward execution for declared-streamable code
-when its input is supplied through the reader, stream or URI APIs. It remains the default. Select
-`XsltStreamabilityMode.Fallback` to retain tree execution. Existing XDM selections remain trees, and
-saved styles retain the execution mode recorded at compilation. Settings are copied when a unit is
-compiled or loaded; changing the caller's settings afterwards does not change that unit's mode.
+Default execution remains tree-based, as in the preceding published releases. `XsltSettings.Streamability`
+controls static analysis; `Strict` does not enable experimental forward execution by itself.
+The explicit development switch remains available for qualification, with `supports-streaming = no`.
+The original streaming memory and throughput requirements remain unchanged and unmet.
 
-This change does not complete the original streaming memory and throughput qualification.
-`supports-streaming` remains `no` until that qualification passes. Historical release behavior below
-is retained for migration from published versions.
+Update all three packages to 1.1.7 together and regenerate saved stylesheets with the matching compiler.
+The release includes accumulator/copy provenance, schema defaults and fork lifecycle corrections,
+plus allocation reductions in dynamic calls, temporary trees and grouped state. See the
+[release notes](releases/1.1.7.md) and [checkpoint boundary](plan/p7-runtime-checkpoint.md).
 
 ## 1.1.0: streamability declarations
 
