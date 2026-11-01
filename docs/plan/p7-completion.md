@@ -10,6 +10,23 @@ qualification, review and merge, then stop before tagging or publication.
 This resumes the original [P7 plan](p7-streaming.md); the completed P7A–P7H increments and their
 historical evidence are retained. An audit or another bounded increment does not complete this objective.
 
+## Latest verified state
+
+The preceding retained performance head `e223b2f` passes all four ordinary CI jobs, independently
+of streaming qualification. The public-default follow-up below is locally validated; its final
+hosted CI remains required. Isolated startup composition `c7da793` is not adopted: its complete hosted original
+run passes **13/16 push budgets**, **16/16 nightly budgets**, and **4/7 throughput targets** with
+all **126 benchmark observations** valid. Merge/fork/source-document RSS and identity/fork/source-document
+throughput remain failed. Their original inputs, limits, oracles and failed observations are retained.
+
+The canonical schema-relation and direct native reporter controls are now fully audited and excluded
+because neither produces a consistent useful RSS reduction. The public Strict/Fallback default
+follow-up now passes all four full unit suites (**7,339 .NET 10 /6,229 .NET 8** per configuration)
+and the unchanged **739-check** NativeAOT consumer. Every previous row, all 456 saved inputs and eight
+consumer sources remain. Four regressions fail on unchanged source; all twelve new cases pass after
+the fix. The source and matching README/package-readme/migration/changelog updates are retained locally.
+No merge, package readiness or publication is claimed.
+
 ## Requirements and evidence
 
 | Requirement | Evidence required before completion | Starting status |
@@ -256,11 +273,265 @@ remains unresolved. These are CPU shares including startup/warmup/oracle work, n
 time or acceptance results. They support one isolated short-poll control that retains the same
 1 ms ceiling, spare-CPU guard, parking fallback, threads and ownership. The earlier rejected
 no-yield control resets the BCL's exponential backoff; the new control tests checking state between
-short processor waits instead. Its outcome remains unmeasured. Evidence: `native-cpu-diagnosis-4ba7d3b/`.
+short processor waits instead. The [short-poll comparison](https://github.com/skuirrels/Xsl3/actions/runs/41284872315) now completes
+with twelve valid original 100 MB outputs, actual 4 GiB guards, both 492-file source manifests,
+binary hashes and **58 runtime /eight benchmark** PDB sources per variant verified. Hosted fork
+streaming medians are **5,944.407 /5,510.460 ms**, a **7.30%** reduction; candidate stream/tree
+**1.639543** still fails. Four local focused suites retain **370 /335** checks; six local JIT and
+24 native observations preserve outputs. Native fork median RSS increases **135,168 bytes**.
+This policy stays isolated. The first hosted audit correctly stops because the main checkout has
+advanced; an exact frozen baseline archive repairs the source audit without repeating measurements.
+Evidence: `native-cpu-diagnosis-4ba7d3b/`, `short-poll-9a4af5d/` and `hosted-short-poll-81e2abd/`.
+
+Retained ring-index head `e223b2f` passes all four complete frozen unit suites: **7,327 .NET 10
+/6,217 .NET 8** in each configuration, preserving every earlier case row and all test-engine hashes.
+The unchanged saved native consumer passes **739** checks, all **456** saved inputs and eight consumer
+sources remain unchanged, all deliberate code/output/JIT failures reject, and **58 runtime /eight
+consumer** PDB sources match. All four exact-head ordinary CI jobs pass in
+[run 41284725062](https://github.com/skuirrels/Xsl3/actions/runs/41284725062). Original acceptance
+remains separate. Evidence: `artifacts/p7-completion/slot-index-full-e223b2f/`.
+
+A writer-default-state cache control remains excluded. Its independent contract compares real BCL
+enum fields, public/reset/clone/read-only behavior, and eighteen saved-header round trips. An initial
+literal `standalone=no` output assertion also fails on the unchanged runtime; it is repaired to derive
+output from a separately populated stock writer. Both failed runs and the sandbox-denied test-listener
+attempt remain retained. Production code does not change to satisfy that mistaken expectation.
+
+The corrected control retains every earlier selected case and passes **102 .NET 10 /98 .NET 8** checks
+per Release/Debug configuration. Real NativeAOT passes the original nine reader and **42 writer**
+assertions; its managed intermediate rejects. All **24** native 200 MiB observations retain correct
+outputs and actual 20 MiB heap guards. Both **65-source** runtime PDB audits and all **65 saved input**
+hashes verify. Median whole-process RSS deltas are identity **0**, merge **+81,920**, fork **−28,672**
+and source-document **+212,992 bytes**. The cache is rejected. A smaller control now isolates the
+public setter for definite mutable indent states and separate lazy reflection bindings; its unknown,
+invalid and read-only states retain the original bridge. No cache or clone helper enters this control.
+The smaller control also passes all four **102 /98** focused suites, **nine reader /42 writer**
+NativeAOT assertions and the real JIT guard. Its 24 native observations retain every original
+fingerprint, source/binary hash and saved input. Both **59-source** runtime PDB audits validate.
+RSS deltas are identity **0**, merge **+4,096**, fork **+331,776** and source-document **+8,192 bytes**.
+It is also rejected. Neither writer optimization nor its additional runtime cache/clone machinery
+enters the branch. Evidence: `writer-defaults-e223b2f/` and `writer-public-indent-e223b2f/`.
+
+A distinct typed saved-provider control keeps the existing Load(Type) entry point and every legacy
+loader/data-format path, but emits direct execution/dispatcher delegates for newly compiled styles.
+It adds no warning suppressions or publisher changes. This API/emitter change stays in a frozen
+prototype. All **395 .NET 10 /49 .NET 8** saved-focused checks pass per configuration, including two
+new .NET 10 version/data/function-dispatch round trips. The first population auditor mistakenly
+treats parameter labels as method identities; the TRX method definitions repair that audit without
+repeating passed tests or changing their filter.
+
+The unchanged NativeAOT publisher succeeds without warnings. All **33 original stylesheet/entry
+sources** match; new saved DLL hashes are recorded honestly. All 24 native 200 MiB observations
+retain original fingerprints, actual 20 MiB heap guards and unchanged source/binary/saved-input
+hashes. Median RSS deltas are identity **0**, merge **+94,208**, fork **−221,184** and source-document
+**+356,352 bytes**. The provider is rejected alone; no API or emitter change enters the P7 branch.
+Evidence: artifacts/p7-completion/typed-saved-provider-e223b2f/.
+
+One separate composition now tests a shared fixed-overhead hypothesis: the SDK-sourced canonical
+version, typed saved provider, reader reference accessors/lazy DTD metadata and default-only writer
+cache may need to be cold together. Its four focused configurations pass **441 /95** checks. A
+separate guarded native build must reject actual writer/DTD/legacy fallback accesses and permit
+default URI workloads before any uninstrumented RSS result can support that mechanism. Each earlier individual control and its failures remains retained.
+
+All six mechanism checks pass: the three default URI workloads run while the guarded writer, DTD,
+version and legacy-loader bindings are forbidden; real writer/DTD/legacy fallbacks fail with their
+individual markers. Native reader/writer/DTD assertions pass **59** checks and the actual JIT
+intermediate rejects. Twenty-four uninstrumented observations retain correct outputs. Median RSS
+reductions are merge **393,216**, fork **966,656** and source-document **262,144 bytes**; identity is
+unchanged. The same native image passes the complete local original push matrix: **16 budgets /48
+outputs**, exact 209,715,200-byte inputs, actual 20,971,520-byte RSS/heap limits, original 10 MiB
+controls and maximum RSS **20,602,880 bytes**. All fingerprints, source/saved-input hashes and
+**69 runtime** PDB checks verify. This is ARM64 diagnostic evidence.
+
+The isolated composition is pushed as **c7da793** on feature/p7-composed-startup; PR #27's runtime
+stays at e223b2f. The first commit preparation stops on quoted non-ASCII Git filenames; a NUL-delimited
+inventory repairs it before any branch is created. The exact clean commit passes all **18** build/header
+version cases; full Release/Debug and unchanged saved/native compatibility are still running.
+
+Original hosted run **41290706344** retains all 48 push outputs, all 33 stylesheet/entry sources
+and 69 runtime PDB checks, but only **13/16 budgets** pass. Merge **21,684,224**, fork **21,950,464**
+and source-document **21,061,632 bytes** exceed **20,971,520**. Source-document's own status is ok,
+but its external full-lifetime counter exceeds the cap; that remains a failure. Nightly and all
+126 throughput observations remain in progress. No composition acceptance, merge or release is
+claimed. Evidence: artifacts/p7-completion/composed-cold-start-e223b2f/,
+artifacts/p7-completion/composed-full-c7da793/ and artifacts/p7-completion/qualification-c7da793/.
 
 Full P7 remains active. Original failed memory/throughput targets, remaining contract accounting,
 public integration, final review/CI, merge and deployment handoff remain required. PR #27 stays draft,
 `supports-streaming` remains `no`, and the owner requires stopping before tagging/publication.
+
+### Composed startup compatibility and hosted mapping audit, 2026-11-01
+
+Exact clean candidate `c7da793` completes all four full suites with **7,331 .NET 10 /6,219 .NET 8**
+checks in each Release/Debug configuration. Every prior baseline case row and multiplicity is retained,
+all frozen binary hashes remain unchanged, and no case fails or is skipped. The unchanged native
+consumer passes **739** checks; deliberate incorrect-code/output and real JIT-intermediate controls
+reject. All **456 saved inputs /eight consumer sources** are unchanged, the linked engine matches the
+full-tested Release engine, and **69 runtime /eight consumer** portable PDB checks pass without
+publication warnings. All 18 build/header compatibility cases also pass. Evidence:
+`artifacts/p7-completion/composed-full-c7da793/`.
+
+[Hosted native mappings](https://github.com/skuirrels/Xsl3/actions/runs/41291350142) complete with
+12 correct original outputs, actual 20 MiB heap guards, 48 verified snapshot hashes, 69 matching runtime
+PDB sources and 33 unchanged stylesheet/entry sources. The archive matches GitHub's SHA-256 digest.
+The canonical consumer portable PDB is not retained in this mapping artifact. These external snapshots
+use a disabled RSS status limit and cannot qualify a budget. They show current executable mappings
+around 10.4–11.1 MiB, anonymous mappings around 3.1–3.3 MiB, and about 4.34 MiB of ICU/C++/unwind
+libraries for URI workloads. They are instantaneous snapshots from a separate cohort, not historical
+peak decomposition or a paired causal reduction. Evidence:
+`artifacts/p7-completion/hosted-native-mappings-c7da793/`.
+
+A separate isolated control composes the retained ring-index optimization and candidate cold startup
+with the earlier short-poll policy. It preserves the one-millisecond ceiling, spare-CPU guard, lower-CPU
+parking, threads, capacities, input/output ownership, inputs, oracles and every original gate.
+Individual gains do not establish its composed performance. It remains unadopted pending validation.
+Evidence: `artifacts/p7-completion/composed-short-poll-c7da793/`.
+
+### Original nightly completion and isolated controls, 2026-11-01
+
+The composition's original hosted nightly job in run **41290706344** passes **16/16 budgets /48
+outputs**, using exact **2,147,483,648-byte** inputs, original 10 MiB controls and actual **209,715,200-byte**
+RSS/managed limits. Maximum whole-process RSS is **36,270,080 bytes**. All original output fingerprints,
+33 source stylesheet/entry files and 69 runtime PDB checks match. The artifact matches GitHub's published
+digest. The original push failures remain; the full 126-observation benchmark is still active.
+Evidence: `artifacts/p7-completion/qualification-c7da793/hosted-nightly-audit.json`.
+
+The composed short-poll control completes all four **370 /335** focused suites, six 100 MB JIT
+observations and 24 native 200 MiB observations. Every output matches the original oracle; runtime
+PDB checks match 69 source documents per variant. Fork elapsed candidate/baseline ratios are
+**0.972531 JIT /0.998846 native**, with overlapping ranges. The isolated earlier gain does not reproduce
+materially in the composed native path. This policy remains excluded; no hosted acceptance is claimed.
+Evidence: `artifacts/p7-completion/composed-short-poll-c7da793/`.
+
+An independent plain-text principal-writer control retains every selected previous case, adds six
+stock-writer comparisons covering both APIs, byte/text destinations, empty/mixed content, encoding
+failures and lent-output ownership, and passes **184 .NET 10 /173 .NET 8** cases per configuration.
+The first preparation guarded against an outdated clone spelling and stops before a source write.
+A test-only nonexistent debug option is corrected; a second stock oracle correctly rejects non-ASCII
+text under ASCII and is updated to compare actual failures rather than assuming representability.
+All failed attempts remain retained. Six JIT and 24 native observations preserve the original outputs;
+all 69 runtime PDB sources match per variant. Native merge median RSS falls only **61,440 bytes** and
+its elapsed median is **0.17% slower**, so the runtime change remains excluded.
+Evidence: `artifacts/p7-completion/direct-text-c7da793/`.
+
+A distinct saved-compiler control moves ordinary generated bodies into a private nested implementation
+type. Load(Type)'s broad nonpublic-method preservation can then retain the existing outer loader entry
+points without reflection metadata/invokers for every template body. Execute, the function dispatcher,
+static fields, format, legacy loaders, in-memory compilation and publisher settings remain unchanged.
+All four selected saved/debug/serialization suites pass **941 /578** cases. The inventory auditor's
+initial case-sensitive comparison misses one already-passed Recompiled-named method; matching VSTest's
+case-insensitive semantics repairs the audit without rerunning suites. Native publication succeeds
+without warnings, all 33 original source styles/entrypoint match, and 69 source PDB checks per variant
+pass. All 24 original-input native controls complete with original fingerprints, actual 20 MiB heap
+guards, unchanged sources/saved inputs and matching native binary hashes. The image shrinks only
+**13,056 bytes**. Median RSS deltas are identity **0**, merge **+61,440**, fork **−98,304** and
+source-document **−8,192 bytes**; fork elapsed is effectively unchanged (**1.000551**). This does not
+establish a useful consistent footprint reduction, so the implementation remains excluded. All local
+controllers are terminal; the original hosted full benchmark remains active. No additional compiler,
+writer, polling or public API change enters the main P7 branch from these controls.
+Evidence: `artifacts/p7-completion/saved-implementation-c7da793/`.
+
+### Completed composed qualification and private-reader control, 2026-11-01
+
+The original [c7da793 qualification](https://github.com/skuirrels/Xsl3/actions/runs/41290706344)
+is terminal. All **126 original-size observations** validate, including 1 GB tree controls under the
+actual **4 GiB** heap guard. All preceding fingerprints, native/managed host flags, controller/binary
+hashes, **69 runtime /eight benchmark** PDB sources and the artifact digest verify. Four of seven
+100 MB throughput targets pass. Original stream/tree ratios are identity **1.069088**, adjacent
+**0.791757**, accumulator **0.899722**, iterate **0.826535**, merge **0.868607**, fork **1.608402** and
+source-document **1.062780**. Every failing target stays failed. Together with the preceding audited
+13/16 push and 16/16 nightly results, this leaves the startup composition unadopted; local ARM64
+passes cannot substitute for the original hosted x64 gates. Evidence:
+`artifacts/p7-completion/qualification-c7da793/hosted-benchmark-audit.json`.
+
+A separate private-reader control preserves the original generic alias-capable tee. Only the internal
+fork-event adapter selects a confined cursor, bound to its first consuming thread. Acquire/release
+cursor publication then lets the producer reclaim completed prefixes without per-event compare/exchange
+and reader-count updates. Cross-thread consuming aliases reject; external detach remains supported.
+Ring/staging capacity, prong/caller threads, source/callback ownership, waits and all original gates stay.
+
+All original selected fork contracts pass first, but a new progress contract exposes a missed caller
+wakeup when one slot is released and the slow reader waits before requesting more. The repaired
+protocol signals a pending caller on the head release. All four configurations preserve their original
+370 /335 rows and pass five additional ownership/progress/source-fault contracts: **375 .NET 10
+/340 .NET 8** checks per configuration. The first selected-row auditor omits the new class from its
+filter; the passed 370-row Release run is reused, its five omitted cases are run separately against
+the unchanged runtime, and remaining configurations include them directly. All failures are retained.
+All six JIT and 24 native controls complete and match the original fingerprints, actual guards and
+host flags. Both native binaries, 69 runtime and eight consumer PDB checks per variant match the
+frozen inputs. Fork candidate/baseline elapsed medians are **0.952540 JIT /0.939103 native**; native
+median full-lifetime RSS increases **344,064 bytes**. This makes the outstanding footprint problem
+worse without closing throughput, so the protocol remains excluded. No generic alias behavior or
+private ownership restriction enters the main branch from this control.
+Evidence: `artifacts/p7-completion/confined-tee-c7da793/`.
+
+A separate native initializer guard disproves another startup hypothesis at its tested 2 MiB input.
+Identity, merge, fork and source-document streaming, plus the iterate tree control, complete with
+correct output and actual 20 MiB heap guards while function-registry initialization is forbidden.
+A direct registry control on that same instrumented image fails with the exact guard marker,
+proving that the guard is active. Its extra friend-assembly access and native entrypoint are strictly
+diagnostic, not production changes or acceptance observations. No URI or registry refactor follows
+from these cold controls. Evidence: `artifacts/p7-completion/registry-cold-guard-c7da793/`.
+
+A complete frozen e223b2f unit run now checks the existing strict runtime opt-in against every full
+unit case, independently of the ordinary default-mode suites. This tests readiness for the required
+Strict execution default without changing public settings, feature claims or original performance
+gates. All **7,327 .NET 10 Release** cases pass with no failures/skips; every original case identity
+and multiplicity and all frozen binary hashes remain unchanged. A short live-stack diagnostic arrives
+after the test host has already completed; the existing process is terminal and is not restarted.
+Evidence: `artifacts/p7-completion/full-strict-default-e223b2f/`.
+
+A direct native descriptor-reporting control also remains excluded. It keeps the exact UTF-8 JSON
+fields/newline and whole-process counters, but avoids Console on the successful Unix reporting path.
+Its stdout/EINTR constants are checked against actual Darwin/Linux headers, not workload values.
+All four selected 45-case reporting suites retain their original populations. The unchanged native
+publisher succeeds without warnings; 69 runtime and eight consumer PDB source checks per variant,
+all binary hashes and all 24 original 200 MiB fingerprints verify. Median RSS deltas are identity
+**0**, merge **+61,440**, fork **+217,088** and source-document **−77,824 bytes**. This establishes no
+consistent reduction and does not justify changing the reporter or acceptance counters.
+Evidence: `artifacts/p7-completion/native-report-fd-c7da793/audit.json`.
+
+A distinct schema control defers canonical built-in schema objects through positive type relations,
+in addition to their construction. Custom schema identities and derivation, strictness, names,
+nillability, RTF restrictions and the actual BCL singleton getters remain unchanged. Four focused
+Release/Debug suites pass **1,489 .NET 10 /1,301 .NET 8** cases, preserving every previous selected
+row and adding 110 singleton/parallel/custom-schema contracts. An independently loaded fresh-engine
+snapshot matches all **126 types /15,876 pairs /47,628 relation checks** against the baseline. Cold
+managed allocation falls from **68,504 to 10,000 bytes** in that diagnostic. The completed native
+comparison retains all 24 original outputs, actual 20 MiB heap guards, binary hashes and 69 runtime
+/eight consumer PDB checks per variant. Native RSS deltas are identity **0**, merge **+139,264**,
+fork **−73,728** and source-document **−4,096 bytes**. There is no consistent useful footprint gain;
+the schema changes remain excluded. Both allocation and native evidence are retained:
+`artifacts/p7-completion/schema-relations-c7da793/snapshot-audit.json` and `audit.json`.
+
+### Public streaming selection follows Strict/Fallback, 2026-11-01
+
+The previous internal opt-in leaves public default/explicit Strict compilation on the tree path.
+Twelve contracts cover both APIs, default/Strict/Fallback, declared-streamable/non-streamable modes,
+actual first output before/after source EOF, caller-owned readers and settings mutation after compile.
+Exactly the four default/Strict streaming cases fail on unchanged source; the other eight pass.
+
+Strict now selects forward execution by default for declared-streamable inputs. Fallback retains the
+tree path. Existing per-compiler test overrides and the explicit development `XSL3_STREAM_STRICT=0`
+tree control stay intact, so no benchmark mode, input, output oracle or requirement changes. Existing
+XDM inputs remain trees; saved styles retain their recorded mode. The initial-mode helper's default
+and existing first-output cases now exercise the public selection rather than forcing the internal
+switch. The feature claim remains `no` pending original qualification.
+
+All four focused suites pass **408 /407** checks and retain their preceding 396 /395 rows. All full
+Release/Debug suites pass **7,339 .NET 10 /6,229 .NET 8**, preserving every earlier case plus twelve
+new rows per configuration, with no failures or skips and unchanged frozen binary hashes. Both changed
+source PDBs match in each configuration. The unchanged saved/native consumer passes **739** checks;
+all deliberate wrong-code, wrong-output and actual JIT-intermediate guards reject. All **456** saved
+inputs and **eight** consumer sources remain unchanged, and the linked engine matches the frozen full
+Release engine. The queued interpreter loaded its earlier 58-file PDB list before the settings-list
+extension; a separate complete **59-source** union audit explicitly verifies the new settings file.
+No repeated test or inferred source check is used to hide that distinction.
+
+README, package readme, migration notes and Unreleased changelog describe this local default change
+and the incomplete qualification. No version is tagged/published, and no new hosted full qualification
+is dispatched merely for this selection change while known memory/throughput failures remain.
+Evidence: `artifacts/p7-completion/public-default-e223b2f/compatibility-audit.json`.
 
 ## Preceding verified checkpoint, 2026-11-01
 

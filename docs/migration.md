@@ -33,6 +33,18 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
+## Unreleased P7: execution follows the streamability setting
+
+`XsltSettings.Streamability = Strict` now selects forward execution for declared-streamable code
+when its input is supplied through the reader, stream or URI APIs. It remains the default. Select
+`XsltStreamabilityMode.Fallback` to retain tree execution. Existing XDM selections remain trees, and
+saved styles retain the execution mode recorded at compilation. Settings are copied when a unit is
+compiled or loaded; changing the caller's settings afterwards does not change that unit's mode.
+
+This change does not complete the original streaming memory and throughput qualification.
+`supports-streaming` remains `no` until that qualification passes. Historical release behavior below
+is retained for migration from published versions.
+
 ## 1.1.0: streamability declarations
 
 Version 1.1.0 checks streamability declarations with `XsltSettings.Streamability = XsltStreamabilityMode.Strict`
