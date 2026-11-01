@@ -75,6 +75,14 @@ namespace Xsl3.Runtime
         /// </summary>
         [RequiresUnreferencedCode("This method will create EarlyBoundInfo from passed in ebTypes array which cannot be statically analyzed.")]
         public XmlQueryStaticData(byte[] data, Type[]? ebTypes)
+            : this(data, (ns, index) => new EarlyBoundInfo(ns, ebTypes![index])) { }
+
+        // Ordinary compiler-produced adapters contain no script/early-bound classes.
+        // Reject such data explicitly here; the existing constructor preserves its reflection contract.
+        internal XmlQueryStaticData(byte[] data)
+            : this(data, static (_, _) => throw new NotSupportedException("Direct saved adapters cannot load early-bound classes; use Load(Type).")) { }
+
+        private XmlQueryStaticData(byte[] data, Func<string, int, EarlyBoundInfo> earlyBound)
         {
             MemoryStream dataStream = new MemoryStream(data, writable: false);
             XmlQueryDataReader dataReader = new XmlQueryDataReader(dataStream);
@@ -184,7 +192,7 @@ namespace Xsl3.Runtime
                 _earlyBound = new EarlyBoundInfo[length];
                 for (int idx = 0; idx < length; idx++)
                 {
-                    _earlyBound[idx] = new EarlyBoundInfo(dataReader.ReadString(), ebTypes![idx]);
+                    _earlyBound[idx] = earlyBound(dataReader.ReadString(), idx);
                 }
             }
 

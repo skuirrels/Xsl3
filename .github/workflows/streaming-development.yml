@@ -8,6 +8,10 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
+      canonical_push_diagnosis:
+        description: Run only the original complete push memory matrix for an immutable candidate
+        type: boolean
+        default: false
       memory_diagnosis:
         description: Run identity and saved-loader diagnostics only (never an acceptance gate)
         type: boolean
@@ -28,7 +32,7 @@ jobs:
   # S7 uses fresh paired processes so source parsing and first output are measured.
   # The benchmark heap guard is separate from the exact memory gates below.
   streaming-benchmark:
-    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true && inputs.canonical_push_diagnosis != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -58,7 +62,7 @@ jobs:
   # P7 decision 6: exact generated-input size and absolute process/managed limits.
   # A failed or incomplete matrix is a failed job; retained artifacts expose it.
   streaming-memory:
-    if: ${{ inputs.memory_diagnosis != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.canonical_push_diagnosis != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -101,7 +105,7 @@ jobs:
 
   # P7E is an explicitly selected diagnostic job. Scheduled/default acceptance is unchanged.
   identity-memory-diagnosis:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true && inputs.canonical_push_diagnosis != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -148,7 +152,7 @@ jobs:
 
   # P7F comparisons use the same saved entrypoints on both runtime versions.
   identity-allocation-comparison:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison && inputs.canonical_push_diagnosis != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -195,3 +199,66 @@ jobs:
             artifacts/p7f-identity/linux/*-diagnostic/preparation.json
             artifacts/p7f-identity/linux/*-diagnostic/source-sha256.json
             artifacts/p7f-identity/linux/*-diagnostic/publish.log
+
+  # Explicit diagnostic selection avoids rerunning the large benchmark while testing a footprint change.
+  # The driver, all 16 workloads, exact input sizes and absolute limits are the original push gate.
+  canonical-push-memory-diagnosis:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.canonical_push_diagnosis }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate exclusive selection and immutable source
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          MEMORY_DIAGNOSIS: ${{ inputs.memory_diagnosis }}
+          ALLOCATION_COMPARISON: ${{ inputs.allocation_comparison }}
+        run: |
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          test "$MEMORY_DIAGNOSIS" != true
+          test "$ALLOCATION_COMPARISON" != true
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: push-source
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 10.0.x
+      - name: Record source and actual runtime provenance
+        run: |
+          mkdir -p artifacts/canonical-push-memory
+          git rev-parse HEAD > artifacts/canonical-push-memory/controller-revision.txt
+          git -C push-source rev-parse HEAD > artifacts/canonical-push-memory/source-revision.txt
+          git -C push-source ls-tree -r HEAD > artifacts/canonical-push-memory/source-tree.txt
+          dotnet --info > artifacts/canonical-push-memory/dotnet-info.txt
+          uname -a > artifacts/canonical-push-memory/host.txt
+          dotnet build push-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1 -nr:false -p:UseSharedCompilation=false > artifacts/canonical-push-memory/runtime-build.log
+          dotnet push-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll streaming-info > artifacts/canonical-push-memory/runtime.json
+      - name: Install the original internal probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
+      - name: Publish the candidate with the original publisher and retain consumer symbols
+        run: |
+          set -o pipefail
+          bash push-source/eng/publish-stream-probe.sh linux-x64 artifacts/canonical-push-memory/canonical 2>&1 | tee artifacts/canonical-push-memory/publish.log
+          cp push-source/tests/Xsl3.StreamingProbe.Native/obj/Release/net10.0/linux-x64/Xsl3.StreamingProbe.Native.pdb artifacts/canonical-push-memory/consumer.pdb
+      - name: Original complete push memory gate
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 push-source/eng/streaming-gate.py --native artifacts/canonical-push-memory/canonical/bin/Xsl3.StreamingProbe.Native --bytes 209715200 --limit 20971520 --timeout-seconds 900 --output artifacts/canonical-push-memory/matrix
+      - name: Retain source state after the gate
+        if: always()
+        run: |
+          if test -d push-source/.git
+          then
+            mkdir -p artifacts/canonical-push-memory
+            git -C push-source status --porcelain --untracked-files=no > artifacts/canonical-push-memory/source-status-after.txt
+            test ! -s artifacts/canonical-push-memory/source-status-after.txt
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: canonical-push-memory-check
+          path: artifacts/canonical-push-memory

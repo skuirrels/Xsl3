@@ -15,7 +15,14 @@ public class CompiledProviderTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void SavedProviderPreservesVersionDataAndFunctionDispatch(bool debug)
+    public void SavedProviderPreservesVersionDataAndFunctionDispatch(bool debug) => Verify(debug, direct: false);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DirectProviderPreservesVersionDataAndFunctionDispatch(bool debug) => Verify(debug, direct: true);
+
+    private static void Verify(bool debug, bool direct)
     {
         const string sheet = "<xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'><xsl:output method='text'/><xsl:template match='/'><xsl:variable name='f' select='function($v){$v+1}'/><xsl:value-of select='$f(41)'/></xsl:template></xsl:stylesheet>";
         var ordinary = new XslCompiledTransform(debug);
@@ -37,10 +44,23 @@ public class CompiledProviderTests
         Assert.NotNull(provider.Execute);
         Assert.NotNull(provider.Dispatcher);
         var saved = new XslCompiledTransform();
-        saved.Load(type, new XsltSettings());
+        if (direct)
+        {
+            var constructed = Assert.IsAssignableFrom<ICompiledStylesheetProvider>(Activator.CreateInstance(type));
+            saved.Load(constructed, new XsltSettings());
+        }
+        else saved.Load(type, new XsltSettings());
         using var actual = new StringWriter();
         saved.Transform(XmlReader.Create(new StringReader("<doc/>")), null, actual);
         Assert.Equal(expected.ToString(), actual.ToString());
+        if (direct)
+        {
+            var byType = new XslCompiledTransform();
+            byType.LoadCompiledAdapter(type);
+            using var second = new StringWriter();
+            byType.Transform(XmlReader.Create(new StringReader("<doc/>")), null, second);
+            Assert.Equal(expected.ToString(), second.ToString());
+        }
     }
 }
 #endif

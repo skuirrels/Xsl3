@@ -13,3 +13,5 @@ Xsl3.ICompiledStylesheetProvider.QueryData.get -> System.ReadOnlyMemory<byte>
 Xsl3.ICompiledStylesheetProvider.EarlyBoundTypes.get -> System.Type![]?
 Xsl3.ICompiledStylesheetProvider.Execute.get -> System.Action<Xsl3.Runtime.XmlQueryRuntime!>!
 Xsl3.ICompiledStylesheetProvider.Dispatcher.get -> System.Func<Xsl3.Runtime.XmlQueryRuntime!, System.Xml.XPath.XPathItem!, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!>?
+Xsl3.XslCompiledTransform.Load(Xsl3.ICompiledStylesheetProvider! compiledStylesheet, Xsl3.XsltSettings? settings = null) -> void
+Xsl3.XslCompiledTransform.LoadCompiledAdapter(System.Type! compiledStylesheet, Xsl3.XsltSettings? settings = null) -> void

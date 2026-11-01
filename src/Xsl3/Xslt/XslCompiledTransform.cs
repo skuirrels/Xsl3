@@ -498,6 +498,65 @@ namespace Xsl3
             _settings = (settings ?? XsltSettings.Default).Clone();
         }
 
+        /// <summary>Loads a directly constructed adapter emitted by the saved stylesheet compiler.</summary>
+        /// <remarks>The compiled data selects execution mode. Existing Load(Type) styles remain supported.
+        /// This path avoids reflecting over the generated type's methods and fields. Adapters containing
+        /// early-bound classes must use the existing Load(Type) contract instead.</remarks>
+        public void Load(ICompiledStylesheetProvider compiledStylesheet, XsltSettings? settings = null)
+        {
+            Reset();
+            ArgumentNullException.ThrowIfNull(compiledStylesheet);
+            LoadDirectProvider(compiledStylesheet, settings);
+        }
+
+        /// <summary>Loads a stateless adapter emitted by the saved compiler, without reflecting over its fields or methods.</summary>
+        /// <remarks>Use typeof(SavedStylesheet) with existing saved assemblies. No adapter constructor runs.
+        /// Types without the emitted adapter contract must use the existing Load(Type) path.</remarks>
+        public void LoadCompiledAdapter(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type compiledStylesheet,
+            XsltSettings? settings = null)
+        {
+            Reset();
+            ArgumentNullException.ThrowIfNull(compiledStylesheet);
+            if (compiledStylesheet.IsAbstract || !compiledStylesheet.IsSealed ||
+                !typeof(ICompiledStylesheetProvider).IsAssignableFrom(compiledStylesheet))
+                throw new ArgumentException(SR.Format(SR.Xslt_NotCompiledStylesheet, compiledStylesheet.FullName), nameof(compiledStylesheet));
+            var provider = (ICompiledStylesheetProvider)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(compiledStylesheet);
+            LoadDirectProvider(provider, settings);
+        }
+
+        private void LoadDirectProvider(ICompiledStylesheetProvider compiledStylesheet, XsltSettings? settings)
+        {
+            LoadProvider(compiledStylesheet, static (bytes, types) =>
+            {
+                if (types is { Length: > 0 })
+                    throw new NotSupportedException("Direct saved adapters cannot load early-bound classes; use Load(Type).");
+                return new XmlQueryStaticData(bytes);
+            });
+            _settings = (settings ?? XsltSettings.Default).Clone();
+        }
+
+        private void LoadProvider(ICompiledStylesheetProvider provider, Func<byte[], Type[]?, XmlQueryStaticData> readData)
+        {
+            string versionText = provider.CompilerVersion;
+            if (s_version == null || !string.Equals(s_version, versionText, StringComparison.Ordinal))
+            {
+                Version? version = s_version == null ? null : Version.Parse(s_version);
+                if (version < Version.Parse(versionText))
+                    throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, versionText, version), "compiledStylesheet");
+            }
+            ReadOnlyMemory<byte> memory = provider.QueryData;
+            byte[] bytes = System.Runtime.InteropServices.MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
+                && segment.Offset == 0 && segment.Array is byte[] array && segment.Count == array.Length
+                ? array : memory.ToArray();
+            XmlQueryStaticData data = readData(bytes, provider.EarlyBoundTypes);
+            data.Dispatcher = provider.Dispatcher;
+            Action<XmlQueryRuntime> execute = provider.Execute;
+            ArgumentNullException.ThrowIfNull(execute);
+            _command = new XmlILCommand(execute.Invoke, data);
+            OutputSettings = data.DefaultWriterSettings;
+        }
+
         // Xsl3: what Load(Type) reads from a compiled stylesheet's type (its static data fields, Execute and the dispatcher).
         private const DynamicallyAccessedMemberTypes CompiledMembers = DynamicallyAccessedMemberTypes.NonPublicFields | DynamicallyAccessedMemberTypes.NonPublicMethods;
 
@@ -512,22 +571,7 @@ namespace Xsl3
                 // Emitted adapters have no instance state. Allocate without running a user
                 // constructor; their static data initializes when the generated getters run.
                 var provider = (ICompiledStylesheetProvider)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(compiledStylesheet);
-                string versionText = provider.CompilerVersion;
-                if (s_version == null || !string.Equals(s_version, versionText, StringComparison.Ordinal))
-                {
-                    Version? version = s_version == null ? null : Version.Parse(s_version);
-                    if (version < Version.Parse(versionText))
-                        throw new ArgumentException(SR.Format(SR.Xslt_IncompatibleCompiledStylesheetVersion, versionText, version), nameof(compiledStylesheet));
-                }
-                ReadOnlyMemory<byte> memory = provider.QueryData;
-                byte[] bytes = System.Runtime.InteropServices.MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
-                    && segment.Offset == 0 && segment.Array is byte[] array && segment.Count == array.Length
-                    ? array : memory.ToArray();
-                var data = new XmlQueryStaticData(bytes, provider.EarlyBoundTypes) { Dispatcher = provider.Dispatcher };
-                Action<XmlQueryRuntime> execute = provider.Execute;
-                ArgumentNullException.ThrowIfNull(execute);
-                _command = new XmlILCommand(execute.Invoke, data);
-                OutputSettings = data.DefaultWriterSettings;
+                LoadProvider(provider, static (bytes, types) => new XmlQueryStaticData(bytes, types));
                 return;
             }
             object[] customAttrs = compiledStylesheet.GetCustomAttributes(typeof(GeneratedCodeAttribute), false);

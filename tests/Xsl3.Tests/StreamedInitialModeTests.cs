@@ -24,8 +24,51 @@ public class StreamedInitialModeTests
         + $"<xsl:mode {(mode.Length == 0 ? "" : $"name='{mode}' ")}streamable='{(streamable ? "yes" : "no")}'/>"
         + "<xsl:output method='text'/>" + declarations + templates + "</xsl:stylesheet>";
 
-    private static Xslt30Transformer Transformer(string sheet, bool forward = true) =>
+    private static Xslt30Transformer Transformer(string sheet, bool? forward = null) =>
         new XsltCompiler { Settings = new() { StreamedExecution = forward } }.Compile(new StringReader(sheet)).CreateTransformer();
+
+    [Theory]
+    [InlineData("default", true, true)]
+    [InlineData("default", true, false)]
+    [InlineData("default", false, true)]
+    [InlineData("default", false, false)]
+    [InlineData("strict", true, true)]
+    [InlineData("strict", true, false)]
+    [InlineData("strict", false, true)]
+    [InlineData("strict", false, false)]
+    [InlineData("fallback", true, true)]
+    [InlineData("fallback", true, false)]
+    [InlineData("fallback", false, true)]
+    [InlineData("fallback", false, false)]
+    public void PublicSettingsSelectForwardOrTreeExecution(string policy, bool streamable, bool legacy)
+    {
+        var settings = new XsltSettings();
+        if (policy != "default") settings.Streamability = policy == "strict"
+            ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+        string sheet = Sheet(declarations: "<xsl:strip-space elements='*'/>", streamable: streamable);
+        using var input = XmlReader.Create(new StringReader(Input));
+        using var text = new StringWriter();
+        bool? firstWriteBeforeEof = null;
+        using var writer = new ObservingWriter(text, () => firstWriteBeforeEof ??= !input.EOF);
+        if (legacy)
+        {
+            var transform = new XslCompiledTransform();
+            using var style = XmlReader.Create(new StringReader(sheet));
+            transform.Load(style, settings, null);
+            // A loaded unit owns its settings; later caller mutations cannot change its entry path.
+            settings.Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+            transform.Transform(input, null, writer);
+        }
+        else
+        {
+            var executable = new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet));
+            settings.Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+            executable.CreateTransformer().ApplyTemplates(input, writer);
+        }
+        Assert.Equal("123", text.ToString());
+        Assert.Equal(streamable && policy != "fallback", firstWriteBeforeEof);
+        Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
 
     [Theory]
     [InlineData("position()")]
@@ -58,7 +101,7 @@ public class StreamedInitialModeTests
         if (legacy)
         {
             var transform = new XslCompiledTransform();
-            transform.Load(XmlReader.Create(new StringReader(sheet)), new() { StreamedExecution = true }, null);
+            transform.Load(XmlReader.Create(new StringReader(sheet)), new(), null);
             transform.Transform(reader, null, writer);
         }
         else Transformer(sheet).ApplyTemplates(reader, writer);

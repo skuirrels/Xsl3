@@ -31,7 +31,7 @@ try
             new XslCompiledTransform().CompileToAssembly(input,
                 new XsltSettings { EnableDocumentFunction = true, EnableResultDocument = true }, null, name, type, output);
             bindings.Append("case (\"").Append(workload).Append("\", ").Append(forward ? "true" : "false")
-                .Append("): unit.Load(typeof(global::").Append(type).Append("), settings); break;\n");
+                .Append("): unit.LoadCompiledAdapter(typeof(global::").Append(type).Append("), settings); break;\n");
         }
 }
 finally { Environment.SetEnvironmentVariable("XSL3_STREAM_STRICT", saved); }

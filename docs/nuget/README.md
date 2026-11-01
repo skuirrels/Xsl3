@@ -9,7 +9,11 @@ as they do with stock .NET.
 > awareness (opt-in, `XsltSettings.SchemaAware`).
 
 Streaming remains in development, with static analysis, forward execution and process probes. It is not
-claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
+claimed as a supported package feature and `supports-streaming` remains `no`. The unreleased P7 default
+selects forward execution for declared-streamable reader, stream and URI inputs through
+`XsltSettings.Streamability = Strict`; `Fallback` retains tree execution. Ordinary non-streamable
+stylesheets and existing XDM trees retain tree execution. Original performance and memory qualification
+must pass before the feature is claimed.
 Version **1.1.6** fixes the Debug compiler assertion for repeated bare-variable `xsl:sequence`
 instructions. Each use retains its own source location without cloning or re-evaluating the binding.
 Normal/debug source and saved styles retain all six P7G copied-attribute identity contracts.

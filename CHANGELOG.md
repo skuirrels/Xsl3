@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Avoid division when indexing a fork tee whose configured capacity is a power of two. Retain
+  remainder indexing for arbitrary positive capacities, the same buffer bounds and atomic ownership.
+
+- Select forward execution for declared-streamable reader, stream and URI inputs through the default
+  `XsltSettings.Streamability = Strict` in both APIs. `Fallback` retains tree execution; compiled
+  settings are copied and saved styles retain their recorded mode. Keep the existing explicit
+  development tree control, original qualification gates and `supports-streaming = no` while
+  streaming memory and throughput acceptance remains incomplete.
+
 - Reduce fork handoff delays with a bounded optimistic wait when the effective CPU allowance
   has a spare processor beyond the caller and prongs. Retain parking on lower CPU allowances,
   the existing thread count and buffer capacity, and callback/cancellation ownership.

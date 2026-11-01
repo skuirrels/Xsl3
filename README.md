@@ -28,8 +28,11 @@ P7G's DTD ID/IDREF/IDREFS identity corrections and P7F's ordinary-attribute opti
 included. The P7F workload measured **23.55% less allocation** at 10 MiB, 200 MiB and 2 GiB on
 Linux/macOS; that historical measurement does not establish general memory bounds. P7H's unchanged
 ordinary performance gate passes separately against 1.1.5.
-Streaming remains unsupported; normal execution remains tree-based and `supports-streaming` remains `no`.
-The 20 MiB target and the separate stylesheet-reader source-mapping finding remain deferred.
+Streaming qualification remains incomplete and `supports-streaming` remains `no`. The unreleased P7 code
+uses forward execution for declared-streamable reader, stream and URI inputs under the default
+`XsltSettings.Streamability = Strict`; select `Fallback` for tree execution. Ordinary non-streamable
+stylesheets and existing XDM trees retain tree execution.
+The original 20 MiB target remains open under the full P7 objective; the separate stylesheet-reader source-mapping finding remains deferred.
 
 See the [changelog](CHANGELOG.md), [1.1.6 release notes](docs/releases/1.1.6.md) and
 [P7H close-out](docs/p7h-debug-source-lines-2026-10-29.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
@@ -72,9 +75,9 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
   (`on-no-match`, `on-multiple-match`, `use-accumulators`), `[xsl:]default-mode`, static variables and
   parameters, shadow attributes, `xsl:try`/`xsl:catch`, `xsl:iterate` (with `xsl:next-iteration`,
   `xsl:break`, `xsl:on-completion`), `xsl:where-populated`, `xsl:on-empty`, `xsl:on-non-empty`, `xsl:fork`
-  and `xsl:source-document` (without streaming), `xsl:copy select`, `xsl:sequence` with content,
+  and `xsl:source-document` (streaming qualification pending), `xsl:copy select`, `xsl:sequence` with content,
   `xsl:context-item`, `xsl:import` anywhere, accumulators (`accumulator-before`/`accumulator-after`),
-  `xsl:merge` (without streaming), `xsl:map` and `xsl:map-entry`, `xsl:number start-at`, `copy-accumulators`,
+  `xsl:merge` (streaming qualification pending), `xsl:map` and `xsl:map-entry`, `xsl:number start-at`, `copy-accumulators`,
   composite keys, `xsl:global-context-item`, `xsl:message` with err:XTMM9000 and `error-code`,
   `xsl:decimal-format` declarations that merge (and `exponent-separator`), and
   `xsl:analyze-string` with regexes that match the empty string.
@@ -113,7 +116,7 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
   - Implementation-defined choices (Unicode version of regex classes and the rest) are in
     [docs/divergences.md](docs/divergences.md).
 - **Performance (P4)**: the 1.0 throughput goal is met, and the compact tree is in use.
-  - 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
+  - Ordinary 2.0+ stylesheets use it for the documents they parse and for their temporary trees.
   - 1.0 stylesheets opt in with `UseCompactTree`, which brings transforms from text to 1.49× stock.
   - XSLT 2.0/3.0 has caught up with 1.0 on stock. The 3.0 rewrites of the 1.0 benchmarks ran 1.9–4.3× slower than
     the 1.0 versions on stock, because the 2.0+ code boxed its values. Typed codegen, a direct result writer and
@@ -134,8 +137,8 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
   (P7) has completed P7A foundations, P7B analysis, bounded [P7C input-boundary correctness](docs/plan/p7c-runtime-correctness.md) and
   [P7D schema-validation contracts](docs/plan/p7d-validation-contracts.md). It has expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
-  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Normal execution still builds
-  trees; a development switch enables forward source-document inputs, including schema validation, streamable
+  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). The unreleased P7 default selects
+  forward execution for declared-streamable inputs; `Fallback` retains tree execution. Forward paths include source-document schema validation, streamable
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
