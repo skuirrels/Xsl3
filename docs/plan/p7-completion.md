@@ -565,6 +565,58 @@ ARM64 diagnostics, not original hosted x64 gate passes. The candidate remains is
 hosted footprint evidence and complete compatibility; all original failures remain open.
 Evidence: `artifacts/p7-completion/direct-provider-c7da793/audit.json`.
 
+### Hosted saved-adapter rejection and schema-demand trace, 2026-11-01
+
+The isolated combined candidate `29e1152` includes the locally validated public default and saved
+adapter control. Its explicit [complete push-memory check](https://github.com/skuirrels/Xsl3/actions/runs/41302072932)
+runs the original driver with all 16 workloads, exact 209,715,200-byte inputs, 10 MiB controls and
+20,971,520-byte absolute RSS/managed limits. The other default jobs are skipped only for this selected
+diagnostic; removing the added input/job and selection clauses restores the default workflow byte-for-byte.
+
+All **48 outputs** match prior original fingerprints, but only **13/16 budgets** pass. Whole-process
+peaks remain merge **21,688,320**, fork **21,454,848** and source-document **21,409,792 bytes**.
+The runtime is **.NET 10.0.14 /Ubuntu 24.04.5 x64 /four processors**. Artifact digest, both immutable
+source records, clean post-run source state, original publisher/ELF layout, 32 stylesheet sources,
+**70 runtime /eight consumer** PDB checks and raw reports validate. Different hosted cohorts are not
+used to infer causal regressions. This does not justify the extra loader API, which stays excluded.
+
+The combined local .NET 10 Release suite passes all **7,354** cases and retains every earlier row.
+Once the original hosted budget failure is established, remaining local validation is explicitly
+stopped: the .NET 8 run is incomplete, Debug is unrun and the queued unchanged native consumer never
+starts. Exact process groups are verified before termination; this is an adoption decision, not an
+observation timeout or an excuse to restart completed work. No partial suite is claimed as full
+compatibility. Evidence: `artifacts/p7-completion/saved-adapter-hosted/hosted-audit.json` and
+`cancellation.json`. No experimental loader/parser/workflow change enters the retained branch.
+
+A distinct diagnostic wraps 32 built-in-schema lookup sites after the earlier rejected lazy query-type
+control. Twelve 2 MiB identity/merge/fork/source-document observations preserve outputs and actual
+20 MiB heap guards. All four workloads also complete while those lookups are forbidden; the same
+image's direct lookup succeeds under tracing and rejects with the exact guard marker when forbidden.
+No workload reaches a wrapped lookup. All **78 runtime /eight consumer** PDB sources and source/binary
+hashes validate. The first wrapper declaration incorrectly omitted the BCL complex/code overload's
+nullable return; its warning/image are retained without execution, the annotation is corrected and
+no warning is suppressed. This rules out further canonical-getter shortcuts for the tested paths;
+it proves nothing about uninstrumented BCL internals, frozen image data, larger inputs or absolute
+RSS budgets. Evidence: `artifacts/p7-completion/schema-demand-c7da793/audit.json`.
+
+### Typed DTD metadata control, 2026-11-01
+
+A separate .NET 10 control replaces the complete private DTD reflection bridge with typed accessors,
+using signatures read from the actual runtime. The .NET 8 implementation remains byte-identical within
+its target guard. All four focused suites retain **680 .NET 10 /488 .NET 8** checks per configuration;
+the unchanged NativeAOT bridge consumer passes **59** reader/writer/DTD checks. Its actual managed
+intermediate rejects under CoreCLR. An initial self-contained Linux runtimeconfig cannot start on the
+local host; that setup failure is retained, and a separate framework-selection-only diagnostic config
+establishes the real negative control without changing the native consumer or its original config.
+
+All **24** paired original 200 MiB observations preserve outputs and actual 20 MiB managed guards.
+Source hashes, **70 runtime /eight consumer** PDB checks and binaries validate. The native image shrinks
+only **9,936 bytes**. Median RSS deltas are identity **0**, merge **−53,248**, fork **−196,608** and
+source-document **−126,976 bytes**. Elapsed ratios are **0.955829 /1.042799 /0.992610 /0.956876**,
+respectively. These mixed local results do not close the original hosted gates or justify maintaining
+another private generic bridge. The prototype is excluded; no hosted qualification is claimed.
+Evidence: `artifacts/p7-completion/typed-dtd-c7da793/audit.json`.
+
 ## Preceding verified checkpoint, 2026-11-01
 
 Commit `709da5b` passes all four [ordinary CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41255492209).
