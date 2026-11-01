@@ -34,7 +34,59 @@ Memory gates use unmodified generated inputs, independent output oracles and ful
 No startup subtraction, disabled globalization, diagnostic zero-limit run, omitted workload, relaxed
 budget, incorrect expected output or fixture-dependent runtime branch can satisfy acceptance.
 
-## Current verified checkpoint, 2026-11-01
+## Current candidate qualification, 2026-11-01
+
+Commit `722ae27` adds the reviewed reference-counted fork projection, immutable-header range claims
+and equivalent ASCII JSON reporting described below. All four full local suites pass **7,318 .NET 10
+/6,208 .NET 8** checks per configuration; the unchanged native consumer passes **739** checks, and
+fresh projected/fallback native fixtures pass **288** checks over 72 saved styles and 1/2/4/6 CPUs.
+
+The [ordinary CI run](https://github.com/skuirrels/Xsl3/actions/runs/41270174470) passes Ubuntu,
+ordinary performance and NativeAOT. Windows retains one .NET 10 unit failure: the existing
+`FinishingAProngEarlyDoesNotTruncateTheOtherProngs` reaches its unchanged 10-second cancellation
+limit. Its other 7,317 .NET 10 checks and all 6,208 .NET 8 checks pass. The log confirms both framework
+suites start concurrently. A test-only resource control serializes target frameworks and moves the
+fork scheduling class into the existing nonparallel collection; all cases, assertions and deadlines
+remain unchanged. The complete CI unit invocation now passes 7,318 /6,208 cases locally; binary
+hashes and every case-row multiplicity are unchanged, and .NET 8 starts after .NET 10 completes.
+Final-source Windows CI is required before calling this control a verified fix. A runtime deadlock
+is not established by the retained failure.
+
+| Original hosted gate | Verified `722ae27` result |
+|---|---|
+| Reviewed S1/S2 | Release/Debug 1,000 /155 cases pass; all 66,643 original expressions preserved |
+| Strict runtime | Release, Debug and legacy/saved each retain 2,695 pass /16 fail /1 not run; complete inventory, forwarding and exact-code audits pass |
+| Push memory | 48 correct outputs; 13/16 budgets. Merge 22,093,824, fork 22,597,632 and source-document 21,422,080 bytes exceed 20,971,520 |
+| Nightly memory | 48 correct outputs; 16/16 budgets. Exact 2,147,483,648-byte inputs and 209,715,200-byte guards; maximum whole-process peak 37,154,816 bytes |
+| Complete throughput | Original 126-observation hosted run remains in progress; no restart or waiver |
+
+Both memory archives match GitHub's published digests. Every raw output matches its report and the
+preceding canonical fingerprints; all 58 audited runtime sources and 33 stylesheet/entrypoint sources
+match. The strict artifact preserves every case outcome and fixture definition; local independent
+inventory/forwarding/evaluation audits pass. CI also checks the actual W3C engine binary; that engine
+is not retained in its artifact for a second local binary-hash comparison. Evidence:
+`artifacts/p7-completion/qualification-722ae27/`.
+
+The selected candidate's complete local 100 MB subset has **42 valid observations** and five of seven
+targets met. Fork **1.113081** and source-document **1.027426** stream/tree medians still fail. These
+Linux ARM64 diagnostics are separate from hosted x64 acceptance. External native mapping snapshots
+are instantaneous observations, not a decomposition of historical peaks. All nine mapping controls
+retain correct outputs and actual 20 MiB managed guards; diagnostic RSS guards remain disabled.
+
+A distinct, isolated value-collection control builds on the immutable range protocol. It holds every
+claimed event count until collection finishes, including on failure, cancellation and concurrent
+disposal, and preserves the earlier observer/replay/cursor guards. All **3,917** focused checks pass:
+3,910 original case rows plus seven new collection contracts, including repeated display identities.
+Its first preparation omits two safety helpers and fails compilation before testing; that attempt
+is retained. After the complete unit invocation ends, all six source-verified four-CPU timing
+children validate output. The median falls only 1.19%, with overlapping ranges, so the control is
+rejected. No native or full-suite qualification is claimed (`value-ranges-722ae27`).
+
+Full P7 remains active. Original failed memory/throughput targets, remaining contract accounting,
+public integration, final review/CI, merge and deployment handoff remain required. PR #27 stays draft,
+`supports-streaming` remains `no`, and the owner requires stopping before tagging/publication.
+
+## Preceding verified checkpoint, 2026-11-01
 
 Commit `709da5b` passes all four [ordinary CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41255492209).
 The separate [original acceptance run](https://github.com/skuirrels/Xsl3/actions/runs/41255497079) is
