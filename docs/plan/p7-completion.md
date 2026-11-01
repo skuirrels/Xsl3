@@ -3110,7 +3110,7 @@ The native probe now writes its existing result model directly through the BCL U
 avoiding source-generated object-serializer initialization in the measured process. Computed fields,
 fingerprints, escaping, finite double round trips, null timings and nonfinite rejection are preserved.
 All **44 focused checks pass on .NET 10 and .NET 8**, including independent ordinary BCL JSON
-comparisons and the existing probe oracles. All **408 runtime C# files are unchanged**; frozen PDB
+comparisons and the existing probe oracles. All tracked runtime C# files are unchanged; frozen PDB
 checks verify 53 runtime and eight native-consumer sources, with unchanged saved stylesheet inputs.
 
 Twenty-four serial native controls use the original 200 MiB inputs and actual 20 MiB managed guards.
@@ -3160,3 +3160,92 @@ The same 32 source stylesheets and entrypoint are retained; 32 saved DLLs are fr
 new hashes are recorded rather than claiming byte identity. Source verification and ELF evidence are in
 `artifacts/p7-completion/packed-probe-e78cbe1/`. Hosted exact-size memory and complete throughput checks
 remain required. Conservative identical-code folding saves only 1,984 binary bytes and is excluded.
+
+
+### Hosted packed-probe qualification and saved-function review, 2026-10-31
+
+Commit `b812ea1` passes all four ordinary hosted CI jobs in **41248148903**. Its original hosted
+Linux x64 nightly matrix in **41248149515** passes **16/16 budgets /48 children**, at exact
+2,147,483,648-byte inputs and actual 209,715,200-byte managed guards; maximum whole-process RSS is
+**37,392,384 bytes**. All 53 runtime PDB sources match the immutable source snapshot.
+
+The same hosted push matrix retains **48 correct outputs /13 of 16 budgets**. Merge **21,983,232**,
+fork **22,798,336** and source-document **21,381,120 bytes** exceed the unchanged **20,971,520**
+limit. Its 200 MiB inputs, 10 MiB controls, actual 20 MiB heap guards, native-host flags and full-lifetime
+counters validate. Neither correctness nor the nightly pass waives these failures. The hosted full
+throughput matrix completes with all 126 observations valid and actual 4 GiB guards. At 100 MB,
+stream/tree ratios are identity **1.229341**, adjacent **0.869228**, accumulator **1.003102**, iterate
+**0.880915**, merge **0.998150**, fork **3.435557** and source-document **1.174415**. Four targets
+still fail. Both binary hashes, all raw stdout/measurements, the controller hash, 53 runtime and eight
+benchmark/probe PDB sources validate. Evidence: `artifacts/p7-completion/packed-probe-e78cbe1/`.
+
+Review finds that deserializing a named function accepts a null implementation lookup. This matters
+when names are resolved across compatible saved versions without numeric registry IDs. The loader now
+rejects an unavailable name/arity with `NotSupportedException` before accepting the table. The new
+regression fails on the unchanged loader, while its genuine known-function control passes. Related
+saved-format contracts pass **40 .NET 10 /38 .NET 8** checks in each Release/Debug configuration.
+This follow-up still needs final-source CI. Evidence: `saved-named-function-b812ea1/`.
+
+Three isolated build/report controls stay excluded: conservative linker folding saves only 1,984 binary
+bytes; ordinary static initialization increases affected median RSS by 237,568–495,616 bytes; bypassing
+redundant canonical-number parsing yields no useful reduction. CPU-specific code generation saves
+167,936 bytes for merge but increases source-document/fork peaks and adds a CPU-portability restriction,
+so the portable default remains. All numeric, runtime and original qualification checks are retained.
+
+The previously held ordinary-parser cleanup has a fresh **42-valid-observation** seven-workload
+100 MB .NET 10.0.14 subset, with actual 4 GiB guards and unchanged outputs. It still misses identity
+**1.013329**, fork **3.960180** and source-document **1.025273** stream/tree targets, so it stays out;
+no new native qualification is inferred from its unmeasured packed executable. Evidence:
+`artifacts/p7-completion/child-origin-packed-b812ea1/`.
+
+Benchmark runtime metadata now records the effective processor allowance. Earlier one/two-CPU wait
+controls do not test spare-core scheduling; a separate four-CPU fork control is being evaluated with
+unchanged thread count, ring capacity, source/callback ownership, inputs, oracles and guards.
+
+
+### Spare-processor fork handoff qualification, 2026-10-31
+
+A four-CPU control covers a scheduling condition absent from earlier one/two-CPU spin experiments.
+The effective .NET processor allowance is recorded as **4**, with matching cgroup CPU quota. Reader
+publication waits first reduce the 200 MiB fork median from **12,931.874 to 8,488.299 ms** across
+12 valid identity/fork observations, under actual 20 MiB managed guards. Total fork CPU rises from
+14,817.945 to 20,526.262 ms; the elapsed improvement alone does not establish the final policy.
+
+The complementary caller-pump and callback-completion policy reduces fork median from
+**8,394.281 to 3,924.793 ms**, and total CPU from **20,220.332 to 11,295.958 ms**, in another
+12 valid observations. Median fork RSS moves from **21,295,104 to 21,254,144 bytes**, still over
+20 MiB. All sources, callbacks, payload slots and thread counts retain their ownership and bounds.
+
+All three waits share a stack-only **1 ms** budget. They release their monitor while polling, then
+recheck protected state before parking. Work enqueue, worker completion, production/cancellation and
+disposal advance the caller's notification version. A running callback still finishes before its
+worker can reuse arguments. Optimism applies only when the effective processor count exceeds caller
+plus prongs, preserving ordinary parking at lower allowances. Focused Release/Debug contracts pass
+**102 .NET 10 /101 .NET 8** cases per configuration, with 53 native runtime PDB source checks.
+Evidence: `artifacts/p7-completion/spare-core-wait-b812ea1/`.
+
+The combined policy and saved-function review fix have a source-verified .NET 10.0.14 Linux ARM64
+four-CPU 100 MB subset: **42 valid observations**, actual 4 GiB guards, independent output checks and
+byte-identical JIT/native-link input engines. Ratios are identity **1.023908**, adjacent **0.706812**,
+accumulator **0.849566**, iterate **0.797248**, merge **0.621815**, fork **1.244550** and
+source-document **1.010016**. Three local targets still fail. Original hosted memory/throughput gates
+and remaining public integration remain required.
+Evidence: `artifacts/p7-completion/spare-core-qualification-b812ea1/`.
+
+
+### Final handoff-policy verification, 2026-11-01
+
+The unchanged one/two-CPU parking controls retain all six observations per allowance, correct outputs
+and actual 20 MiB managed guards. Fork elapsed ratios against the baseline are **0.991995 /0.997351**;
+median RSS increases **86,016 /286,720 bytes**. These costs remain recorded and are not budget passes.
+
+All four full unit configurations pass with no failures or skips: **7,207 .NET 10 /6,121 .NET 8** in
+both Release and Debug. Every previous 7,200 /6,114 case remains, plus five reporting contracts and
+two named-function cases. An initial count verifier used a stale expected count; its failure is retained,
+the exact added case names are audited, and no passed suite is rerun to conceal that correction.
+Source and binary hashes remain unchanged throughout, with 53 runtime PDB source checks.
+
+The unchanged saved/native consumer passes **739 checks**, preserving all 456 input files and eight
+consumer sources. Wrong-code, wrong-output and real JIT-intermediate controls reject. Its linked engine
+matches the full-tested Release engine; 53 runtime and eight consumer PDB checks match. Consumer build
+settings retain their defaults. Evidence: `artifacts/p7-completion/spare-core-full-b812ea1/`.

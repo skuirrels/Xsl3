@@ -36,7 +36,7 @@ and use glibc 2.36 or newer. These two probe builds store metadata without hydra
 relocations. The publisher checks the ELF sections and loader ABI before accepting the executable.
 This affects only the development probe; shipped libraries and consumer projects retain their build settings.
 
-The publish directory must be new and its parent must exist. The script compiles tree and forward versions of all thirteen fixtures into
+The publish directory must be new and its parent must exist. The script compiles tree and forward versions of all sixteen fixtures into
 saved assemblies, generates direct static references to their entry points, then publishes the consumer with
 trim/AOT warnings treated as errors. Normal globalization is preserved. These two development projects are
 built by the script rather than the solution because the consumer requires generated inputs. The native

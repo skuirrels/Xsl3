@@ -570,7 +570,9 @@ namespace Xsl3.XPath31
                 {
                     QName name = ReadName(r);
                     int arity = r.ReadInt32();
-                    return new LibraryFunction(FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity)!, arity,
+                    var definition = FunctionLibrary.Find(name.NamespaceUri, name.LocalName, arity)
+                        ?? throw new System.NotSupportedException($"The saved function {name.EQName}#{arity} isn't available in this version of Xsl3");
+                    return new LibraryFunction(definition, arity,
                         new FunctionContext(ImplicitTimezone.Local(), (a, b) => a.ComparePosition(b) switch
                         {
                             XmlNodeOrder.Before => -1,

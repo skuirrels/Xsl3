@@ -24,7 +24,7 @@ internal sealed class ForkCaller : IDisposable
     private readonly int _thread = Environment.CurrentManagedThreadId;
     private readonly CancellationToken _cancellation;
     private readonly CancellationTokenRegistration _registration;
-    private int _workers;
+    private int _workers, _initialWorkers;
     private long _wakeVersion;
     private bool _started, _closed;
 
@@ -42,7 +42,7 @@ internal sealed class ForkCaller : IDisposable
         {
             if (_started || _closed) throw new InvalidOperationException("A fork caller can only run once");
             _started = true;
-            _workers = workers;
+            _workers = _initialWorkers = workers;
         }
     }
 
@@ -68,7 +68,18 @@ internal sealed class ForkCaller : IDisposable
         {
             ObjectDisposedException.ThrowIf(_closed, this);
             _pending.Enqueue(work);
+            _wakeVersion++;
             Monitor.PulseAll(_gate);
+            if (HasSpareProcessor(_initialWorkers))
+            {
+                Monitor.Exit(_gate);
+                try
+                {
+                    var spin = new SpinBudget(Environment.TickCount64);
+                    while (!Volatile.Read(ref work.Done) && !cancellation.IsCancellationRequested && spin.Continue()) { }
+                }
+                finally { Monitor.Enter(_gate); }
+            }
             while (!work.Done && (!_closed || work.Running))
             {
                 if (cancellation.IsCancellationRequested && !work.Running)
@@ -124,6 +135,18 @@ internal sealed class ForkCaller : IDisposable
                     if (version == _wakeVersion && _pending.Count == 0 && _workers != 0 && !_closed)
                     {
                         _cancellation.ThrowIfCancellationRequested();
+                        if (produce != null && HasSpareProcessor(_initialWorkers))
+                        {
+                            Monitor.Exit(_gate);
+                            try
+                            {
+                                var spin = new SpinBudget(Environment.TickCount64);
+                                while (Volatile.Read(ref _wakeVersion) == version && !_cancellation.IsCancellationRequested && spin.Continue()) { }
+                            }
+                            finally { Monitor.Enter(_gate); }
+                            if (version != _wakeVersion || _pending.Count != 0 || _workers == 0 || _closed) continue;
+                            _cancellation.ThrowIfCancellationRequested();
+                        }
                         Monitor.Wait(_gate);
                     }
                 }
@@ -138,12 +161,26 @@ internal sealed class ForkCaller : IDisposable
         }
     }
 
-    internal void WorkerDone() { lock (_gate) { _workers--; Monitor.PulseAll(_gate); } }
+    internal void WorkerDone() { lock (_gate) { _workers--; _wakeVersion++; Monitor.PulseAll(_gate); } }
     private void Wake() { lock (_gate) { _wakeVersion++; Monitor.PulseAll(_gate); } }
+
+    internal static bool HasSpareProcessor(int prongs) => Environment.ProcessorCount > prongs + 1;
+
+    // Stack-only budget shared by all three publication/completion waits. No per-wait closure.
+    internal struct SpinBudget(long started)
+    {
+        private SpinWait _spin;
+        internal bool Continue()
+        {
+            if (Environment.TickCount64 - started >= 1) return false;
+            _spin.SpinOnce(sleep1Threshold: -1);
+            return true;
+        }
+    }
 
     public void Dispose()
     {
-        lock (_gate) { _closed = true; _pending.Clear(); Monitor.PulseAll(_gate); }
+        lock (_gate) { _closed = true; _pending.Clear(); _wakeVersion++; Monitor.PulseAll(_gate); }
         _registration.Dispose();
     }
 }

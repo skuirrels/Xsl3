@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Reduce fork handoff delays with a bounded optimistic wait when the effective CPU allowance
+  has a spare processor beyond the caller and prongs. Retain parking on lower CPU allowances,
+  the existing thread count and buffer capacity, and callback/cancellation ownership.
+
+- Reject saved named-function values whose name and arity are unavailable in the loading engine,
+  rather than accepting a function with a missing implementation.
+
 - Reduce internal Linux NativeAOT streaming-probe metadata overhead with packed relative relocations.
   Require LLD and glibc 2.36+ for that probe, verify its ELF layout before measurement,
   and retain the original input sizes, whole-process budgets and runtime features.

@@ -158,12 +158,12 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         _productionRequested = true;
                         NotifyProduction();
                     }
-                    WaitForPublication();
+                    WaitForPublication(reader);
                     continue;
                 }
                 if (_producing || _next - _first == _events.Length)
                 {
-                    WaitForPublication(waitingForSpace: !_producing);
+                    WaitForPublication(reader, waitingForSpace: !_producing);
                     continue;
                 }
                 available = _events.Length - (int)(_next - _first);
@@ -175,11 +175,34 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
     }
 
-    private void WaitForPublication(bool waitingForSpace = false)
+    private void WaitForPublication(int reader, bool waitingForSpace = false)
     {
         _waiting++;
         if (waitingForSpace) _waitingForSpace++;
-        try { Monitor.Wait(_gate); }
+        try
+        {
+            // Only spend a bounded optimistic wait when caller plus prongs fit the
+            // effective processor allowance. Oversubscribed forks retain parking.
+            if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length))
+            {
+                long publication = _next;
+                Monitor.Exit(_gate);
+                try
+                {
+                    var spin = new ForkCaller.SpinBudget(Environment.TickCount64);
+                    while (Volatile.Read(ref _next) == publication && !_disposed
+                        && !_cancellation.IsCancellationRequested && Volatile.Read(ref _positions[reader]) >= 0
+                        && spin.Continue()) { }
+                }
+                finally { Monitor.Enter(_gate); }
+                // A publication, terminal state or reclaimed slot can arrive while
+                // the monitor is released. Recheck before parking to retain its pulse.
+                if (_complete || _fault != null || _disposed || _cancellation.IsCancellationRequested
+                    || _positions[reader] < 0 || _positions[reader] < _next
+                    || waitingForSpace && !_producing && _next - _first < _events.Length) return;
+            }
+            Monitor.Wait(_gate);
+        }
         finally
         {
             _waiting--;
