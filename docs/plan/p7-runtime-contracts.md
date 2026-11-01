@@ -664,3 +664,53 @@ Hosted CI for this runtime change remains required. Values for schema-created no
 accumulator and arbitrary mismatched provenance remain separate disposition items. Original P7
 memory/throughput gates remain open. Evidence:
 `artifacts/p7-completion/copied-applicability-4c8e203/`.
+
+
+## Retained merge fixture dispositions, 2026-11-01
+
+The exact `709da5b` strict export and pinned fixture definitions distinguish the following five
+success assertions from valid required-error controls. All remain in the raw inventory and denominator.
+
+| Retained case | Fixture/recorded diagnostic | Specification disposition |
+|---|---|---|
+| `merge-073` | `for-each-item` plus `streamable="no"`; actual XTSE3195 | Attribute presence is forbidden even when the value is `no` |
+| `merge-081` | Same forbidden combination on the nonstreamed weather source; actual XTSE3195 | The source combination is invalid |
+| `merge-082` | `for-each-item` plus `streamable="no"` and `use-accumulators`; actual XTSE3195 | Both attributes conflict with `for-each-item`; accumulator applicability also requires `for-each-source` |
+| `si-merge-004ns` | `for-each-item` plus `streamable="no"`; actual XTSE3195 | The source combination is invalid |
+| `merge-084` | Streamable sources and `last()` in the merge action; actual XPDY0002 | The merge-action context size is absent |
+
+These dispositions follow the published [merge-source constraints](https://www.w3.org/TR/xslt-30/#element-merge-source)
+and [merge-action focus rules](https://www.w3.org/TR/xslt-30/#element-merge-action). They do not justify
+weakening loader validation, buffering all groups to manufacture a context size, removing cases,
+changing expected results, or claiming the remaining S3–S6 obligations complete. Actual out-of-order
+input controls and exact XTDE2220 evidence remain a separate S5 accounting requirement.
+
+
+## Compiler-proven fork projection and bounded scans
+
+The optional projection is derived from the stylesheet's relative child paths. Unknown syntax,
+expanded text dependencies, schema-aware compilation, tracing, active observers, nested forward
+forks and already-inspected boundaries retain the full input. All original source events still pass
+through parsing, normalization, validation, cancellation and source identity assignment. Selected
+structural nodes retain their attributes, namespaces and provenance; selected value subtrees retain
+all descendant events.
+
+`BoundedFilteredForkTests.EmptyScanYieldsToAlreadyQueuedCallerCallback` checks that each source
+reservation scans at most its existing event capacity, including omitted events. Empty nonterminal
+scans publish a distinct progress version so waiting readers cannot lose that publication.
+`EmptyFilteredBatchesWakeEveryReader` covers capacities 1, 7 and 64. Deliberate unbounded scanning
+and omitted-publication controls fail the corresponding regressions; their logs remain retained.
+
+The canonical remaining-reader counts stay in every mode. Immutable-header runs claim a reader's
+contiguous published range once, then release every claimed count before returning. The predicate
+must be pure and nonthrowing because aliases can force a retry. Without spare CPUs the original
+locked predicate path remains. `StreamTeeImmutableRunTests` covers partial-prefix release, accepted
+markers before source faults and mixed aliases. `CallerTeeAliasTests` adds caller-backed aliases
+and concurrent disposal at capacities 1, 7 and 64.
+
+Projection metadata grows with the proven stylesheet path union; its matcher retains integer path
+state up to the maximum observed input depth. Neither is a byte bound for arbitrary stylesheets
+or nesting. Existing parser buffers, source name tables, full attribute/header payloads, explicit
+copies and prong output remain part of the preceding state accounting. These contracts do not
+close the original process-memory or throughput gates. Evidence: `remaining-runs-709da5b` and
+`remaining-full-709da5b` under `artifacts/p7-completion/`.

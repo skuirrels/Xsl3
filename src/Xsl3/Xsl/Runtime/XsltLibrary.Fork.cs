@@ -25,8 +25,13 @@ public sealed partial class XsltLibrary
     public void X31Fork(IList<XPathItem> prongs, XPathItem focus, double capacity) =>
         RunForkCalls(prongs, focus, capacity, (i, runtime, function) => runtime.XsltFunctions.CallFunction(function));
 
+    public void X31ForkProjected(IList<XPathItem> prongs, XPathItem focus, double capacity, double projectionId) =>
+        RunForkCalls(prongs, focus, capacity, (i, runtime, function) => runtime.XsltFunctions.CallFunction(function),
+            projection: ForkCaller.HasSpareProcessor(prongs.Count) && _runtime.ExternalContext.TraceListener == null && !_runtime.ExternalContext.HasTraceHandler
+                ? new ForkInputProjection((string?[])Constant((int)projectionId)) : null);
+
     private void RunForkCalls(IList<XPathItem> prongs, XPathItem focus, double capacity,
-        Action<int, XmlQueryRuntime, FunctionItem> execute, bool serialGrounded = false)
+        Action<int, XmlQueryRuntime, FunctionItem> execute, bool serialGrounded = false, ForkInputProjection? projection = null)
     {
         if (capacity < 1 || capacity > int.MaxValue || capacity != Math.Truncate(capacity))
             throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -83,7 +88,7 @@ public sealed partial class XsltLibrary
 
         if (source is { Replayable: false })
         {
-            using var input = source.Document.Fork(source);
+            using var input = source.Document.Fork(source, ReferenceEquals(source, focus) ? projection : null);
             var bodies = new Action<StreamedNavigator, CancellationToken>[prongs.Count];
             for (int i = 0; i < bodies.Length; i++)
             {

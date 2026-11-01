@@ -55,6 +55,24 @@ public class StreamingProbeReportTests
         EqualJson(expected.RootElement, actual.RootElement);
     }
 
+    [Fact]
+    public void EveryUtf16CodeUnitMatchesIndependentBclReplacementAndEscaping()
+    {
+        var input = new System.Text.StringBuilder();
+        for (int i = char.MinValue; i <= char.MaxValue; i++)
+            input.Append((char)i).Append('|');
+        input.Append("\uD800\uDC00|\uDBFF\uDFFF|\uD800\uDBFF\uDC00\uDFFF|\uDC00\uD800");
+        var report = Report(null, null, null) with {
+            Workload = input.ToString(), Mode = null!, Status = input.ToString(),
+            Outputs = new() { [input.ToString()] = new(1, input.ToString()) },
+        };
+        string serialized = StreamingProbe.SerializeReport(report);
+        Assert.All(serialized, character => Assert.InRange(character, (char)0, (char)127));
+        using var expected = JsonDocument.Parse(JsonSerializer.Serialize(report));
+        using var actual = JsonDocument.Parse(serialized);
+        EqualJson(expected.RootElement, actual.RootElement);
+    }
+
     [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]

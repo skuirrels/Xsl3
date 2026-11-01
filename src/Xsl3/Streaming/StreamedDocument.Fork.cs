@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Threading;
 using System.Xml;
@@ -135,12 +136,13 @@ internal sealed partial class StreamedDocument
             && (_current == boundary || _current.Parent == boundary && _current.Number == boundary.FirstChild && !_current.ChildrenStarted);
     }
 
-    internal ForkSource Fork(StreamedNavigator position)
+    internal ForkSource Fork(StreamedNavigator position, ForkInputProjection? projection = null)
     {
         ArgumentNullException.ThrowIfNull(position);
         if (!ReferenceEquals(position.Document, this) || position.NodeType is not (XPathNodeType.Root or XPathNodeType.Element))
             throw PositionError();
-        return new(this, position.PositionNode);
+        return new(this, position.PositionNode, _forkBoundary == null && _observer == null
+            && _current == position.PositionNode && !_current.ChildrenStarted ? projection : null);
     }
 
     /// <summary>A forward subtree and its ancestor headers, shared by one invocation of fork.</summary>
@@ -151,21 +153,25 @@ internal sealed partial class StreamedDocument
         private readonly ForkHeader[] _headers;
         private ConsumptionScope _consumption;
         private bool _entered, _first = true, _complete, _disposed, _ran;
+        private readonly ForkInputProjection.Matcher? _projection;
 
-        internal ForkSource(StreamedDocument source, Node boundary)
+        internal ForkSource(StreamedDocument source, Node boundary, ForkInputProjection? projection = null)
         {
             source.Check();
             if (!source.CanFork(boundary)) throw PositionError();
             _source = source;
             _boundary = boundary;
+            _projection = projection?.NewMatcher(boundary);
             var headers = new List<ForkHeader>();
             for (Node? node = boundary; node != null; node = node.Parent) headers.Add(new(node));
             headers.Reverse();
             _headers = headers.ToArray();
         }
 
-        private ForkEvent? Read()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Node? ReadNode(out bool end)
         {
+            end = false;
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_complete || _boundary.Ended) return null;
             if (!_entered)
@@ -181,9 +187,22 @@ internal sealed partial class StreamedDocument
                 _source.ReadNext();
             }
             Node current = _source._current;
-            bool end = current.Kind is XPathNodeType.Root or XPathNodeType.Element && current.Ended && !current.EmptyElement;
+            end = current.Kind is XPathNodeType.Root or XPathNodeType.Element && current.Ended && !current.EmptyElement;
             if (current == _boundary && current.Ended) _complete = true;
-            return new(current, end);
+            return current;
+        }
+
+        private ForkEvent? Read()
+        {
+            Node? node = ReadNode(out bool end);
+            return node == null ? null : new(node, end);
+        }
+
+        private ForkProngs.SourceRead<ForkEvent> ReadProjected()
+        {
+            Node? node = ReadNode(out bool end);
+            if (node == null) return new(null, true);
+            return _projection!.Keep(node, end) ? new(new(node, end), false) : default;
         }
 
         internal void Run(IReadOnlyList<Action<StreamedNavigator, CancellationToken>> bodies, int capacity,
@@ -207,7 +226,11 @@ internal sealed partial class StreamedDocument
             using var linked = sourceCancellation.CanBeCanceled && cancellation.CanBeCanceled && sourceCancellation != cancellation
                 ? CancellationTokenSource.CreateLinkedTokenSource(sourceCancellation, cancellation) : null;
             CancellationToken effective = linked?.Token ?? (cancellation.CanBeCanceled ? cancellation : sourceCancellation);
-            try { ForkProngs.Run(Read, prongs, capacity, effective, caller); }
+            try
+            {
+                if (_projection == null) ForkProngs.Run(Read, prongs, capacity, effective, caller);
+                else ForkProngs.RunSource(ReadProjected, prongs, capacity, effective, caller);
+            }
             finally { Dispose(); }
         }
 
@@ -338,7 +361,7 @@ internal sealed partial class StreamedDocument
             if (Current is { End: false, Header.Kind: XPathNodeType.Element, Header.Empty: false })
             {
                 _skipNumber = Header.Original.Number;
-                Current = input.ReadUntil(_skipEnd ??= item => item.End && item.Number == _skipNumber);
+                Current = input.ReadUntilImmutable(_skipEnd ??= item => item.End && item.Number == _skipNumber);
                 if (Current is null)
                 {
                     _state = ReadState.EndOfFile;

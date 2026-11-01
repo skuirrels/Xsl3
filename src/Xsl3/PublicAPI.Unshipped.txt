@@ -6,3 +6,4 @@ Xsl3.Runtime.XsltLibrary.X31AdjacentGroupCount(System.Xml.XPath.XPathItem! state
 Xsl3.Runtime.XsltLibrary.X31AdjacentGroupNext(System.Xml.XPath.XPathItem! state) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
 Xsl3.Runtime.XsltLibrary.X31AdjacentGroupsNew(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! tuples, string! collation, bool composite) -> System.Xml.XPath.XPathItem!
 Xsl3.Runtime.XsltLibrary.X31SimpleContentText(string! value) -> string!
+Xsl3.Runtime.XsltLibrary.X31ForkProjected(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! prongs, System.Xml.XPath.XPathItem! focus, double capacity, double projectionId) -> void

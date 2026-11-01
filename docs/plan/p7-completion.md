@@ -4,6 +4,9 @@ The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review 
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
 1.1.6, `588f2b6c7f050d47087f67b1fd2ef9630f6e19cf`.
 
+The owner's current stopping point is **deployment readiness**. Complete the original technical
+qualification, review and merge, then stop before tagging or publication.
+
 This resumes the original [P7 plan](p7-streaming.md); the completed P7A–P7H increments and their
 historical evidence are retained. An audit or another bounded increment does not complete this objective.
 
@@ -25,11 +28,135 @@ historical evidence are retained. An audit or another bounded increment does not
 | Compatibility | Full Release/Debug .NET 8/10 units, upstream, differential, ordinary W3C, saved and NativeAOT consumers, ordinary performance gate | Reverify final source |
 | Public integration | Supported streaming selection through both APIs, saved-style behavior, feature-profile integration and truthful `supports-streaming` | Unsupported until qualification passes |
 | Review / merge | Full diff reviewed, defects corrected, required hosted CI green for the reviewed head, merge verified | Pending |
-| Release | README/package readmes/changelog/release notes updated, immutable tag on main, exact packages verified, public NuGet and GitHub assets plus fresh consumers verified | Pending |
+| Release handoff | README/package readmes/changelog/release notes updated; merged main and exact packages verified for deployment; stop before tagging/publication under the owner's latest instruction | Pending |
 
 Memory gates use unmodified generated inputs, independent output oracles and full-lifetime counters.
 No startup subtraction, disabled globalization, diagnostic zero-limit run, omitted workload, relaxed
 budget, incorrect expected output or fixture-dependent runtime branch can satisfy acceptance.
+
+## Current verified checkpoint, 2026-11-01
+
+Commit `709da5b` passes all four [ordinary CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41255492209).
+The separate [original acceptance run](https://github.com/skuirrels/Xsl3/actions/runs/41255497079) is
+terminal and fails. Its unchanged limits remain required:
+
+| Gate | Verified result |
+|---|---|
+| Reviewed S1 | 1,000 cases pass in Release/Debug; raw 919 cases /66,643 expressions retained |
+| Reviewed S2 | 155 cases pass in Release/Debug; raw inventory retained |
+| Strict runtime | Release, Debug and legacy/saved sampling each retain 2,695 pass /16 fail /1 not run; all 2,712 cases audited, zero unmatched strict codes |
+| Push memory | 48 correct outputs, 13/16 budgets pass; merge 22,192,128, fork 22,544,384 and source-document 21,573,632 bytes exceed 20,971,520 |
+| Nightly memory | 48 correct outputs, 16/16 budgets pass; exact 2,147,483,648-byte inputs, actual 209,715,200-byte guards; maximum whole-process RSS 37,281,792 bytes |
+| Full throughput | All 126 observations valid at original 1/100/1,000 MB sizes and actual 4 GiB guards; four of seven 100 MB targets pass |
+
+The hosted 100 MB stream/tree ratios are identity **1.056726**, adjacent **0.770432**, accumulator
+**0.895177**, iterate **0.797717**, merge **0.848224**, fork **1.706268** and source-document
+**1.055614**. The host reports .NET 10.0.14, Linux x64 and four effective processors. Independent
+checks match every raw measurement, both binary hashes, the controller hash, **54 runtime sources**
+including the saved-function loader fix, and eight benchmark sources. Both memory matrices match
+all preceding canonical fingerprints and all 33 stylesheet/entrypoint sources. Evidence:
+`artifacts/p7-completion/qualification-709da5b/`.
+
+The final local full suites pass **7,207 .NET 10 /6,121 .NET 8** cases in both Release and Debug;
+the unchanged saved/native consumer passes **739** checks. The extra loader-source PDB check also
+passes for all four local engines and that native consumer. Small scheduling, namespace, reporting
+and no-op-hook controls stay excluded: none closes an original failure. All results are retained.
+
+This checkpoint is **not deployment-ready**. The original failed memory/throughput gates, remaining
+S3–S6 contract accounting, public streaming integration and complete final review remain required.
+PR #27 stays draft; `supports-streaming` remains `no`.
+
+
+### Isolated controls after `709da5b`
+
+The current continuation retains all original gates. The selected reference-counted candidate below has entered the branch for qualification.
+Rejected controls remain isolated, and the authoritative hosted checkpoint is unchanged.
+
+A bounded static fork projection preserves all parser events, the existing ring capacity and the
+worker model. Filtered scans yield after at most the reserved number of original logical events;
+empty nonterminal batches publish progress explicitly. All 448 focused contracts pass. The first
+prototype preparation omitted three compiler writer/iterator checks (54 failures); those are
+corrected, with the initial failures retained. All 42 local 100 MB observations are valid, but
+identity /fork /source-document ratios remain **1.023728 /1.161994 /1.009577**. All 24 paired native
+controls are valid; fork elapsed median improves about **18.6%**, but its **21,295,104-byte** median
+whole-process peak still exceeds the original push budget. These ARM diagnostics are not hosted
+x64 acceptance. Evidence: `bounded-projection-709da5b`.
+
+A separate ASCII JSON report control matches independent BCL serialization for every UTF16 code
+unit and surrogate boundaries, and passes all 45 report/probe checks. It preserves every field,
+number, input, oracle and whole-process counter. Its 24 native controls retain matching outputs;
+merge /fork /source-document median whole-process peaks fall by **221,184 /290,816 /270,336**
+bytes, but fork remains above budget. Serialization runs after elapsed-time capture, so elapsed
+differences here are layout effects, not a transformation-algorithm improvement. Evidence:
+`ascii-report-709da5b`.
+
+The composition with corrected immutable-header run claims and explicit guards for existing no-op
+observation hooks passes 498 focused checks. Six paired JIT controls validate every output and
+show about **12.3%** lower fork elapsed median. Its native/JIT PDBs match 58 runtime sources (including the projected fork entry point), and all
+32 generated stylesheet sources match the original hosted inputs. Deliberate unbounded-scan and
+lost-publication controls fail their intended regression tests. All 42 composed 100 MB observations
+are valid, with five of seven local targets passing; fork /source-document remain **1.131261 /
+1.005769**. The one-CPU native control then exposes a **9.99%** fork regression, so this position-based
+composition is not adopted. The unneeded two-CPU run is stopped. Evidence: `projection-runs-709da5b`.
+
+Fresh instrumented fork stack samples retain prominent tee-monitor and publication-wait stacks;
+stack-sample counts are not elapsed-time or CPU-time attribution. A separate reclaim-gate control
+initially fails five existing progress contracts. A narrowed snapshot records an empty ring with
+both readers waiting and a pending production request. Correcting notification ordering restores
+all 498 unchanged focused contracts. Six direct comparisons against the preceding composition show
+only about **3.5%** improvement with overlapping ranges, so the extra synchronization protocol is
+rejected. Its new alias tests were prepared but not executed; no native result is claimed. Evidence:
+`spin-reclaim-709da5b`.
+
+The next control restores the canonical remaining-reader counts in every mode, and keeps the
+original predicate path when there are no spare CPUs. Only pure immutable-header run claims use
+the spare-CPU optimization. All 498 focused contracts pass. Native/JIT runtime PDB checks cover
+58 sources, probe PDBs cover eight sources each, and all 32 original XSL sources match. The six
+one-CPU native observations are valid; the elapsed median is **1.010275** times baseline, with
+overlapping ranges, replacing the rejected 9.99% regression. The six two-CPU observations are also
+valid, with a **0.990480** ratio. Six four-CPU JIT observations retain a **0.849177** candidate/baseline
+fork elapsed ratio. This is still a diagnostic improvement, not complete original qualification.
+Evidence: `remaining-runs-709da5b`.
+
+A direct one-line spare-CPU no-yield refinement passes 498 focused contracts, but its six direct
+comparisons improve median elapsed time only **1.07%**, with overlapping ranges. It is excluded;
+no new native result is claimed (`remaining-no-yield-709da5b`). A separate no-op consumption-hook
+guard passes 5,020 selected contracts. Twelve paired observations show identity **0.994507** and
+source-document **1.008392** candidate/baseline ratios, so that mixed control is also excluded
+(`consumption-guard-709da5b`).
+
+A schema-initialization prototype defers built-in schema singleton lookup without replacing the
+BCL objects or changing custom schema identities, subtype semantics, serialized types, validation,
+URI/globalization behavior or GC policies. Its first 110 identity/concurrency/custom-schema checks
+pass. Correctly hash-verified baseline/candidate snapshots match for 126 types and all 47,628 relation
+results. An isolated cold type-factory diagnostic falls **68,504 →9,192 allocated bytes**; this is not
+RSS qualification. The snapshot harness initially used the wrong name-factory overload, then caught
+an old output DLL selected ahead of the explicit engine hint path. Both stopped attempts are retained;
+the corrected harness disables default item globbing and verifies actual copied assembly hashes.
+Review adds an explicit deferred-built-in marker so missing custom schema data is never treated as
+a built-in. The final version preserves all 47,628 relation results, passes the same 110 identity checks
+on .NET 8 and 10, and cold allocation is 10,000 bytes. However, all 24 valid native comparisons retain
+the same median whole-process peaks for identity, merge and fork; source-document rises by one page.
+The prototype is rejected for this phase. No full-suite result is claimed for it
+(`lazy-query-schema-709da5b`).
+
+The reference-counted projection is adopted for qualification. Five additional caller-backed
+mixed-alias/disposal cases pass. All four frozen full suites pass: **7,318 .NET 10 /6,208 .NET 8**
+checks in both Release and Debug. Every preceding baseline case is present, adding 111 /87 cases;
+DLL/PDB hashes remain unchanged. Each engine matches all 58 audited runtime sources, and all six
+changed test/probe sources match the tested PDBs. The first full-suite launcher rejected its framework
+argument before executing tests; that stopped attempt is retained. During adoption, comment/region
+markers move the existing manual optimizer override outside the generated region; its C# statements
+are unchanged. The unchanged native consumer passes **739** checks, all three deliberate failure
+controls and audits of 456 saved inputs, eight consumer sources and 58 runtime sources. Its first
+sandboxed publication could not start MSBuild's arm64 task host; the retained retry with required
+process permissions passes without source/input changes. Six fresh fixtures copied from explicit
+unit assertions produce 72 saved styles across Release/Debug, capacities 1/7/64 and tree/forward
+execution. All **288** NativeAOT checks pass at 1/2/4/6 effective processors. Projected/fallback method
+references, execution capture, all negative controls and runtime/consumer PDB sources are verified.
+The fixture generator's first friend-assembly-name setup failure is retained separately; no fixture
+or expected result changes are made. Full original hosted qualification remains required
+(`remaining-full-709da5b`).
 
 ## Execution
 
@@ -44,8 +171,8 @@ budget, incorrect expected output or fixture-dependent runtime branch can satisf
    failed trials alongside successful runs. Run performance measurements in isolation from task-owned
    CPU-intensive verification; preserve measurement/artifact provenance.
 5. Complete public streaming integration only when its actual execution and qualification gates pass.
-   Review, validate, merge and release the resulting implementation; required owner NuGet deployment
-   approval remains a release gate.
+   Review, validate, merge and prepare the resulting implementation for deployment. Stop before
+   tagging or publication under the owner's latest instruction.
 
 The goal stays active while any original requirement is incomplete or supported only by indirect evidence.
 

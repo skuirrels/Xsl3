@@ -336,9 +336,9 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (_notifying) throw PositionError(); // observer rules cannot consume the reader recursively
         long previous = _number;
         ReadNextCore();
-        ObserveCurrent(previous);
+        if (_observer != null) ObserveCurrent(previous);
         if (_current.Number > previous) _capturing?.Add(_current);
-        ObserveValueReplays(_current.Number > previous);
+        if (_valueReplays != null) ObserveValueReplays(_current.Number > previous);
         if (_consuming != 0 && _current.Number > previous) Consumed(_current);
     }
 
