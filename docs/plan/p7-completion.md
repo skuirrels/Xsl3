@@ -49,8 +49,9 @@ suites start concurrently. A test-only resource control serializes target framew
 fork scheduling class into the existing nonparallel collection; all cases, assertions and deadlines
 remain unchanged. The complete CI unit invocation now passes 7,318 /6,208 cases locally; binary
 hashes and every case-row multiplicity are unchanged, and .NET 8 starts after .NET 10 completes.
-Final-source Windows CI is required before calling this control a verified fix. A runtime deadlock
-is not established by the retained failure.
+The exact-head follow-up CI passes Windows, Ubuntu, NativeAOT and ordinary performance in
+[run 41273080960](https://github.com/skuirrels/Xsl3/actions/runs/41273080960). This verifies the test
+scheduling repair on hosted Windows; a runtime deadlock is not established by the retained failure.
 
 | Original hosted gate | Verified `722ae27` result |
 |---|---|
@@ -58,7 +59,14 @@ is not established by the retained failure.
 | Strict runtime | Release, Debug and legacy/saved each retain 2,695 pass /16 fail /1 not run; complete inventory, forwarding and exact-code audits pass |
 | Push memory | 48 correct outputs; 13/16 budgets. Merge 22,093,824, fork 22,597,632 and source-document 21,422,080 bytes exceed 20,971,520 |
 | Nightly memory | 48 correct outputs; 16/16 budgets. Exact 2,147,483,648-byte inputs and 209,715,200-byte guards; maximum whole-process peak 37,154,816 bytes |
-| Complete throughput | Original 126-observation hosted run remains in progress; no restart or waiver |
+| Complete throughput | All 126 observations valid at original sizes and actual 4 GiB guards; six of seven 100 MB targets pass. Fork remains 1.439458 stream/tree |
+
+The hosted stream/tree ratios are identity **0.978893**, adjacent **0.657111**, accumulator
+**0.655624**, iterate **0.619349**, merge **0.973719**, fork **1.439458** and source-document
+**0.976564**. The host reports .NET 10.0.14, Ubuntu 24.04.5, x64 and four effective processors.
+All benchmark raw records and preceding output fingerprints, binary hashes, controller hash,
+58 runtime PDB sources and eight benchmark sources validate. The display band waives no target;
+separate hosted cohorts do not establish a controlled causal speedup.
 
 Both memory archives match GitHub's published digests. Every raw output matches its report and the
 preceding canonical fingerprints; all 58 audited runtime sources and 33 stylesheet/entrypoint sources
@@ -81,6 +89,82 @@ Its first preparation omits two safety helpers and fails compilation before test
 is retained. After the complete unit invocation ends, all six source-verified four-CPU timing
 children validate output. The median falls only 1.19%, with overlapping ranges, so the control is
 rejected. No native or full-suite qualification is claimed (`value-ranges-722ae27`).
+
+The test-only concurrency control is pushed as `f63305b`. Its new ordinary CI run
+[41273080960](https://github.com/skuirrels/Xsl3/actions/runs/41273080960) passes both complete
+platform unit-test steps, including the retained Windows failure case. All four jobs now finish
+successfully. Runtime C# sources are unchanged from `722ae27`.
+
+An isolated diagnostics branch (`feature/p7-hosted-cpu-diagnosis`, `7f30ccf`) adds explicitly selected
+hosted CPU sampling; default/scheduled original acceptance remains unchanged. Its
+[diagnostic run](https://github.com/skuirrels/Xsl3/actions/runs/41274407610) profiles the exact
+`f63305b` source on the same .NET 10.0.14 /Ubuntu x64 /four-processor allowance. Both 100 MB outputs
+match the canonical benchmark with actual 4 GiB guards. All binary hashes and 58 runtime PDB source
+checks pass. Native and ReadyToRun caller symbolication is incomplete. Matching the official runtime
+module's build ID to the perf data and translating its ELF file/virtual offset identifies the hottest
+native instruction as a `pause; dec; jne` spin loop: **482 of 2,762** user-mode on-CPU samples,
+about **17.45%** of the complete profiled child's sampled user CPU. This includes startup, warmup and
+oracle work; it is not an exact wait-owner or causal elapsed-time attribution. Raw maps, samples,
+matching runtime module, build-ID proof and unresolved frames are retained under
+`artifacts/p7-completion/hosted-cpu-f63305b/`.
+
+An isolated full-ring parking control (`38d876c`) retains all **455** focused fork/tee checks,
+including two new notification/parking race contracts. Six local ARM64 observations show overlapping
+ranges and a 2.24% slowdown. A separate unprofiled
+[hosted x64 comparison](https://github.com/skuirrels/Xsl3/actions/runs/41276056450) retains twelve
+valid 100 MB observations: three per variant/mode, with actual 4 GiB guards. Fork streaming medians
+are baseline **3,976.285 ms** /candidate **4,758.173 ms**, a **19.66% regression**. All original
+fingerprints, source manifests, binary hashes and 58 runtime PDB sources per variant validate.
+The control is rejected and never enters the main P7 branch. The first dispatch supplies an abbreviated
+candidate ref and fails checkout before measuring; the replacement uses its full immutable SHA.
+Evidence: `artifacts/p7-completion/hosted-waits-38d876c/` and `backpressure-waits-f63305b/`.
+
+A separate bounded frame-pruning control (`d2ce7ee`) reads every omitted XML token but avoids
+allocating descendant navigator frames when the compiler proves that their content is unused.
+Typed, observed, replayed and consumption-hook inputs retain the ordinary path. Review catches two
+continuation failures after early completion and one late-header-hook registration failure; all
+three have retained negative controls. The corrected prototype passes **497 .NET 10 /458 .NET 8**
+focused cases in both configurations, preserving 488 /449 original rows and adding nine semantic
+contracts. The unchanged baseline passes all nine new contracts.
+
+Six local ARM64 JIT controls show a **12.69%** elapsed median reduction. Twenty-four native
+200 MiB observations preserve every output and actual 20 MiB managed guard; fork's four-CPU median
+falls **11.87%**, while its whole-process RSS median rises **139,264 bytes** and stays above budget.
+Six additional one-CPU fork controls have an elapsed ratio of **0.998230** and a higher RSS median.
+These diagnostic zero-RSS-limit observations cannot pass an original memory gate. A source inventory
+audit overlaps initial native identity controls; no causal timing improvement is attributed to identity.
+
+The decisive [hosted x64 comparison](https://github.com/skuirrels/Xsl3/actions/runs/41277260040)
+retains twelve valid 100 MB observations with matching original outputs and actual 4 GiB guards.
+Baseline/candidate fork streaming medians are **5,226.458 /5,153.130 ms**: only **1.40%** lower,
+with overlapping ranges. The candidate still misses the original target at **1.482354** stream/tree.
+Source manifests, both binary sets and 58 runtime PDB sources per variant verify. This complexity is
+rejected and its runtime code remains outside the main P7 branch. Preparation, initial defects,
+corrected sources and all controls remain under `pruned-frames-f63305b`, `pruned-leaves-f63305b`,
+`pruned-cleanup-f63305b` and `hosted-pruning-d2ce7ee`.
+
+A separate direct standard-stream report control keeps the UTF-8 JSON bytes and platform newline,
+with 48 focused report/probe checks and all 24 native output/heap checks passing. Seven native
+consumer sources and all 58 unchanged runtime PDB sources verify. Its first managed build omits a
+`System.Console` qualification and fails before testing; that preparation failure is retained. The
+corrected native comparison shows no consistent RSS reduction: identity is unchanged, merge and
+source-document each rise **131,072 bytes**, and fork falls only **118,784 bytes** while staying above
+budget. The transport control is rejected. No Console/serializer change enters the main branch.
+Evidence: `artifacts/p7-completion/report-stream-f63305b/`.
+
+A diagnostic-only batch histogram then checks the small-refill hypothesis before changing the
+producer. The exact 100 MB fork output and actual 4 GiB guard validate, with all 58 runtime PDB
+sources checked. The measured transformation publishes **4,347,828** events in **195,096** batches;
+mean reserved scan space is **53.49 /64**. Only **160** batches reserve one slot, and only **261**
+reserve four or fewer. Small refill fragmentation is not established as the dominant cost, so no
+refill-delay policy is introduced. These instrumented counts make no timing/RSS acceptance claim.
+Evidence: `artifacts/p7-completion/fork-batch-shapes-f63305b/`.
+
+The nine independent fork continuation/observation contracts are retained in
+`tests/Xsl3.Tests/ForkContinuationContractsTests.cs` on the unchanged runtime. Their final source
+passes all **nine** checks in Release/Debug on .NET 8 and .NET 10, with bounded cancellation and the
+existing nonparallel process-state collection. No rejected runtime, parser or report control is
+adopted. The documentation/contract head needs its own terminal hosted CI result.
 
 Full P7 remains active. Original failed memory/throughput targets, remaining contract accounting,
 public integration, final review/CI, merge and deployment handoff remain required. PR #27 stays draft,
