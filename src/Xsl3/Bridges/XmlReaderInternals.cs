@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace System.Xml
@@ -21,7 +22,11 @@ namespace System.Xml
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         private const string ImplTypeName = "System.Xml.XmlTextReaderImpl, System.Private.Xml";
+#if NET10_0_OR_GREATER
+        private static readonly Type? s_implType = GetImplementationType();
+#else
         private static readonly Type? s_implType = Type.GetType(ImplTypeName);
+#endif
         internal static bool IsTextReaderImpl(XmlReader reader) => reader.GetType() == s_implType;
 #if NET10_0_OR_GREATER
         [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetResolver")]
@@ -31,6 +36,23 @@ namespace System.Xml
         [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Impl")]
         [return: UnsafeAccessorType(ImplTypeName)]
         private static extern object? GetImplementationCore(XmlTextReader reader);
+
+        private static Type? GetImplementationType()
+        {
+            // The typed BCL property supplies its actual implementation type without
+            // parsing an assembly-qualified name. Older/missing bindings keep the
+            // original type-name lookup and all existing failure behavior.
+            try
+            {
+                using var input = new StringReader("");
+                using var reader = new XmlTextReader(input);
+                if (GetImplementationCore(reader) is { } implementation) return implementation.GetType();
+            }
+            catch (MissingMethodException) { }
+            catch (TypeLoadException) { }
+            return Type.GetType(ImplTypeName);
+        }
+
 #else
         // Keep the literal type identity at each lookup so trimming preserves the requested
         // members, rather than every method and property on the XML parser implementation.
