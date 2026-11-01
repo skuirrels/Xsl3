@@ -617,6 +617,19 @@ respectively. These mixed local results do not close the original hosted gates o
 another private generic bridge. The prototype is excluded; no hosted qualification is claimed.
 Evidence: `artifacts/p7-completion/typed-dtd-c7da793/audit.json`.
 
+### Native report-stage diagnostic, 2026-11-01
+
+Twelve isolated original 200 MiB observations capture the self peak before final collection, after
+returning the result, after JSON serialization and after successful stdout writing. Every output
+matches the original fingerprints under the actual 20 MiB managed guard; **69 runtime /eight consumer**
+PDB sources and immutable source/binary hashes validate. No self peak rises across any sampled stage.
+The lifetime counter remains higher by **270,336–360,448 bytes** for merge/fork/source-document, and
+matches for identity. Added instrumentation changes the image, and diagnostic stderr occurs after all
+captures, so this neither locates the later difference nor establishes an operating-system accounting
+defect. It supplies no justification for changing report transport, subtracting counters or relaxing a
+budget. The control stays outside the branch. All local controllers are terminal and no hosted
+qualification is active. Evidence: `artifacts/p7-completion/report-stages-c7da793/audit.json`.
+
 ## Preceding verified checkpoint, 2026-11-01
 
 Commit `709da5b` passes all four [ordinary CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41255492209).
