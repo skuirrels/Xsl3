@@ -2,12 +2,21 @@
 
 ## Unreleased
 
+## [1.2.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.2.0) — 2026-11-02
+
+**Breaking for some streamable stylesheets.** Strict streamability analysis no longer accepts an
+undeclared extension for unions.
+
 - Classify a union of two striding operands as crawling, as XSLT 3.0 §19.8.8.4 requires, even when
   both are child steps from the same parent. The former peer-union extension treated such unions as
-  striding without the user asking for an extension (§19.10). With `Streamability = Strict`, a
-  streamable construct that relied on it now raises XTSE3430; with `Fallback` it runs unstreamed.
-  W3C `sx-union-202` now passes and `sx-union-315`, which relies on the extension, fails.
-
+  striding without the user asking for an extension (§19.10). `Streamability = Strict` is the default,
+  so a declared-streamable construct that relied on it, which compiled with 1.1.7, now raises XTSE3430
+  unless `Fallback` is selected (it then runs unstreamed) or the selection is written as one striding
+  step. W3C `sx-union-202` now passes and `sx-union-315`, which relies on the extension, fails.
+- Add P7 phase A evidence: retained-state bounds for `xsl:iterate`, adjacent grouping and node-valued
+  accumulators through both APIs, and failing-prong cancellation in compiled `xsl:fork` (later prongs
+  are cancelled, earlier prongs finish). CI now fails when the original S3-S7 conformance exits regress
+  or a strict failure has no recorded disposition.
 - Honour W3C collection environments whose declared documents are exactly the `.xml` files of the
   named directory in the XSLT 3.0 test runner, so `merge-039` runs.
 

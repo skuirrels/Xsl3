@@ -112,6 +112,23 @@ def report(strict_path, baseline_path, dispositions_path):
     }
 
 
+def unmet(result):
+    """The exits a report does not meet: regressions, unaccounted failures, unmet named cases or S7."""
+    problems = []
+    for stage, data in result['Stages'].items():
+        if stage == 'S7':
+            if not data['ConformanceMet']:
+                problems.append(f'S7 pass rate {data["PassRate"]:.2%} is below {data["Threshold"]:.0%}')
+            continue
+        if data['Regressions']:
+            problems.append(f'{stage} regressions: ' + ', '.join(data['Regressions']))
+        if data['Unaccounted']:
+            problems.append(f'{stage} failures without a disposition: ' + ', '.join(data['Unaccounted']))
+        if not data['RequiredCasesMet']:
+            problems.append(f'{stage} named cases neither pass nor are owner-accepted')
+    return problems
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--strict', type=Path, required=True, help='Audited strict strm export')
@@ -125,7 +142,11 @@ def main():
         target.write('\n')
     for stage, data in result['Stages'].items():
         print(stage, json.dumps({k: v for k, v in data.items() if k in ('Strict', 'Unstreamed', 'PassRate', 'BaselineLevelMet', 'RequiredCasesMet', 'ConformanceMet')}))
+    problems = unmet(result)
+    for problem in problems:
+        print('Stage exit not met:', problem)
+    return 1 if problems else 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

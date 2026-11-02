@@ -140,7 +140,6 @@ def prepare(source, destination, revision, expected_population=None):
         books = ET.parse(books_path).getroot().findall('./BOOKS/ITEM')
         if not books:
             raise ValueError('The positive fork fixture needs source items')
-        corrections = []
         fork_file = 'tests/strm/si-fork/_si-fork-test-set.xml'
         original(fork_file)
         fork_style = ET.parse(original('tests/strm/si-fork/si-fork-953.xsl')).getroot()
@@ -157,16 +156,13 @@ def prepare(source, destination, revision, expected_population=None):
             ET.SubElement(expected_fork, 'in').extend(authors)
         # P7 phase A: sx-UnionExpr/sx-union-202 keeps its official XTSE3430 expectation. Two striding
         # union operands are crawling (§19.8.8.4); the former peer-union extension is gone.
-        for case_id, expected, authority, stylesheet in (
-            ('si-fork/si-fork-953', expected_fork, 'XSLT 3.0 §19.8.4.19 direct fork child sort exception', None),
-        ):
-            assertion = ET.Element('{' + CAT + '}assert-xml')
-            assertion.text = ET.tostring(expected, encoding='unicode')
-            name = 'static/' + case_id.split('/')[1] + '-result.xml'
-            write(name, ET.tostring(assertion, encoding='utf-8', xml_declaration=True))
-            row = {'OriginalId': case_id, 'OriginalExpectedCode': 'XTSE3430', 'AssertionFile': name,
-                   'StylesheetFile': stylesheet, 'Authority': authority}
-            corrections.append(row)
+        assertion = ET.Element('{' + CAT + '}assert-xml')
+        assertion.text = ET.tostring(expected_fork, encoding='unicode')
+        name = 'static/si-fork-953-result.xml'
+        write(name, ET.tostring(assertion, encoding='utf-8', xml_declaration=True))
+        # StylesheetFile stays in the row shape the reviewed catalogue reads; this correction keeps the original stylesheet.
+        corrections = [{'OriginalId': 'si-fork/si-fork-953', 'OriginalExpectedCode': 'XTSE3430', 'AssertionFile': name,
+                        'StylesheetFile': None, 'Authority': 'XSLT 3.0 §19.8.4.19 direct fork child sort exception'}]
         if len({m['OriginalId'] for m in mappings}) != len(mappings):
             raise ValueError('Duplicate source case IDs')
         manifest = {'Version': 1, 'Review': 'P7B owner-approved 1000-case correction', 'SuiteRevision': revision,

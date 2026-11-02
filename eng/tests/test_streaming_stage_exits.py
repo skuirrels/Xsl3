@@ -70,6 +70,15 @@ class StageExitReportTests(unittest.TestCase):
         self.assertFalse(stages['S5']['RequiredCasesPass'])
         self.assertTrue(stages['S5']['RequiredCasesMet'])
 
+    def test_unmet_lists_every_failed_exit_and_nothing_when_all_are_met(self):
+        self.assertEqual([], EXITS.unmet({'Stages': self.run_report()}))
+        self.strict['si-copy/a'] = 'Fail'
+        self.strict['merge/merge-070'] = 'Fail'
+        problems = EXITS.unmet({'Stages': self.run_report()})
+        self.assertIn('S3 regressions: si-copy/a', problems)
+        self.assertIn('S3 failures without a disposition: si-copy/a', problems)
+        self.assertIn('S5 named cases neither pass nor are owner-accepted', problems)
+
     def test_unstreamed_improvement_is_reported(self):
         self.unstreamed['su-filter/b'] = 'Fail'
         self.assertEqual(self.run_report()['S4']['Improvements'], ['su-filter/b'])

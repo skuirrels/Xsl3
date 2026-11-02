@@ -4,23 +4,24 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.7: P7 runtime correctness and allocation checkpoint.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> **1.2.0: specification-conformant union streamability.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
 > XSLT 3.0 works apart from supported streaming. Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
-Version **1.1.7** includes accumulator/copy provenance and schema-default fixes, fork ownership and
-cancellation corrections, lower allocation in dynamic calls and temporary trees, and stronger saved/native
-and conformance checks. P7H's Debug compiler source-line correction remains included.
+Version **1.2.0** follows XSLT 3.0 §19.8.8.4: a union of two striding operands is crawling, so
+declared-streamable constructs that relied on the former peer-union extension now raise XTSE3430 under the
+default `Strict` analysis; select `Fallback` or write the selection as one striding step. 1.1.7's
+accumulator, schema-default, fork and allocation changes remain included.
 
 Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
 static checking and does not enable forward execution by itself. Published default execution stays
 tree-based; forward execution requires the explicit development opt-in. The original streaming memory
 and throughput gates remain unchanged and unmet; this release does not complete full P7.
 
-See the [1.1.7 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.7/docs/releases/1.1.7.md) and
-[checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.1.7/docs/plan/p7-runtime-checkpoint.md).
+See the [1.2.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.2.0/docs/releases/1.2.0.md) and
+[checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.2.0/docs/plan/p7-runtime-checkpoint.md).
 Strict analysis rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
 motionless instructions. Select `XsltStreamabilityMode.Fallback` when strict static checking is not intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.7 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.2.0 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

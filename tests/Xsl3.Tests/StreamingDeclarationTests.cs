@@ -75,6 +75,28 @@ public class StreamingDeclarationTests
         Assert.NotNull(new XsltCompiler { Settings = new() { Streamability = XsltStreamabilityMode.Fallback } }.Compile(new StringReader(sheet)));
     }
 
+    // A union of striding operands is crawling (§19.8.8.4) even for children of the same parent, so a consuming
+    // xsl:for-each body over it is roaming (§19.8.4.18); treating it as striding is an extension the user has not
+    // asked for (§19.10). Fallback and a single striding step remain available.
+    [Fact]
+    public void PeerChildUnionsAreCrawlingUnlessTheStylesheetUsesOneStep()
+    {
+        const string input = "<doc><a><c>1</c></a><b><c>2</c></b><a><c>3</c></a></doc>";
+        string Sheet(string select) => Stylesheet($"<xsl:mode streamable='yes'/><xsl:template match='/'><xsl:for-each select='{select}'><xsl:value-of select='c'/></xsl:for-each></xsl:template>");
+        string Run(string sheet, XsltStreamabilityMode mode)
+        {
+            var transformer = new XsltCompiler { Settings = new() { Streamability = mode } }.Compile(new StringReader(sheet)).CreateTransformer();
+            using var output = new StringWriter();
+            transformer.ApplyTemplates(XmlReader.Create(new StringReader(input)), output);
+            return output.ToString();
+        }
+        string union = Sheet("doc/a | doc/b");
+        XsltStaticException error = Assert.Throws<XsltStaticException>(() => new XsltCompiler().Compile(new StringReader(union)));
+        Assert.Contains(error.Errors, e => e.Code?.LocalName == "XTSE3430");
+        Assert.Equal("123", Run(union, XsltStreamabilityMode.Fallback));
+        Assert.Equal("123", Run(Sheet("doc/*[self::a or self::b]"), XsltStreamabilityMode.Strict));
+    }
+
     [Theory]
     [InlineData("<xsl:value-of version='1.0' select='42'/>")]
     [InlineData("<xsl:if version='1.0' test='true()'><xsl:value-of select='42'/></xsl:if>")]
