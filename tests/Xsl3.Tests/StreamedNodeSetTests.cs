@@ -180,14 +180,15 @@ public class StreamedNodeSetTests
     [Fact]
     public void PositionalWholeElementSelectionsDeliverTheirFirstHeaderBeforeContent()
     {
-        var transform = Load("<xsl:for-each select='doc/row[1] | doc/row[2]'><xsl:message select='name()'/><xsl:value-of select='.'/></xsl:for-each>", true);
+        // A union of striding operands is crawling (§19.8.8.4), so the body is motionless.
+        var transform = Load("<xsl:for-each select='doc/row[1] | doc/row[2]'><xsl:message select='name()'/><xsl:value-of select='position()'/></xsl:for-each>", true);
         using var reader = XmlReader.Create(new StringReader(Input)); using var output = new StringWriter(); int calls = 0;
         var arguments = new XsltArgumentList();
         arguments.XsltMessageEncountered += (_, _) => {
             if (calls++ == 0) { Assert.Equal(XmlNodeType.Element, reader.NodeType); Assert.Equal("row", reader.LocalName); }
         };
         transform.Transform(reader, arguments, output);
-        Assert.Equal("1234", output.ToString()); Assert.Equal(2, calls);
+        Assert.Equal("12", output.ToString()); Assert.Equal(2, calls);
     }
 
     [Theory]
@@ -217,7 +218,7 @@ public class StreamedNodeSetTests
     [Fact]
     public void TheExecutableApiUsesTheNativeSetCursor()
     {
-        string sheet = Sheet("<xsl:value-of select='(doc/row[1] | doc/row[2])/a' separator='|'/>");
+        string sheet = Sheet("<xsl:value-of select='doc/row[1]/a | doc/row[2]/a' separator='|'/>");
         var transformer = new XsltCompiler { Settings = new() { StreamedExecution = true, StreamingBufferCapacity = 1 } }
             .Compile(new StringReader(sheet)).CreateTransformer();
         using var input = XmlReader.Create(new StringReader(Input));

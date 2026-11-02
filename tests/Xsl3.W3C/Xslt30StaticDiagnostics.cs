@@ -97,7 +97,8 @@ public partial class Xslt30RunTests
         if (reviewed)
         {
             Assert.Empty(failures);
-            Assert.True(matchingCodes == 152 && allowedResults == 3,
+            // P7 phase A: sx-union-202 is an exact XTSE3430 again, now that the peer-union extension is gone.
+            Assert.True(matchingCodes == 153 && allowedResults == 2,
                 $"P7B diagnostic/result coverage changed: got {matchingCodes} exact codes and {allowedResults} results; reconcile the manifest and plan.");
             return;
         }

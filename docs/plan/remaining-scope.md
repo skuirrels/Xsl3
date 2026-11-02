@@ -1,9 +1,10 @@
 # Remaining scope: everything after P5
 
-> **Full P7 resumed, 2026-10-29:** the owner resumed implementation through complete qualification,
-> review, merge and release on `feature/p7-completion`. The [completion plan](p7-completion.md)
-> records current requirements and evidence. Every original runtime, memory and throughput gate
-> remains required. Streaming is still unsupported; the bounded release records below are historical.
+> **Current handoff, 2026-11-01:** the owner stopped full-P7 optimization at the bounded
+> [1.1.7 checkpoint](p7-runtime-checkpoint.md), now merged and published. Further P7 work is paused;
+> streaming remains unsupported and every original acceptance target is unchanged. Start with the
+> [agent handoff](p7-handoff.md) for the released baseline, verified CI, remaining work and evidence limits.
+> The older resumptions and progress records below are historical, not instructions to continue automatically.
 
 > **P7H bounded implementation and local close-out complete:** the
 > [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original

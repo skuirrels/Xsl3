@@ -205,7 +205,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         env:
           XSL3_XSLT30_PROFILE: strm
-        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-unstreamed
+          XSL3_XSLT30_RESULTS: ${{ github.workspace }}/artifacts/test-results/streaming-unstreamed.jsonl
+        run: |
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-unstreamed
+          # Original S3-S7 exit accounting against the strict export above; outcomes only, not forward execution or memory.
+          python3 eng/stage-exit-report.py --strict artifacts/test-results/streaming-strict.jsonl --unstreamed "$XSL3_XSLT30_RESULTS" --dispositions docs/plan/p7-phase-a-dispositions.csv --output artifacts/test-results/streaming-stage-exits.json
 
       # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is
       # generated: in the job summary and the test-results artifact.

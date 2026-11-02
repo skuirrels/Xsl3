@@ -9,10 +9,36 @@ The [1.1.7 checkpoint boundary](p7-runtime-checkpoint.md) supersedes the earlier
 stopping instruction for this release. Full P7 remains incomplete; every original requirement below is
 retained for resumption. The checkpoint keeps experimental execution opt-in and excludes unadopted controls.
 
-This resumes the original [P7 plan](p7-streaming.md); the completed P7A–P7H increments and their
-historical evidence are retained. An audit or another bounded increment does not complete this objective.
+The remaining full objective follows the original [P7 plan](p7-streaming.md); the completed P7A–P7H
+increments and their historical evidence are retained. An audit or another bounded increment does not
+complete full P7.
 
 ## Latest verified state
+
+**Phase A, from 1 November 2026:** baseline of 1.1.7 and S3–S6 acceptance accounting. The current
+stage exits, obligation map, failure dispositions and owner decisions are in [phase A](p7-phase-a.md).
+
+**1.1.7 is released and further P7 work is paused at the owner's request.**
+[PR #27](https://github.com/skuirrels/Xsl3/pull/27) merged at
+`b0bf3bb3464e319048c230191577f86c326b5cdb`, the commit tagged `v1.1.7`.
+All four [reviewed-source CI jobs](https://github.com/skuirrels/Xsl3/actions/runs/41348273376)
+passed. [Post-merge CI](https://github.com/skuirrels/Xsl3/actions/runs/41351971235) passed Linux,
+Windows and NativeAOT; ordinary performance was skipped by its push condition after passing on the PR.
+The [release build and NuGet publish](https://github.com/skuirrels/Xsl3/actions/runs/41352001262)
+passed, all three public NuGet payloads matched the tagged artifacts, and the
+[GitHub release](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.7) is public with five assets.
+Fresh public-package managed/CLI/native consumers and all 576 saved-style contracts passed.
+
+Use the [handoff](p7-handoff.md) for resumption and evidence recovery. The ignored local `artifacts/`
+directory disappeared during release verification. Historical paths below are provenance references,
+not a guarantee those files still exist. Hosted evidence may also expire. Do not treat historical
+measurements as qualification of the release tree or adopt an isolated candidate without fresh review.
+
+## Historical pre-release state and experiments
+
+This section and the detailed development entries below retain their original checkpoint statements.
+Their "current", "pending", "active" and "not published" descriptions apply to the named historical
+source, not to the released 1.1.7 checkpoint. The current handoff above takes precedence.
 
 Retained head `42e5a73` passes all four ordinary CI jobs in
 [run 41311886937](https://github.com/skuirrels/Xsl3/actions/runs/41311886937), including the repaired
@@ -53,8 +79,8 @@ No merge, package readiness or publication is claimed.
 | First output | Actual sink writes, input consumed before emission and multi-size observations; document inherent end-of-input totals explicitly | Final qualification required |
 | Compatibility | Full Release/Debug .NET 8/10 units, upstream, differential, ordinary W3C, saved and NativeAOT consumers, ordinary performance gate | Reverify final source |
 | Public integration | Supported streaming selection through both APIs, saved-style behavior, feature-profile integration and truthful `supports-streaming` | Unsupported until qualification passes |
-| Review / merge | Full diff reviewed, defects corrected, required hosted CI green for the reviewed head, merge verified | Pending |
-| Release handoff | README/package readmes/changelog/release notes updated; merged main and exact packages verified for deployment; stop before tagging/publication under the owner's latest instruction | Pending |
+| Review / merge | Full diff reviewed, defects corrected, required hosted CI green for the reviewed head, merge verified | Complete for 1.1.7 checkpoint; full-P7 review remains future work |
+| Release handoff | README/package readmes/changelog/release notes updated; merged main and matching packages/publication verified | 1.1.7 published under the owner's later release instruction; full-P7 release remains deferred |
 
 Memory gates use unmodified generated inputs, independent output oracles and full-lifetime counters.
 No startup subtraction, disabled globalization, diagnostic zero-limit run, omitted workload, relaxed
@@ -1033,7 +1059,10 @@ The fixture generator's first friend-assembly-name setup failure is retained sep
 or expected result changes are made. Full original hosted qualification remains required
 (`remaining-full-709da5b`).
 
-## Execution
+## Execution when the owner resumes full P7
+
+These steps describe the remaining full objective, not authorization to restart work after 1.1.7.
+Use the released baseline and evidence limits in [the handoff](p7-handoff.md).
 
 1. Capture fresh per-case outcomes using the existing runner selection and pinned suite. Assign stage
    ownership without double-counting overlapping sets; retain both successful and unsuccessful cases.
@@ -1046,10 +1075,11 @@ or expected result changes are made. Full original hosted qualification remains 
    failed trials alongside successful runs. Run performance measurements in isolation from task-owned
    CPU-intensive verification; preserve measurement/artifact provenance.
 5. Complete public streaming integration only when its actual execution and qualification gates pass.
-   Review, validate, merge and prepare the resulting implementation for deployment. Stop before
-   tagging or publication under the owner's latest instruction.
+   Review, validate, merge and prepare the resulting implementation for deployment under the release
+   boundary authorized for that future phase.
 
-The goal stays active while any original requirement is incomplete or supported only by indirect evidence.
+Full P7 remains incomplete while any original requirement is unverified. Its work is currently paused;
+the completed 1.1.7 checkpoint does not imply that the full objective stays active.
 
 ## Runtime inventory gate, 2026-10-29
 
