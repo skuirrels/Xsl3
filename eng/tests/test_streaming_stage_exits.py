@@ -58,9 +58,17 @@ class StageExitReportTests(unittest.TestCase):
 
     def test_named_merge_case_must_pass(self):
         self.strict['merge/merge-084'] = self.unstreamed['merge/merge-084'] = 'Fail'
+        self.dispositions.write_text('case,disposition,owner_decision\nmerge/merge-084,fixture conflict,\n')
         stages = self.run_report()
         self.assertTrue(stages['S5']['BaselineLevelMet'])
         self.assertFalse(stages['S5']['RequiredCasesMet'])
+
+    def test_owner_accepted_disposition_meets_a_named_case_without_passing_it(self):
+        self.strict['merge/merge-084'] = self.unstreamed['merge/merge-084'] = 'Fail'
+        self.dispositions.write_text('case,disposition,owner_decision\nmerge/merge-084,fixture conflict,accepted 2026-11-01\n')
+        stages = self.run_report()
+        self.assertFalse(stages['S5']['RequiredCasesPass'])
+        self.assertTrue(stages['S5']['RequiredCasesMet'])
 
     def test_unstreamed_improvement_is_reported(self):
         self.unstreamed['su-filter/b'] = 'Fail'

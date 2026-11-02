@@ -138,8 +138,8 @@ def prepare(source, destination, revision, expected_population=None):
         # Positive results are derived from fixture data and instruction semantics independently.
         books_path = original('tests/strm/docs/books.xml')
         books = ET.parse(books_path).getroot().findall('./BOOKS/ITEM')
-        if len(books) < 2:
-            raise ValueError('The positive peer-union fixture needs both nonempty positional partitions')
+        if not books:
+            raise ValueError('The positive fork fixture needs source items')
         corrections = []
         fork_file = 'tests/strm/si-fork/_si-fork-test-set.xml'
         original(fork_file)
@@ -155,30 +155,10 @@ def prepare(source, destination, revision, expected_population=None):
         expected_fork = ET.Element('out')
         for authors in grouped.values():
             ET.SubElement(expected_fork, 'in').extend(authors)
-        expected_union = ET.Element('out')
-        for book in books:
-            prices = book.findall('PRICE')
-            if not prices:
-                raise ValueError('The positive union source lacks a price')
-            expected_union.extend(copy_node(n) for n in prices)
-
-        union_file = 'tests/strm/sx-UnionExpr/_sx-UnionExpr-test-set.xml'
-        original(union_file)
-        union_dom = minidom.parse(str(original('tests/strm/sx-UnionExpr/sx-union-202.xsl')))
-        apply = union_dom.getElementsByTagNameNS(XSL, 'apply-templates')[0]
-        old_select = apply.getAttribute('select')
-        if old_select != '(/BOOKLIST/ITEM | /BOOKLIST/MAGAZINE)/PRICE':
-            raise ValueError('The reviewed union source shape changed')
-        # The official fixture has neither direct ITEM nor MAGAZINE children. Target its real
-        # books in disjoint odd/even peer partitions, so both arms contribute and document order matters.
-        new_select = '(/BOOKLIST/BOOKS/ITEM[position() mod 2 = 0] | /BOOKLIST/BOOKS/ITEM[position() mod 2 = 1])/PRICE'
-        apply.setAttribute('select', new_select)
-        union_dom.getElementsByTagNameNS(XSL, 'source-document')[0].setAttribute('href', books_path.as_uri())
-        union_style = 'static/sx-union-202.xsl'
-        write(union_style, union_dom.toxml(encoding='utf-8'))
+        # P7 phase A: sx-UnionExpr/sx-union-202 keeps its official XTSE3430 expectation. Two striding
+        # union operands are crawling (§19.8.8.4); the former peer-union extension is gone.
         for case_id, expected, authority, stylesheet in (
             ('si-fork/si-fork-953', expected_fork, 'XSLT 3.0 §19.8.4.19 direct fork child sort exception', None),
-            ('sx-UnionExpr/sx-union-202', expected_union, 'XSLT 3.0 §19.10 permitted compiler peer-union rewrite', union_style),
         ):
             assertion = ET.Element('{' + CAT + '}assert-xml')
             assertion.text = ET.tostring(expected, encoding='unicode')
@@ -186,10 +166,6 @@ def prepare(source, destination, revision, expected_population=None):
             write(name, ET.tostring(assertion, encoding='utf-8', xml_declaration=True))
             row = {'OriginalId': case_id, 'OriginalExpectedCode': 'XTSE3430', 'AssertionFile': name,
                    'StylesheetFile': stylesheet, 'Authority': authority}
-            if stylesheet:
-                row.update({'OriginalSelect': old_select, 'ReviewedSelect': new_select,
-                            'Reason': 'Correct the empty fixture selection; both peer partitions must contribute.',
-                            'OddItems': len(books[::2]), 'EvenItems': len(books[1::2])})
             corrections.append(row)
         if len({m['OriginalId'] for m in mappings}) != len(mappings):
             raise ValueError('Duplicate source case IDs')

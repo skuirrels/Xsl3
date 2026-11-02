@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Classify a union of two striding operands as crawling, as XSLT 3.0 §19.8.8.4 requires, even when
+  both are child steps from the same parent. The former peer-union extension treated such unions as
+  striding without the user asking for an extension (§19.10). With `Streamability = Strict`, a
+  streamable construct that relied on it now raises XTSE3430; with `Fallback` it runs unstreamed.
+  W3C `sx-union-202` now passes and `sx-union-315`, which relies on the extension, fails.
+
+- Honour W3C collection environments whose declared documents are exactly the `.xml` files of the
+  named directory in the XSLT 3.0 test runner, so `merge-039` runs.
+
 ## [1.1.7](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.7) — 2026-11-01
 
 This bounded P7 checkpoint retains published tree-based execution by default. Full streaming remains

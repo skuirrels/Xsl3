@@ -33,6 +33,15 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
+## Unreleased: unions in streamable constructs
+
+A union of two striding expressions is crawling (XSLT 3.0 §19.8.8.4), even for sibling child paths
+such as `(/BOOKLIST/ITEM | /BOOKLIST/MAGAZINE)`. Earlier releases treated those as striding, an
+extension the specification allows only when the user asks for one. Under `XsltStreamabilityMode.Strict`
+a streamable template, `xsl:source-document` or other declared construct that depended on that now
+raises XTSE3430, and its reason names the rule. Use `Fallback` to run it unstreamed, or select both
+kinds of node in one step, for example `*[self::ITEM or self::MAGAZINE]`, which is striding.
+
 ## 1.1.7: bounded P7 runtime checkpoint
 
 Default execution remains tree-based, as in the preceding published releases. `XsltSettings.Streamability`

@@ -54,8 +54,8 @@ keeps `streaming-stage-exits.json`. Outcomes only: it does not prove forward exe
 The S5 exit names "the 9 XTDE2220 cases" but no list was kept. Rerunning the 22 October baseline
 (`0c4fac0` with only a temporary `streaming` feature claim, as the plan describes) recovers exactly nine:
 `merge-070`, `071`, `076`, `078`, `079`, `080`, `081`, `083` and `084`. Seven now pass. `merge-081`
-and `merge-084` fail for the confirmed fixture conflicts below, so the named-case exit can only be
-met by owner acceptance of those dispositions.
+and `merge-084` fail for the confirmed fixture conflicts below; the owner accepted those dispositions
+on 1 November 2026, so the named-case exit is met.
 
 ## Obligation map
 
@@ -69,13 +69,17 @@ obligations and checks each cited test in the baseline's TRX files.
 | S5 | 17 | 5 | 3 |
 | S6 | 15 | 7 | 1 |
 
-Missing evidence:
+Evidence added after the map, closing its "none" items:
 
-- S5: no retention bound for growing or node-valued accumulator state, for `xsl:iterate` state, or for
-  grouping keeping only the current group.
-- S6: the exit says a failing prong "cancels the others". The runtime cancels later prongs and lets
-  earlier prongs finish, so the error chosen is the first in declaration order, as sequential evaluation
-  would give (`ForkProngsTests.ALaterFailureDoesNotCancelAnEarlierProng`). This is an owner decision on wording.
+- S5: `StreamedStateRetentionTests` measures the bytes that survive a full compacting collection,
+  sampled from `xsl:message` callbacks, across about 146,000 generated rows through both public APIs.
+  `xsl:iterate` parameters (a running total and a copy of the last row), an adjacent group and a
+  node-valued accumulator window must not grow by more than 1 MiB from the first sample; a control
+  whose iteration parameter keeps every row must grow by more than 8 MiB.
+- S6: the owner accepted the wording "a failing prong cancels the prongs after it; the prongs before it
+  finish, so the error follows declaration order". `StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish`
+  checks it through a compiled `xsl:fork`, loaded and saved: with a buffer of one, the first prong
+  sees all 2,000 rows, the third stops within 200 and the second prong's error is raised.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -103,39 +107,46 @@ The pinned suite is upstream's latest commit and has no upstream issues for any 
   so phase A measured that rule: it fixes these three but breaks 51 strm cases, 48 of them fixtures that use
   `xsl:import-schema` without the tag (XTSE1650/1660). The ordinary and `sa` profiles were unchanged. The
   change was reverted and P7D's disposition stands.
-- **Engine defect pending owner decision (1):** `sx-union-202`. Two striding union operands are crawling
-  (§19.8.8.4), so the select is not guaranteed streamable and Strict must raise XTSE3430 (§19.10). The
-  compiler's peer-union rewrite is an extension the user hasn't asked for. The P7B review accepted the
-  rewrite and its reviewed variant changes the selectors, so it doesn't test the official expectation.
-- **Optional behaviour pending owner decision (3):** `streamable-021`, `042` and `043` validate strictly
-  against `loans.xsd`, which only the test environment supplies. Using configured schemas for validation
-  is permitted (§25.4.1.1, §2.10) but not required, and `XsltSettings.Schemas` is documented as an import
-  catalogue, so passing them would be a public behaviour change.
+- **Engine defect, fixed (1):** `sx-union-202`. Two striding union operands are crawling (§19.8.8.4),
+  so the select is not guaranteed streamable and XTSE3430 is required (§19.10). The owner chose to follow
+  the spec: the compiler's peer-union rule is removed, so `sx-union-202` passes and the S2 reviewed
+  correction for it is withdrawn. `sx-union-315` now fails: its fixture expects a `for-each` over the union of
+  the `PRICE` and `QUANTITY` paths with a consuming body to stream, which needs the same extension
+  (fixture conflict, accepted). Two unit
+  tests that used such a union incidentally were rewritten in spec-streamable form.
+- **Optional behaviour, accepted (3):** `streamable-021`, `042` and `043` validate strictly against
+  `loans.xsd`, which only the test environment supplies. Using configured schemas for validation is
+  permitted (§25.4.1.1, §2.10) but not required. The owner kept `XsltSettings.Schemas` as an import
+  catalogue, so these remain fixture dependencies.
 - **Deferred to S7 (1):** `system-property-012` needs `supports-streaming` to be `yes`.
 
-## Owner decisions needed
+## Owner decisions (1 November 2026)
 
-1. `sx-union-202`: raise XTSE3430 under Strict and make the peer-union rewrite an explicit extension
-   (breaking for Strict users who rely on it), or keep the rewrite as a documented default extension.
-2. `streamable-021/042/043`: validate against `XsltSettings.Schemas` when the imported schemas lack a
-   declaration, or keep the import-catalogue meaning and retain the fixture dependency.
-3. S6 exit wording: accept "a failing prong cancels all later prongs; earlier prongs finish so the error
-   follows declaration order".
-4. S5 named cases: accept `merge-081` and `merge-084` as fixture conflicts.
+1. `sx-union-202`: follow the spec. The peer-union rule is removed in every mode, since §19.10 allows an
+   extension only when the user asks for one and there is no setting to ask. Breaking for stylesheets
+   that relied on it (see the migration guide).
+2. `streamable-021/042/043`: keep the import-catalogue meaning of `XsltSettings.Schemas`.
+3. S6 exit wording: a failing prong cancels the prongs after it; earlier prongs finish so the error
+   follows declaration order.
+4. S5 named cases: `merge-081` and `merge-084` accepted as fixture conflicts.
+
+The other five compiler extensions behind `AllowStreamabilityRewrites` (the `except` and dot forms, the
+descendant-to-child rewrite, scanning patterns, grounded `current-group()` and quantified bindings) are
+on in every mode and carry 101 W3C cases. They need the same conformance review before P7 can claim
+§19.10 compliance; that review is outside phase A.
 
 ## Remaining phase A work
 
-Criteria 1, 2 and 4 are met on the local phase head, and criterion 3's map and gap list are complete.
-Local checks on the phase head: strict 2,696 / 16 / 0 with the inventory audit passing, unstreamed
-2,694 / 18 / 0, stage exits with every non-passing case accounted for, all 97 W3C tests (ordinary 3.0
-8,861 / 18 / 30 with an unchanged failure list) and the Python tooling tests. No engine source changed,
-so the unit suites are unaffected; hosted CI on the pushed phase head is still required (criterion 5).
+Criteria 1, 2 and 4 are met on the local phase head, and criterion 3's map now has no "none" items.
+Local checks after the owner decisions: strict 2,696 / 16 / 0 with the inventory audit passing (sx-union-202
+now passes, sx-union-315 now fails), stage exits with every non-passing case accounted for and both S5
+named cases met by acceptance, S2 raw 154 / 1 and reviewed 155 / 0 (153 exact codes, 2 allowed results),
+all 97 W3C tests and the Python tooling tests. The union change touches the analyser, so the unit suites
+were rerun (results in the pull request). Hosted CI on the pushed phase head is still required (criterion 5).
 
-Next, once the owner has answered the decisions above:
+Next:
 
-- Add the missing S5 retention tests (growing or node-valued accumulator state, `xsl:iterate` state,
-  grouping keeping only the current group) and the S6 cancellation test for a compiled `xsl:fork`.
 - Strengthen the partial items that check output equality where the obligation is about forward
   execution, read position or buffering, starting with the optimizer restriction (S3-18), the strict
   fallback detection (S3-27) and the inspection, deep-descent and ascent function categories (S4-21, 24, 25).
-- Implement whichever of the `sx-union-202` and `streamable-021/042/043` options the owner chooses.
+- Review the other five `AllowStreamabilityRewrites` extensions against §19.10.

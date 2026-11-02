@@ -70,7 +70,10 @@ def report(strict_path, baseline_path, dispositions_path):
     if changed:
         raise ValueError(f'Case definitions differ: {changed[:5]}')
     with dispositions_path.open(encoding='utf-8', newline='') as source:
-        dispositions = {row['case']: row['disposition'] for row in csv.DictReader(source)}
+        rows = list(csv.DictReader(source))
+    dispositions = {row['case']: row['disposition'] for row in rows}
+    # A named exit case that fails can only be met by an explicit owner decision on its disposition.
+    accepted = {row['case'] for row in rows if (row.get('owner_decision') or '').startswith('accepted')}
 
     stages = {}
     for stage, (description, member) in EXITS.items():
@@ -78,7 +81,8 @@ def report(strict_path, baseline_path, dispositions_path):
         regressions = [case for case in selected if baseline[case]['Outcome'] == 'Pass' and strict[case]['Outcome'] != 'Pass']
         non_passing = [{'Case': case, 'Outcome': strict[case]['Outcome'], 'Disposition': dispositions.get(case)}
                        for case in selected if strict[case]['Outcome'] != 'Pass']
-        required = [{'Case': case, 'Outcome': strict[case]['Outcome'] if case in strict else 'Missing'}
+        required = [{'Case': case, 'Outcome': strict[case]['Outcome'] if case in strict else 'Missing',
+                     'Disposition': dispositions.get(case), 'OwnerAccepted': case in accepted}
                     for case in REQUIRED.get(stage, [])]
         stages[stage] = {
             'Exit': description,
@@ -91,7 +95,8 @@ def report(strict_path, baseline_path, dispositions_path):
             'Unaccounted': [row['Case'] for row in non_passing if row['Disposition'] is None],
             'RequiredCases': required,
             'BaselineLevelMet': not regressions,
-            'RequiredCasesMet': all(row['Outcome'] == 'Pass' for row in required),
+            'RequiredCasesPass': all(row['Outcome'] == 'Pass' for row in required),
+            'RequiredCasesMet': all(row['Outcome'] == 'Pass' or row['OwnerAccepted'] for row in required),
         }
     total = counts(strict.values())
     rate = total['Pass'] / max(1, total['Pass'] + total['Fail'])
@@ -111,7 +116,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--strict', type=Path, required=True, help='Audited strict strm export')
     parser.add_argument('--unstreamed', type=Path, required=True, help='strm export of the same population without XSL3_STREAM_STRICT')
-    parser.add_argument('--dispositions', type=Path, required=True, help='CSV of reviewed non-passing cases (case, disposition)')
+    parser.add_argument('--dispositions', type=Path, required=True, help='CSV of reviewed non-passing cases (case, disposition, optional owner_decision)')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     result = report(args.strict, args.unstreamed, args.dispositions)

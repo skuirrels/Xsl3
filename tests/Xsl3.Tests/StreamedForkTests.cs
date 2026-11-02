@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -518,5 +519,46 @@ public class StreamedForkTests
         Assert.Contains("Q{http://xsl3/err}cancelled", error.Message);
         Assert.True(writer.CancelledInCallback);
         Assert.Equal(saved, Xsl3.Runtime.XmlQueryRuntime.Cancellation);
+    }
+
+    // P7 S6 (docs/plan/p7-streaming.md): a failing prong cancels the prongs after it, while the
+    // prongs before it finish, so the error does not depend on scheduling.
+    [Theory]
+    [InlineData(false)]
+#if NET9_0_OR_GREATER
+    [InlineData(true)]
+#endif
+    public void AFailingProngCancelsLaterProngsAndEarlierProngsFinish(bool saved)
+    {
+        const int Rows = 2000;
+        string sheet = Sheet("<xsl:fork>"
+            + "<xsl:sequence><xsl:for-each select='doc/row'><xsl:message select=\"'before'\"/></xsl:for-each></xsl:sequence>"
+            + "<xsl:sequence><xsl:for-each select='doc/row'><xsl:if test='@n = 5'><xsl:sequence select=\"error(QName('urn:test', 'failed'))\"/></xsl:if></xsl:for-each></xsl:sequence>"
+            + "<xsl:sequence><xsl:for-each select='doc/row'><xsl:message select=\"'after'\"/></xsl:for-each></xsl:sequence>"
+            + "</xsl:fork>");
+        var transform = new XslCompiledTransform();
+        var settings = new XsltSettings { StreamedExecution = true, StreamingBufferCapacity = 1 };
+        if (saved)
+        {
+#if NET9_0_OR_GREATER
+            using var assembly = new MemoryStream();
+            transform.CompileToAssembly(XmlReader.Create(new StringReader(sheet)), settings, null, "Fork", "Saved.Fork", assembly);
+            transform.Load(Assembly.Load(assembly.ToArray()).GetType("Saved.Fork", true)!);
+#endif
+        }
+        else transform.Load(XmlReader.Create(new StringReader(sheet)), settings, null);
+        var xml = new System.Text.StringBuilder("<doc>");
+        for (int n = 1; n <= Rows; n++) xml.Append("<row n='").Append(n).Append("'/>");
+        using var input = XmlReader.Create(new StringReader(xml.Append("</doc>").ToString()));
+        var messages = new ConcurrentDictionary<string, int>();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var arguments = new XsltArgumentList { CancellationToken = cancellation.Token };
+        arguments.XsltMessageEncountered += (_, e) => messages.AddOrUpdate(e.Message, 1, (_, n) => n + 1);
+        var error = Assert.Throws<XdmException>(() => transform.Transform(input, arguments, TextWriter.Null));
+        Assert.Equal(new QName("urn:test", "failed"), error.Name);
+        Assert.False(cancellation.IsCancellationRequested);
+        Assert.Equal(Rows, messages.GetValueOrDefault("before"));
+        // Buffer capacity one keeps the later prong within a few events of the failing one.
+        Assert.InRange(messages.GetValueOrDefault("after"), 0, Rows / 10);
     }
 }

@@ -71,14 +71,11 @@ class PrepareStreamabilitySuiteTests(unittest.TestCase):
 
     def test_positive_results_are_computed_from_source_and_remove_only_sibling_whitespace(self):
         manifest = self.prepare()
-        fork, union = [ET.fromstring(ET.parse(self.output / c['AssertionFile']).getroot().text) for c in manifest['StaticCorrections']]
+        [fork] = [ET.fromstring(ET.parse(self.output / c['AssertionFile']).getroot().text) for c in manifest['StaticCorrections']]
         self.assertEqual([['A&B', 'Third'], ['Second']], [[n.text for n in g] for g in fork])
-        self.assertEqual(['1.25', '2.75', '3'], [n.text for n in union])
         self.assertTrue(all(n.tail is None for n in fork.iter() if n is not fork))
-        correction = manifest['StaticCorrections'][1]
-        self.assertEqual((2, 1), (correction['OddItems'], correction['EvenItems']))
-        style = ET.parse(self.output / correction['StylesheetFile'])
-        self.assertEqual(correction['ReviewedSelect'], style.find('.//{' + XSL + '}apply-templates').get('select'))
+        # sx-union-202 keeps its official XTSE3430 expectation: no peer-union correction.
+        self.assertEqual(['si-fork/si-fork-953'], [c['OriginalId'] for c in manifest['StaticCorrections']])
 
     def test_generation_is_deterministic(self):
         first = self.prepare()
