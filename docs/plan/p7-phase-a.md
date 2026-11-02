@@ -113,7 +113,10 @@ The pinned suite is upstream's latest commit and has no upstream issues for any 
   correction for it is withdrawn. `sx-union-315` now fails: its fixture expects a `for-each` over the union of
   the `PRICE` and `QUANTITY` paths with a consuming body to stream, which needs the same extension
   (fixture conflict, accepted). Two unit
-  tests that used such a union incidentally were rewritten in spec-streamable form.
+  tests that used such a union incidentally were rewritten in spec-streamable form. The frozen runtime
+  inventory is edited for these two cases only: `sx-union-315` is recorded as failing and
+  `sx-union-202` as passing, and both leave the stylesheet-forwarding minimum (now 2,457), since a
+  static XTSE3430 leaves no execution to observe. No other inventory entry changed.
 - **Optional behaviour, accepted (3):** `streamable-021`, `042` and `043` validate strictly against
   `loans.xsd`, which only the test environment supplies. Using configured schemas for validation is
   permitted (§25.4.1.1, §2.10) but not required. The owner kept `XsltSettings.Schemas` as an import
