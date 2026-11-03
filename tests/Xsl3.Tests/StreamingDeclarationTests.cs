@@ -97,6 +97,33 @@ public class StreamingDeclarationTests
         Assert.Equal("123", Run(Sheet("doc/*[self::a or self::b]"), XsltStreamabilityMode.Strict));
     }
 
+    // Xsl3's five §19.10 extensions (docs/plan/p7-extension-review.md): each form is roaming under the
+    // specification's analysis, guaranteed-streamable with the extensions, and runs either way under Fallback.
+    [Theory]
+    [InlineData("<xsl:value-of select='count(doc/a[1]//c)'/>", "1")]
+    [InlineData("<xsl:value-of select='count(.//a/c)'/>", "3")]
+    [InlineData("<xsl:value-of select=\"some $x in doc/a satisfies $x/@k = '2'\"/>", "true")]
+    [InlineData("<xsl:for-each select='doc/a except .'><xsl:value-of select='c'/></xsl:for-each>", "123")]
+    [InlineData("<xsl:for-each-group select='copy-of(doc/a)' group-by='@k'><xsl:value-of select='for $i in 1 to 2 return count(current-group())'/></xsl:for-each-group>", "2 21 1")]
+    public void StreamabilityExtensionsAreOnByDefaultAndCanBeTurnedOff(string body, string expected)
+    {
+        const string input = "<doc><a k='1'><c>1</c></a><a k='2'><c>2</c></a><a k='1'><c>3</c></a></doc>";
+        string sheet = Stylesheet($"<xsl:mode streamable='yes'/><xsl:template match='/'>{body}</xsl:template>");
+        string Run(XsltSettings settings)
+        {
+            var transformer = new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet)).CreateTransformer();
+            using var output = new StringWriter();
+            transformer.ApplyTemplates(XmlReader.Create(new StringReader(input)), output);
+            return output.ToString();
+        }
+        Assert.True(new XsltSettings().StreamabilityExtensions);
+        Assert.Equal(expected, Run(new XsltSettings()));
+        XsltStaticException error = Assert.Throws<XsltStaticException>(() =>
+            new XsltCompiler { Settings = new() { StreamabilityExtensions = false } }.Compile(new StringReader(sheet)));
+        Assert.Contains(error.Errors, e => e.Code?.LocalName == "XTSE3430");
+        Assert.Equal(expected, Run(new XsltSettings { StreamabilityExtensions = false, Streamability = XsltStreamabilityMode.Fallback }));
+    }
+
     [Theory]
     [InlineData("<xsl:value-of version='1.0' select='42'/>")]
     [InlineData("<xsl:if version='1.0' test='true()'><xsl:value-of select='42'/></xsl:if>")]

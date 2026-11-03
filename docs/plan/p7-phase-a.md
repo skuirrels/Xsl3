@@ -132,6 +132,8 @@ The pinned suite is upstream's latest commit and has no upstream issues for any 
 3. S6 exit wording: a failing prong cancels the prongs after it; earlier prongs finish so the error
    follows declaration order.
 4. S5 named cases: `merge-081` and `merge-084` accepted as fixture conflicts.
+5. The five remaining extensions (3 November 2026): keep them on by default, with
+   `XsltSettings.StreamabilityExtensions` to turn them off. See [the extension review](p7-extension-review.md).
 
 The other five compiler extensions behind `AllowStreamabilityRewrites` (the `except` and dot forms, the
 descendant-to-child rewrite, scanning patterns, grounded `current-group()` and quantified bindings) are
@@ -152,4 +154,6 @@ Next:
 - Strengthen the partial items that check output equality where the obligation is about forward
   execution, read position or buffering, starting with the optimizer restriction (S3-18), the strict
   fallback detection (S3-27) and the inspection, deep-descent and ascent function categories (S4-21, 24, 25).
-- Review the other five `AllowStreamabilityRewrites` extensions against §19.10.
+- Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
+  [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
+  they stay on by default behind `XsltSettings.StreamabilityExtensions` (owner decision 5).

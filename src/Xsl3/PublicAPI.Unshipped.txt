@@ -1,1 +1,3 @@
 #nullable enable
+Xsl3.XsltSettings.StreamabilityExtensions.get -> bool
+Xsl3.XsltSettings.StreamabilityExtensions.set -> void
