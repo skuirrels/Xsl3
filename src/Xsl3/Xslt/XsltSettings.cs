@@ -70,6 +70,16 @@ namespace Xsl3
             }
         }
 
+        /// <summary>
+        /// Xsl3: whether streamability analysis applies Xsl3's extensions to the XSLT 3.0 rules (§19.10). On by default.
+        /// The extensions accept, as guaranteed-streamable, forms that the W3C test suite and other streaming processors
+        /// treat as streamable but the specification's analysis rejects: <c>E//N</c> analysed as <c>E/descendant::N</c>,
+        /// scanning expressions starting with <c>.</c>, quantified expressions over streamed nodes with a motionless
+        /// condition, <c>S except .</c>, and <c>current-group()</c> over a grounded selection. Turn it off for the
+        /// specification's analysis exactly; such constructs are then XTSE3430 under <see cref="XsltStreamabilityMode.Strict"/>.
+        /// </summary>
+        public bool StreamabilityExtensions { get; set; } = true;
+
         public XsltSettings() { }
 
         public XsltSettings(bool enableDocumentFunction, bool enableScript)

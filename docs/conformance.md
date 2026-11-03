@@ -231,6 +231,11 @@ unstreamed, with its own report and baseline. Neither development profile change
 
 S2 now checks declared-streamable components and reachable source documents during compilation.
 `XsltSettings.Streamability` defaults to `Strict` (XTSE3430), with explicit `Fallback` for tree execution.
+Strict analysis applies five Xsl3 extensions to the §19 rules by default (`XsltSettings.StreamabilityExtensions`):
+`E//N` analysed as `E/descendant::N`, scanning expressions starting with `.`, quantified expressions over streamed
+nodes with a motionless condition, `S except .`, and `current-group()` over a grounded selection. 101 W3C streaming
+cases expect them and no case expects them off; set the property to `false` for the specification's analysis
+exactly (§19.10). See the [extension review](plan/p7-extension-review.md).
 The unstreamed development profile is 2,683 passed, 28 failed and one not run (99.0% of those run),
 with no newly failing IDs against the previous profile. The baseline removes only 135 verified fixes.
 Two expected XTSE3430 cases remain under investigation; this does not close S2's exact-code gate or
