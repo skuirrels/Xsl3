@@ -107,6 +107,9 @@ Evidence added after the map, closing its "none" items:
   apply. `StreamedForwardExecutionTests.ForkPrincipalRawItemsAreCopiedBeforeTheSourceAdvances` serializes all
   20,000 records from a raw-item prong while the captured initial source is a `StreamedNavigator`, which cannot
   revisit a record; the tree control records a tree source and the same output.
+- S6-08 (4 November 2026): `StreamedForkTests.ALaterProngThatFinishesFirstStillFollowsTheEarlierOne` holds the first
+  prong in its closing `xsl:message` until the second prong has finished, loaded and saved, with a buffer of one.
+  The second prong always completes first and the result still follows declaration order.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -180,7 +183,7 @@ Next:
 
 - Strengthen the partial items that check output equality where the obligation is about forward
   execution, read position or buffering. S3-17, S3-18, S3-27, S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25,
-  S4-29, S4-30, S5-02, S5-14 and S6-10 are done (see "Evidence added after the map"); the other partial items in
+  S4-29, S4-30, S5-02, S5-14, S6-08 and S6-10 are done (see "Evidence added after the map"); the other partial items in
   [the evidence map](p7-phase-a-evidence-map.md) remain.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;

@@ -521,6 +521,52 @@ public class StreamedForkTests
         Assert.Equal(saved, Xsl3.Runtime.XmlQueryRuntime.Cancellation);
     }
 
+    // P7 S6-08: prong results keep declaration order whatever the completion order. The first prong's
+    // closing message blocks until the second prong has finished, so the second always completes first.
+    [Theory]
+    [InlineData(false)]
+#if NET9_0_OR_GREATER
+    [InlineData(true)]
+#endif
+    public void ALaterProngThatFinishesFirstStillFollowsTheEarlierOne(bool saved)
+    {
+        const int Rows = 2000;
+        string sheet = Sheet("<out><xsl:fork>"
+            + "<xsl:sequence><a><xsl:value-of select='count(doc/row)'/></a><xsl:message select=\"'first'\"/></xsl:sequence>"
+            + "<xsl:sequence><b><xsl:value-of select='count(doc/row) * 2'/></b><xsl:message select=\"'second'\"/></xsl:sequence>"
+            + "</xsl:fork></out>");
+        var transform = new XslCompiledTransform();
+        var settings = new XsltSettings { StreamedExecution = true, StreamingBufferCapacity = 1 };
+        if (saved)
+        {
+#if NET9_0_OR_GREATER
+            using var assembly = new MemoryStream();
+            transform.CompileToAssembly(XmlReader.Create(new StringReader(sheet)), settings, null, "Fork", "Saved.Fork", assembly);
+            transform.Load(Assembly.Load(assembly.ToArray()).GetType("Saved.Fork", true)!);
+#endif
+        }
+        else transform.Load(XmlReader.Create(new StringReader(sheet)), settings, null);
+        var xml = new System.Text.StringBuilder("<doc>");
+        for (int n = 1; n <= Rows; n++) xml.Append("<row n='").Append(n).Append("'/>");
+        using var input = XmlReader.Create(new StringReader(xml.Append("</doc>").ToString()));
+        using var secondDone = new ManualResetEventSlim();
+        var order = new ConcurrentQueue<string>();
+        bool waited = false;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var arguments = new XsltArgumentList { CancellationToken = cancellation.Token };
+        arguments.XsltMessageEncountered += (_, e) =>
+        {
+            if (e.Message == "first") waited = secondDone.Wait(TimeSpan.FromSeconds(10));
+            else secondDone.Set();
+            order.Enqueue(e.Message);
+        };
+        using var output = new StringWriter();
+        transform.Transform(input, arguments, output);
+        Assert.True(waited, "the second prong did not finish while the first prong was held");
+        Assert.Equal(new[] { "second", "first" }, order);
+        Assert.Equal($"<out><a>{Rows}</a><b>{Rows * 2}</b></out>", output.ToString());
+    }
+
     // P7 S6 (docs/plan/p7-streaming.md): a failing prong cancels the prongs after it, while the
     // prongs before it finish, so the error does not depend on scheduling.
     [Theory]

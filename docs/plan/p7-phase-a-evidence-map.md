@@ -6,7 +6,7 @@ artefacts (run 41351971235, retained until 30 January 2027); the run link is the
 of 1 November 2026, S5-07, S5-11 and S5-16 are covered by `StreamedStateRetentionTests`, S6-16 is amended to "cancels
 the prongs after it; earlier prongs finish", and S6-16/S6-17 are covered by
 `StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish`. On 4 November 2026, S3-17, S3-18, S3-27,
-S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25, S4-29, S4-30, S5-02, S5-14 and S6-10 gained the evidence listed under
+S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25, S4-29, S4-30, S5-02, S5-14, S6-08 and S6-10 gained the evidence listed under
 "Evidence added after the map" in the phase record. The rows below are unchanged.
 
 Sources: `docs/plan/p7-streaming.md` (Stages, Owner decisions, S3 to S6 progress), `docs/plan/p7-completion.md`
