@@ -296,6 +296,32 @@ class RuntimeAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'si-copy/other'):
             AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_stylesheet_forwarding=True)
 
+    def test_an_engine_recorded_tree_fallback_fails_the_stylesheet_floor(self):
+        # S3-27: the execution record the engine writes when a guaranteed-streamable stylesheet falls back to a tree
+        # (RuntimeCaseReportTests.AnInjectedTreeFallbackPassesItsOutcomeButLosesItsRecordedForwardSource). The case
+        # still passes, and no per-source rule rejects it, since it never requested a forward source. The frozen
+        # stylesheet-forwarding floor must.
+        self.forwarding()
+        self.rows[1]['Forwarding']['FormatVersion'] = 2
+        self.rows[1]['Forwarding']['Executions'][0]['Stage'] = 'Stylesheet'
+        fallback = copy.deepcopy(self.rows[1])
+        fallback['Case'] = 'si-copy/fallback'
+        fallback['Forwarding']['Executions'] = [dict(
+            Id=1, Parent=None, Stage='Stylesheet', StreamedInitialMode=False, InputKind='reader', ForwardInput=True,
+            BodyCompleted=True, Sources=[dict(Kind='Initial', RequestedForward=False, Status='Opened',
+                ActualForward=False, NavigatorType='Xsl3.Tree.CompactNavigator')])]
+        self.rows.insert(2, fallback)
+        self.rows[-1].update(Selected=2, Passed=2)
+        manifest = json.loads(self.manifest.read_text())
+        manifest['Cases']['si-copy/fallback'] = dict(manifest['Cases']['si-copy/example'])
+        manifest['StylesheetForwardCases'].append('si-copy/fallback')
+        self.manifest.write_text(json.dumps(manifest))
+        self.assertEqual('Pass', fallback['Outcome'])
+        self.assertEqual(['si-copy/fallback'], self.forwarding_check()['Forwarding']['CasesWithStylesheetExecutionWithoutForwardSources'])
+        with self.assertRaisesRegex(ValueError, 'si-copy/fallback'):
+            AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_forwarding=True,
+                        require_stylesheet_forwarding=True)
+
     def test_stylesheet_gate_requires_a_valid_frozen_case_floor(self):
         self.forwarding()
         self.rows[1]['Forwarding']['FormatVersion'] = 2

@@ -5,7 +5,9 @@ artefacts (run 41351971235, retained until 30 January 2027); the run link is the
 `b0bf3bb` before phase A changes: `merge-039` now runs and passes (see the phase record). After the owner decisions
 of 1 November 2026, S5-07, S5-11 and S5-16 are covered by `StreamedStateRetentionTests`, S6-16 is amended to "cancels
 the prongs after it; earlier prongs finish", and S6-16/S6-17 are covered by
-`StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish`; the rows below are unchanged.
+`StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish`. On 4 November 2026, S3-18, S3-27, S4-21,
+S4-24 and S4-25 gained the evidence listed under "Evidence added after the map" in the phase record. The rows below
+are unchanged.
 
 Sources: `docs/plan/p7-streaming.md` (Stages, Owner decisions, S3 to S6 progress), `docs/plan/p7-completion.md`
 (Requirements and evidence, rows S3 to S6), `docs/plan/p7-runtime-contracts.md`, `tests/Xsl3.Tests`, and the hosted

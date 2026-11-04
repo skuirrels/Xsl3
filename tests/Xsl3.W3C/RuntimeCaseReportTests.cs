@@ -241,5 +241,44 @@ public sealed class RuntimeCaseReportTests : IDisposable
         Assert.True(Assert.Single(execution.Sources).ActualForward);
     }
 
+    // S3-27: inject a tree fallback into a guaranteed-streamable stylesheet by running it with forward execution off.
+    // The output is the same, so an outcome check cannot see the fallback; the recorded evidence must. A forward run
+    // records an actual StreamedNavigator in the stylesheet stage, and the fallback records only tree sources, which
+    // the strict audit rejects for a case in the frozen StylesheetForwardCases floor
+    // (eng/tests/test_streaming_runtime_audit.py, test_an_engine_recorded_tree_fallback_fails_the_stylesheet_floor).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AnInjectedTreeFallbackPassesItsOutcomeButLosesItsRecordedForwardSource(bool forward)
+    {
+        string path = Path.Combine(_root, $"fallback-{forward}.jsonl");
+        using (var report = new RuntimeCaseReport(path, _root, "strm", true, captureSources: true))
+        using (var capture = report.CaptureCase())
+        {
+            var unit = new XslCompiledTransform();
+            using var stylesheet = XmlReader.Create(new StringReader("""
+                <xsl:stylesheet version='3.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
+                  <xsl:mode streamable='yes'/><xsl:template match='/'><out><xsl:value-of select='count(doc/n)'/></out></xsl:template>
+                </xsl:stylesheet>
+                """));
+            unit.Load(stylesheet, new XsltSettings { StreamedExecution = forward }, null);
+            using var input = XmlReader.Create(new StringReader("<doc><n/><n/></doc>"));
+            using var output = new StringWriter();
+            using (Xsl3.Streaming.StreamingExecutionCapture.ObserveStage(Xsl3.Streaming.StreamingExecutionCapture.Stage.Stylesheet))
+                unit.Transform(input, null, output);
+            Assert.EndsWith("<out>2</out>", output.ToString());
+            report.Record(Catalog.Load(_root).TestCases.Single(), Outcome.Pass(), capture);
+        }
+        using JsonDocument row = JsonDocument.Parse(File.ReadAllLines(path)[1]);
+        Assert.Equal("Pass", row.RootElement.GetProperty("Outcome").GetString());
+        var execution = Assert.Single(row.RootElement.GetProperty("Forwarding").GetProperty("Executions").EnumerateArray());
+        Assert.Equal("Stylesheet", execution.GetProperty("Stage").GetString());
+        Assert.Equal(forward, execution.GetProperty("StreamedInitialMode").GetBoolean());
+        var source = Assert.Single(execution.GetProperty("Sources").EnumerateArray());
+        Assert.Equal(forward, source.GetProperty("RequestedForward").GetBoolean());
+        Assert.Equal(forward, source.GetProperty("ActualForward").GetBoolean());
+        Assert.Equal(forward ? "Xsl3.Streaming.StreamedNavigator" : "Xsl3.Tree.CompactNavigator", source.GetProperty("NavigatorType").GetString());
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }
