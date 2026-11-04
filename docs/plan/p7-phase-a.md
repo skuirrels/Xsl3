@@ -110,6 +110,17 @@ Evidence added after the map, closing its "none" items:
 - S6-08 (4 November 2026): `StreamedForkTests.ALaterProngThatFinishesFirstStillFollowsTheEarlierOne` holds the first
   prong in its closing `xsl:message` until the second prong has finished, loaded and saved, with a buffer of one.
   The second prong always completes first and the result still follows declaration order.
+- S6-05 (4 November 2026): the hosted x64 push matrix passes all 16 budgets for the first time ([41905961247](https://github.com/skuirrels/Xsl3/actions/runs/41905961247)):
+  fork peaks at 17,686,528 bytes, merge 16,785,408 and source-document 16,134,144, against 20,971,520. The
+  nightly matrix on the same run also passes 16/16. The earlier excess (fork 22,671,360 bytes on the
+  [41765424039](https://github.com/skuirrels/Xsl3/actions/runs/41765424039) nightly) was ICU: the probe named its documents with `urn:` URIs, and `System.Uri`
+  lower-cases an unrecognised scheme through the globalization stack, which loads ICU and libstdc++, about
+  4.4 MB of native code. Identity parses no URI, so only these three workloads paid it. A debugger stop on the
+  ICU load and an `smaps` breakdown in a Linux container found the cause; with invariant globalization as a
+  diagnostic the three fell to 15.2-16.4 MB with the same outputs. The owner chose to move the probe to
+  `http://stream-probe.test/` URIs, which `System.Uri` parses without loading ICU. Budgets, inputs, outputs and
+  globalization are unchanged; `urn:` documents stay covered by `DocumentReferenceTests` and
+  `EntityResourceTests`. A consumer that resolves `urn:` documents still loads ICU once per process.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -183,7 +194,7 @@ Next:
 
 - Strengthen the partial items that check output equality where the obligation is about forward
   execution, read position or buffering. S3-17, S3-18, S3-27, S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25,
-  S4-29, S4-30, S5-02, S5-14, S6-08 and S6-10 are done (see "Evidence added after the map"); the other partial items in
+  S4-29, S4-30, S5-02, S5-14, S6-05, S6-08 and S6-10 are done (see "Evidence added after the map"); the other partial items in
   [the evidence map](p7-phase-a-evidence-map.md) remain.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
