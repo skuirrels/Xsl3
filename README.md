@@ -10,23 +10,23 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.2.0: specification-conformant union streamability.** XSLT 1.0 behaves as stock `System.Xml.Xsl`;
+> **1.3.0: named streamability extensions.** XSLT 1.0 behaves as stock `System.Xml.Xsl`;
 > XSLT 2.0 and XPath 3.1 are implemented. XSLT 3.0 works apart from supported streaming; schema awareness
 > remains opt-in through `XsltSettings.SchemaAware`. Packages are available on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build),
 > [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli), [releases](https://github.com/skuirrels/Xsl3/releases)).
 
-**1.2.0 follows XSLT 3.0 §19.8.8.4 for unions.** A union of two striding operands is crawling, so
-declared-streamable constructs that relied on the former peer-union extension now raise XTSE3430 under
-the default `Strict` analysis (see the [migration guide](docs/migration.md)). It also adds P7 phase A
-evidence for retained streaming state and fork cancellation. 1.1.7's checkpoint changes remain included.
+**1.3.0 adds `XsltSettings.StreamabilityExtensions`.** It names the five extensions to the XSLT 3.0
+streamability rules that strict analysis applies (§19.10) and lets you turn them off for the
+specification's analysis exactly. The default is on, so behaviour is unchanged. 1.2.0's union change,
+which follows §19.8.8.4 (see the [migration guide](docs/migration.md)), remains included.
 
 Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
 static checking and does not enable forward execution by itself. Published default execution stays
 tree-based; forward execution requires the explicit development opt-in. The original streaming RSS
 and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
-See the [changelog](CHANGELOG.md), [1.2.0 release notes](docs/releases/1.2.0.md),
+See the [changelog](CHANGELOG.md), [1.3.0 release notes](docs/releases/1.3.0.md),
 [checkpoint boundary](docs/plan/p7-runtime-checkpoint.md) and [P7 phase A](docs/plan/p7-phase-a.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
 
@@ -133,7 +133,7 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1
   (1.0 is XSD 1.0 only); XML 1.1 input is unsupported for now.
-- **Packaging**: 1.2.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
+- **Packaging**: 1.3.0. The public API (`XslCompiledTransform`, and the XSLT 3.0
   API `XsltCompiler` and `Xslt30Transformer`) is frozen: `src/Xsl3/PublicAPI.Shipped.txt` records it, and a change
   shows as a build warning until it is recorded. `Xsl3.Build` and `Xsl3.Cli` are published beside `Xsl3`, at its
   version.
