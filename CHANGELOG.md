@@ -2,12 +2,19 @@
 
 ## Unreleased
 
+## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
+
 - Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0
   streamability rules that strict analysis already applied: `E//N` analysed as `E/descendant::N`, scanning
   expressions starting with `.`, quantified expressions over streamed nodes with a motionless condition,
   `S except .`, and `current-group()` over a grounded selection. The W3C test suite expects them, so the
   default is unchanged. Set it to `false` for the specification's analysis exactly, when such constructs
   raise XTSE3430 under `Strict` (§19.10).
+- Update the `Xsl3.Build` and `Xsl3.Cli` package readmes, which still described 1.1.7.
+- Strengthen P7 phase A evidence for S3-18, S3-27 and S4-21/24/25: the streamed optimizer policy now has a
+  test against the rewrites it withholds, an injected tree fallback is shown to fail the strict forwarding
+  audit, and inspection, ascent and deep-descent functions are shown to run forward from streamable
+  template rules through both APIs. Tests only; no engine change.
 
 ## [1.2.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.2.0) — 2026-11-02
 
