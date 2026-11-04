@@ -80,6 +80,20 @@ Evidence added after the map, closing its "none" items:
   finish, so the error follows declaration order". `StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish`
   checks it through a compiled `xsl:fork`, loaded and saved: with a buffer of one, the first prong
   sees all 2,000 rows, the third stops within 200 and the second prong's error is raised.
+- S3-18 (4 November 2026): `StreamedOptimizerPolicyTests` runs the real optimizer, in any build configuration, over
+  two graphs that the ordinary policy rewrites so that a read moves: a loop-invariant filter condition hoisted into a
+  conditional, and a single-use `let` inlined past a later read. The ordinary result fails the verifier's contract,
+  which shows each graph is a real rewrite target; the streamed policy's result passes it.
+- S3-27 (4 November 2026): `RuntimeCaseReportTests.AnInjectedTreeFallbackPassesItsOutcomeButLosesItsRecordedForwardSource`
+  runs a guaranteed-streamable stylesheet with forward execution off. Its output and outcome are unchanged, and
+  the record shows only a tree source. `test_an_engine_recorded_tree_fallback_fails_the_stylesheet_floor` feeds
+  that record to the strict audit: no per-source rule fires, and the frozen stylesheet-forwarding floor
+  fails the run. Grounding inside a forward run (for example `copy-of(.)` at the root) is still not detectable,
+  and the 253 non-forwarded W3C cases remain dispositioned rather than failed.
+- S4-21, S4-24, S4-25 (4 November 2026): `StreamedFunctionPathTests.FunctionCategoriesRunForwardInStreamableTemplateRules`
+  calls an `inspection`, `ascent` and `deep-descent` stylesheet function on the context node of a streamable-mode
+  template rule, through both public APIs, over about 20,000 sections. Forward execution writes the first result
+  before reading half of the input; the tree-execution control writes only after reading more than half.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -152,8 +166,8 @@ were rerun (results in the pull request). Hosted CI on the pushed phase head is 
 Next:
 
 - Strengthen the partial items that check output equality where the obligation is about forward
-  execution, read position or buffering, starting with the optimizer restriction (S3-18), the strict
-  fallback detection (S3-27) and the inspection, deep-descent and ascent function categories (S4-21, 24, 25).
+  execution, read position or buffering. S3-18, S3-27 and S4-21, 24 and 25 are done (see "Evidence added after
+  the map"); the other partial items in [the evidence map](p7-phase-a-evidence-map.md) remain.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
   they stay on by default behind `XsltSettings.StreamabilityExtensions` (owner decision 5).
