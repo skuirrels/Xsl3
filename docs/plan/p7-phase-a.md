@@ -94,6 +94,19 @@ Evidence added after the map, closing its "none" items:
   calls an `inspection`, `ascent` and `deep-descent` stylesheet function on the context node of a streamable-mode
   template rule, through both public APIs, over about 20,000 sections. Forward execution writes the first result
   before reading half of the input; the tree-execution control writes only after reading more than half.
+- S3-17, S4-04, S4-05, S4-18, S4-22, S4-29, S4-30, S5-02, S5-14 (4 November 2026): `StreamedForwardExecutionTests`
+  and a `filter` row in `FunctionCategoriesRunForwardInStreamableTemplateRules` apply the same early-output check
+  over 20,000 records, forward and as a tree, through both public APIs where the obligation has both. They cover
+  atomization of `data()`, `!` and absorbing-function operands, including inside `xsl:source-document`; all 12
+  `ApplyTemplates` source and destination overloads, which also assert a captured `StreamedNavigator` initial
+  source (the three raw-result overloads assert only that); a named mode with parameters and tunnel parameters;
+  a streamable attribute set; `xsl:next-match`; the `shallow-copy`, `text-only-copy` and `shallow-skip` built-in
+  rules; an accumulator over subtrees the template rule never processes; and `group-adjacent` and
+  `group-starting-with` members.
+- S6-10 (4 November 2026): fork holds each prong's result until the fork completes (S6-08), so early output does not
+  apply. `StreamedForwardExecutionTests.ForkPrincipalRawItemsAreCopiedBeforeTheSourceAdvances` serializes all
+  20,000 records from a raw-item prong while the captured initial source is a `StreamedNavigator`, which cannot
+  revisit a record; the tree control records a tree source and the same output.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -166,8 +179,9 @@ were rerun (results in the pull request). Hosted CI on the pushed phase head is 
 Next:
 
 - Strengthen the partial items that check output equality where the obligation is about forward
-  execution, read position or buffering. S3-18, S3-27 and S4-21, 24 and 25 are done (see "Evidence added after
-  the map"); the other partial items in [the evidence map](p7-phase-a-evidence-map.md) remain.
+  execution, read position or buffering. S3-17, S3-18, S3-27, S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25,
+  S4-29, S4-30, S5-02, S5-14 and S6-10 are done (see "Evidence added after the map"); the other partial items in
+  [the evidence map](p7-phase-a-evidence-map.md) remain.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
   they stay on by default behind `XsltSettings.StreamabilityExtensions` (owner decision 5).
