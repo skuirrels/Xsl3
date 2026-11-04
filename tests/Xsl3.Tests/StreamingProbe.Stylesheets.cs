@@ -7,8 +7,11 @@ namespace Xsl3.Tests;
 internal static partial class StreamingProbe
 {
     internal static readonly string[] Workloads = { "identity", "adjacent", "accumulator", "iterate", "merge", "fork", "source-document", "climbing-union", "climbing-intersection", "type-assertion", "type-inspection", "copy-select", "conditional-content", "template-parameter", "function-parameter", "overlap-values" };
-    private const string SourceUri = "urn:stream-probe:source", LeftUri = "urn:stream-probe:left", RightUri = "urn:stream-probe:right";
-    private const string FirstUri = "urn:stream-probe:first", SecondUri = "urn:stream-probe:second";
+    // Document and result URIs use a scheme System.Uri recognises. Parsing an unrecognised scheme such as urn:
+    // lower-cases it through the globalization stack, which loads ICU (about 4.4 MB of native code) and would be
+    // charged to these three workloads only. DocumentReferenceTests and EntityResourceTests keep urn: covered.
+    private const string SourceUri = "http://stream-probe.test/source", LeftUri = "http://stream-probe.test/left", RightUri = "http://stream-probe.test/right";
+    private const string FirstUri = "http://stream-probe.test/first", SecondUri = "http://stream-probe.test/second";
     internal static string Stylesheet(string workload)
     {
         const string copy = "<xsl:template match='row' mode='#all'><xsl:copy><xsl:copy-of select='@*'/><xsl:attribute name='seen'>yes</xsl:attribute><xsl:apply-templates mode='#current'/></xsl:copy></xsl:template>";
