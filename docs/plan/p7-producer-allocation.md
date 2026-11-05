@@ -1,7 +1,8 @@
 # P7 producer allocation investigation
 
-Current branch: `feature/p7-producer-allocation`, based on contract head `78815e8`. Runtime source remains
-identical to that baseline. The [reclamation-lock control](p7-tee-reclamation-experiment.md) is rejected and
+Current branch: `feature/p7-producer-allocation`, based on contract head `78815e8`. An isolated compact
+producer candidate is under qualification; it is not yet accepted for the full P7 gates.
+The [reclamation-lock control](p7-tee-reclamation-experiment.md) is rejected and
 excluded from this branch; its source survives separately at `ce42373` for audit.
 
 ## Fresh allocation evidence, 5 November 2026
@@ -30,7 +31,34 @@ Evidence is under `/private/tmp/xsl3-p7-fork-profile-20261105/`: `fork-allocatio
 `fork-allocation-baseline.log`, `allocation-types.json`, and the temporary `trace-reader/` utility source.
 The runtime SHA-256 is `60ef17ce25517b7f32d2a8f50df3a6477f03efea4e3e36123f972b7f054ed049`;
 the unchanged binaries are in `baseline/`. Temporary artifacts require preservation or rerun if unavailable.
-Rebuild ordinary checkout outputs before using them: they may still contain the rejected runtime control.
+Rebuild ordinary checkout outputs before using them; the preserved `baseline/` is the unchanged control.
+
+The completed stack parser (`allocation-node-sites.json`, zero lost events) resolves the short `Node`
+name to `StreamedDocument` frames. `Child → ReadNextCore → ForkSource.ReadProjected` accounts for
+12,841,504,448 sampled bytes. Fork consumers account for the remaining 6,700,222,632 through
+`ForkHeader.Create → CreateFresh → ReadForkEvent`, split among `Next`, `FirstChild` and `StringValue`.
+This supports reducing producer-frame allocations first, while retaining consumer navigation semantics.
+
+## Isolated candidate
+
+Only the compact producer, immutable fork metadata, shared reader-header/text helpers and their tests
+were brought forward from `b2316fd`. The bridge addition is solely an exact stock-reader type check;
+the historical bridge rewrites, startup work and public API additions are excluded. The source frames
+are reusable stack entries; published events own immutable metadata and namespace scopes. Early exit
+restores ordinary frames before subsequent source consumption. Custom readers, validation, DTD input,
+observation/replay state and NativeAOT retain the ordinary producer. This is an implementation choice,
+not a relaxation of any correctness, supported-input, memory or throughput requirement.
+
+The candidate remains unaccepted until affected Release/Debug contracts, paired uninstrumented timings,
+and the original hosted qualification establish the benefit and safety. Evidence for this attempt is
+under `/private/tmp/xsl3-p7-producer-allocation-20261105/`.
+
+Local correctness evidence: the affected Release suite passed 410 .NET 10 and 370 .NET 8 checks.
+After adding failure/cancellation and dynamic header-observation continuation coverage, Debug passed
+417/377 checks and the final focused Release suite passed 20/20 checks. The first observer test assumed
+finishing the document element always advances to reader EOF; that assertion failed on both frameworks.
+The corrected contract explicitly finishes the root before checking EOF, as the existing continuation
+tests do. The failed run is retained in `additional/`; final results are in `additional-final/`.
 
 ## Next implementation boundary
 

@@ -18,9 +18,10 @@ fork-retention evidence.
 is rejected and remains only on `feature/p7-tee-reclamation`: all 693 affected Release checks passed after
 a wake-ordering correction, but twelve valid paired local observations showed only 0.55% improvement
 with overlapping ranges. Do not merge that branch. `feature/p7-producer-allocation` starts again from
-validated contract head `78815e8`, carrying only diagnostic records. Fresh
-[allocation evidence and the next implementation boundary](p7-producer-allocation.md) identify `Node`,
-fork events and item arrays as the next investigation targets; no runtime change has yet been adopted.
+validated contract head `78815e8`. Fresh
+[allocation evidence and the candidate boundary](p7-producer-allocation.md) identify producer `Node`
+frames as 12.84 GB of sampled allocations. An isolated compact producer is now under qualification;
+its runtime changes have not yet passed the original hosted acceptance gates or been adopted into main.
 PRs [#34](https://github.com/skuirrels/Xsl3/pull/34), [#35](https://github.com/skuirrels/Xsl3/pull/35) and
 [#36](https://github.com/skuirrels/Xsl3/pull/36) are stacked in that order and still require all hosted checks
 and merges. Retarget each successor to main after its predecessor merges.

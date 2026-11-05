@@ -28,7 +28,7 @@ public sealed partial class XsltLibrary
     public void X31ForkProjected(IList<XPathItem> prongs, XPathItem focus, double capacity, double projectionId) =>
         RunForkCalls(prongs, focus, capacity, (i, runtime, function) => runtime.XsltFunctions.CallFunction(function),
             projection: ForkCaller.HasSpareProcessor(prongs.Count) && _runtime.ExternalContext.TraceListener == null && !_runtime.ExternalContext.HasTraceHandler
-                ? new ForkInputProjection((string?[])Constant((int)projectionId)) : null);
+                ? new ForkInputProjection((string?[])Constant((int)projectionId), allowCompactProducer: true) : null);
 
     private void RunForkCalls(IList<XPathItem> prongs, XPathItem focus, double capacity,
         Action<int, XmlQueryRuntime, FunctionItem> execute, bool serialGrounded = false, ForkInputProjection? projection = null)

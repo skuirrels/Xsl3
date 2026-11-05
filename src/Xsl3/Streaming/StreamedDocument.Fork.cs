@@ -35,29 +35,102 @@ internal sealed partial class StreamedDocument
 
     // Source frames continue to advance, so an event freezes their metadata and phase flags.
     // The original frame supplies identity/provenance, not mutable navigation state.
-    private class ForkHeader(Node node)
+    private class ForkHeader
     {
-        internal readonly Node Original = node.Original ?? node;
-        // Original already supplies provenance. Its name/text data is immutable after
-        // publication; do not retain an intermediate prong's observer or replay state.
-        internal XPathNodeType Kind => Original.Kind;
-        internal string LocalName => Original.LocalName;
-        internal string Namespace => Original.Namespace;
-        internal string Prefix => Original.Prefix;
-        internal string Text => Original.Text;
-        internal string BaseUri => Original.BaseUri;
-        internal string Language => Original.Language;
-        // Prongs may own atomized arrays and private schema annotations.
-        internal readonly Attribute[] Attributes = node.Attributes;
-        internal readonly Namespace[] Namespaces = node.Namespaces;
-        internal readonly IXmlSchemaInfo? SchemaInfo = node.Schema;
-        internal readonly bool Empty = node.EmptyElement, Ended = node.Ended, Started = node.ChildrenStarted,
-            Consumed = node.Consumed, Skipped = node.Skipped, NoNext = node.NoNext;
-        internal readonly long FirstChild = node.FirstChild;
+        internal readonly Node? Original;
+        // NativeAOT retains direct source metadata reads. JIT-only compact events use
+        // separate virtual metadata accessors without inventing source positions.
+        internal XPathNodeType Kind
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactKind : Original!.Kind;
+        }
+        protected virtual XPathNodeType CompactKind => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string LocalName
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactLocalName : Original!.LocalName;
+        }
+        protected virtual string CompactLocalName => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string Namespace
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactNamespace : Original!.Namespace;
+        }
+        protected virtual string CompactNamespace => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string Prefix
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactPrefix : Original!.Prefix;
+        }
+        protected virtual string CompactPrefix => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string Text
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactText : Original!.Text;
+        }
+        protected virtual string CompactText => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string BaseUri
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactBaseUri : Original!.BaseUri;
+        }
+        protected virtual string CompactBaseUri => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal string Language
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactLanguage : Original!.Language;
+        }
+        protected virtual string CompactLanguage => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal readonly Attribute[] Attributes;
+        internal readonly Namespace[] Namespaces;
+        internal readonly IXmlSchemaInfo? SchemaInfo;
+        internal readonly bool Empty, Ended, Started, Consumed, Skipped, NoNext;
+        internal readonly long FirstChild;
+
+        internal ForkHeader(Node node)
+        {
+            Original = node.Original ?? node;
+            Attributes = node.Attributes; Namespaces = node.Namespaces; SchemaInfo = node.Schema;
+            Empty = node.EmptyElement; Ended = node.Ended; Started = node.ChildrenStarted;
+            Consumed = node.Consumed; Skipped = node.Skipped; NoNext = node.NoNext; FirstChild = node.FirstChild;
+        }
+        internal long Number
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactNumber : Original!.Number;
+        }
+        protected virtual long CompactNumber => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+        internal int Depth
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactDepth : Original!.Depth;
+        }
+        protected virtual int CompactDepth => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+
+        protected ForkHeader(in CompactFrame frame)
+        {
+            Original = null;
+            Attributes = frame.Attributes; Namespaces = frame.Namespaces; SchemaInfo = null;
+            Empty = frame.Empty; Ended = frame.Ended; Started = frame.Started;
+            Consumed = Skipped = NoNext = false; FirstChild = frame.FirstChild;
+        }
+
+        internal string? LookupNamespace(string prefix)
+        {
+            if (RuntimeFeature.IsDynamicCodeSupported && Original == null) return CompactLookupNamespace(prefix);
+            for (Node? current = Original; current != null; current = current.Parent)
+                for (int i = current.Namespaces.Length - 1; i >= 0; i--)
+                    if (current.Namespaces[i].Prefix == prefix) return current.Namespaces[i].Uri;
+            return prefix.Length == 0 ? "" : null;
+        }
+
+        protected virtual string? CompactLookupNamespace(string prefix) => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
+
 
         internal Node Create(Node? parent, bool boundary, XmlNameTable? names = null)
         {
-            var node = new Node(Original.Number, Kind, parent)
+            var node = new Node(Number, Kind, parent)
             {
                 Original = Original, LocalName = LocalName, Namespace = Namespace, Prefix = Prefix,
                 Text = Text, BaseUri = BaseUri, Language = Language, Attributes = Attributes, Namespaces = Namespaces,
@@ -121,11 +194,12 @@ internal sealed partial class StreamedDocument
         }
     }
 
-    private sealed class ForkEvent(Node node, bool end) : ForkHeader(node)
+    private class ForkEvent : ForkHeader
     {
         internal ForkHeader Header => this;
-        internal readonly bool End = end;
-        internal long Number => Original.Number;
+        internal readonly bool End;
+        internal ForkEvent(Node node, bool end) : base(node) => End = end;
+        protected ForkEvent(in CompactFrame frame, bool end) : base(in frame) => End = end;
     }
 
     internal bool CanFork(Node boundary)
@@ -154,6 +228,8 @@ internal sealed partial class StreamedDocument
         private ConsumptionScope _consumption;
         private bool _entered, _first = true, _complete, _disposed, _ran;
         private readonly ForkInputProjection.Matcher? _projection;
+        private CompactForkProducer? _compact;
+        private bool _compactDisabled;
 
         internal ForkSource(StreamedDocument source, Node boundary, ForkInputProjection? projection = null)
         {
@@ -200,6 +276,25 @@ internal sealed partial class StreamedDocument
 
         private ForkProngs.SourceRead<ForkEvent> ReadProjected()
         {
+            if (RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (_compact != null && !_source.CompactObservationsAbsent)
+                {
+                    _compact.Dispose(); _compact = null; _compactDisabled = true;
+                }
+                if (_compact == null && !_compactDisabled && !_entered && _projection!.AllowCompactProducer
+                    && _source.CanUseCompactForkProducer(_boundary))
+                {
+                    _consumption = _source.BeginConsumption(_boundary); _entered = true; _first = false;
+                    _compact = new CompactForkProducer(_source, _boundary, _projection);
+                }
+                if (_compact != null)
+                {
+                    ForkProngs.SourceRead<ForkEvent> read = _compact.Read();
+                    if (read.Complete) _complete = true;
+                    return read;
+                }
+            }
             Node? node = ReadNode(out bool end);
             if (node == null) return new(null, true);
             return _projection!.Keep(node, end) ? new(new(node, end), false) : default;
@@ -238,7 +333,8 @@ internal sealed partial class StreamedDocument
         {
             if (_disposed) return;
             _disposed = true;
-            if (_entered) _consumption.Dispose();
+            try { if (RuntimeFeature.IsDynamicCodeSupported) _compact?.Dispose(); }
+            finally { if (_entered) _consumption.Dispose(); }
         }
     }
 
@@ -280,7 +376,7 @@ internal sealed partial class StreamedDocument
         if (item.End)
         {
             Node current = _open[^1];
-            if (current.Number != header.Original.Number) throw PositionError();
+            if (current.Number != header.Number) throw PositionError();
             current.Schema = Schema(header.SchemaInfo) ?? current.Schema;
             current.Ended = current.ChildrenStarted = true;
             _current = current;
@@ -318,7 +414,7 @@ internal sealed partial class StreamedDocument
         public override string XmlLang => Header.Language;
         public override XmlSpace XmlSpace => Header.Kind == XPathNodeType.SignificantWhitespace ? XmlSpace.Preserve : XmlSpace.None;
         public override bool IsEmptyElement => _attribute < 0 && Current is { End: false } && Header.Empty;
-        public override int Depth => Current is null ? 0 : Header.Original.Depth + (_attributeValue ? 2 : _attribute >= 0 ? 1 : 0);
+        public override int Depth => Current is null ? 0 : Header.Depth + (_attributeValue ? 2 : _attribute >= 0 ? 1 : 0);
         public override IXmlSchemaInfo? SchemaInfo => _attribute >= 0 ? NamespaceAttribute ? null : Attribute.Schema : Header.SchemaInfo;
         public override string LocalName => _attributeValue || Current is null ? "" : _names.Add(_attribute >= 0 ? NamespaceAttribute
             ? Namespace.Prefix.Length == 0 ? "xmlns" : Namespace.Prefix : Attribute.LocalName : Header.LocalName);
@@ -360,7 +456,7 @@ internal sealed partial class StreamedDocument
             if (ReadState != ReadState.Interactive) return;
             if (Current is { End: false, Header.Kind: XPathNodeType.Element, Header.Empty: false })
             {
-                _skipNumber = Header.Original.Number;
+                _skipNumber = Header.Number;
                 Current = input.ReadUntilImmutable(_skipEnd ??= item => item.End && item.Number == _skipNumber);
                 if (Current is null)
                 {
@@ -447,10 +543,7 @@ internal sealed partial class StreamedDocument
         {
             if (prefix == "xml") return "http://www.w3.org/XML/1998/namespace";
             if (prefix == "xmlns") return "http://www.w3.org/2000/xmlns/";
-            for (Node? node = Header.Original; node != null; node = node.Parent)
-                for (int i = node.Namespaces.Length - 1; i >= 0; i--)
-                    if (node.Namespaces[i].Prefix == prefix) return node.Namespaces[i].Uri;
-            return prefix.Length == 0 ? "" : null;
+            return Header.LookupNamespace(prefix);
         }
         public override void ResolveEntity() => throw new InvalidOperationException("Logical fork events contain no entity references");
         public override void Close()

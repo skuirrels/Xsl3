@@ -21,6 +21,7 @@ namespace System.Xml
 
         private const string ImplTypeName = "System.Xml.XmlTextReaderImpl, System.Private.Xml";
         private static readonly Type? s_implType = Type.GetType(ImplTypeName);
+        internal static bool IsTextReaderImpl(XmlReader reader) => reader.GetType() == s_implType;
         // Keep the literal type identity at each lookup so trimming preserves the requested
         // members, rather than every method and property on the XML parser implementation.
         private static readonly MethodInfo? s_getResolver = Type.GetType(ImplTypeName)?.GetMethod("GetResolver", Instance, Type.EmptyTypes);
