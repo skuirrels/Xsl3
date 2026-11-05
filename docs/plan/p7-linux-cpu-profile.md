@@ -146,4 +146,26 @@ The controller is isolated on `feature/p7-framework-cpu-symbols`. The first requ
 is corrected discard candidate `a8d322ac6bfd094c65a61477a519d0a426059c77`, workload `identity`.
 Require a valid original 1 GB output, actual heap guard, successful collection, recorded loss count
 and visible parser/framework symbols before relying on the capture. Python parsing, CLI help and
-workflow YAML parsing pass locally; real Linux capture and symbol coverage remain pending.
+workflow YAML parsing pass locally.
+
+[Run 42124527290](https://github.com/skuirrels/Xsl3/actions/runs/42124527290) completes successfully
+at controller `e6317411e80f72238f827b52b0315b7901b4e8b0`, with that exact runtime source. The independent
+audit validates the original 1 GB output, raw stdout, actual 4 GiB heap allowance, all four retained
+binary hashes and 409 tracked library PDB source hashes (three generated documents excluded).
+The report records four host CPUs, no processor override, disabled tiering and the requested
+framework-JIT policy. It has **26,343 CPU samples**, 26,173 with engine frames and zero reported loss.
+There are **213 `XmlTextReaderImpl` symbol records**, resolving the previous framework-name gap.
+
+Aggregated leaf samples include 1,517 in `StreamedDocument.ReadNextCore`, 511 in `NameTable.Add`,
+376 in `XmlTextReaderImpl.ParseAttributes`, and 303 in its parameterized `ParseText`. Under the
+reader path, parsing, name interning and input generation account for substantial resolved work;
+the wrapper's inclusive count does not measure dispatch overhead alone. The unchanged output hash
+sink also contributes 3,858 leaf samples. These counts describe this instrumented compilation policy,
+not removable elapsed time or an acceptance improvement. Existing rejected metadata bypass,
+token-kind caching and source-dispatch extraction controls are not validated by this capture.
+
+Artifact `13460154609` expires 3 February 2027. Its archive SHA-256
+`0def64170f62360214cf7340c6949c8fa08cf9884d92bd9e895e7948f53d17d7` was independently verified.
+Runtime SHA-256 is `48104685f3530ed28ba5f66304e410221e39e1d27019de5ebeecf7a8aba923ea`.
+Raw trace, perf map, child report, original outputs and independent `review.json` are retained under
+`/private/tmp/xsl3-p7-framework-cpu-20261105/`. The original memory and throughput gates remain separate.
