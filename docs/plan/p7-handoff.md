@@ -44,6 +44,13 @@ same runtime and benchmark sources as contract head `78815e8`. The opt-in
 [Linux CPU diagnostic](p7-linux-cpu-profile.md) captures kernel CPU and context-switch events for one
 canonical fork child. It excludes all three unaccepted runtime controls. A trace is useful only after
 checking actual CPU event coverage and symbols; a successful capture does not satisfy throughput gates.
+Runs `42105701535` and `42106401936` completed successfully. The latter has managed symbols and
+70,016 kernel CPU samples with zero reported loss; `eng/StreamingCpuReport` reproduces the analysis.
+The [early-parking wait control](p7-fork-wait-budget.md) at `91bd422` passed 1,786 contracts but clearly
+regressed paired elapsed time and remains rejected on its own branch. Do not merge it. The current
+profiling branch retains merged runtime behavior. Next investigate source-production overlap while
+preserving the original capacity, demand, read-order and cancellation contracts; do not repeat the
+rejected short-wait, no-yield or short-poll controls recorded in the completion history.
 
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function

@@ -10,6 +10,14 @@ controls have not established a useful throughput benefit and remain unadopted. 
 original throughput/memory qualification and supported-streaming integration are still required.
 No intermediate audit or release completes P7.
 
+The [Linux CPU investigation](p7-linux-cpu-profile.md) now has two successful hosted captures of
+unchanged `a5e89ac`. The symbol-qualified trace has 70,016 kernel CPU samples and zero reported loss;
+the checked-in report tool reproduces its analysis. Publication waits are prominent, but the isolated
+[early-parking control](p7-fork-wait-budget.md) regresses paired elapsed time despite 1,786 passing
+contracts and is rejected. All runtime controls remain unadopted. Next investigate source-production
+overlap without changing capacity, demand/read ordering or cancellation; preserve the historical
+rejected no-yield and short-poll controls rather than repeating them.
+
 The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review all changes,
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
 1.1.6, `588f2b6c7f050d47087f67b1fd2ef9630f6e19cf`.

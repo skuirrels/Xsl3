@@ -241,6 +241,10 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --output artifacts/p7-cpu/fork
+      - name: Report actual kernel CPU samples
+        run: |
+          dotnet build eng/StreamingCpuReport -c Release -m:1
+          sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll artifacts/p7-cpu/fork/cpu.nettrace > artifacts/p7-cpu/cpu-sites.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

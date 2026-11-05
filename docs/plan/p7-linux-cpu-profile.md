@@ -50,6 +50,34 @@ Local raw trace and parser evidence are under `/private/tmp/xsl3-p7-linux-cpu-20
 A follow-up retains a capability probe and explicitly enables/preserves JIT perf maps, using the
 standard `/tmp` diagnostic directory to avoid an unverified custom-directory discovery path.
 
+The [follow-up capture](https://github.com/skuirrels/Xsl3/actions/runs/42106401936), diagnostic `23a8035`
+and the same source, also passes all output checks. Its capability probe reports `supportsCollectLinux=true`.
+The older reader bundled with dotnet-trace fails on label kind 10; the pinned TraceEvent 4.0.0 reader
+in `eng/StreamingCpuReport` reads the retained trace successfully. It reports 70,016 kernel CPU samples,
+zero lost events, and 13,799 Xsl3 symbol records. Inclusive sample counts include:
+
+| Frame | CPU samples |
+|---|---:|
+| `StreamTee.WaitForPublication` | 19,699 |
+| `__sched_yield` | 18,652 |
+| `ThreadNative_SpinWait` | 11,227 |
+| `StreamedInputReader.Read` | 7,043 |
+| `ForkHeader.Atomize` | 1,803 |
+
+Inclusive counts overlap and must not be summed. Some stacks remain unresolved. No context-switch
+events were present in the reader's event inventory, so off-CPU duration is still unproven. The CPU
+evidence identifies source-production and publication waits as useful follow-up areas. The separate
+[early-parking control](p7-fork-wait-budget.md) clearly regresses elapsed time and is rejected.
+
+The second artifact is `13451777590`, expires 3 February 2027, and has GitHub-reported archive digest
+`sha256:96b889d29fd9fcb03e61dd0b26a1452e2e15057b2707d51265654a5845ed112f`.
+It includes the raw trace, JIT maps, probe, child output and hashes. Local parsed evidence is
+`/private/tmp/xsl3-p7-linux-cpu-20261105/qualified-cpu-sites.json`. Reproduce with:
+
+```sh
+dotnet run --project eng/StreamingCpuReport -c Release -- path/to/cpu.nettrace > cpu-sites.json
+```
+
 Main `a5e89ac` has the same runtime and benchmark source as reviewed contract head `78815e8`; all three
 contract PRs passed their own CI before merging. Neither source contains the unaccepted producer,
 tee reclamation or simple-content value-state controls.
