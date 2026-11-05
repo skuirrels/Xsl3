@@ -8,6 +8,12 @@ The following [S5-14 group read-position increment](p7-group-read-positions.md) 
 required, including the five outstanding throughput targets. Earlier pause and bounded-stop instructions below
 are historical and no longer limit the active objective.
 
+The next [S3-04 retained-memory increment](p7-retained-memory-contracts.md) is on
+`feature/p7-retained-memory-contracts`, based on grouping head `051c58d`. Local managed-byte and negative
+controls passed; its own hosted CI is still required. No runtime optimization has been adopted in these
+three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and
+fork-retention evidence.
+
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
