@@ -11,7 +11,7 @@ The 4,096-event original run [42112345048](https://github.com/skuirrels/Xsl3/act
 fails push memory: fork peaks at 22,941,696 bytes versus the original 20,971,520-byte limit, with all
 48 outputs correct and 15/16 workload budgets met. Its nightly job passes all 16 workload budgets
 and all 48 outputs: exact 2,147,483,648-byte inputs, actual 209,715,200-byte managed guard, maximum
-absolute whole-process RSS 32,321,536 bytes (fork). The throughput job is still running. The larger default is not accepted. Retain both results instead of substituting the later run.
+absolute whole-process RSS 32,321,536 bytes (fork). The completed throughput job passes four of seven targets (details below). The larger default is not accepted. Retain both results instead of substituting the later run.
 
 The unchanged-runtime public-setting comparison previously measured a 15.1% lower Linux fork median
 at 256 than at 64, with overlapping ranges and a still-failing 1.425856 stream/tree ratio. This motivates
@@ -159,3 +159,50 @@ The original full acceptance run remains active and is not restarted or replaced
 PRs [#37](https://github.com/skuirrels/Xsl3/pull/37) and
 [#38](https://github.com/skuirrels/Xsl3/pull/38) were reviewed without additional findings and marked
 ready for review. Their remaining required CI jobs must pass before merging.
+
+## Completed 4,096-event throughput qualification
+
+[Run 42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048), source `aebb3a2`, completed
+all 126 canonical observations with correct outputs, matching per-size fingerprints, exact inputs and
+actual 4 GiB heap guards. The runtime is .NET 10.0.14 on Ubuntu 24.04.5 x64 with four effective CPUs.
+The original controller hash, retained engine/consumer hashes, all raw stdout and 409 tracked library
+PDB source hashes were independently checked. No observation was discarded.
+
+| 100 MB workload | Stream / tree median | Original target |
+|---|---:|---|
+| identity | 1.170416 | fail |
+| adjacent | 0.826923 | pass |
+| accumulator | 0.991516 | pass |
+| iterate | 0.842619 | pass |
+| merge | 0.925181 | pass |
+| fork | 1.280487 | fail |
+| source-document | 1.155759 | fail |
+
+The larger buffer still fails three throughput targets as well as the original push-memory fork budget.
+Its 1.280487 fork ratio does not qualify the 256-event source. Cross-run differences are not attributed
+solely to capacity, and the five-percent display band waives no target.
+Artifact `13457729152` expires 3 February 2027, with GitHub archive digest
+`6905608f117111fdebee74c4f8cb2344fabb81efb4eda60ed1e2be5511c00269`. Report SHA-256:
+`8f9bc988dcc4e781f805c888c8b439d94ba6608564cdfbc3f60fe3894c2ea411`.
+Raw files and executable audit are in the 4,096-event evidence directory under `hosted-throughput/`,
+`audit-throughput.py` and `throughput-review.json`.
+
+## Completed 256-event CPU diagnostic
+
+Run `42120106652` completed with correct output on the canonical 1,000,000,000-byte fork input,
+actual 4 GiB heap guard, four CPUs and tiering disabled. The retained source revision and engine/consumer
+hashes match the report. It recorded 83,789 CPU samples (69,026 with an engine frame), 5,798 symbols and
+zero lost events. Overlapping inclusive samples include `ReadNextCore` 32,742, source `ReadProjected`
+19,860, `WaitForPublication` 19,737 and `StreamedInputReader.Read` 9,048. Scheduling/spinning remains
+visible; these are CPU samples, not off-CPU durations or removable elapsed time.
+
+Source inspection confirms that projection currently drops excluded events only after allocating and
+parsing their navigator frames. An incremental discard path is the next isolated control: retain every
+underlying reader advance, validation/error/cancellation behavior and the per-batch scan budget while
+avoiding descendant frames in compiler-proven excluded subtrees. Replay, consumption tracking and active
+observer paths must retain ordinary parsing. Calling unbounded `Skip()` would violate the demand/scan
+contract and is not an acceptable implementation.
+
+CPU artifact `13457479106` expires 3 February 2027, GitHub digest
+`59b4aecf1149a0242dd0099adf0a0eb0eb94a751812ba29a1f13ca87f04a2b6b`. Raw files and `cpu-review.json`
+are in the 256-event evidence directory. Instrumented elapsed time is not throughput qualification.
