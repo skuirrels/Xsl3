@@ -1,9 +1,15 @@
 # P7 phase A: baseline and S3–S6 acceptance accounting
 
+**5 November S3-27 follow-up:** [hidden-grounding contracts](p7-hidden-grounding-contracts.md)
+add a real whole-input grounding negative control behind a captured forward source. The independent
+managed-byte check rejects it while output and the Debug optimizer verifier still pass. The earlier
+entry-only limitation below remains a limitation of forwarding metadata itself. The original final-source
+memory matrices and remaining full-P7 gates are still required.
+
 **5 November S6 follow-up:** [fork grouping/sorting retention contracts](p7-fork-group-retention.md)
 now directly observe complete-population source payload retention, sorted member output and release
 through both APIs and saved loading. Rolling-adjacent and deliberately retained controls distinguish
-the measured behaviors. All 260 local Release/Debug checks pass; hosted CI is pending. This closes
+the measured behaviors. All 260 local Release/Debug checks and all four hosted CI jobs passed; PR #37 merged at `f453216`. This closes
 the payload-observation gap stated in the historical S6-11/12 rows, not the separate full-P7 gates.
 
 

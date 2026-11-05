@@ -43,7 +43,8 @@ full P7 acceptance remain independent requirements.
 
 Release and Debug each pass 77 .NET 10 / 53 .NET 8 checks: 260 total, no failures or skips. Full unit CI
 includes the Release contracts; a dedicated CI step runs the Debug contracts on Linux and Windows.
-Hosted CI is pending. Local logs/TRX are retained under
+All four hosted CI jobs passed in [run 42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460),
+and [PR #37](https://github.com/skuirrels/Xsl3/pull/37) merged at `f453216`. Local logs/TRX are retained under
 `/private/tmp/xsl3-p7-fork-group-retention-20261105/` and matching `...-release-final.log` /
 `...-debug-final.log` files.
 

@@ -1,13 +1,20 @@
 # P7 agent handoff after 1.1.7
 
-**Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
-The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug
-checks; hosted CI is next. Runtime and benchmark source are unchanged. The independent larger-buffer
-candidate is `aebb3a2` on `feature/p7-fork-capacity-qualification`; its original acceptance run
-[42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048) fails push memory on fork
-(22,941,696 versus 20,971,520 bytes, all outputs correct), while nightly and throughput are still running.
-Do not adopt that default as-is. The source-dispatch control `3793df5` is also rejected. Diagnostic
-history is preserved on `feature/p7-fork-buffer-policy` at `42d2329`; it is not part of this test-only branch.
+**5 November contract integration:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all
+four CI jobs in [run 42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged
+at `f453216`. Its [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) are now on main.
+[PR #38](https://github.com/skuirrels/Xsl3/pull/38), the [S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md),
+passed all four CI jobs at `ac183fd` in [run 42115246979](https://github.com/skuirrels/Xsl3/actions/runs/42115246979).
+This branch reconciles both sets of docs and preserves both dedicated Debug workflow steps. It needs
+CI on the reconciled head before merging. Runtime and benchmark sources remain unchanged from `a5e89ac`.
+
+Separate performance candidates are unaccepted. The 256-event source `deed3c1` passes both original
+memory matrices but only four of seven throughput targets in run `42116432334`; identity, fork and
+source-document fail. The 4,096-event source `aebb3a2` also passes four throughput targets and retains
+its push-memory failure. The initial projection-discard source `fb6d4cd` improves local fork time but
+fails source-position contracts and was rejected; its original qualification run was cancelled.
+Correction `a8d322a` on `feature/p7-projection-discard` passes 5,536 affected Release/Debug checks;
+new timings and original qualification remain required. These runtime experiments are not part of this PR.
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.

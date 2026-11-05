@@ -41,6 +41,9 @@ jobs:
       - name: Debug compiler source-line contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --filter "FullyQualifiedName~BareVariableSequencesKeepIdentity|FullyQualifiedName~DebugSourceLineTests" --logger trx --results-directory artifacts/test-results/debug-source-lines
 
+      - name: Debug hidden-grounding memory contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedHiddenGroundingTests" --logger trx --results-directory artifacts/test-results/debug-hidden-grounding
+
       - name: Debug fork grouping and sorting retention contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedForkGroupRetentionTests" --logger trx --results-directory artifacts/test-results/debug-fork-groups
 
