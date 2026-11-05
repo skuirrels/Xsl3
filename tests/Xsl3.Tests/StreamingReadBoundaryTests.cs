@@ -58,7 +58,7 @@ internal static partial class StreamingProbe
     {
         bool earlyOutput = workload is not ("accumulator" or "iterate");
         var settings = new XsltSettings {
-            StreamedExecution = forward, EnableDocumentFunction = true, EnableResultDocument = true,
+            StreamedExecution = forward ? null : false, EnableDocumentFunction = true, EnableResultDocument = true,
             Timeout = TimeSpan.FromSeconds(30),
         };
         string sheet = Stylesheet(workload);

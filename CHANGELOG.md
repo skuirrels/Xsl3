@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Prepare public streaming selection: default/explicit `Strict` selects forward execution for
+  declared-streamable reader, stream and URI inputs through both APIs. `Fallback` keeps tree execution,
+  existing XDM trees remain trees, and saved styles retain their compiled execution mode even with
+  different loader settings. This integration candidate remains unmerged pending full P7 qualification;
+  `supports-streaming` stays `no`, and original memory/throughput requirements are unchanged.
+
 ## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
 
 - Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0

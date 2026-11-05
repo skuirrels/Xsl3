@@ -33,6 +33,19 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
+## Unreleased: public streaming selection candidate
+
+The isolated `feature/p7-public-streaming-selection` branch prepares the approved P7 execution policy.
+Default/explicit `XsltStreamabilityMode.Strict` selects forward processing for declared-streamable
+reader, stream and URI inputs through both public APIs. Set `Fallback` when tree execution is intended.
+Supplied XDM trees remain trees. Saved styles preserve the mode selected when compiled; changing loader
+settings does not recompile them. Caller-owned readers remain borrowed.
+
+This is not a released feature or a full P7 completion claim. The candidate remains unmerged while
+original correctness, memory, throughput and compatibility qualification continues. `supports-streaming`
+remains `no`. Published 1.3.0 keeps the earlier opt-in behavior. See the
+[selection qualification record](plan/p7-public-streaming-selection.md).
+
 ## 1.2.0: unions in streamable constructs
 
 A union of two striding expressions is crawling (XSLT 3.0 §19.8.8.4), even for sibling child paths

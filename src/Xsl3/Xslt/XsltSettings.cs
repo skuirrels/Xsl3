@@ -42,10 +42,11 @@ namespace Xsl3
         private bool _enableEvaluate;
         private XsltStreamabilityMode _streamability;
 
-        // P7 development switch. Tests can select it per compiler without mutating process-wide state.
-        // Static Strict analysis does not enable an execution backend that is still unqualified.
+        // Tests can select a path per compiler without mutating process-wide state.
+        // Retain the explicit development tree control used by qualification tools.
         internal bool? StreamedExecution { get; set; }
-        internal bool UseStreamedExecution => StreamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        internal bool UseStreamedExecution => StreamedExecution ??
+            (_streamability == XsltStreamabilityMode.Strict && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") != "0");
 
         private int _streamingBufferCapacity = 64;
         /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 64.</summary>
@@ -57,8 +58,9 @@ namespace Xsl3
 
         /// <summary>
         /// How declared-streamable code that is not guaranteed-streamable is handled.
-        /// Defaults to <see cref="XsltStreamabilityMode.Strict"/>. This controls static analysis;
-        /// it does not by itself enable streamed execution.
+        /// Defaults to <see cref="XsltStreamabilityMode.Strict"/>, which also selects streamed execution
+        /// for declared-streamable code when input is supplied as a reader, stream or URI.
+        /// <see cref="XsltStreamabilityMode.Fallback"/> preserves ordinary tree-based execution.
         /// </summary>
         public XsltStreamabilityMode Streamability
         {

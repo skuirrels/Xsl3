@@ -1,5 +1,22 @@
 # P7 agent handoff after 1.1.7
 
+**Public integration preparation, 5 November:** `feature/p7-public-streaming-selection` starts from
+merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
+excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved
+contracts fail on the unchanged policy; the candidate passes all 966 focused Release/Debug checks,
+including actual representation and physical read boundaries. Full unit compatibility is running.
+See [the selection record](p7-public-streaming-selection.md). It must not merge or claim release
+readiness until final integrated source passes every original gate.
+
+Separate performance evidence: corrected discard `a8d322a` now passes both original memory matrices
+in [42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563): 32 budgets and 96 outputs,
+independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput remains running.
+The linked ancestor-stack control `7b24202` is rejected after the paired Linux diagnostic
+[42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005): all 48 outputs and 409 source
+hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
+accumulator and source-document regress. Do not merge that control. Raw evidence and executable audit
+are under `/private/tmp/xsl3-p7-linked-source-stack-linux-20261105/`.
+
 **Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
 The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug
 checks; hosted CI is next. Runtime and benchmark source are unchanged. The independent larger-buffer
