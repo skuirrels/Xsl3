@@ -41,6 +41,12 @@ reader, stream and URI inputs through both public APIs. Set `Fallback` when tree
 Supplied XDM trees remain trees. Saved styles preserve the mode selected when compiled; changing loader
 settings does not recompile them. Caller-owned readers remain borrowed.
 
+The streamed initial selection does not become the global context item. For the XSLT 3.0 API,
+set `Xslt30Transformer.GlobalContextItem` separately when global variables require a context node;
+that supplied node remains grounded. The reader, stream and URI `ApplyTemplates` overloads keep
+this separation even for a non-streamable mode. Legacy callers that rely on the principal input as
+the global context can select `Fallback` to retain their tree execution behavior.
+
 This is not a released feature or a full P7 completion claim. The candidate remains unmerged while
 original correctness, memory, throughput and compatibility qualification continues. `supports-streaming`
 remains `no`. Published 1.3.0 keeps the earlier opt-in behavior. See the

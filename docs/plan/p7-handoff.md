@@ -4,7 +4,9 @@
 merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
 excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved
 contracts fail on the unchanged policy; the candidate passes all 966 focused Release/Debug checks,
-including actual representation and physical read boundaries. Full unit compatibility is running.
+including actual representation and physical read boundaries. Full local unit compatibility also passes:
+27,798 checks across Release/Debug and .NET 8/10, with matching source and engine hashes. Draft PR #39
+has passed hosted NativeAOT and ordinary performance; Linux and Windows compatibility remain running.
 See [the selection record](p7-public-streaming-selection.md). It must not merge or claim release
 readiness until final integrated source passes every original gate.
 
@@ -16,6 +18,12 @@ The linked ancestor-stack control `7b24202` is rejected after the paired Linux d
 hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
 accumulator and source-document regress. Do not merge that control. Raw evidence and executable audit
 are under `/private/tmp/xsl3-p7-linked-source-stack-linux-20261105/`.
+
+A fresh Linux fork CPU diagnostic is running at
+[42129815135](https://github.com/skuirrels/Xsl3/actions/runs/42129815135), using corrected discard
+`a8d322a` and controller `5db06fb`. It preserves the ordinary ReadyToRun policy and samples actual
+kernel CPU events. Its purpose is to distinguish executing fork costs from blocked-thread stacks;
+instrumented elapsed times cannot qualify throughput. The original qualification run is untouched.
 
 **Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
 The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug

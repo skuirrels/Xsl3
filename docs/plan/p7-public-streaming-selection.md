@@ -41,6 +41,18 @@ representation and physical read boundaries, schema annotations, XDM tree contro
 selection. The forward arms use public defaults rather than forcing the internal forward switch.
 The negative six failures remain retained separately.
 
-Full Release/Debug unit suites are running serially on the frozen binaries. Evidence is retained under
-`/private/tmp/xsl3-p7-public-selection-20261105/`, including source/binary hashes, negative TRX, logs and
-validation scripts. No final-source qualification, merge or release readiness is claimed.
+The full Release and Debug unit suites each pass **7,526 .NET 10 /6,373 .NET 8** checks:
+**27,798 total**, with zero failures or skips. The independent audit checks every TRX result and its
+counters, all eight recorded changed-source hashes against `c889023`, unchanged runtime/test source,
+and all four engine hashes in both engine and test output directories. The migration and getting-started
+guides distinguish initial selection from the independent global context; this documentation clarification
+does not alter the tested runtime.
+
+[Draft PR #39](https://github.com/skuirrels/Xsl3/pull/39) retains the full-P7 merge boundary.
+[Hosted CI 42127805496](https://github.com/skuirrels/Xsl3/actions/runs/42127805496) has passed NativeAOT
+and ordinary performance; Linux and Windows compatibility are still running. These results do not replace
+the original streaming memory or throughput requirements.
+
+Evidence is retained under
+`/private/tmp/xsl3-p7-public-selection-20261105/`, including source/binary hashes, negative TRX, logs,
+`audit-full.py` and `full-review.json`. No final-source qualification, merge or release readiness is claimed.
