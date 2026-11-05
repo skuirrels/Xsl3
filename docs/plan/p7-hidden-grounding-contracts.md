@@ -64,7 +64,9 @@ one verifier entry and completion, including the hidden-grounding controls.
 
 Evidence: `/private/tmp/xsl3-p7-hidden-grounding-20261105/{release,debug}/*.trx`, with validation metadata
 in that directory. This local temporary path is not durable hosted evidence. Ordinary CI includes the
-new tests in its full Release suite and a dedicated Debug step on Linux and Windows. Hosted CI is pending.
+new tests in its full Release suite and a dedicated Debug step on Linux and Windows. All four CI jobs passed at `ac183fd` in
+[run 42115246979](https://github.com/skuirrels/Xsl3/actions/runs/42115246979). After reconciling PR #37,
+both dedicated Debug steps are preserved; the reconciled head requires fresh CI before merge.
 
 The initial prototype tried wrapping `XmlContext`, but this stylesheet uses `X31InitialSource`; the
 zero-replacement assertion correctly failed. The final injection targets that actual initial-source

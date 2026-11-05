@@ -44,6 +44,9 @@ jobs:
       - name: Debug hidden-grounding memory contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedHiddenGroundingTests" --logger trx --results-directory artifacts/test-results/debug-hidden-grounding
 
+      - name: Debug fork grouping and sorting retention contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedForkGroupRetentionTests" --logger trx --results-directory artifacts/test-results/debug-fork-groups
+
       # Functional probe checks only. The approved absolute RSS gates remain separate and unmet.
       - name: Streaming process probe smoke
         if: matrix.os == 'ubuntu-latest'

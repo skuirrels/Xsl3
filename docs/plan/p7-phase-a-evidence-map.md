@@ -6,6 +6,12 @@ violation rejects this control although its output, engine source record and Deb
 The original and transparent-helper controls remain bounded. The historical row below is preserved;
 this adds the missing injected internal-grounding control, not universal per-path memory qualification.
 
+**5 November S6 follow-up:** [fork grouping/sorting retention contracts](p7-fork-group-retention.md)
+now directly observe complete-population source payload retention, sorted member output and release
+through both APIs and saved loading. Rolling-adjacent and deliberately retained controls distinguish
+the measured behaviors. All 260 local Release/Debug checks and all four hosted CI jobs passed; PR #37 merged at `f453216`. This closes
+the payload-observation gap stated in the historical S6-11/12 rows, not the separate full-P7 gates.
+
 
 **5 November continuation:** [S3-25 verifier coverage](p7-verifier-coverage.md) adds actual per-compilation
 Debug evidence and required audit checks. All 4,968 eligible compilations in the local full strict inventory

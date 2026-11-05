@@ -6,6 +6,12 @@ managed-byte check rejects it while output and the Debug optimizer verifier stil
 entry-only limitation below remains a limitation of forwarding metadata itself. The original final-source
 memory matrices and remaining full-P7 gates are still required.
 
+**5 November S6 follow-up:** [fork grouping/sorting retention contracts](p7-fork-group-retention.md)
+now directly observe complete-population source payload retention, sorted member output and release
+through both APIs and saved loading. Rolling-adjacent and deliberately retained controls distinguish
+the measured behaviors. All 260 local Release/Debug checks and all four hosted CI jobs passed; PR #37 merged at `f453216`. This closes
+the payload-observation gap stated in the historical S6-11/12 rows, not the separate full-P7 gates.
+
 
 The owner resumed P7 on 1 November 2026 with a bounded plan: capture a fresh baseline of the released
 1.1.7 code, then do phase A, the S3–S6 acceptance accounting and the reassessment of the strict
@@ -227,11 +233,13 @@ Next:
 - Strengthen the partial items that check output equality where the obligation is about forward
   execution, read position or buffering. The additions above strengthen S3-17, S3-18, S3-27, S4-04, S4-05,
   S4-06, S4-11, S4-18, S4-21, S4-22, S4-24, S4-25, S4-27, S4-29, S4-30, S5-02, S5-14, S6-05, S6-08 and S6-10.
-  Preserve the stated limits: S3-27 still cannot detect grounding inside an otherwise forward run, and S5-14's
-  new early-output check covers complete group consumption, not read-position evidence for every truncated
-  or unused-member path. Other partial items include S3-04 (byte bounds), S3-25 (per-case verifier execution)
-  and S6-11/12 (grouping/sorting retention in fork). The original [evidence map](p7-phase-a-evidence-map.md)
-  remains a baseline record, not a current completion count.
+  S3-27 still cannot detect grounding inside an otherwise forward run. Subsequent records strengthen
+  [S5-14 unused/truncated member read positions](p7-group-read-positions.md),
+  [S3-04 retained managed bytes](p7-retained-memory-contracts.md),
+  [S3-25 per-compilation verifier execution](p7-verifier-coverage.md), and
+  [S6-11/12 grouping/sorting payload retention](p7-fork-group-retention.md), within their stated scopes.
+  The original [evidence map](p7-phase-a-evidence-map.md) remains a baseline record, not a current completion count.
+  Full hosted acceptance and the original memory/throughput requirements remain separate.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
   they stay on by default behind `XsltSettings.StreamabilityExtensions` (owner decision 5).

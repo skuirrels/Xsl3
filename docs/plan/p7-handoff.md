@@ -1,28 +1,30 @@
 # P7 agent handoff after 1.1.7
 
-**Current test-only follow-up:** `feature/p7-hidden-grounding-contracts` starts from merged main
-`a5e89ac`. [S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md) pass 32 new local
-Release/Debug cases and 30 related Debug verifier checks. Hosted CI is next. The tests reject an
-actual whole-input grounding helper even when correct output and genuine forward-entry evidence pass.
-Runtime and benchmark source are unchanged.
+**5 November contract integration:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all
+four CI jobs in [run 42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged
+at `f453216`. Its [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) are now on main.
+[PR #38](https://github.com/skuirrels/Xsl3/pull/38), the [S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md),
+passed all four CI jobs at `ac183fd` in [run 42115246979](https://github.com/skuirrels/Xsl3/actions/runs/42115246979).
+This branch reconciles both sets of docs and preserves both dedicated Debug workflow steps. It needs
+CI on the reconciled head before merging. Runtime and benchmark sources remain unchanged from `a5e89ac`.
 
-The separate [PR #37](https://github.com/skuirrels/Xsl3/pull/37) carries S6-11/12 fork payload-retention
-contracts. At this update its NativeAOT and ordinary performance jobs passed; Linux and Windows CI
-are still running. The larger-buffer candidate `aebb3a2` remains unaccepted: original acceptance run
-[42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048) fails fork push memory
-(22,941,696 versus 20,971,520 bytes, all outputs correct); nightly and throughput remain running.
-Do not adopt that default as-is. Diagnostic history is on `feature/p7-fork-buffer-policy` at `42d2329`.
+Separate performance candidates are unaccepted. The 256-event source `deed3c1` passes both original
+memory matrices but only four of seven throughput targets in run `42116432334`; identity, fork and
+source-document fail. The 4,096-event source `aebb3a2` also passes four throughput targets and retains
+its push-memory failure. The initial projection-discard source `fb6d4cd` improves local fork time but
+fails source-position contracts and was rejected; its original qualification run was cancelled.
+Correction `a8d322a` on `feature/p7-projection-discard` passes 5,536 affected Release/Debug checks;
+new timings and original qualification remain required. These runtime experiments are not part of this PR.
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
-Start from merged main `8582a5b` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md)
-is the first subsequent implementation on `feature/p7-verifier-coverage` ([PR #34](https://github.com/skuirrels/Xsl3/pull/34)).
-The following [S5-14 group read-position increment](p7-group-read-positions.md) is on
-`feature/p7-group-read-positions`, branched from PR #34's reviewed head `6410b0e`. All original acceptance gates remain
+Start from merged main `a5e89ac` or a verified descendant. PRs #34–36 have merged
+[S3-25 verifier coverage](p7-verifier-coverage.md), [S5-14 group read positions](p7-group-read-positions.md)
+and [S3-04 retained managed bytes](p7-retained-memory-contracts.md). All original acceptance gates remain
 required, including the five outstanding throughput targets. Earlier pause and bounded-stop instructions below
 are historical and no longer limit the active objective.
 
-The next [S3-04 retained-memory increment](p7-retained-memory-contracts.md) is on
+The completed predecessor [S3-04 retained-memory increment](p7-retained-memory-contracts.md) is on
 `feature/p7-retained-memory-contracts`, based on grouping head `051c58d`. Local managed-byte and negative
 controls passed; its own hosted CI is still required. No runtime optimization has been adopted in these
 three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and

@@ -4,15 +4,20 @@
 now demonstrate a measured budget failure for a real grounding helper inside an otherwise forward
 execution. Correct output, actual forward entry and the Debug graph verifier all pass that negative
 control, so none is mistaken for a memory proof. All 32 new local cases and 30 related Debug checks
-pass; hosted CI remains required. Runtime and benchmark source are unchanged from merged `a5e89ac`.
+pass. All four CI jobs passed at `ac183fd` in run `42115246979`; the reconciliation with merged PR #37
+requires CI on its new head before merging. Runtime and benchmark source are unchanged from merged `a5e89ac`.
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 All original requirements and gates remain in force; the earlier stopping instructions below are historical.
 Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)
-merged entry and forward-execution evidence at `8582a5b`. The next implementation is
-[S3-25 verifier coverage](p7-verifier-coverage.md), followed by the remaining runtime evidence,
-throughput qualification and supported-streaming integration. No intermediate audit or release completes P7.
+merged entry and forward-execution evidence at `8582a5b`. PRs #34–36 subsequently merged
+[S3-25 verifier coverage](p7-verifier-coverage.md), [S5-14 read positions](p7-group-read-positions.md)
+and [S3-04 managed-byte evidence](p7-retained-memory-contracts.md), through main `a5e89ac`.
+[S6-11/12 fork grouping/sorting payload contracts](p7-fork-group-retention.md) now pass 260 local
+Release/Debug checks and all four hosted CI jobs; PR #37 merged at `f453216`. Internal-grounding
+contract integration, original throughput and
+memory qualification, final integration and supported-streaming delivery remain required. No intermediate audit or release completes P7.
 
 The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review all changes,
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
