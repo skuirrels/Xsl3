@@ -38,50 +38,44 @@ internal sealed partial class StreamedDocument
     private class ForkHeader
     {
         internal readonly Node? Original;
+        private readonly CompactHeaderData? _compactData;
         // NativeAOT retains direct source metadata reads. JIT-only compact events use
-        // separate virtual metadata accessors without inventing source positions.
+        // immutable metadata owned by the start event, without inventing source positions.
         internal XPathNodeType Kind
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactKind : Original!.Kind;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.KindValue : Original!.Kind;
         }
-        protected virtual XPathNodeType CompactKind => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string LocalName
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactLocalName : Original!.LocalName;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.LocalNameValue : Original!.LocalName;
         }
-        protected virtual string CompactLocalName => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string Namespace
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactNamespace : Original!.Namespace;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.NamespaceValue : Original!.Namespace;
         }
-        protected virtual string CompactNamespace => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string Prefix
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactPrefix : Original!.Prefix;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.PrefixValue : Original!.Prefix;
         }
-        protected virtual string CompactPrefix => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string Text
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactText : Original!.Text;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.TextValue : Original!.Text;
         }
-        protected virtual string CompactText => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string BaseUri
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactBaseUri : Original!.BaseUri;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.BaseUriValue : Original!.BaseUri;
         }
-        protected virtual string CompactBaseUri => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal string Language
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactLanguage : Original!.Language;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.LanguageValue : Original!.Language;
         }
-        protected virtual string CompactLanguage => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal readonly Attribute[] Attributes;
         internal readonly Namespace[] Namespaces;
         internal readonly IXmlSchemaInfo? SchemaInfo;
@@ -98,19 +92,19 @@ internal sealed partial class StreamedDocument
         internal long Number
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactNumber : Original!.Number;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.NumberValue : Original!.Number;
         }
-        protected virtual long CompactNumber => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
         internal int Depth
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? CompactDepth : Original!.Depth;
+            get => RuntimeFeature.IsDynamicCodeSupported && Original == null ? _compactData!.DepthValue : Original!.Depth;
         }
-        protected virtual int CompactDepth => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
 
-        protected ForkHeader(in CompactFrame frame)
+        protected ForkHeader(in CompactFrame frame, CompactHeaderData? data)
         {
             Original = null;
+            // A start event owns its metadata; end events reference that immutable owner.
+            _compactData = data ?? (CompactHeaderData)this;
             Attributes = frame.Attributes; Namespaces = frame.Namespaces; SchemaInfo = null;
             Empty = frame.Empty; Ended = frame.Ended; Started = frame.Started;
             Consumed = Skipped = NoNext = false; FirstChild = frame.FirstChild;
@@ -118,14 +112,12 @@ internal sealed partial class StreamedDocument
 
         internal string? LookupNamespace(string prefix)
         {
-            if (RuntimeFeature.IsDynamicCodeSupported && Original == null) return CompactLookupNamespace(prefix);
+            if (RuntimeFeature.IsDynamicCodeSupported && Original == null) return _compactData!.LookupCompactNamespace(prefix);
             for (Node? current = Original; current != null; current = current.Parent)
                 for (int i = current.Namespaces.Length - 1; i >= 0; i--)
                     if (current.Namespaces[i].Prefix == prefix) return current.Namespaces[i].Uri;
             return prefix.Length == 0 ? "" : null;
         }
-
-        protected virtual string? CompactLookupNamespace(string prefix) => throw new InvalidOperationException("An ordinary fork header has no compact metadata");
 
 
         internal Node Create(Node? parent, bool boundary, XmlNameTable? names = null)
@@ -199,7 +191,7 @@ internal sealed partial class StreamedDocument
         internal ForkHeader Header => this;
         internal readonly bool End;
         internal ForkEvent(Node node, bool end) : base(node) => End = end;
-        protected ForkEvent(in CompactFrame frame, bool end) : base(in frame) => End = end;
+        protected ForkEvent(in CompactFrame frame, bool end, CompactHeaderData? data = null) : base(in frame, data) => End = end;
     }
 
     internal bool CanFork(Node boundary)

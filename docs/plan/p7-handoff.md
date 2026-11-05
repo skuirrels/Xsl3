@@ -22,9 +22,15 @@ validated contract head `78815e8`. Fresh
 [allocation evidence and the candidate boundary](p7-producer-allocation.md) identify producer `Node`
 frames as 12.84 GB of sampled allocations. An isolated compact producer is now under qualification;
 its runtime changes have not yet passed the original hosted acceptance gates or been adopted into main.
-PRs [#34](https://github.com/skuirrels/Xsl3/pull/34), [#35](https://github.com/skuirrels/Xsl3/pull/35) and
-[#36](https://github.com/skuirrels/Xsl3/pull/36) are stacked in that order and still require all hosted checks
-and merges. Retarget each successor to main after its predecessor merges.
+Both producer variants pass the affected contracts, and the first removes producer `Node` allocation
+ticks, but twelve paired observations per variant show no conclusive throughput benefit. The direct
+metadata variant passes 1,588 affected Release/Debug checks. Keep both controls unadopted; next profile
+consumer-frame and per-item output costs rather than claiming allocation reduction closes performance.
+[PR #34](https://github.com/skuirrels/Xsl3/pull/34) passed all four required jobs in run `42094356435`
+and merged at `66e078d`. [PR #35](https://github.com/skuirrels/Xsl3/pull/35) is retargeted to main;
+its Windows job is still running after Linux, NativeAOT and performance passed.
+[PR #36](https://github.com/skuirrels/Xsl3/pull/36) remains stacked on #35, with both full test jobs
+still running after NativeAOT and performance passed. Retarget #36 to main only after #35 merges.
 
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function

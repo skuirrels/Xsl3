@@ -72,32 +72,21 @@ internal sealed partial class StreamedDocument
     // End events reference that owner; no event points into the mutable slot array.
     private sealed class CompactHeaderData(in CompactFrame frame) : ForkEvent(in frame, false)
     {
-        protected override long CompactNumber { get; } = frame.Number;
-        protected override int CompactDepth { get; } = frame.Depth;
-        protected override XPathNodeType CompactKind { get; } = frame.Kind;
-        protected override string CompactLocalName { get; } = frame.LocalName;
-        protected override string CompactNamespace { get; } = frame.Namespace;
-        protected override string CompactPrefix { get; } = frame.Prefix;
-        protected override string CompactText { get; } = frame.Text;
-        protected override string CompactBaseUri { get; } = frame.BaseUri;
-        protected override string CompactLanguage { get; } = frame.Language;
+        internal readonly long NumberValue = frame.Number;
+        internal readonly int DepthValue = frame.Depth;
+        internal readonly XPathNodeType KindValue = frame.Kind;
+        internal readonly string LocalNameValue = frame.LocalName;
+        internal readonly string NamespaceValue = frame.Namespace;
+        internal readonly string PrefixValue = frame.Prefix;
+        internal readonly string TextValue = frame.Text;
+        internal readonly string BaseUriValue = frame.BaseUri;
+        internal readonly string LanguageValue = frame.Language;
         private readonly CompactNamespaceScope? _scope = frame.Scope;
-        protected override string? CompactLookupNamespace(string prefix) => _scope?.Lookup(prefix) ?? (prefix.Length == 0 ? "" : null);
+        internal string? LookupCompactNamespace(string prefix) => _scope?.Lookup(prefix) ?? (prefix.Length == 0 ? "" : null);
     }
 
-    private sealed class CompactForkEvent(in CompactFrame frame, CompactHeaderData data, bool end) : ForkEvent(in frame, end)
-    {
-        protected override long CompactNumber => data.Number;
-        protected override int CompactDepth => data.Depth;
-        protected override XPathNodeType CompactKind => data.Kind;
-        protected override string CompactLocalName => data.LocalName;
-        protected override string CompactNamespace => data.Namespace;
-        protected override string CompactPrefix => data.Prefix;
-        protected override string CompactText => data.Text;
-        protected override string CompactBaseUri => data.BaseUri;
-        protected override string CompactLanguage => data.Language;
-        protected override string? CompactLookupNamespace(string prefix) => data.LookupNamespace(prefix);
-    }
+    private sealed class CompactForkEvent(in CompactFrame frame, CompactHeaderData data, bool end)
+        : ForkEvent(in frame, end, data);
 
     private sealed class CompactForkProducer : IDisposable
     {

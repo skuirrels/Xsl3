@@ -60,6 +60,34 @@ finishing the document element always advances to reader EOF; that assertion fai
 The corrected contract explicitly finishes the root before checking EOF, as the existing continuation
 tests do. The failed run is retained in `additional/`; final results are in `additional-final/`.
 
+The first candidate (`935196e`, runtime SHA-256
+`c955220cf9240451a9784f243f098a07533556f817b1317211f257ea0373b4a3`) ran twelve valid paired local
+100 MB fork observations. Baseline tree/stream medians were 1,623.548/2,344.946 ms; candidate medians
+were 1,632.658/2,336.340 ms. The streamed improvement was only 0.37%, with overlapping ranges:
+**no meaningful throughput benefit established**, and neither variant met the original target.
+The complete observations, fingerprints and independent checks are in `paired-review.json` and
+the six `baseline-round-*`/`compact-round-*` directories. Other local workloads were present;
+these timings are diagnostic and cannot establish hosted acceptance.
+
+A fresh 1 GB allocation trace nevertheless confirms that the candidate was active. Sampled total
+allocations fell from 31,405,373,480 to 20,579,868,104 bytes; sampled `Node` allocations fell to
+6,844,922,104 bytes, all attributed to consumer `ForkHeader.Create` stacks. No producer `Child`
+allocation ticks remained. Both traces report zero lost events and valid canonical output. This is
+allocation evidence, not a retained-memory or throughput pass. A subsequent isolated control removes
+virtual compact-metadata accessors while preserving the same immutable header ownership.
+Its affected Release and Debug suites each passed 417/377 checks (1,588 total). Twelve further valid local observations gave
+baseline tree/stream medians of 1,598.086/2,172.507 ms and candidate medians of 1,713.946/2,124.957 ms.
+The 2.19% streamed improvement still has overlapping ranges, and the tree control also drifted:
+**throughput benefit remains inconclusive**, with the original 100 MB target still failed.
+The source patch, its hash, exact binaries and all observations are retained in `direct-comparison/`.
+Do not merge either variant based on allocation reduction or these local timings alone.
+
+Next investigate consumer-side frame creation and per-item output construction under profiling. The
+first allocation trace places the surviving frame allocations in `ForkHeader.Create`; `SimpleContentState`
+and single-item arrays are separate measured contributors. Preserve both candidate binaries so future
+controls can distinguish producer-only and composed effects. No candidate PR, full hosted acceptance,
+support claim or release is authorized by these diagnostic results alone.
+
 ## Next implementation boundary
 
 Investigate reducing source and fork-view frame allocation while preserving navigator identity, immutable
