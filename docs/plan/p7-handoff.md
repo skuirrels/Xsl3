@@ -14,6 +14,15 @@ controls passed; its own hosted CI is still required. No runtime optimization ha
 three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and
 fork-retention evidence.
 
+**Throughput investigation:** the [tee reclamation control](p7-tee-reclamation-experiment.md) at `ce42373`
+is rejected and remains only on `feature/p7-tee-reclamation`: all 693 affected Release checks passed after
+a wake-ordering correction, but twelve valid paired local observations showed only 0.55% improvement
+with overlapping ranges. Do not merge that branch. `feature/p7-producer-allocation` starts again from
+validated contract head `78815e8`, carrying only the diagnostic record; allocation/parsing evidence is next.
+PRs [#34](https://github.com/skuirrels/Xsl3/pull/34), [#35](https://github.com/skuirrels/Xsl3/pull/35) and
+[#36](https://github.com/skuirrels/Xsl3/pull/36) are stacked in that order and still require all hosted checks
+and merges. Retarget each successor to main after its predecessor merges.
+
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
