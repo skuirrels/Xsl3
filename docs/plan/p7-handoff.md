@@ -3,7 +3,10 @@
 **5 November current status:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
 CI jobs in run `42113850460` and merged at `f453216`. Its fork grouping/sorting retention contracts
 are now on main. [PR #38](https://github.com/skuirrels/Xsl3/pull/38) still needs reconciliation with
-that merge and CI on the reconciled head before merging. Ordinary CI does not close full P7.
+that merge and CI on the reconciled head before merging. The reconciliation is pushed as `7ea0190`:
+292 combined Release/Debug checks pass, both CI steps are preserved, and fresh CI run
+[42123616078](https://github.com/skuirrels/Xsl3/actions/runs/42123616078) is active.
+Ordinary CI does not close full P7.
 
 The isolated 256-event default candidate `deed3c1` passes both original memory matrices: 32 budgets
 and 96 independent outputs. Its completed full throughput run passes four of seven targets; identity,
@@ -17,8 +20,10 @@ observations validate output and the fork median improves 12.7%, but broader reg
 the first candidate `fb6d4cd`: it changes following source position numbers. The unchanged identity
 contracts caught this. Its hosted run `42122349414` was cancelled. A correction retains logical node
 numbering without constructing excluded frames; all 5,536 affected Release/Debug checks pass, including
-the unchanged failing contracts and eight new entity/whitespace cases. Renewed timing is running;
-fresh hosted qualification remains required. Preserve the original
+the unchanged failing contracts and eight new entity/whitespace cases. Renewed paired timing validates all 48 observations and retains a 10.2% fork improvement. Original
+hosted qualification [42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563) is active
+on corrected source `a8d322a`; the independent public-capacity diagnostic is `42124002254`.
+Neither local timing nor these pending runs establish full qualification. Preserve the original
 input, RSS, heap, throughput, demand, first-output and both-API requirements. Full P7 remains active.
 
 

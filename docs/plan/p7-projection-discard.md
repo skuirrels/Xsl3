@@ -84,9 +84,25 @@ source-document, namespace, schema-header, disposal, copied-attribute identity a
 selected by the retained validation script. The initial broad run's other 8,534 checks remain retained;
 its six failures are not relabelled as passes. Full final-source CI remains required.
 
-Fresh paired timing is running from frozen corrected binaries and controllers in
+Fresh paired timing completed with 48 valid observations from frozen corrected binaries and controllers in
 `/private/tmp/xsl3-p7-projection-discard-corrected-20261105/`. The corrected engine SHA-256 is
 `91f491ffa4676894b2adba8d3932dd4b0047df0d8fe3471dfe18e4d562eb2226`.
 The first candidate's 12.7% result does not qualify this correction.
+
+The corrected fork streaming median falls from 1,694.259208 to 1,520.876458 ms (**10.234% lower**).
+All three candidate samples (1,505.436917 / 1,520.876458 / 1,540.604208 ms) are below all three baseline
+samples (1,691.553709 / 1,694.259208 / 1,726.833709 ms). First output is unchanged at 36,864 input bytes.
+The fork stream/tree ratio is 0.954547 in this local cohort. Identity, accumulator and source-document
+candidate/baseline streaming ratios are 1.001898 / 1.000816 / 0.999673, with overlapping ranges.
+All independent outputs, original measurement validation, actual 4 GiB guards, four effective CPUs,
+raw stdout comparisons and frozen hashes pass. Local timings do not establish hosted acceptance.
+
+Corrected source `a8d322ac6bfd094c65a61477a519d0a426059c77` is under fresh original qualification in
+[run 42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563): both full memory matrices
+and all 126 throughput observations. Results remain pending. A separate existing public-setting
+diagnostic compares capacities 64/256/1,024/4,096 on that same immutable runtime in
+[run 42124002254](https://github.com/skuirrels/Xsl3/actions/runs/42124002254). It does not change the
+candidate default or acceptance limits. Diagnostic run `42123951259` was cancelled because its source
+SHA was mistyped; it supplies no measurement evidence.
 
 Full Phase 7, the supported-streaming claim and release remain incomplete.
