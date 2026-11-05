@@ -136,3 +136,26 @@ of this candidate or a proposed composition:
 
 Each branch retains its own review record and source. Their local measurements do not qualify this buffer
 candidate, and their runtime changes must not be silently folded into the eventual release.
+
+## Source provenance and next CPU investigation
+
+A Portable PDB source audit matches all **409 tracked library source documents** to the tested commit
+`deed3c1b31657e0740d532182cb1e39eeea15aa4`, including `XsltSettings.cs`. The other three PDB documents
+are generated assembly attributes, assembly information and regex source, and are not claimed as Git
+source matches. Both memory jobs retain the identical library PDB SHA-256
+`79090f53c53d53768e5f9185516cb52483ca7d8527d5c9a8c2ad04d48e609b72`.
+Their publish logs build the local library and native probe from the workflow checkout. Separately built
+native executables and saved-style assemblies are not claimed to be byte-identical. The audit, source
+list and executable hashes are retained in `audit-sources.py`, `push-pdb-documents.json` and
+`source-review.json` in the 256-event evidence directory. This verifies source checksums and build
+provenance, not an independent reconstruction of native machine instructions.
+
+[CPU diagnostic 42120106652](https://github.com/skuirrels/Xsl3/actions/runs/42120106652) uses controller
+`a9bdf29` and explicitly selects runtime source `deed3c1`. It profiles the canonical 1 GB fork child
+with the actual 4 GiB heap guard and tiering disabled, preserving its output oracle. Its purpose is to
+locate remaining costs after changing buffer capacity; instrumented timing cannot qualify throughput.
+The original full acceptance run remains active and is not restarted or replaced by this diagnostic.
+
+PRs [#37](https://github.com/skuirrels/Xsl3/pull/37) and
+[#38](https://github.com/skuirrels/Xsl3/pull/38) were reviewed without additional findings and marked
+ready for review. Their remaining required CI jobs must pass before merging.
