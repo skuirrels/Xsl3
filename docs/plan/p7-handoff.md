@@ -1,5 +1,14 @@
 # P7 agent handoff after 1.1.7
 
+**5 November memory qualification update:** the isolated 256-event default candidate on
+`feature/p7-fork-capacity-256`, runtime source `deed3c1`, passes both original hosted memory matrices:
+32 workload budgets and 96 independent outputs. See [the qualification record](p7-fork-capacity-qualification.md)
+for original limits, raw-report audits and artifact provenance. Its full throughput run
+[42116432334](https://github.com/skuirrels/Xsl3/actions/runs/42116432334) is still active; this default is
+not adopted. The 4,096-event control retains its push-memory failure and separate live throughput run.
+Source-header and accumulator-traversal controls were independently rejected and pushed as evidence.
+Their patches are excluded. Full P7 remains active with every original gate required.
+
 **Current capacity follow-up:** `feature/p7-fork-capacity-256` tests the smaller 256-event default.
 Its [qualification record](p7-fork-capacity-qualification.md) preserves the 4,096-event candidate's
 failed push-memory result, completed nightly job and still-running throughput job. The 256-event

@@ -25,7 +25,7 @@ before any adoption; local diagnostics and the earlier 4,096-event results canno
 Local Release and Debug each pass 440 .NET 10 / 364 .NET 8 checks, 1,608 total with no failures or
 skips. Exact source hashes and raw TRX are retained under
 `/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification is running on `deed3c1b31657e0740d532182cb1e39eeea15aa4`;
-its push-memory result is audited below. Nightly memory and throughput remain pending.
+both original memory results are audited below. The full throughput job remains pending.
 No candidate has been merged or released.
 
 ## Historical 4,096-event candidate
@@ -102,5 +102,37 @@ Artifact `13457196442` (`streaming-memory-push`, expires 3 February 2027) has Gi
 Local raw files, executable re-audit and per-workload peaks are retained in
 `/private/tmp/xsl3-p7-fork-capacity-256-20261105/hosted-push/`, `audit-push.py` and `push-review.json`.
 
-This establishes the original push-memory pass for the named candidate only. Nightly memory,
-throughput, final integration and full P7 completion remain unproven; the candidate is not adopted.
+This establishes the original push-memory pass for the named candidate only. The matching nightly
+result is recorded below; throughput, final integration and full P7 completion remain unproven.
+
+## Audited 256-event nightly result
+
+The same [run 42116432334](https://github.com/skuirrels/Xsl3/actions/runs/42116432334) and source
+`deed3c1b31657e0740d532182cb1e39eeea15aa4` pass all 16 original nightly budgets and all 48 independent
+output checks. Measured inputs are exactly 2,147,483,648 bytes with the actual 209,715,200-byte managed
+heap guard. All children report NativeAOT execution, and both full-lifetime peak counters pass. The largest
+measured whole-process peak is **32,428,032 bytes** (fork). Every raw stdout matches its report, every
+baseline tree/stream fingerprint matches, and all 32 generated stylesheets match the push artifact.
+
+Artifact `13456263863` (`streaming-memory-nightly`, expires 3 February 2027) has GitHub archive digest
+`12c7262e32bb776665ff75c09fff02154b995b7ac1860cfce8db6726486ef25c`. Report SHA-256:
+`a631c71f4640115dc8d267b094ba3aa16bf878072b784990939bd3f828d92f94`.
+Raw files, executable re-audit and per-workload peaks are retained under
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/hosted-nightly/`, `audit-nightly.py` and `nightly-review.json`.
+
+Together these qualify all **32 original memory budgets and 96 outputs** for the named 256-event source.
+The full 126-observation throughput run is still active; no passing throughput or final P7 claim is made.
+
+## Independent rejected controls
+
+Two later controls started independently from unchanged main `a5e89ac` with capacity 64. Neither is part
+of this candidate or a proposed composition:
+
+- `feature/p7-source-child-header`, `9fec679`: removal of an unreachable fork-header arm in source-node
+  creation. All 7,205 selected Release tests and 48 paired observations pass, but no useful speedup appears.
+- `feature/p7-accumulator-state-traversal`, `2bbc789`: fixed-order array traversal of immutable accumulator
+  applicability state. All 2,552 selected Release tests and 24 paired observations pass. Combined streaming
+  improvement is only 0.84% with overlapping ranges; the unchanged tree cohort is 3.45% slower. Rejected.
+
+Each branch retains its own review record and source. Their local measurements do not qualify this buffer
+candidate, and their runtime changes must not be silently folded into the eventual release.
