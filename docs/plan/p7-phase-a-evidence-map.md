@@ -4,6 +4,10 @@
 Debug evidence and required audit checks. All 4,968 eligible compilations in the local full strict inventory
 were verified; hosted CI is pending. The historical S3-25 row below is preserved as the original gap record.
 
+[S5-14 group read-position contracts](p7-group-read-positions.md) now observe unused, truncated and full
+member consumption, draining and boundary lookahead through both APIs and saved execution. Local validation
+is recorded there; the historical S5-14 row remains unchanged.
+
 Phase A record for [P7 phase A](p7-phase-a.md). Evidence paths under `Xsl3-evidence/` are local copies of hosted CI
 artefacts (run 41351971235, retained until 30 January 2027); the run link is the durable reference. Rows reflect
 `b0bf3bb` before phase A changes: `merge-039` now runs and passes (see the phase record). After the owner decisions

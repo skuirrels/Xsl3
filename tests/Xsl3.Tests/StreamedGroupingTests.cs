@@ -1,8 +1,11 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
+using Xsl3.Streaming;
 using Xunit;
 
 namespace Xsl3.Tests;
@@ -230,13 +233,124 @@ public class StreamedGroupingTests
         Assert.Equal(1000, input.Rows);
     }
 
+    public static IEnumerable<object[]> ConsumptionPositionCases()
+    {
+        foreach (string grouping in new[] { "group-adjacent='@k'", "group-starting-with='row[@start]'", "group-ending-with='row[@end]'" })
+        foreach (string consumption in new[] { "unused", "head", "all" })
+        foreach (string api in new[] { "modern", "legacy"
+#if NET9_0_OR_GREATER
+            , "saved"
+#endif
+        }) yield return new object[] { grouping, consumption, api };
+    }
+
+    [Theory]
+    [MemberData(nameof(ConsumptionPositionCases))]
+    public void MembersAreReadOrDrainedBeforeTheNextGroupStarts(string grouping, string consumption, string api)
+    {
+        int[] groupSizes = { 1, 3, 20 };
+        var xml = new StringBuilder("<doc>");
+        var firstIds = new List<int>();
+        int id = 0;
+        for (int group = 0; group < groupSizes.Length; group++)
+        {
+            firstIds.Add(id + 1);
+            for (int member = 0; member < groupSizes[group]; member++)
+            {
+                id++;
+                xml.Append($"<row id='{id}' k='{group}'");
+                if (member == 0) xml.Append(" start='yes'");
+                if (member == groupSizes[group] - 1) xml.Append(" end='yes'");
+                xml.Append($">{id}</row>");
+            }
+        }
+        xml.Append("</doc>");
+        string memberSelection = consumption switch
+        {
+            "head" => "<xsl:value-of select='string(head(current-group()))'/>",
+            "all" => "<xsl:value-of select='current-group()'/>",
+            _ => "",
+        };
+        string sheet = Sheet($$"""
+            <xsl:for-each-group select='row' {{grouping}}>
+              <xsl:message select="concat('start:', @id)"/>
+              <g first='{@id}'>{{memberSelection}}</g>
+              <xsl:message select="concat('end:', @id)"/>
+            </xsl:for-each-group>
+            """);
+        foreach (bool forward in new[] { false, true })
+        {
+            using var input = new TrackingReader(XmlReader.Create(new StringReader(xml.ToString())));
+            using var output = new StringWriter();
+            using var capture = new StreamingExecutionCapture();
+            var observations = new List<(string Message, int Started, int Ended)>();
+            void Observe(string message) => observations.Add((message, input.Rows, input.EndedRows));
+            var settings = new XsltSettings { StreamedExecution = forward };
+            if (api == "modern")
+            {
+                var transformer = new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet)).CreateTransformer();
+                transformer.MessageHandler = Observe;
+                transformer.ApplyTemplates(input, output);
+            }
+            else
+            {
+                var transformer = new XslCompiledTransform();
+                using var style = XmlReader.Create(new StringReader(sheet));
+#if NET9_0_OR_GREATER
+                if (api == "saved")
+                {
+                    using var assembly = new MemoryStream();
+                    transformer.CompileToAssembly(style, settings, null, "ReadPositions", "Saved.ReadPositions", assembly);
+                    transformer.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.ReadPositions", true)!, settings);
+                }
+                else
+#endif
+                    transformer.Load(style, settings, null);
+                var arguments = new XsltArgumentList();
+                arguments.XsltMessageEncountered += (_, message) => Observe(message.Message);
+                transformer.Transform(input, arguments, output);
+            }
+            Assert.Equal(groupSizes.Length * 2, observations.Count);
+            for (int group = 0; group < groupSizes.Length; group++)
+            {
+                int first = firstIds[group], last = first + groupSizes[group] - 1;
+                Assert.Equal(($"start:{first}", forward ? first : id, forward ? first - 1 : id), observations[group * 2]);
+                var after = observations[group * 2 + 1];
+                Assert.Equal($"end:{first}", after.Message);
+                int consumed = consumption == "all" ? last : consumption == "head" ? first : first - 1;
+                Assert.Equal(forward ? consumed : id, after.Ended);
+                if (forward && consumption == "all")
+                    // Adjacent/starting groups may inspect the next group's header to find the boundary;
+                    // no text or end tag of that next member may be consumed before its body starts.
+                    Assert.InRange(after.Started, last, System.Math.Min(last + 1, id));
+                else Assert.Equal(forward ? first : id, after.Started);
+            }
+            var actual = System.Xml.Linq.XElement.Parse(output.ToString());
+            Assert.Equal(firstIds.Select(first => first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                actual.Elements("g").Select(group => (string?)group.Attribute("first")));
+            Assert.Equal(firstIds.Select((first, group) => consumption switch
+                {
+                    "head" => first.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "all" => string.Join(" ", Enumerable.Range(first, groupSizes[group])),
+                    _ => "",
+                }),
+                actual.Elements("g").Select(group => group.Value));
+            Assert.Equal(id, input.Rows);
+            Assert.Equal(id, input.EndedRows);
+            Assert.NotEqual(ReadState.Closed, input.ReadState);
+            var source = Assert.Single(Assert.Single(capture.Snapshot().Executions).Sources);
+            Assert.Equal(forward, source.ActualForward);
+        }
+    }
+
     private sealed class TrackingReader(XmlReader reader) : XmlWrappingReader(reader)
     {
-        internal int Rows;
+        internal int Rows, EndedRows;
         public override bool Read()
         {
             bool read = base.Read();
             if (read && NodeType == XmlNodeType.Element && LocalName == "row") Rows++;
+            if (read && NodeType == XmlNodeType.EndElement && LocalName == "row") EndedRows++;
             return read;
         }
     }

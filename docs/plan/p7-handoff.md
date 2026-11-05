@@ -2,7 +2,9 @@
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 Start from merged main `8582a5b` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md)
-is the first subsequent implementation on `feature/p7-verifier-coverage`. All original acceptance gates remain
+is the first subsequent implementation on `feature/p7-verifier-coverage` ([PR #34](https://github.com/skuirrels/Xsl3/pull/34)).
+The following [S5-14 group read-position increment](p7-group-read-positions.md) is on
+`feature/p7-group-read-positions`, branched from PR #34's reviewed head `6410b0e`. All original acceptance gates remain
 required, including the five outstanding throughput targets. Earlier pause and bounded-stop instructions below
 are historical and no longer limit the active objective.
 
