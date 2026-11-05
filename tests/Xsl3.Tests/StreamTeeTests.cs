@@ -390,6 +390,76 @@ public class StreamTeeTests
         finally { cancellation.Cancel(); tee.Dispose(); Join(first); Join(second); }
     }
 
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(7, false)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    [InlineData(7, true)]
+    public void CallerOwnedRefillOverlapsThePublishedTailWithoutIncreasingCapacity(int capacity, bool fail)
+    {
+        using var caller = new ForkCaller(default);
+        int owner = Environment.CurrentManagedThreadId, next = 0;
+        int released = capacity - capacity / 2, total = capacity + released;
+        var failure = new IOException("prefetched source failure");
+        using var tee = new StreamTee<Event>(destination => {
+            Assert.Equal(owner, Environment.CurrentManagedThreadId);
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++next);
+            return new(destination.Length, next == total,
+                next == total && fail ? ExceptionDispatchInfo.Capture(failure) : null);
+        }, 2, capacity, productionCaller: caller);
+        Assert.False(tee.ProduceRequested());
+        Assert.Equal(0, next);
+        for (int reader = 0; reader < 2; reader++)
+            for (int value = 1; value <= released; value++)
+                Assert.Equal(value, tee.GetReader(reader).Read()!.Number);
+        Assert.Equal(capacity, next);
+        Assert.Equal(capacity / 2, tee.BufferedCount);
+        Assert.True(tee.ProduceRequested());
+        Assert.Equal(capacity + released, next);
+        Assert.Equal(capacity, tee.BufferedCount);
+        Assert.Equal(capacity, tee.HighWaterMark);
+        for (int reader = 0; reader < 2; reader++)
+        {
+            for (int value = released + 1; value <= capacity + released; value++)
+                Assert.Equal(value, tee.GetReader(reader).Read()!.Number);
+            // A prefetched fault is stored behind its accepted prefix, not raised
+            // on the invoking producer or while another prong consumes the tail.
+            if (fail) Assert.Same(failure, Assert.Throws<IOException>(() => tee.GetReader(reader).Read()));
+            else Assert.Null(tee.GetReader(reader).Read());
+        }
+        Assert.Equal(0, tee.BufferedCount);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(7)]
+    public void CallerOwnedSourceDoesNotReadAheadAfterBufferedRequestsComplete(int capacity)
+    {
+        using var caller = new ForkCaller(default);
+        int next = 0;
+        using var tee = new StreamTee<Event>(destination => {
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++next);
+            return new(destination.Length, false);
+        }, 2, capacity, productionCaller: caller);
+        int consumed = capacity - capacity / 2;
+        for (int reader = 0; reader < 2; reader++)
+            for (int value = 1; value <= consumed; value++)
+                Assert.Equal(value, tee.GetReader(reader).Read()!.Number);
+        Assert.Equal(capacity, next);
+        // Both reads have returned, and neither prong has requested another input.
+        // Free capacity alone cannot authorize source I/O or accumulator callbacks.
+        Assert.False(tee.ProduceRequested());
+        Assert.Equal(capacity, next);
+        for (int value = consumed + 1; value <= capacity; value++)
+            Assert.Equal(value, tee.GetReader(0).Read()!.Number);
+        Assert.Equal(capacity, next);
+        Assert.Equal(capacity + 1, tee.GetReader(0).Read()!.Number);
+        Assert.InRange(tee.HighWaterMark, 1, capacity);
+    }
+
     [Fact]
     public void SkippingBufferedEventsPreservesTheOtherReadersInputAndStopsAtTheMatch()
     {

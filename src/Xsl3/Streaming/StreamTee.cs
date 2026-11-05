@@ -359,9 +359,19 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
         if (first != _first)
         {
-            // Only freeing the first slot of a full ring makes a parked producer
-            // newly eligible. Readers awaiting publication need no consumption pulses.
-            if (wasFull) NotifyProduction();
+            bool requestedRefill = false;
+            // Once a demanded batch has been consumed halfway, let the invoking
+            // thread refill its free slots while prongs finish the published tail.
+            // The same ring reservation bounds staged plus published payloads.
+            if (_productionCaller != null && !_productionRequested && !_producing
+                && !_complete && _active != 0 && _next - _first <= _events.Length / 2)
+            {
+                _productionRequested = true;
+                requestedRefill = true;
+            }
+            // Freeing a full ring also makes an existing demand request eligible.
+            // Readers awaiting publication need no consumption pulses.
+            if (wasFull || requestedRefill) NotifyProduction();
             if (_waitingForSpace != 0) Monitor.PulseAll(_gate);
         }
     }
