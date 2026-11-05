@@ -1,14 +1,23 @@
 # P7 agent handoff after 1.1.7
 
+**Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
+The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug
+checks; hosted CI is next. Runtime and benchmark source are unchanged. The independent larger-buffer
+candidate is `aebb3a2` on `feature/p7-fork-capacity-qualification`; its original acceptance run
+[42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048) fails push memory on fork
+(22,941,696 versus 20,971,520 bytes, all outputs correct), while nightly and throughput are still running.
+Do not adopt that default as-is. The source-dispatch control `3793df5` is also rejected. Diagnostic
+history is preserved on `feature/p7-fork-buffer-policy` at `42d2329`; it is not part of this test-only branch.
+
+
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
-Start from merged main `8582a5b` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md)
-is the first subsequent implementation on `feature/p7-verifier-coverage` ([PR #34](https://github.com/skuirrels/Xsl3/pull/34)).
-The following [S5-14 group read-position increment](p7-group-read-positions.md) is on
-`feature/p7-group-read-positions`, branched from PR #34's reviewed head `6410b0e`. All original acceptance gates remain
+Start from merged main `a5e89ac` or a verified descendant. PRs #34–36 have merged
+[S3-25 verifier coverage](p7-verifier-coverage.md), [S5-14 group read positions](p7-group-read-positions.md)
+and [S3-04 retained managed bytes](p7-retained-memory-contracts.md). All original acceptance gates remain
 required, including the five outstanding throughput targets. Earlier pause and bounded-stop instructions below
 are historical and no longer limit the active objective.
 
-The next [S3-04 retained-memory increment](p7-retained-memory-contracts.md) is on
+The completed predecessor [S3-04 retained-memory increment](p7-retained-memory-contracts.md) is on
 `feature/p7-retained-memory-contracts`, based on grouping head `051c58d`. Local managed-byte and negative
 controls passed; its own hosted CI is still required. No runtime optimization has been adopted in these
 three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and
