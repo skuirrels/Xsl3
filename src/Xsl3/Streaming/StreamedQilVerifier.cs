@@ -29,8 +29,9 @@ internal sealed class StreamedQilVerifier
 
     internal static StreamedQilVerifier Capture(QilExpression expression) => new(expression);
 
-    internal void Verify(QilExpression expression)
+    internal void Verify(QilExpression expression, StreamingExecutionCapture.Compilation? compilation = null)
     {
+        compilation?.BeginVerification();
         foreach (QilFunction function in expression.FunctionList)
             if (_pullFunctions.TryGetValue(function, out int argument) && function.PullArgument != argument)
                 throw Failure(function, "changed a population's continuation argument");
@@ -54,6 +55,7 @@ internal sealed class StreamedQilVerifier
                 throw Failure(read.Operation, "moved a read operation into a different function, binding, loop or branch "
                     + $"({read.Method?.Name}; before: {DescribeRegions(before.Regions)}; after: {DescribeRegions(read.Regions)})");
         }
+        compilation?.CompleteVerification();
     }
 
     private static string DescribeRegions(Region[] regions) => string.Join(", ", regions.Select(r => $"{r.Kind}[{r.Part}]"));

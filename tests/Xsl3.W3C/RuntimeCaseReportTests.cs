@@ -177,6 +177,15 @@ public sealed class RuntimeCaseReportTests : IDisposable
         string[] lines = File.ReadAllLines(path);
         using JsonDocument header = JsonDocument.Parse(lines[0]), row = JsonDocument.Parse(lines[1]);
         Assert.True(header.RootElement.GetProperty("ForwardingCaptured").GetBoolean());
+        Assert.True(header.RootElement.GetProperty("CompilationsCaptured").GetBoolean());
+        var compilation = row.RootElement.GetProperty("Compilation").GetProperty("Compilations")[0];
+        Assert.True(compilation.GetProperty("HasStreamedInputs").GetBoolean());
+        Assert.True(compilation.GetProperty("OptimizationCompleted").GetBoolean());
+#if DEBUG
+        Assert.Equal(1, compilation.GetProperty("VerifierCompleted").GetInt32());
+#else
+        Assert.Equal(0, compilation.GetProperty("VerifierCompleted").GetInt32());
+#endif
         var evidence = row.RootElement.GetProperty("Forwarding");
         Assert.Equal(2, evidence.GetProperty("FormatVersion").GetInt32());
         Assert.Equal(1, evidence.GetProperty("Started").GetInt32());

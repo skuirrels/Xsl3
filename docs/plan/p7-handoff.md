@@ -1,6 +1,12 @@
 # P7 agent handoff after 1.1.7
 
-**Continuation, 5 November 2026:** the current published release is 1.3.0 on main at `f9708eb`.
+**Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
+Start from merged main `8582a5b` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md)
+is the first subsequent implementation on `feature/p7-verifier-coverage`. All original acceptance gates remain
+required, including the five outstanding throughput targets. Earlier pause and bounded-stop instructions below
+are historical and no longer limit the active objective.
+
+**Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
 forward-entry evidence and the HTTP-URI probe qualification. Read [phase A](p7-phase-a.md) and

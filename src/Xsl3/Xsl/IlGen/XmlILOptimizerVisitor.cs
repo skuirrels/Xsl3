@@ -102,7 +102,7 @@ namespace Xsl3.IlGen
         /// <summary>
         /// Perform normalization and annotation.
         /// </summary>
-        public QilExpression Optimize()
+        public QilExpression Optimize(Streaming.StreamingExecutionCapture.Compilation? compilation = null)
         {
 #if DEBUG
             Streaming.StreamedQilVerifier? streamed = _qil.HasStreamedInputs ? Streaming.StreamedQilVerifier.Capture(_qil) : null;
@@ -114,7 +114,7 @@ namespace Xsl3.IlGen
                 TailCallAnalyzer.Analyze(qil);
 
 #if DEBUG
-            streamed?.Verify(qil);
+            streamed?.Verify(qil, compilation);
 #endif
             return qil;
         }

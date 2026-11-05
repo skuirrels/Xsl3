@@ -41,6 +41,72 @@ class RuntimeAuditTests(unittest.TestCase):
     def check(self):
         return AUDIT.audit(self.report, self.root, self.manifest, self.engine)[0]
 
+    def verifier_fixture(self):
+        self.rows[0].update(Configuration='Debug', CompilationsCaptured=True)
+        self.rows[1]['Compilation'] = dict(FormatVersion=1, Compilations=[dict(
+            Stage='Compilation', HasStreamedInputs=True, OptimizationCompleted=True,
+            VerifierStarted=1, VerifierCompleted=1)])
+        return self.rows[1]['Compilation']['Compilations'][0]
+
+    def check_verifier(self):
+        self.write()
+        return AUDIT.audit(self.report, self.root, self.manifest, self.engine, require_verifier=True)[0]['Verifier']
+
+    def test_verifier_counts_real_eligible_compilations_and_allows_pre_qil_errors(self):
+        self.verifier_fixture()
+        self.rows[1]['Compilation']['Compilations'].append(dict(Stage='Assertion', HasStreamedInputs=False,
+            OptimizationCompleted=True, VerifierStarted=0, VerifierCompleted=0))
+        result = self.check_verifier()
+        self.assertEqual((2, 1, 1), (result['Compilations'], result['Eligible'], result['Verified']))
+        cases = {'si-copy/good': self.rows[1], 'si-copy/static-error': dict(
+            Compilation=dict(FormatVersion=1, Compilations=[]))}
+        self.assertEqual(2, AUDIT.audit_verifier(self.rows[0], cases, True)['CapturedCases'])
+
+    def test_verifier_rejects_skipped_failed_duplicate_and_incomplete_checks(self):
+        entry = self.verifier_fixture()
+        original = copy.deepcopy(entry)
+        for changes in (dict(VerifierStarted=0, VerifierCompleted=0), dict(VerifierCompleted=0),
+                        dict(VerifierStarted=2, VerifierCompleted=2), dict(OptimizationCompleted=False),
+                        dict(HasStreamedInputs=False), dict(VerifierCompleted=True), dict(VerifierStarted=-1)):
+            with self.subTest(changes=changes):
+                entry.clear()
+                entry.update(original | changes)
+                with self.assertRaises(ValueError):
+                    self.check_verifier()
+
+    def test_verifier_rejects_missing_capture_release_and_empty_eligibility(self):
+        self.verifier_fixture()
+        original = copy.deepcopy(self.rows)
+        for kind in ('header', 'case', 'release', 'empty', 'version'):
+            with self.subTest(kind=kind):
+                self.rows = copy.deepcopy(original)
+                if kind == 'header':
+                    del self.rows[0]['CompilationsCaptured']
+                elif kind == 'case':
+                    del self.rows[1]['Compilation']
+                elif kind == 'release':
+                    self.rows[0]['Configuration'] = 'Release'
+                elif kind == 'empty':
+                    self.rows[1]['Compilation']['Compilations'] = []
+                else:
+                    self.rows[1]['Compilation']['FormatVersion'] = True
+                with self.assertRaises(ValueError):
+                    self.check_verifier()
+
+    def test_forward_execution_cannot_be_credited_to_assertion_compilation(self):
+        entry = self.verifier_fixture()
+        self.rows[1]['Forwarding'] = dict(Executions=[dict(Stage='Stylesheet', Sources=[dict(ActualForward=True)])])
+        entry['Stage'] = 'Assertion'
+        with self.assertRaisesRegex(ValueError, 'no compilation evidence'):
+            AUDIT.audit_verifier(self.rows[0], {'si-copy/example': self.rows[1]}, True)
+        self.rows[1]['Compilation']['Compilations'].append(dict(Stage='Compilation', HasStreamedInputs=False,
+            OptimizationCompleted=True, VerifierStarted=0, VerifierCompleted=0))
+        with self.assertRaisesRegex(ValueError, 'no eligible compilation'):
+            AUDIT.audit_verifier(self.rows[0], {'si-copy/example': self.rows[1]}, True)
+        entry['Stage'] = 'Stylesheet'  # Lazy compilation for a named initial mode.
+        result = AUDIT.audit_verifier(self.rows[0], {'si-copy/example': self.rows[1]}, True)
+        self.assertEqual(1, result['Verified'])
+
     def test_complete_inventory_is_not_full_streaming_acceptance(self):
         result = self.check()
         self.assertTrue(result['InventoryVerified'])

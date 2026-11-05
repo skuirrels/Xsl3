@@ -1,10 +1,11 @@
 # P7 completion
 
-**Current continuation, 5 November 2026:** the owner resumed bounded Phase A work after the 1.1.7
-stop. Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)
-continues entry and forward-execution evidence. Use [phase A](p7-phase-a.md) and its
-[review record](p7-forward-evidence-review.md) for current status. The earlier full-P7 goal stays
-incomplete, and the dated checkpoint statements below do not authorize open-ended optimization.
+**Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
+All original requirements and gates remain in force; the earlier stopping instructions below are historical.
+Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)
+merged entry and forward-execution evidence at `8582a5b`. The next implementation is
+[S3-25 verifier coverage](p7-verifier-coverage.md), followed by the remaining runtime evidence,
+throughput qualification and supported-streaming integration. No intermediate audit or release completes P7.
 
 The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review all changes,
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released

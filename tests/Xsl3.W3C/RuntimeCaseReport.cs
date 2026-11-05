@@ -41,6 +41,7 @@ internal sealed class RuntimeCaseReport : IDisposable
             {
                 Kind = "run", FormatVersion = 1, Profile = profile, Strict = strict,
                 ForwardingCaptured = captureSources,
+                CompilationsCaptured = captureSources,
                 EvaluationCaptured = captureEvaluation,
                 Api = Environment.GetEnvironmentVariable("XSL3_W3C_API") != "0",
                 SavedSampling = Environment.GetEnvironmentVariable("XSL3_W3C_SAVED"),
@@ -109,6 +110,7 @@ internal sealed class RuntimeCaseReport : IDisposable
             {
                 if (capture == null) throw new InvalidOperationException("A forwarding-enabled report requires a case capture");
                 payload["Forwarding"] = JsonSerializer.SerializeToNode(capture.Snapshot());
+                payload["Compilation"] = JsonSerializer.SerializeToNode(capture.SnapshotCompilations());
             }
             if (_captureEvaluation)
             {
