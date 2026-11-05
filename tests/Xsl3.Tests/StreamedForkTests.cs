@@ -522,7 +522,7 @@ public class StreamedForkTests
     }
 
     // P7 S6-08: prong results keep declaration order whatever the completion order. The first prong's
-    // closing message blocks until the second prong has finished, so the second always completes first.
+    // closing message joins the second worker, so callback scheduling cannot let the first finish first.
     [Theory]
     [InlineData(false)]
 #if NET9_0_OR_GREATER
@@ -550,15 +550,26 @@ public class StreamedForkTests
         for (int n = 1; n <= Rows; n++) xml.Append("<row n='").Append(n).Append("'/>");
         using var input = XmlReader.Create(new StringReader(xml.Append("</doc>").ToString()));
         using var secondDone = new ManualResetEventSlim();
+        Thread? secondWorker = null;
         var order = new ConcurrentQueue<string>();
         bool waited = false;
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var arguments = new XsltArgumentList { CancellationToken = cancellation.Token };
         arguments.XsltMessageEncountered += (_, e) =>
         {
-            if (e.Message == "first") waited = secondDone.Wait(TimeSpan.FromSeconds(10));
-            else secondDone.Set();
-            order.Enqueue(e.Message);
+            if (e.Message == "first")
+            {
+                waited = secondDone.Wait(TimeSpan.FromSeconds(10))
+                    && secondWorker!.Join(TimeSpan.FromSeconds(10));
+                order.Enqueue(e.Message);
+            }
+            else
+            {
+                Assert.Equal("second", e.Message);
+                secondWorker = Thread.CurrentThread;
+                order.Enqueue(e.Message);
+                secondDone.Set();
+            }
         };
         using var output = new StringWriter();
         transform.Transform(input, arguments, output);

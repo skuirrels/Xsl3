@@ -9,6 +9,13 @@ the prongs after it; earlier prongs finish", and S6-16/S6-17 are covered by
 S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25, S4-29, S4-30, S5-02, S5-14, S6-05, S6-08 and S6-10 gained the evidence listed under
 "Evidence added after the map" in the phase record. The rows below are unchanged.
 
+On 5 November 2026, S4-06, S4-11 and S4-27 gained the representation and validation controls in
+`StreamedForwardExecutionTests`; see [the bounded review record](p7-forward-evidence-review.md).
+The callback-order race in the S6-08 test was fixed and its first prong now joins the second worker.
+The additions strengthen specific properties; historical PARTIAL rows and counts are not an assertion
+that every current obligation has been closed. In particular, silent grounding within a forward run
+and retention/read-position limits stated in the phase record remain open.
+
 Sources: `docs/plan/p7-streaming.md` (Stages, Owner decisions, S3 to S6 progress), `docs/plan/p7-completion.md`
 (Requirements and evidence, rows S3 to S6), `docs/plan/p7-runtime-contracts.md`, `tests/Xsl3.Tests`, and the hosted
 main CI run 41351971235 (ubuntu) evidence bundle at

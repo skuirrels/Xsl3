@@ -1,5 +1,13 @@
 # P7 agent handoff after 1.1.7
 
+**Continuation, 5 November 2026:** the current published release is 1.3.0 on main at `f9708eb`.
+Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
+evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
+forward-entry evidence and the HTTP-URI probe qualification. Read [phase A](p7-phase-a.md) and
+[its review record](p7-forward-evidence-review.md) for current scope and remaining limitations.
+The 1.1.7 baseline and historical release evidence below remain available; the earlier pause no longer
+applies to this owner-authorized bounded continuation. Full P7 and supported streaming remain incomplete.
+
 Verified 1 November 2026. The owner requested a stopping point and release of completed work.
 The bounded runtime correctness and allocation checkpoint is closed and published as **1.1.7**.
 Further P7 implementation was paused here. On 1 November 2026 the owner resumed it in bounded phases:
@@ -105,7 +113,7 @@ Use checked-in tooling for new work, with fresh output directories and no compet
   The latter remains scheduled and its original acceptance may still fail. Its `source_ref` input
   selects diagnostic controls, not the ordinary acceptance checkout; inspect the workflow before dispatch.
 
-If the owner resumes implementation, first agree a bounded next phase and its completion criteria,
-then capture a fresh baseline on the intended immutable source. Do not restart open-ended optimization
+For work after the current bounded phase A follow-up, first agree the next phase and its completion
+criteria, then capture a fresh baseline on the intended immutable source. Do not restart open-ended optimization
 solely because older entries say the full goal is active. Do not restart a live measurement because
 an observation wait times out.

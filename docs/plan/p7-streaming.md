@@ -1,9 +1,10 @@
 # P7: streaming
 
-> **Current handoff, 2026-11-01:** the bounded [1.1.7 checkpoint](p7-runtime-checkpoint.md) is merged
-> and published. The owner stopped further optimization; full P7 is paused and streaming remains unsupported.
-> Read the [agent handoff](p7-handoff.md) before resuming. This file retains the original design and
-> acceptance targets; its older release boundaries and progress records do not override the current stop.
+> **Current handoff, 2026-11-05:** bounded work resumed after the published
+> [1.1.7 checkpoint](p7-runtime-checkpoint.md). The current release is 1.3.0; Phase A accounting and
+> extension review have shipped. See [phase A](p7-phase-a.md), the [current review](p7-forward-evidence-review.md)
+> and [handoff](p7-handoff.md). Full P7 remains incomplete and streaming remains unsupported.
+> This file retains the original design and acceptance targets; older progress entries are historical.
 
 > **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.

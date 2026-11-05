@@ -8,6 +8,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using System.Xml.Schema;
 using Xsl3.Streaming;
 using Xsl3.Xdm;
 using Xunit;
@@ -286,6 +287,143 @@ public class StreamedForwardExecutionTests
             Assert.Equal(forward, initial.ActualForward);
             Assert.Equal(forward, initial.NavigatorType == typeof(StreamedNavigator).FullName);
         }
+    }
+
+    // S4-06: a supplied XdmNode remains a tree even when forward execution is enabled. Check every
+    // destination and reuse the selection, so the representation assertion is accompanied by repeatability.
+    [Theory]
+    [InlineData("raw")]
+    [InlineData("stream")]
+    [InlineData("text")]
+    [InlineData("xml")]
+    public void XdmSelectionKeepsItsTreeRepresentationForEveryDestination(string destination)
+    {
+        var selection = XdmNode.Load(new StringReader(Input));
+        string sheet = Sheet("<xsl:template match='/'><xsl:value-of select='count(doc/record)'/></xsl:template>");
+        foreach (bool forward in new[] { false, true })
+        {
+            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward } }
+                .Compile(new StringReader(sheet)).CreateTransformer();
+            using var text = new StringWriter();
+            using var bytes = new MemoryStream();
+            using var xml = XmlWriter.Create(text, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment });
+            string? raw = null;
+            using var capture = new StreamingExecutionCapture();
+            using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+            {
+                switch (destination)
+                {
+                    case "raw": raw = transform.ApplyTemplates(selection).ToString(); break;
+                    case "stream": transform.ApplyTemplates(selection, bytes); break;
+                    case "text": transform.ApplyTemplates(selection, text); break;
+                    case "xml": transform.ApplyTemplates(selection, xml); break;
+                }
+            }
+            xml.Flush();
+            string actual = raw ?? (destination == "stream"
+                ? Encoding.UTF8.GetString(bytes.ToArray()).TrimStart('\uFEFF') : text.ToString());
+            Assert.Equal(Count.ToString(System.Globalization.CultureInfo.InvariantCulture), actual);
+            AssertRepresentation(capture, forward: false);
+            Assert.False(Assert.Single(capture.Snapshot().Executions).ForwardInput);
+        }
+    }
+
+    // S4-11: opting in cannot stream a 1.0 stylesheet, and opting out keeps a 3.0 stylesheet on a tree.
+    [Theory]
+    [InlineData("1.0", false, false)]
+    [InlineData("1.0", false, true)]
+    [InlineData("1.0", true, false)]
+    [InlineData("1.0", true, true)]
+    [InlineData("3.0", false, false)]
+    [InlineData("3.0", false, true)]
+    public void TreeEntryContractsKeepTheirActualRepresentation(string version, bool forward, bool legacy)
+    {
+        string sheet = Sheet("<xsl:template match='/'><xsl:value-of select='count(doc/record)'/></xsl:template>");
+        if (version == "1.0")
+            sheet = sheet.Replace("version=\"3.0\"", "version=\"1.0\"").Replace("<xsl:mode streamable=\"yes\"/>", "");
+        var settings = new XsltSettings { StreamedExecution = forward };
+        using var source = new CountingReader(Input);
+        using var reader = XmlReader.Create(source);
+        using var output = new EarlyWriter(source);
+        using var capture = new StreamingExecutionCapture();
+        using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+        {
+            if (legacy)
+            {
+                var transform = new XslCompiledTransform();
+                using var stylesheet = XmlReader.Create(new StringReader(sheet));
+                transform.Load(stylesheet, settings, null);
+                transform.Transform(reader, null, output);
+            }
+            else
+                new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet))
+                    .CreateTransformer().ApplyTemplates(reader, output);
+        }
+        Assert.Equal(Count.ToString(System.Globalization.CultureInfo.InvariantCulture), output.ToString());
+        AssertWrittenEarly(output.FirstWrite, Input.Length, forward: false);
+        AssertRepresentation(capture, forward: false);
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    // S4-27: validation supplies annotations and a typed default attribute before a record is consumed.
+    // Both public reader entry points must preserve those annotations while still producing early output.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ValidatedInitialReadersKeepAnnotationsAndForwardExecution(bool forward, bool legacy)
+    {
+        const string Schema = """
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <xs:element name="doc"><xs:complexType><xs:sequence>
+                <xs:element name="record" type="xs:integer" maxOccurs="unbounded"/>
+              </xs:sequence><xs:attribute name="version" type="xs:integer" default="7"/></xs:complexType></xs:element>
+            </xs:schema>
+            """;
+        var schemas = new XmlSchemaSet();
+        using (var schemaReader = XmlReader.Create(new StringReader(Schema))) schemas.Add(null, schemaReader);
+        string input = Records(Count, i => $"<record>{i}</record>");
+        string sheet = Sheet("<xsl:template match='record'><xsl:value-of "
+            + "select='. instance of element(*, xs:integer), "
+            + "../@version instance of attribute(*, xs:integer), ../@version'/>;</xsl:template>",
+            "<xsl:import-schema>" + Schema + "</xsl:import-schema>");
+        var settings = new XsltSettings { StreamedExecution = forward, SchemaAware = true };
+        using var source = new CountingReader(input);
+        using var reader = XmlReader.Create(source, new XmlReaderSettings { ValidationType = ValidationType.Schema, Schemas = schemas });
+        using var output = new EarlyWriter(source);
+        using var capture = new StreamingExecutionCapture();
+        using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+        {
+            if (legacy)
+            {
+                var transform = new XslCompiledTransform();
+                using var stylesheet = XmlReader.Create(new StringReader(sheet));
+                transform.Load(stylesheet, settings, null);
+                transform.Transform(reader, null, output);
+            }
+            else
+                new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet))
+                    .CreateTransformer().ApplyTemplates(reader, output);
+        }
+        string defaultVersion = schemas.GlobalElements[new XmlQualifiedName("doc")] is XmlSchemaElement element
+            && element.ElementSchemaType is XmlSchemaComplexType type
+            ? ((XmlSchemaAttribute)type.AttributeUses[new XmlQualifiedName("version")]!).DefaultValue!
+            : throw new InvalidOperationException("The validation fixture must supply the default attribute");
+        Assert.Equal(string.Concat(Enumerable.Repeat($"true true {defaultVersion};", Count)), output.ToString());
+        AssertWrittenEarly(output.FirstWrite, input.Length, forward);
+        AssertRepresentation(capture, forward);
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    private static void AssertRepresentation(StreamingExecutionCapture capture, bool forward)
+    {
+        var execution = Assert.Single(capture.Snapshot().Executions, e => e.Stage == "Stylesheet");
+        Assert.True(execution.BodyCompleted);
+        var source = Assert.Single(execution.Sources);
+        Assert.Equal("Opened", source.Status);
+        Assert.Equal(forward, source.ActualForward);
+        Assert.Equal(forward, source.NavigatorType == typeof(StreamedNavigator).FullName);
     }
 
     private sealed class CountingResolver(string xml) : XmlResolver

@@ -1,10 +1,11 @@
 # Remaining scope: everything after P5
 
-> **Current handoff, 2026-11-01:** the owner stopped full-P7 optimization at the bounded
-> [1.1.7 checkpoint](p7-runtime-checkpoint.md), now merged and published. Further P7 work is paused;
-> streaming remains unsupported and every original acceptance target is unchanged. Start with the
-> [agent handoff](p7-handoff.md) for the released baseline, verified CI, remaining work and evidence limits.
-> The older resumptions and progress records below are historical, not instructions to continue automatically.
+> **Current handoff, 2026-11-05:** the owner resumed bounded P7 work after the
+> [1.1.7 checkpoint](p7-runtime-checkpoint.md). Phase A accounting shipped in 1.2.0, and the extension
+> review and further evidence shipped in 1.3.0. The current bounded follow-up is
+> [PR #33](https://github.com/skuirrels/Xsl3/pull/33); see [phase A](p7-phase-a.md) and its
+> [review record](p7-forward-evidence-review.md). Streaming remains unsupported and the original
+> acceptance targets are unchanged. The older progress entries below are historical.
 
 > **P7H bounded implementation and local close-out complete:** the
 > [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original

@@ -109,7 +109,9 @@ Evidence added after the map, closing its "none" items:
   revisit a record; the tree control records a tree source and the same output.
 - S6-08 (4 November 2026): `StreamedForkTests.ALaterProngThatFinishesFirstStillFollowsTheEarlierOne` holds the first
   prong in its closing `xsl:message` until the second prong has finished, loaded and saved, with a buffer of one.
-  The second prong always completes first and the result still follows declaration order.
+  The first callback joins the second worker after observing its final message, so the second prong
+  always completes first and the result still follows declaration order. Recording the message before
+  signalling also prevents a scheduling race in the callback-order assertion.
 - S6-05 (4 November 2026): the hosted x64 push matrix passes all 16 budgets for the first time ([41905961247](https://github.com/skuirrels/Xsl3/actions/runs/41905961247)):
   fork peaks at 17,686,528 bytes, merge 16,785,408 and source-document 16,134,144, against 20,971,520. The
   nightly matrix on the same run also passes 16/16. The earlier excess (fork 22,671,360 bytes on the
@@ -121,6 +123,17 @@ Evidence added after the map, closing its "none" items:
   `http://stream-probe.test/` URIs, which `System.Uri` parses without loading ICU. Budgets, inputs, outputs and
   globalization are unchanged; `urn:` documents stay covered by `DocumentReferenceTests` and
   `EntityResourceTests`. A consumer that resolves `urn:` documents still loads ICU once per process.
+- S4-06 (5 November 2026): `StreamedForwardExecutionTests.XdmSelectionKeepsItsTreeRepresentationForEveryDestination`
+  reuses a supplied `XdmNode` through raw, stream, text and XML destinations with forward execution on and off.
+  All runs report an opened tree source and a non-forward input, with the same complete result.
+- S4-11 (5 November 2026): `TreeEntryContractsKeepTheirActualRepresentation` checks both public APIs:
+  a 1.0 stylesheet stays on a tree with the development switch on or off; a 3.0 streamable stylesheet stays
+  on a tree when the switch is off. Capture, late output and borrowed-reader ownership are asserted.
+- S4-27 (5 November 2026): `ValidatedInitialReadersKeepAnnotationsAndForwardExecution` supplies a validating
+  `XmlReader` through both public APIs, with forward execution on and off. Every one of 20,000 records keeps
+  its integer element annotation and its parent's typed, schema-defaulted attribute. Forward runs report a
+  `StreamedNavigator` and write before half the input is read; tree controls report a tree and write late.
+  This does not change the accepted import-catalogue dispositions of `streamable-021/042/043`.
 
 Most partial items check output equality where the obligation is about forward execution, read
 position or buffering. Both public API paths do assert streamed execution directly (writes before reader
@@ -176,26 +189,36 @@ The pinned suite is upstream's latest commit and has no upstream issues for any 
 5. The five remaining extensions (3 November 2026): keep them on by default, with
    `XsltSettings.StreamabilityExtensions` to turn them off. See [the extension review](p7-extension-review.md).
 
-The other five compiler extensions behind `AllowStreamabilityRewrites` (the `except` and dot forms, the
-descendant-to-child rewrite, scanning patterns, grounded `current-group()` and quantified bindings) are
-on in every mode and carry 101 W3C cases. They need the same conformance review before P7 can claim
-§19.10 compliance; that review is outside phase A.
+The five remaining compiler extensions were reviewed in [PR #30](https://github.com/skuirrels/Xsl3/pull/30)
+and released in 1.3.0 behind the owner-approved `StreamabilityExtensions` setting. The original concern
+about applying them without a user option is resolved; it is not a remaining phase A review task.
 
 ## Remaining phase A work
 
-Criteria 1, 2 and 4 are met on the local phase head, and criterion 3's map now has no "none" items.
-Local checks after the owner decisions: strict 2,696 / 16 / 0 with the inventory audit passing (sx-union-202
+The initial accounting and reassessment shipped in 1.2.0 through [PR #28](https://github.com/skuirrels/Xsl3/pull/28).
+Its [hosted CI](https://github.com/skuirrels/Xsl3/actions/runs/41415279933) passed. The subsequent extension
+review and optimizer/function evidence shipped in 1.3.0 through PRs #30–32. The bounded follow-up is
+[PR #33](https://github.com/skuirrels/Xsl3/pull/33); its [checks](https://github.com/skuirrels/Xsl3/pull/33/checks)
+exercise the new entry and fork tests. See the [review record](p7-forward-evidence-review.md) for its exact
+scope, independently checked memory/throughput evidence and validation limits.
+
+Recorded checks after the original owner decisions: strict 2,696 / 16 / 0 with the inventory audit passing (sx-union-202
 now passes, sx-union-315 now fails), stage exits with every non-passing case accounted for and both S5
 named cases met by acceptance, S2 raw 154 / 1 and reviewed 155 / 0 (153 exact codes, 2 allowed results),
 all 97 W3C tests and the Python tooling tests. The union change touches the analyser, so the unit suites
-were rerun (results in the pull request). Hosted CI on the pushed phase head is still required (criterion 5).
+were rerun (results in the pull request). These are historical results for that phase head; new changes
+still require CI on their own reviewed source.
 
 Next:
 
 - Strengthen the partial items that check output equality where the obligation is about forward
-  execution, read position or buffering. S3-17, S3-18, S3-27, S4-04, S4-05, S4-18, S4-21, S4-22, S4-24, S4-25,
-  S4-29, S4-30, S5-02, S5-14, S6-05, S6-08 and S6-10 are done (see "Evidence added after the map"); the other partial items in
-  [the evidence map](p7-phase-a-evidence-map.md) remain.
+  execution, read position or buffering. The additions above strengthen S3-17, S3-18, S3-27, S4-04, S4-05,
+  S4-06, S4-11, S4-18, S4-21, S4-22, S4-24, S4-25, S4-27, S4-29, S4-30, S5-02, S5-14, S6-05, S6-08 and S6-10.
+  Preserve the stated limits: S3-27 still cannot detect grounding inside an otherwise forward run, and S5-14's
+  new early-output check covers complete group consumption, not read-position evidence for every truncated
+  or unused-member path. Other partial items include S3-04 (byte bounds), S3-25 (per-case verifier execution)
+  and S6-11/12 (grouping/sorting retention in fork). The original [evidence map](p7-phase-a-evidence-map.md)
+  remains a baseline record, not a current completion count.
 - Review the other five `AllowStreamabilityRewrites` extensions against §19.10: done, see
   [the extension review](p7-extension-review.md). All five are extensions that 101 W3C cases depend on;
   they stay on by default behind `XsltSettings.StreamabilityExtensions` (owner decision 5).
