@@ -41,6 +41,9 @@ jobs:
       - name: Debug compiler source-line contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --filter "FullyQualifiedName~BareVariableSequencesKeepIdentity|FullyQualifiedName~DebugSourceLineTests" --logger trx --results-directory artifacts/test-results/debug-source-lines
 
+      - name: Debug fork grouping and sorting retention contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedForkGroupRetentionTests" --logger trx --results-directory artifacts/test-results/debug-fork-groups
+
       # Functional probe checks only. The approved absolute RSS gates remain separate and unmet.
       - name: Streaming process probe smoke
         if: matrix.os == 'ubuntu-latest'
