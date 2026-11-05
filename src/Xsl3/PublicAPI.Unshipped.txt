@@ -1,1 +1,6 @@
 #nullable enable
+Xsl3.Runtime.SimpleContentWriter
+Xsl3.Runtime.SimpleContentWriter.Accept(System.Xml.XPath.XPathItem! item) -> void
+Xsl3.Runtime.SimpleContentWriter.Create(string! separator, Xsl3.Runtime.XmlQueryOutput! output, bool raw) -> void
+Xsl3.Runtime.SimpleContentWriter.End() -> void
+Xsl3.Runtime.SimpleContentWriter.SimpleContentWriter() -> void

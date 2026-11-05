@@ -14,6 +14,33 @@ controls passed; its own hosted CI is still required. No runtime optimization ha
 three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and
 fork-retention evidence.
 
+**Throughput investigation:** the [tee reclamation control](p7-tee-reclamation-experiment.md) at `ce42373`
+is rejected and remains only on `feature/p7-tee-reclamation`: all 693 affected Release checks passed after
+a wake-ordering correction, but twelve valid paired local observations showed only 0.55% improvement
+with overlapping ranges. Do not merge that branch. `feature/p7-producer-allocation` starts again from
+validated contract head `78815e8`. Fresh
+[allocation evidence and the candidate boundary](p7-producer-allocation.md) identify producer `Node`
+frames as 12.84 GB of sampled allocations. An isolated compact producer is now under qualification;
+its runtime changes have not yet passed the original hosted acceptance gates or been adopted into main.
+Both producer variants pass the affected contracts, and the first removes producer `Node` allocation
+ticks, but twelve paired observations per variant show no conclusive throughput benefit. The direct
+metadata variant passes 1,588 affected Release/Debug checks. Keep both controls unadopted; next profile
+consumer-frame and per-item output costs rather than claiming allocation reduction closes performance.
+[PR #34](https://github.com/skuirrels/Xsl3/pull/34) passed all four required jobs in run `42094356435`
+and merged at `66e078d`. [PR #35](https://github.com/skuirrels/Xsl3/pull/35) is retargeted to main;
+it passed all four jobs in run `42095292062` and merged at `9a75be4`.
+[PR #36](https://github.com/skuirrels/Xsl3/pull/36) passed all four jobs in run `42096941959`
+and merged at `a5e89ac`. All three contract increments are merged; full P7 remains incomplete.
+
+**Next isolated runtime control:** [simple-content value state](p7-simple-content-state.md) is on
+`feature/p7-simple-content-value-state`, based on `78815e8` and excluding both unaccepted producer
+variants. It removes the per-constructor heap wrapper from newly generated IL while keeping the old
+saved-style runtime API and a shared state machine. All 1,346 affected Release/Debug checks and all
+36 paired output observations passed, but the elapsed-time benefit remains inconclusive. It is not
+promoted to a PR. The producer controls remain preserved on their own branch. Next obtain Linux
+kernel CPU samples: the old sampled-thread-time trace classifies waits and GC polling as `Managed`,
+so filtering that label does not establish CPU cost. Original acceptance gates remain unchanged.
+
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
