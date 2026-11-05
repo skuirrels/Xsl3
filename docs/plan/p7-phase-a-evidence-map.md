@@ -1,5 +1,12 @@
 # P7 S3 to S6 acceptance-evidence map (released commit b0bf3bb)
 
+**5 November S3-27 addition:** [hidden-grounding contracts](p7-hidden-grounding-contracts.md)
+exercise a real helper that grounds the whole input after forward entry. The measured managed-byte
+violation rejects this control although its output, engine source record and Debug verifier pass.
+The original and transparent-helper controls remain bounded. The historical row below is preserved;
+this adds the missing injected internal-grounding control, not universal per-path memory qualification.
+
+
 **5 November continuation:** [S3-25 verifier coverage](p7-verifier-coverage.md) adds actual per-compilation
 Debug evidence and required audit checks. All 4,968 eligible compilations in the local full strict inventory
 were verified; hosted CI is pending. The historical S3-25 row below is preserved as the original gap record.

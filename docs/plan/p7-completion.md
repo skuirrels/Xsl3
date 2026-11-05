@@ -1,5 +1,12 @@
 # P7 completion
 
+**5 November hidden-grounding follow-up:** [S3-27 contracts](p7-hidden-grounding-contracts.md)
+now demonstrate a measured budget failure for a real grounding helper inside an otherwise forward
+execution. Correct output, actual forward entry and the Debug graph verifier all pass that negative
+control, so none is mistaken for a memory proof. All 32 new local cases and 30 related Debug checks
+pass; hosted CI remains required. Runtime and benchmark source are unchanged from merged `a5e89ac`.
+
+
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 All original requirements and gates remain in force; the earlier stopping instructions below are historical.
 Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)

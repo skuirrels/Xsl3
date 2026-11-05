@@ -1,5 +1,19 @@
 # P7 agent handoff after 1.1.7
 
+**Current test-only follow-up:** `feature/p7-hidden-grounding-contracts` starts from merged main
+`a5e89ac`. [S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md) pass 32 new local
+Release/Debug cases and 30 related Debug verifier checks. Hosted CI is next. The tests reject an
+actual whole-input grounding helper even when correct output and genuine forward-entry evidence pass.
+Runtime and benchmark source are unchanged.
+
+The separate [PR #37](https://github.com/skuirrels/Xsl3/pull/37) carries S6-11/12 fork payload-retention
+contracts. At this update its NativeAOT and ordinary performance jobs passed; Linux and Windows CI
+are still running. The larger-buffer candidate `aebb3a2` remains unaccepted: original acceptance run
+[42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048) fails fork push memory
+(22,941,696 versus 20,971,520 bytes, all outputs correct); nightly and throughput remain running.
+Do not adopt that default as-is. Diagnostic history is on `feature/p7-fork-buffer-policy` at `42d2329`.
+
+
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 Start from merged main `8582a5b` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md)
 is the first subsequent implementation on `feature/p7-verifier-coverage` ([PR #34](https://github.com/skuirrels/Xsl3/pull/34)).

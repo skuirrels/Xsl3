@@ -1,5 +1,12 @@
 # P7 phase A: baseline and S3–S6 acceptance accounting
 
+**5 November S3-27 follow-up:** [hidden-grounding contracts](p7-hidden-grounding-contracts.md)
+add a real whole-input grounding negative control behind a captured forward source. The independent
+managed-byte check rejects it while output and the Debug optimizer verifier still pass. The earlier
+entry-only limitation below remains a limitation of forwarding metadata itself. The original final-source
+memory matrices and remaining full-P7 gates are still required.
+
+
 The owner resumed P7 on 1 November 2026 with a bounded plan: capture a fresh baseline of the released
 1.1.7 code, then do phase A, the S3–S6 acceptance accounting and the reassessment of the strict
 runtime failures. Memory, throughput and the public streaming claim are later phases (B, C and D in
