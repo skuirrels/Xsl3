@@ -16,6 +16,7 @@ namespace Xsl3.Streaming;
 internal sealed class StreamTee<T> : IDisposable where T : class
 {
     private readonly object _gate = new();
+    private readonly object _reclaimGate = new();
     private readonly Func<Memory<T?>, Batch> _readSource;
     private readonly ForkCaller? _productionCaller;
     private readonly T?[] _staging;
@@ -26,9 +27,9 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly int _slotMask;
     private readonly long[] _positions;
     private readonly Reader[] _readers;
-    private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread;
+    private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread, _productionRequested;
     private long _first, _next, _publicationVersion;
-    private bool _producing, _productionRequested, _complete;
+    private bool _producing, _complete;
     private volatile bool _disposed;
     private ExceptionDispatchInfo? _fault;
 
@@ -74,8 +75,10 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int Slot(long position) => _slotMask >= 0 ? (int)position & _slotMask : (int)(position % _events.Length);
 
+    private long First => Volatile.Read(ref _first);
+
     internal Reader GetReader(int index) => _readers[index];
-    internal int BufferedCount { get { lock (_gate) return (int)(_next - _first); } }
+    internal int BufferedCount { get { lock (_gate) return (int)(_next - First); } }
     internal int HighWaterMark { get { lock (_gate) return _highWaterMark; } }
     internal int WaitingReaders { get { lock (_gate) return _waiting; } }
     internal int ActiveReaders => Volatile.Read(ref _active);
@@ -110,7 +113,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             if (result != null && Interlocked.CompareExchange(ref _positions[reader], position + 1, position) == position)
             {
                 if (Interlocked.Decrement(ref _remaining[slot]) == 0)
-                    lock (_gate) ReleaseHead();
+                    ReleaseHead();
                 item = result;
                 return true;
             }
@@ -162,7 +165,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         bool released = false;
         for (long position = start; position < end; position++)
             if (Interlocked.Decrement(ref _remaining[Slot(position)]) == 0) released = true;
-        if (released) lock (_gate) ReleaseHead();
+        if (released) ReleaseHead();
         return true;
     }
 
@@ -210,20 +213,20 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                     throw new InvalidOperationException("A stream tee source cannot recursively request its own input");
                 if (_productionCaller != null && !_productionCaller.IsCurrentThread)
                 {
-                    if (!_productionRequested)
+                    if (_productionRequested == 0)
                     {
-                        _productionRequested = true;
+                        Interlocked.Exchange(ref _productionRequested, 1);
                         NotifyProduction();
                     }
                     WaitForPublication(reader);
                     continue;
                 }
-                if (_producing || _next - _first == _events.Length)
+                if (_producing || _next - First == _events.Length)
                 {
                     WaitForPublication(reader, waitingForSpace: !_producing);
                     continue;
                 }
-                available = _events.Length - (int)(_next - _first);
+                available = _events.Length - (int)(_next - First);
                 _producing = true;
                 _producerThread = Environment.CurrentManagedThreadId;
             }
@@ -235,9 +238,13 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private void WaitForPublication(int reader, bool waitingForSpace = false)
     {
         _waiting++;
-        if (waitingForSpace) _waitingForSpace++;
+        if (waitingForSpace) Interlocked.Increment(ref _waitingForSpace);
         try
         {
+            // Reclamation can now run without the publication monitor. Register first,
+            // then recheck space: a concurrent reclaimer either sees this waiter and
+            // pulses under the monitor, or its released prefix is already visible here.
+            if (waitingForSpace && !_producing && _next - First < _events.Length) return;
             // Only spend a bounded optimistic wait when caller plus prongs fit the
             // effective processor allowance. Oversubscribed forks retain parking.
             if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length))
@@ -256,14 +263,14 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                 // the monitor is released. Recheck before parking to retain its pulse.
                 if (_publicationVersion != publication || _complete || _fault != null || _disposed || _cancellation.IsCancellationRequested
                     || _positions[reader] < 0 || _positions[reader] < _next
-                    || waitingForSpace && !_producing && _next - _first < _events.Length) return;
+                    || waitingForSpace && !_producing && _next - First < _events.Length) return;
             }
             Monitor.Wait(_gate);
         }
         finally
         {
             _waiting--;
-            if (waitingForSpace) _waitingForSpace--;
+            if (waitingForSpace) Interlocked.Decrement(ref _waitingForSpace);
         }
     }
 
@@ -276,9 +283,9 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         int available;
         lock (_gate)
         {
-            if (!_productionRequested || _producing || _complete || _disposed || _active == 0
-                || _cancellation.IsCancellationRequested || _next - _first == _events.Length) return false;
-            available = _events.Length - (int)(_next - _first);
+            if (_productionRequested == 0 || _producing || _complete || _disposed || _active == 0
+                || _cancellation.IsCancellationRequested || _next - First == _events.Length) return false;
+            available = _events.Length - (int)(_next - First);
             _producing = true;
             _producerThread = Environment.CurrentManagedThreadId;
         }
@@ -289,7 +296,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     // Only the pump's own synchronization signal runs here, never I/O or a prong callback.
     private void NotifyProduction()
     {
-        if (_productionRequested && !_producing && _next - _first < _events.Length)
+        if (_productionRequested != 0 && !_producing && _next - First < _events.Length)
             _productionCaller?.NotifyProduction();
     }
 
@@ -314,7 +321,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             lock (_gate)
             {
                 _producing = false;
-                _productionRequested = false;
+                Volatile.Write(ref _productionRequested, 0);
                 _producerThread = 0;
                 if (!_disposed)
                 {
@@ -330,9 +337,11 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                             _remaining[slot] = _active;
                             next++;
                         }
+                        // Account before publication lets concurrent consumers reclaim the
+                        // newly published batch. This is a conservative capacity high-water mark.
+                        _highWaterMark = Math.Max(_highWaterMark, (int)(next - First));
                         // Release publication follows initialization of every payload/count.
                         Volatile.Write(ref _next, next);
-                        _highWaterMark = Math.Max(_highWaterMark, (int)(_next - _first));
                         _fault = batch.Fault;
                         _complete = batch.Complete || batch.Fault != null;
                     }
@@ -348,21 +357,35 @@ internal sealed class StreamTee<T> : IDisposable where T : class
 
     private void ReleaseHead()
     {
-        bool wasFull = _next - _first == _events.Length;
-        long first = _first;
-        while (_first < _next)
+        // Keep slot clearing before release-publication of First. The producer may
+        // reuse a cleared slot only after observing that new prefix. This monitor is
+        // never held while acquiring _gate, so detachment/disposal keep one lock order.
+        lock (_reclaimGate)
         {
-            int slot = Slot(_first);
-            if (Volatile.Read(ref _remaining[slot]) != 0) break;
-            _events[slot] = null;
-            _first++;
+            if (_disposed) return;
+            long first = _first, next = Volatile.Read(ref _next), reclaimed = first;
+            while (reclaimed < next)
+            {
+                int slot = Slot(reclaimed);
+                if (Volatile.Read(ref _remaining[slot]) != 0) break;
+                _events[slot] = null;
+                reclaimed++;
+            }
+            if (reclaimed == first) return;
+            // Full fence pairs with waiter/demand registration before either side
+            // rechecks the other state; acquire/release alone permits a lost wake.
+            Interlocked.Exchange(ref _first, reclaimed);
         }
-        if (first != _first)
+        // Most consumed events need no producer wake. Registering space waiters and
+        // demand before rechecking availability prevents a release from losing a wake.
+        if (Volatile.Read(ref _waitingForSpace) != 0
+            || Volatile.Read(ref _productionRequested) != 0 && !Volatile.Read(ref _producing))
         {
-            // Only freeing the first slot of a full ring makes a parked producer
-            // newly eligible. Readers awaiting publication need no consumption pulses.
-            if (wasFull) NotifyProduction();
-            if (_waitingForSpace != 0) Monitor.PulseAll(_gate);
+            lock (_gate)
+            {
+                NotifyProduction();
+                if (_waitingForSpace != 0) Monitor.PulseAll(_gate);
+            }
         }
     }
 
@@ -386,9 +409,12 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             if (_disposed) return;
             _disposed = true;
             Array.Fill(_positions, -1);
-            Array.Clear(_events);
-            Array.Clear(_remaining);
-            _first = _next;
+            lock (_reclaimGate)
+            {
+                Array.Clear(_events);
+                Array.Clear(_remaining);
+                Volatile.Write(ref _first, _next);
+            }
             Volatile.Write(ref _active, 0);
             Monitor.PulseAll(_gate);
         }
