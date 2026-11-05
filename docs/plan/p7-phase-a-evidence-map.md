@@ -1,9 +1,15 @@
 # P7 S3 to S6 acceptance-evidence map (released commit b0bf3bb)
 
+**5 November S3-27 addition:** [hidden-grounding contracts](p7-hidden-grounding-contracts.md)
+exercise a real helper that grounds the whole input after forward entry. The measured managed-byte
+violation rejects this control although its output, engine source record and Debug verifier pass.
+The original and transparent-helper controls remain bounded. The historical row below is preserved;
+this adds the missing injected internal-grounding control, not universal per-path memory qualification.
+
 **5 November S6 follow-up:** [fork grouping/sorting retention contracts](p7-fork-group-retention.md)
 now directly observe complete-population source payload retention, sorted member output and release
 through both APIs and saved loading. Rolling-adjacent and deliberately retained controls distinguish
-the measured behaviors. All 260 local Release/Debug checks pass; hosted CI is pending. This closes
+the measured behaviors. All 260 local Release/Debug checks and all four hosted CI jobs passed; PR #37 merged at `f453216`. This closes
 the payload-observation gap stated in the historical S6-11/12 rows, not the separate full-P7 gates.
 
 

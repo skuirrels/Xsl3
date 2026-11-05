@@ -16,7 +16,9 @@ independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput
 all 126 observations validate, with 409 tracked PDB source hashes matching, but only 3/7 targets pass.
 Stream/tree medians at 100 MB are identity 1.064619, adjacent 0.745620, accumulator 0.861578,
 iterate 0.798460, merge 1.052924, fork 1.447580 and source-document 1.066196. Do not infer a
-before/after effect from separate hosts; a paired corrected-discard comparison is the next check.
+before/after effect from separate hosts. The 60-observation paired Linux comparison is running at
+[42131056101](https://github.com/skuirrels/Xsl3/actions/runs/42131056101), candidate `9fbd8e1`
+(runtime identical to `a8d322a`) versus `deed3c1`, including merge and four other workloads.
 The linked ancestor-stack control `7b24202` is rejected after the paired Linux diagnostic
 [42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005): all 48 outputs and 409 source
 hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
@@ -35,16 +37,21 @@ files is claimed. Evidence and executable audit: `/private/tmp/xsl3-p7-fork-cpu-
 
 PR #38 is merged as `8bdec4c` after all four jobs passed at its unchanged `7ea0190` head in
 [42123616078](https://github.com/skuirrels/Xsl3/actions/runs/42123616078), with no open review threads.
-The public-selection branch still needs reconciliation with that test-only increment.
+The public-selection branch now incorporates that test-only increment. Both dedicated Debug CI steps
+and both contract suites are preserved; validation of the combined source is next.
 
-**Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
-The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug
-checks; hosted CI is next. Runtime and benchmark source are unchanged. The independent larger-buffer
-candidate is `aebb3a2` on `feature/p7-fork-capacity-qualification`; its original acceptance run
-[42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048) fails push memory on fork
-(22,941,696 versus 20,971,520 bytes, all outputs correct), while nightly and throughput are still running.
-Do not adopt that default as-is. The source-dispatch control `3793df5` is also rejected. Diagnostic
-history is preserved on `feature/p7-fork-buffer-policy` at `42d2329`; it is not part of this test-only branch.
+**Merged contract increments:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
+jobs in [42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged as `f453216`.
+Its [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) and PR #38's
+[S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md) are both on main.
+
+Separate runtime candidates remain unaccepted. The 256-event `deed3c1` passes both memory matrices
+and four throughput targets; identity, fork and source-document fail. The 4,096-event `aebb3a2`
+also passes four throughput targets but fails push memory at 22,941,696 bytes against 20,971,520.
+The initial discard `fb6d4cd` failed source-position contracts and its qualification was cancelled;
+corrected `a8d322a` passes all 5,536 affected Release/Debug checks, with hosted results above.
+The source-dispatch control `3793df5` remains rejected. No performance control is part of PR #39.
+
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
