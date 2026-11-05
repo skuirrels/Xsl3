@@ -324,6 +324,7 @@ public sealed partial class XsltLibrary
         private IList<XPathItem>? _items;
         private readonly StreamedDocument _document;
         private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
+        private readonly State[] _visitStates;
         // Frame-owned values are ordinary short-lived objects, not dependent handles in a
         // document-wide weak table. Replay/copy provenance still determines their lifetime.
         // The token also prevents a foreign source frame from supplying another observer's values.
@@ -346,6 +347,10 @@ public sealed partial class XsltLibrary
                         { Name = new QName(StreamedDocument.ErrorNamespace, "streaming-unimplemented") };
                 _states.Add(name, new(name, info));
             }
+            // Applicability is fixed for this observer. Capture the same traversal order
+            // once instead of enumerating the lookup dictionary at every node boundary.
+            _visitStates = new State[_states.Count];
+            _states.Values.CopyTo(_visitStates, 0);
         }
 
         private Phase Values(StreamedDocument.Node node, string name)
@@ -445,7 +450,7 @@ public sealed partial class XsltLibrary
 
         private void Visit(StreamedDocument.Node node, bool end)
         {
-            foreach (State state in _states.Values)
+            foreach (State state in _visitStates)
             {
                 if (state.Fault != null) continue;
                 try
