@@ -106,3 +106,48 @@ candidate default or acceptance limits. Diagnostic run `42123951259` was cancell
 SHA was mistyped; it supplies no measurement evidence.
 
 Full Phase 7, the supported-streaming claim and release remain incomplete.
+
+## Audited corrected push memory
+
+[Run 42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563), immutable source
+`a8d322ac6bfd094c65a61477a519d0a426059c77`, passes all **16 original push budgets and 48 outputs**.
+Every measured input is exactly 209,715,200 bytes with the actual 20,971,520-byte managed guard.
+Every child is NativeAOT; both external whole-lifetime `wait4` and internal `getrusage` peaks are
+retained and their maximum checked without subtraction. The largest peak is **17,453,056 bytes**
+(fork). Original controller validation, raw stdout comparisons and baseline output equivalence pass.
+
+Artifact `13459529058` (`streaming-memory-push`, expires 3 February 2027) has SHA-256
+`8b6fd3d0c29782da952955ed4344d61f16411ccc29aeff0d62b2c17eebbe075f`, independently verified on
+the downloaded ZIP as well as reported by GitHub. Report SHA-256:
+`ba38299832fd2f39591c2ffc89ae251cff4bcf23a9d598fc3373c04a76145edf`.
+All 409 tracked library PDB document hashes match the exact tested source; three generated documents
+are excluded from Git comparison. Raw artifacts, executable memory audit and source results are in
+`/private/tmp/xsl3-p7-projection-discard-corrected-20261105/{hosted-push,audit-push.py,push-review.json,push-source-review.json}`.
+Nightly memory and original throughput remain pending; this is not full qualification.
+
+## Corrected runtime with explicit capacities
+
+[Run 42124002254](https://github.com/skuirrels/Xsl3/actions/runs/42124002254) completes 24 valid
+100 MB observations through the public compiler setting on the same immutable runtime. Source and
+consumer hashes match their manifests; every child uses four effective CPUs, disabled tiering and
+the actual 4 GiB managed guard. All independent outputs match and every configured capacity is
+reported by the child. Medians are milliseconds:
+
+| Capacity | Tree | Streaming | Stream/tree | First output input bytes |
+|---:|---:|---:|---:|---:|
+| 64 | 3434.313 | 5194.028 | 1.512392 | 36,864 |
+| 256 | 3497.644 | 4427.704 | 1.265910 | 36,864 |
+| 1,024 | 3423.699 | 4420.987 | 1.291289 | 40,960 |
+| 4,096 | 3435.227 | 3858.637 | 1.123255 | 40,960 |
+
+None meets the throughput target in this diagnostic. The 1,024-event samples overlap 256 and have
+virtually the same median, so they do not justify another default change. The 4,096-event median is
+lower but still fails; its original tighter memory failure remains relevant until any new source is
+separately qualified. The current candidate default remains 256.
+
+Artifact `13459997700` (expires 3 February 2027) has GitHub archive digest
+`53dfbaf19cd30ef06f5905ee2d45661d2c02c17d56408c61a1704b1cf5d29692`.
+Retained engine SHA-256: `48104685f3530ed28ba5f66304e410221e39e1d27019de5ebeecf7a8aba923ea`.
+Evidence and raw reports are under `/private/tmp/xsl3-p7-discard-capacity-20261105/`; `review.json`
+retains all observations, medians and first-output positions. This public-setting diagnostic does not
+replace the original seven-workload gate or qualify a new capacity.

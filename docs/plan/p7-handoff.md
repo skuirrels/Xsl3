@@ -22,8 +22,13 @@ contracts caught this. Its hosted run `42122349414` was cancelled. A correction 
 numbering without constructing excluded frames; all 5,536 affected Release/Debug checks pass, including
 the unchanged failing contracts and eight new entity/whitespace cases. Renewed paired timing validates all 48 observations and retains a 10.2% fork improvement. Original
 hosted qualification [42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563) is active
-on corrected source `a8d322a`; the independent public-capacity diagnostic is `42124002254`.
-Neither local timing nor these pending runs establish full qualification. Preserve the original
+on corrected source `a8d322a`: push memory is independently audited at 16/16 budgets and 48 outputs,
+maximum 17,453,056 bytes. Nightly and throughput remain running. Public-capacity diagnostic `42124002254`
+finishes with all 24 outputs valid but all four stream/tree ratios still above one; 1,024 does not
+establish an improvement over 256, so no additional default change is proposed. The supplemental
+framework-symbol profile `42124527290` runs from `feature/p7-framework-cpu-symbols`; it changes only
+the diagnostic child's framework compilation policy and cannot supply acceptance timings.
+Neither local timing nor the pending original runs establish full qualification. Preserve the original
 input, RSS, heap, throughput, demand, first-output and both-API requirements. Full P7 remains active.
 
 
