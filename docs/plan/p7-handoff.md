@@ -38,7 +38,10 @@ files is claimed. Evidence and executable audit: `/private/tmp/xsl3-p7-fork-cpu-
 PR #38 is merged as `8bdec4c` after all four jobs passed at its unchanged `7ea0190` head in
 [42123616078](https://github.com/skuirrels/Xsl3/actions/runs/42123616078), with no open review threads.
 The public-selection branch now incorporates that test-only increment. Both dedicated Debug CI steps
-and both contract suites are preserved; validation of the combined source is next.
+and both contract suites are preserved. Combined head `9f0fed3` passes all 1,318 selected Release/Debug
+checks across .NET 8/10, including every hidden-grounding, fork-retention and optimizer/verifier case.
+The preceding `c889023` CI is being allowed to finish before pushing the reconciled head; a new push
+would otherwise cancel its live compatibility jobs. The combined head still requires its own CI.
 
 **Merged contract increments:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
 jobs in [42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged as `f453216`.

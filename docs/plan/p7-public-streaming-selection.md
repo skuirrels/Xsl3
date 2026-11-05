@@ -56,3 +56,17 @@ the original streaming memory or throughput requirements.
 Evidence is retained under
 `/private/tmp/xsl3-p7-public-selection-20261105/`, including source/binary hashes, negative TRX, logs,
 `audit-full.py` and `full-review.json`. No final-source qualification, merge or release readiness is claimed.
+
+## Integration with merged grounding contracts
+
+The branch incorporates main `8bdec4c` (merged PR #38) at `9f0fed3`. The handoff conflict is reconciled
+without changing runtime or contract source: runtime C# matches the full-tested `c889023`; the
+grounding and fork-retention suites, probe entrypoint and CI workflow match main exactly. Both
+dedicated Debug contract steps remain.
+
+The combined selected suites pass **357 .NET 10 /302 .NET 8** in each of Release and Debug:
+**1,318 checks**, zero failures or skips. The TRX audit confirms all eight hidden-grounding cases
+per configuration/framework, all 77/53 fork-retention cases, both optimizer-policy cases and all
+13 verifier cases, alongside the public selection/declaration/read-boundary population. Evidence:
+`/private/tmp/xsl3-p7-public-selection-20261105/reconciled/`. Hosted CI on this combined head is still
+required; the preceding `c889023` run is allowed to finish before the next push supersedes it.
