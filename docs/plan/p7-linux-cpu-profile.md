@@ -18,6 +18,9 @@ the diagnostic visibly; it does not silently substitute sampled-thread-time.
 Dispatch `streaming-development.yml` at `feature/p7-linux-cpu-profile` with `cpu_profile=true`,
 `memory_diagnosis=false`, `allocation_comparison=false`, and
 `source_ref=a5e89ac7f6fb630e47872a2bcc297cb010ad36f6`.
+The `cpu_workload` choice defaults to `fork` and can select any of the seven canonical workloads.
+Each run still profiles exactly one child. Identity and accumulator can therefore be investigated
+independently of fork scheduling, with their original input and output validation.
 
 The new job builds that immutable source and profiles only its own canonical 1 GB fork streaming
 child. Collection is limited to that PID and 30 seconds; child/collector timeouts are bounded.

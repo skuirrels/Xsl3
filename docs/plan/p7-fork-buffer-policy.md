@@ -3,7 +3,7 @@
 Source production remains demand-driven. The earlier [speculative overlap control](p7-fork-production-overlap.md)
 is rejected despite its local elapsed gain: it performs source I/O without a new prong request. The new
 three-capacity no-read-ahead regression passes on the unchanged runtime in both .NET 8 and .NET 10,
-and fails all three cases on the rejected control.
+in Release and Debug (12 checks), and fails all three cases on the rejected control.
 
 This investigation varies the existing public `XsltSettings.StreamingBufferCapacity` through a diagnostic
 consumer. It does not alter the runtime, shipped default (64), canonical stylesheets, generated input or
