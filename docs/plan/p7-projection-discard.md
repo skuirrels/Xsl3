@@ -84,9 +84,110 @@ source-document, namespace, schema-header, disposal, copied-attribute identity a
 selected by the retained validation script. The initial broad run's other 8,534 checks remain retained;
 its six failures are not relabelled as passes. Full final-source CI remains required.
 
-Fresh paired timing is running from frozen corrected binaries and controllers in
+Fresh paired timing completed with 48 valid observations from frozen corrected binaries and controllers in
 `/private/tmp/xsl3-p7-projection-discard-corrected-20261105/`. The corrected engine SHA-256 is
 `91f491ffa4676894b2adba8d3932dd4b0047df0d8fe3471dfe18e4d562eb2226`.
 The first candidate's 12.7% result does not qualify this correction.
 
+The corrected fork streaming median falls from 1,694.259208 to 1,520.876458 ms (**10.234% lower**).
+All three candidate samples (1,505.436917 / 1,520.876458 / 1,540.604208 ms) are below all three baseline
+samples (1,691.553709 / 1,694.259208 / 1,726.833709 ms). First output is unchanged at 36,864 input bytes.
+The fork stream/tree ratio is 0.954547 in this local cohort. Identity, accumulator and source-document
+candidate/baseline streaming ratios are 1.001898 / 1.000816 / 0.999673, with overlapping ranges.
+All independent outputs, original measurement validation, actual 4 GiB guards, four effective CPUs,
+raw stdout comparisons and frozen hashes pass. Local timings do not establish hosted acceptance.
+
+Corrected source `a8d322ac6bfd094c65a61477a519d0a426059c77` is under fresh original qualification in
+[run 42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563): both full memory matrices
+and all 126 throughput observations. Results remain pending. A separate existing public-setting
+diagnostic compares capacities 64/256/1,024/4,096 on that same immutable runtime in
+[run 42124002254](https://github.com/skuirrels/Xsl3/actions/runs/42124002254). It does not change the
+candidate default or acceptance limits. Diagnostic run `42123951259` was cancelled because its source
+SHA was mistyped; it supplies no measurement evidence.
+
 Full Phase 7, the supported-streaming claim and release remain incomplete.
+
+## Audited corrected push memory
+
+[Run 42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563), immutable source
+`a8d322ac6bfd094c65a61477a519d0a426059c77`, passes all **16 original push budgets and 48 outputs**.
+Every measured input is exactly 209,715,200 bytes with the actual 20,971,520-byte managed guard.
+Every child is NativeAOT; both external whole-lifetime `wait4` and internal `getrusage` peaks are
+retained and their maximum checked without subtraction. The largest peak is **17,453,056 bytes**
+(fork). Original controller validation, raw stdout comparisons and baseline output equivalence pass.
+
+Artifact `13459529058` (`streaming-memory-push`, expires 3 February 2027) has SHA-256
+`8b6fd3d0c29782da952955ed4344d61f16411ccc29aeff0d62b2c17eebbe075f`, independently verified on
+the downloaded ZIP as well as reported by GitHub. Report SHA-256:
+`ba38299832fd2f39591c2ffc89ae251cff4bcf23a9d598fc3373c04a76145edf`.
+All 409 tracked library PDB document hashes match the exact tested source; three generated documents
+are excluded from Git comparison. Raw artifacts, executable memory audit and source results are in
+`/private/tmp/xsl3-p7-projection-discard-corrected-20261105/{hosted-push,audit-push.py,push-review.json,push-source-review.json}`.
+Nightly memory and original throughput subsequently completed as recorded below; full qualification
+still fails the throughput target.
+
+## Corrected runtime with explicit capacities
+
+[Run 42124002254](https://github.com/skuirrels/Xsl3/actions/runs/42124002254) completes 24 valid
+100 MB observations through the public compiler setting on the same immutable runtime. Source and
+consumer hashes match their manifests; every child uses four effective CPUs, disabled tiering and
+the actual 4 GiB managed guard. All independent outputs match and every configured capacity is
+reported by the child. Medians are milliseconds:
+
+| Capacity | Tree | Streaming | Stream/tree | First output input bytes |
+|---:|---:|---:|---:|---:|
+| 64 | 3434.313 | 5194.028 | 1.512392 | 36,864 |
+| 256 | 3497.644 | 4427.704 | 1.265910 | 36,864 |
+| 1,024 | 3423.699 | 4420.987 | 1.291289 | 40,960 |
+| 4,096 | 3435.227 | 3858.637 | 1.123255 | 40,960 |
+
+None meets the throughput target in this diagnostic. The 1,024-event samples overlap 256 and have
+virtually the same median, so they do not justify another default change. The 4,096-event median is
+lower but still fails; its original tighter memory failure remains relevant until any new source is
+separately qualified. The current candidate default remains 256.
+
+Artifact `13459997700` (expires 3 February 2027) has GitHub archive digest
+`53dfbaf19cd30ef06f5905ee2d45661d2c02c17d56408c61a1704b1cf5d29692`.
+Retained engine SHA-256: `48104685f3530ed28ba5f66304e410221e39e1d27019de5ebeecf7a8aba923ea`.
+Evidence and raw reports are under `/private/tmp/xsl3-p7-discard-capacity-20261105/`; `review.json`
+retains all observations, medians and first-output positions. This public-setting diagnostic does not
+replace the original seven-workload gate or qualify a new capacity.
+
+## Completed original qualification and paired Linux follow-up
+
+The same `a8d322a` [qualification run](https://github.com/skuirrels/Xsl3/actions/runs/42123882563)
+passes all 16 nightly budgets and 48 original outputs, at exactly 2,147,483,648 input bytes and the
+actual 209,715,200-byte heap/absolute RSS limits. Maximum whole-process RSS is 32,309,248 bytes (fork).
+Together with push, all 32 budgets and 96 outputs pass. The downloaded nightly artifact `13462241149`
+has independently verified SHA-256 `97c7aca87d5bee8ae5fcf0b052c6b8d894928122c398cd6566f4dcf69cd98bcf`.
+
+All 126 original throughput observations validate, including raw output, fingerprints, actual 4 GiB
+guards, all sizes/modes/rounds, four CPUs, disabled tiering and binary/controller hashes. All 409 tracked
+PDB source hashes match. Only **3/7** 100 MB targets pass:
+
+| Workload | Stream/tree median | Target |
+|---|---:|---|
+| identity | 1.064619 | Fail |
+| adjacent | 0.745620 | Pass |
+| accumulator | 0.861578 | Pass |
+| iterate | 0.798460 | Pass |
+| merge | 1.052924 | Fail |
+| fork | 1.447580 | Fail |
+| source-document | 1.066196 | Fail |
+
+Artifact `13462492685` expires 3 February 2027; its ZIP digest is independently verified as
+`804c2d708cc4ca25c49224dc08f850d1ae80f231741a59ba028c2a23ea3876e9`. The report digest is
+`ecefa1b6d7c4b235ababf9bd3a574b164a32bd23b943accee480f39d41ab70ef`. Raw files and executable audits
+remain in `/private/tmp/xsl3-p7-projection-discard-corrected-20261105/`. No failed target is waived.
+
+The local paired gain and separate hosted qualification do not establish a causal hosted improvement.
+`feature/p7-discard-host-comparison` therefore reuses the already exercised paired revision controller
+from `7b24202`, with this exact runtime and baseline `deed3c1b31657e0740d532182cb1e39eeea15aa4` on
+one Linux host. The diagnostic explicitly includes identity, accumulator, **merge**, fork and
+source-document: 60 observations, three alternating rounds, both modes, exact 100 MB and unchanged
+canonical consumer/oracles/4 GiB guard. Only the engine DLL/PDB/XML differ between frozen consumers.
+This branch adds no runtime change beyond `a8d322a`; it excludes the rejected linked-stack control.
+Original acceptance jobs remain unchanged unless the opt-in revision comparison is requested.
+
+Adoption requires a useful paired benefit without unexplained regressions, then every original gate
+on final integrated source. A successful diagnostic job alone does not establish that benefit.
