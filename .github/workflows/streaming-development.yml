@@ -28,6 +28,10 @@ on:
         description: Capture Linux CPU samples only (never an acceptance gate)
         type: boolean
         default: false
+      cpu_jit_framework:
+        description: Disable ReadyToRun only in the CPU diagnostic to expose framework symbols
+        type: boolean
+        default: false
       cpu_workload:
         description: Canonical workload for the CPU diagnostic
         type: choice
@@ -223,6 +227,7 @@ jobs:
     timeout-minutes: 20
     env:
       CPU_WORKLOAD: ${{ inputs.cpu_workload }}
+      CPU_JIT_FRAMEWORK: ${{ inputs.cpu_jit_framework }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -258,7 +263,10 @@ jobs:
       - name: Profile one canonical 1 GB child
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
+        run: |
+          options=()
+          if [ "$CPU_JIT_FRAMEWORK" = true ]; then options+=(--jit-framework); fi
+          sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD" "${options[@]}"
       - name: Report actual kernel CPU samples
         run: |
           dotnet build eng/StreamingCpuReport -c Release -m:1

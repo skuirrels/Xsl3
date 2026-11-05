@@ -19,6 +19,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--workload', default='fork', choices=('identity', 'adjacent', 'accumulator', 'iterate', 'merge', 'fork', 'source-document'))
     parser.add_argument('--mode', default='stream', choices=('tree', 'stream'))
+    parser.add_argument('--jit-framework', action='store_true',
+                        help='Disable ReadyToRun for additional framework symbols; diagnostic policy only')
     args = parser.parse_args()
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('collect-linux requires a Linux host and root privileges')
@@ -36,11 +38,17 @@ def main():
     # diagnostic directory too, and preserve maps even if automatic JIT discovery fails.
     env['TMPDIR'] = '/tmp'
     env['DOTNET_PerfMapEnabled'] = '3'
+    child_env = dict(env)
+    if args.jit_framework:
+        child_env.pop('COMPlus_ReadyToRun', None)
+        child_env['DOTNET_ReadyToRun'] = '0'
     command = ['dotnet', str(args.assembly.resolve()), 'streaming-child', args.workload, args.mode, str(size), '0']
     report = dict(scope='Instrumented diagnostic only; elapsed time is not throughput acceptance',
                   command=command, heapLimit=heap_limit, tieredCompilation=False,
                   hostCpuCount=os.cpu_count(), processorCountOverride=env.get('DOTNET_PROCESSOR_COUNT'),
                   perfMapEnabled=3, diagnosticDirectory=env['TMPDIR'],
+                  jitFrameworkRequested=args.jit_framework,
+                  readyToRunEnvironment={key: child_env.get(key) for key in ('DOTNET_ReadyToRun', 'COMPlus_ReadyToRun')},
                   sourceArtifacts={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                    for p in args.assembly.parent.iterdir() if p.suffix in ('.dll', '.pdb')},
                   complete=False, validOutput=False)
@@ -50,7 +58,7 @@ def main():
                 (output / 'child.stderr').open('w') as stderr, \
                 (output / 'collector.log').open('w') as trace_log:
             start = time.monotonic()
-            child = subprocess.Popen(command, env=env, stdout=stdout, stderr=stderr)
+            child = subprocess.Popen(command, env=child_env, stdout=stdout, stderr=stderr)
             report['childPid'] = child.pid
             while not list(Path(env['TMPDIR']).glob(f'dotnet-diagnostic-{child.pid}-*-socket')):
                 if child.poll() is not None or time.monotonic() - start > 10:

@@ -119,3 +119,31 @@ Their GitHub archive SHA-256 digests are, respectively:
 
 Each includes the raw trace, JIT maps, source revisions, child report and CPU analysis. Local copies
 are under `/private/tmp/xsl3-p7-linux-cpu-20261105/{identity,accumulator}/`.
+
+## Supplemental framework-symbol capture
+
+The identity trace from run `42109632792` has 5,877 unnamed-leaf samples under the source reader's
+first-child/next paths. Its retained perf map names only one `System.Private.Xml.XmlTextReaderImpl`
+method (`GetResolver`), so it does not identify the parser operations behind those samples. This is
+a symbol-coverage gap, not evidence that wrapper dispatch accounts for that time.
+
+The optional `cpu_jit_framework=true` workflow input maps to `--jit-framework` in the CPU diagnostic
+only. It sets `DOTNET_ReadyToRun=0` for the measured child, removes a conflicting `COMPlus_ReadyToRun`
+value and records the effective variables in the report. The collector retains its ordinary environment.
+Without this option, the child environment is unchanged. Normal memory and throughput jobs never
+receive this override; their original runtime policy and requirements remain unchanged.
+
+The runtime's [framework-symbol guidance](https://github.com/dotnet/runtime/blob/main/docs/project/linux-performance-tracing.md#resolving-framework-symbols)
+distinguishes precompiled framework code from JIT-generated maps. Microsoft's
+[JIT explanation](https://devblogs.microsoft.com/dotnet/performance_improvements_in_net_7/) documents
+`DOTNET_ReadyToRun=0` as a way to compile framework methods rather than use their precompiled code.
+This supplemental capture can expose method names, but changes framework compilation and startup.
+Its CPU proportions must not be treated as identical to the original policy, and its elapsed time
+cannot be used as acceptance or claimed as an application optimization. Any hypothesis still needs
+controlled measurement under the unchanged original benchmark policy.
+
+The controller is isolated on `feature/p7-framework-cpu-symbols`. The first requested runtime source
+is corrected discard candidate `a8d322ac6bfd094c65a61477a519d0a426059c77`, workload `identity`.
+Require a valid original 1 GB output, actual heap guard, successful collection, recorded loss count
+and visible parser/framework symbols before relying on the capture. Python parsing, CLI help and
+workflow YAML parsing pass locally; real Linux capture and symbol coverage remain pending.
