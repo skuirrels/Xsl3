@@ -8,6 +8,10 @@ were verified; hosted CI is pending. The historical S3-25 row below is preserved
 member consumption, draining and boundary lookahead through both APIs and saved execution. Local validation
 is recorded there; the historical S5-14 row remains unchanged.
 
+[S3-04 retained-byte measurements](p7-retained-memory-contracts.md) add isolated managed-heap samples
+through the original 200 MiB generated input under the 20 MiB managed guard, with retained-clone negative
+controls. The fixed-shape scope and distinction from the NativeAOT RSS gate are explicit in that record.
+
 Phase A record for [P7 phase A](p7-phase-a.md). Evidence paths under `Xsl3-evidence/` are local copies of hosted CI
 artefacts (run 41351971235, retained until 30 January 2027); the run link is the durable reference. Rows reflect
 `b0bf3bb` before phase A changes: `merge-039` now runs and passes (see the phase record). After the owner decisions
