@@ -133,7 +133,7 @@ jobs:
       - name: Debug streamability declaration regressions
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'
         run: |
-          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
+          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests|FullyQualifiedName~StreamedQilVerifierTests|FullyQualifiedName~StreamedOptimizerPolicyTests|FullyQualifiedName~StreamedCompilationCaptureTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
 
       - name: Build Debug W3C harness
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'
@@ -186,7 +186,7 @@ jobs:
           XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Debug --no-build --filter "FullyQualifiedName~Xslt30Conformance|FullyQualifiedName~RuntimeCaseReportTests" --logger trx --results-directory artifacts/test-results/streaming-strict-debug
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --require-evaluation --output artifacts/test-results/streaming-strict-debug-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --require-evaluation --require-verifier --output artifacts/test-results/streaming-strict-debug-audit.json
 
       - name: Legacy strict runtime inventory with saved sampling
         if: matrix.os == 'ubuntu-latest'

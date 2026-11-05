@@ -319,13 +319,55 @@ def audit_evaluation(header, cases, required=False):
                 Scope='Primary evaluation results before assertions and source declarations; observations do not assign static applicability or waive failures.')
 
 
+def audit_verifier(header, cases, required=False):
+    if not required:
+        return None
+    if header.get('Configuration') != 'Debug' or header.get('CompilationsCaptured') is not True:
+        raise ValueError('Debug compilation captures are required for verifier coverage')
+    eligible = verified = total = 0
+    for case, row in cases.items():
+        report = row.get('Compilation')
+        if (not isinstance(report, dict) or type(report.get('FormatVersion')) is not int
+                or report['FormatVersion'] != 1 or not isinstance(report.get('Compilations'), list)):
+            raise ValueError(f'Missing compilation capture: {case}')
+        entries = report['Compilations']
+        for entry in entries:
+            if (not isinstance(entry, dict) or entry.get('Stage') not in
+                    ('Unclassified', 'Preparation', 'Compilation', 'Stylesheet', 'Assertion')
+                    or any(type(entry.get(key)) is not bool for key in ('HasStreamedInputs', 'OptimizationCompleted'))
+                    or any(type(entry.get(key)) is not int or entry[key] < 0 for key in ('VerifierStarted', 'VerifierCompleted'))):
+                raise ValueError(f'Invalid compilation capture: {case}')
+            total += 1
+            expected = int(entry['HasStreamedInputs'])
+            if (not entry['OptimizationCompleted'] or entry['VerifierStarted'] != expected
+                    or entry['VerifierCompleted'] != expected):
+                raise ValueError(f'Missing, failed or unexpected optimizer verification: {case}')
+            eligible += expected
+            verified += entry['VerifierCompleted']
+        executions = row.get('Forwarding', {}).get('Executions', [])
+        stylesheet = [entry for entry in executions if entry.get('Stage') == 'Stylesheet']
+        # Named initial modes may be compiled lazily when the stylesheet executes.
+        # Preparation/assertion helper compilations cannot establish this coverage.
+        compiled = [entry for entry in entries if entry['Stage'] in ('Compilation', 'Stylesheet')]
+        if stylesheet and not compiled:
+            raise ValueError(f'Stylesheet execution has no compilation evidence: {case}')
+        if (any(source.get('ActualForward') is True for entry in stylesheet for source in entry.get('Sources', []))
+                and not any(entry['HasStreamedInputs'] for entry in compiled)):
+            raise ValueError(f'Forward stylesheet has no eligible compilation: {case}')
+    if eligible == 0:
+        raise ValueError('No eligible streamed compilations were verified')
+    return dict(CapturedCases=len(cases), Compilations=total, Eligible=eligible, Verified=verified,
+                Scope='Actual Debug optimizer verifier invocations; pre-QIL static errors have no eligible compilation.')
+
+
 def audit(report, suite, manifest=None, engine=None, revision=None, require_forwarding=False, require_stylesheet_forwarding=False,
-          require_evaluation=False):
+          require_evaluation=False, require_verifier=False):
     if revision is not None:
         verify_suite(suite, revision)
     header, cases, complete = load_report(report, suite, engine)
     forwarding = audit_forwarding(header, cases, require_forwarding, require_stylesheet_forwarding)
     evaluation = audit_evaluation(header, cases, require_evaluation)
+    verifier = audit_verifier(header, cases, require_verifier)
     current = inventory(header, cases)
     current['SuiteRevision'] = revision
     if manifest is not None:
@@ -369,6 +411,8 @@ def audit(report, suite, manifest=None, engine=None, revision=None, require_forw
         summary['Forwarding'] = forwarding
     if evaluation is not None:
         summary['Evaluation'] = evaluation
+    if verifier is not None:
+        summary['Verifier'] = verifier
     return summary, current
 
 
@@ -381,6 +425,7 @@ def main():
     parser.add_argument('--require-forwarding', action='store_true', help='Require complete actual runtime source-representation captures')
     parser.add_argument('--require-stylesheet-forwarding', action='store_true', help='Require explicit command stages and actual forwarding during stylesheet execution')
     parser.add_argument('--require-evaluation', action='store_true', help='Require primary evaluation diagnostics and declared initial-source metadata for every case')
+    parser.add_argument('--require-verifier', action='store_true', help='Require successful actual Debug verification for every eligible compilation')
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--manifest', type=Path)
     choice.add_argument('--write-manifest', type=Path, help='Freeze a reviewed complete selection; never overwrite')
@@ -394,7 +439,7 @@ def main():
         if not isinstance(revision, str):
             raise ValueError('An immutable suite revision is required')
         result, frozen = audit(args.report, args.suite, args.manifest, args.engine, revision, args.require_forwarding,
-                               args.require_stylesheet_forwarding, args.require_evaluation)
+                               args.require_stylesheet_forwarding, args.require_evaluation, args.require_verifier)
         if args.write_manifest:
             if args.expected_count is None or len(frozen['Cases']) != args.expected_count:
                 raise ValueError('Initial inventory requires a matching reviewed expected count')

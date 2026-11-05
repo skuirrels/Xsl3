@@ -1,5 +1,9 @@
 # P7 S3 to S6 acceptance-evidence map (released commit b0bf3bb)
 
+**5 November continuation:** [S3-25 verifier coverage](p7-verifier-coverage.md) adds actual per-compilation
+Debug evidence and required audit checks. All 4,968 eligible compilations in the local full strict inventory
+were verified; hosted CI is pending. The historical S3-25 row below is preserved as the original gap record.
+
 Phase A record for [P7 phase A](p7-phase-a.md). Evidence paths under `Xsl3-evidence/` are local copies of hosted CI
 artefacts (run 41351971235, retained until 30 January 2027); the run link is the durable reference. Rows reflect
 `b0bf3bb` before phase A changes: `merge-039` now runs and passes (see the phase record). After the owner decisions

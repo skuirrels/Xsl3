@@ -19,12 +19,15 @@ internal sealed class StreamingExecutionCapture : IDisposable
     internal sealed record ExecutionEntry(int Id, int? Parent, string Stage, bool StreamedInitialMode, string InputKind,
         bool ForwardInput, bool BodyCompleted, SourceEntry[] Sources);
     internal sealed record Report(int FormatVersion, int Started, ExecutionEntry[] Executions);
+    internal sealed record CompilationEntry(string Stage, bool HasStreamedInputs, bool OptimizationCompleted, int VerifierStarted, int VerifierCompleted);
+    internal sealed record CompilationReport(int FormatVersion, CompilationEntry[] Compilations);
     internal sealed record Ambient(StreamingExecutionCapture Owner, Execution? Execution, Stage Stage = Stage.Unclassified);
 
     private static AsyncLocal<Ambient?>? s_slot;
     private readonly AsyncLocal<Ambient?> _slot;
     private readonly Ambient? _previous;
     private readonly ConcurrentQueue<ExecutionEntry> _executions = new();
+    private readonly ConcurrentQueue<Compilation> _compilations = new();
     private int _started, _disposed;
 
     internal StreamingExecutionCapture()
@@ -41,6 +44,28 @@ internal sealed class StreamingExecutionCapture : IDisposable
     }
 
     internal Report Snapshot() => new(2, Volatile.Read(ref _started), _executions.ToArray());
+    internal CompilationReport SnapshotCompilations() => new(1, System.Linq.Enumerable.ToArray(
+        System.Linq.Enumerable.Select(_compilations, compilation => compilation.Snapshot())));
+
+    // The compiler records eligibility independently of whether the optimizer calls its verifier.
+    internal static Compilation? BeginCompilation(bool hasStreamedInputs)
+    {
+        Ambient? current = Volatile.Read(ref s_slot)?.Value;
+        if (current == null || Volatile.Read(ref current.Owner._disposed) != 0) return null;
+        var compilation = new Compilation(current.Stage, hasStreamedInputs);
+        current.Owner._compilations.Enqueue(compilation);
+        return compilation;
+    }
+
+    internal sealed class Compilation(Stage stage, bool hasStreamedInputs)
+    {
+        private int _optimizationCompleted, _verifierStarted, _verifierCompleted;
+        internal void CompleteOptimization() => Volatile.Write(ref _optimizationCompleted, 1);
+        internal void BeginVerification() => Interlocked.Increment(ref _verifierStarted);
+        internal void CompleteVerification() => Interlocked.Increment(ref _verifierCompleted);
+        internal CompilationEntry Snapshot() => new(stage.ToString(), hasStreamedInputs,
+            Volatile.Read(ref _optimizationCompleted) != 0, Volatile.Read(ref _verifierStarted), Volatile.Read(ref _verifierCompleted));
+    }
 
     // Harness boundaries identify the operation being observed. The scope only changes
     // capture metadata; it cannot choose a source, compile a stylesheet or execute a command.

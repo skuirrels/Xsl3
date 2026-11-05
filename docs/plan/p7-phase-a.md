@@ -195,6 +195,10 @@ about applying them without a user option is resolved; it is not a remaining pha
 
 ## Remaining phase A work
 
+**Full P7 resumed, 5 November:** the owner has instructed continuation until full Phase 7 is complete.
+[S3-25 verifier coverage](p7-verifier-coverage.md) is locally implemented and validated across the full Debug
+strict inventory; hosted CI is pending. The other partial obligations and original performance targets remain open.
+
 The initial accounting and reassessment shipped in 1.2.0 through [PR #28](https://github.com/skuirrels/Xsl3/pull/28).
 Its [hosted CI](https://github.com/skuirrels/Xsl3/actions/runs/41415279933) passed. The subsequent extension
 review and optimizer/function evidence shipped in 1.3.0 through PRs #30–32. The bounded follow-up is
