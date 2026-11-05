@@ -54,5 +54,13 @@ builds the immutable `source_ref` baseline consumer and the workflow revision's 
 `Xsl3.dll`/PDB/XML, alternates revisions across three rounds and runs the original benchmark controller.
 All 48 observations must validate; raw reports retain timing, first output and input-consumption data.
 It rejects inherited framework-compilation overrides. Default/scheduled acceptance remains unchanged.
-CLI/YAML checks and a real four-observation 1 MB controller smoke pass. Smoke timing is not evidence
-of improvement. Hosted paired results remain pending; no adoption or support claim is made.
+CLI/YAML checks, all eight canonical benchmark-controller tests and a real four-observation 1 MB
+controller smoke pass. Smoke timing is not evidence of improvement.
+
+[Hosted paired run 42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005) is active
+at exact candidate `7b2420274866c082a32fecdf1f914147c3870e31`, comparing immutable baseline
+`a8d322ac6bfd094c65a61477a519d0a426059c77`. The source builds finished and the paired measurement step
+is running. Only the explicitly selected diagnostic job runs; this does not qualify the original
+memory or full-throughput gates. Audit its complete population, binary/source hashes, actual guards,
+raw outputs and timing distributions before deciding whether to reject or qualify the control.
+No adoption or support claim is made.

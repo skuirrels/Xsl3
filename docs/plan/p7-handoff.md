@@ -3,7 +3,9 @@
 **Latest isolated control, 5 November:** `feature/p7-linked-source-stack` replaces the duplicate
 source ancestor list with the existing parent links. All 5,868 affected Release/Debug checks and
 48 paired local observations pass, but timing changes are small and mixed; there is no adoption.
-The opt-in Linux revision comparison measures this profile-led hypothesis on the target architecture.
+The opt-in Linux revision comparison measures this profile-led hypothesis on the target architecture:
+[run 42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005) is active on `7b24202`
+against immutable baseline `a8d322a`; its build has finished and paired measurement is running.
 See [the candidate record](p7-linked-source-stack.md). The separate framework-symbol capture is audited
 and pushed at `5db06fb` on `feature/p7-framework-cpu-symbols`: valid original 1 GB output, 409 tracked
 source hashes, 26,343 CPU samples, zero lost events and 213 XML parser symbols. This diagnostic uses
