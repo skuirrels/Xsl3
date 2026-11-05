@@ -1,5 +1,11 @@
 # P7 completion
 
+**Current continuation, 5 November 2026:** the owner resumed bounded Phase A work after the 1.1.7
+stop. Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)
+continues entry and forward-execution evidence. Use [phase A](p7-phase-a.md) and its
+[review record](p7-forward-evidence-review.md) for current status. The earlier full-P7 goal stays
+incomplete, and the dated checkpoint statements below do not authorize open-ended optimization.
+
 The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review all changes,
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
 1.1.6, `588f2b6c7f050d47087f67b1fd2ef9630f6e19cf`.
@@ -13,7 +19,7 @@ The remaining full objective follows the original [P7 plan](p7-streaming.md); th
 increments and their historical evidence are retained. An audit or another bounded increment does not
 complete full P7.
 
-## Latest verified state
+## Verified 1.1.7 checkpoint state, 1 November 2026
 
 **Phase A, from 1 November 2026:** baseline of 1.1.7 and S3–S6 acceptance accounting. The current
 stage exits, obligation map, failure dispositions and owner decisions are in [phase A](p7-phase-a.md).

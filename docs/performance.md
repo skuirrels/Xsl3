@@ -1,5 +1,15 @@
 # Performance
 
+## Push memory gate, 2026-11-04
+
+The 200 MiB input / 20 MiB absolute RSS matrix passes **16/16** on hosted Linux x64 for the first time
+([41905961247](https://github.com/skuirrels/Xsl3/actions/runs/41905961247)); the largest peak is fork at **17,686,528 bytes**. The 2 GiB / 200 MiB matrix also passes 16/16.
+Merge, fork and source-document had failed because `System.Uri` loads ICU (about 4.4 MB of native code) the
+first time it parses an unrecognised scheme such as `urn:`, and the probe used `urn:` document URIs. It now uses
+`http://stream-probe.test/` URIs; budgets, inputs and outputs are unchanged. Applications that stream `urn:`
+documents under a tight memory limit pay that ICU cost once per process unless they enable invariant
+globalization. The throughput target is still unmet.
+
 ## P7F identity allocation reduction, 2026-10-29
 
 The [bounded P7F change in 1.1.4](p7f-identity-allocation-2026-10-29.md) reduces allocation for ordinary

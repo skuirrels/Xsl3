@@ -7,3 +7,4 @@ TestResults/
 BenchmarkDotNet.Artifacts/
 /bench/corpus/generated/
 /external/
+.DS_Store
