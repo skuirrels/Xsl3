@@ -12,18 +12,30 @@ readiness until final integrated source passes every original gate.
 
 Separate performance evidence: corrected discard `a8d322a` now passes both original memory matrices
 in [42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563): 32 budgets and 96 outputs,
-independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput remains running.
+independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput is now complete:
+all 126 observations validate, with 409 tracked PDB source hashes matching, but only 3/7 targets pass.
+Stream/tree medians at 100 MB are identity 1.064619, adjacent 0.745620, accumulator 0.861578,
+iterate 0.798460, merge 1.052924, fork 1.447580 and source-document 1.066196. Do not infer a
+before/after effect from separate hosts; a paired corrected-discard comparison is the next check.
 The linked ancestor-stack control `7b24202` is rejected after the paired Linux diagnostic
 [42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005): all 48 outputs and 409 source
 hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
 accumulator and source-document regress. Do not merge that control. Raw evidence and executable audit
 are under `/private/tmp/xsl3-p7-linked-source-stack-linux-20261105/`.
 
-A fresh Linux fork CPU diagnostic is running at
+A fresh Linux fork CPU diagnostic completed at
 [42129815135](https://github.com/skuirrels/Xsl3/actions/runs/42129815135), using corrected discard
-`a8d322a` and controller `5db06fb`. It preserves the ordinary ReadyToRun policy and samples actual
-kernel CPU events. Its purpose is to distinguish executing fork costs from blocked-thread stacks;
-instrumented elapsed times cannot qualify throughput. The original qualification run is untouched.
+`a8d322a` and controller `5db06fb`. The original 1 GB output, actual 4 GiB heap guard, ordinary
+ReadyToRun policy, artifact digest, four retained binary hashes and 409 tracked PDB sources verify.
+It records 71,109 kernel CPU samples and zero lost events; 11,254 leaves are `ThreadNative_SpinWait`,
+but most of those lack an unwound engine caller. Scheduler/yield stacks do resolve to publication
+waits and the caller pump. Sample shares are not removable elapsed time. The artifact does not retain
+the 24 dependency binaries whose hashes the report lists; no independent hash verification of those
+files is claimed. Evidence and executable audit: `/private/tmp/xsl3-p7-fork-cpu-discard-20261105/`.
+
+PR #38 is merged as `8bdec4c` after all four jobs passed at its unchanged `7ea0190` head in
+[42123616078](https://github.com/skuirrels/Xsl3/actions/runs/42123616078), with no open review threads.
+The public-selection branch still needs reconciliation with that test-only increment.
 
 **Current test-only follow-up:** `feature/p7-fork-group-contracts` is based on merged main `a5e89ac`.
 The [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) pass 260 local Release/Debug
