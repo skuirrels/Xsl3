@@ -36,6 +36,20 @@ feature support claim, expected output, memory budget or elapsed-time target cha
 
 ## Evidence
 
-Pending the first hosted capture. Main `a5e89ac` has the same runtime and benchmark source as reviewed
-contract head `78815e8`; all three contract PRs passed their own CI before merging. Neither source
-contains the unaccepted producer, tee reclamation or simple-content value-state controls.
+The [first hosted capture](https://github.com/skuirrels/Xsl3/actions/runs/42105701535), diagnostic
+`5694871` / source `a5e89ac`, succeeded and validated all three outputs over 1,000,000,000 input bytes,
+with the actual 4,294,967,296-byte heap allowance. The runner has four logical CPUs / two physical cores.
+Parsing found 84,819 `Universal.Events/cpu` samples and no lost events. Native inclusive stacks include
+18,951 samples in `ThreadNative_SpinWait` and 21,757 in `__sched_yield`; these are diagnostic counts,
+not benchmark improvements. Managed symbol records and context-switch events are absent, so the
+capture does not establish attribution to individual managed methods or off-CPU durations.
+
+Artifact `13450953350` (`p7-linux-cpu-profile`) expires 3 February 2027; GitHub reports archive digest
+`sha256:29fd06f83fb6417ed197737fd858f58a78dc3df0d80776ea78a603dad9036f1e`.
+Local raw trace and parser evidence are under `/private/tmp/xsl3-p7-linux-cpu-20261105/`.
+A follow-up retains a capability probe and explicitly enables/preserves JIT perf maps, using the
+standard `/tmp` diagnostic directory to avoid an unverified custom-directory discovery path.
+
+Main `a5e89ac` has the same runtime and benchmark source as reviewed contract head `78815e8`; all three
+contract PRs passed their own CI before merging. Neither source contains the unaccepted producer,
+tee reclamation or simple-content value-state controls.
