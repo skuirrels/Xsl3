@@ -368,51 +368,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     ReadDtdIdentity();
                     break;
                 case XmlNodeType.Element:
-                {
-                    Node node = Child(XPathNodeType.Element);
-                    node.LocalName = _reader.LocalName;
-                    node.Namespace = _reader.NamespaceURI;
-                    node.Prefix = _reader.Prefix;
-                    node.EmptyElement = node.Ended = _reader.IsEmptyElement;
-                    // Reader headers give an upper bound including namespace declarations. Keep
-                    // the final attribute array directly; ordinary elements need no temporary lists.
-                    int headerAttributeCount = _reader.AttributeCount;
-                    Attribute[] attributes = headerAttributeCount == 0 ? Array.Empty<Attribute>() : new Attribute[headerAttributeCount];
-                    int attributeCount = 0;
-                    List<Namespace>? namespaces = null;
-                    if (_reader.MoveToFirstAttribute())
-                    {
-                        do
-                        {
-                            string localName = _reader.LocalName, ns = _reader.NamespaceURI, prefix = _reader.Prefix;
-                            if (ns == "http://www.w3.org/2000/xmlns/")
-                                (namespaces ??= new()).Add(new(prefix == "xmlns" ? localName : "", _reader.Value, node.Number));
-                            else
-                            {
-                                IXmlSchemaInfo? schema = Schema(_reader.SchemaInfo);
-                                string value = Normalize(_reader.Value, schema?.SchemaType);
-                                if (localName == "id" && ns == QName.Ns.Xml) value = Lexical.Collapse(value);
-                                attributes[attributeCount++] = new(localName, ns, prefix, value, schema);
-                            }
-                        } while (_reader.MoveToNextAttribute());
-                        _reader.MoveToElement();
-                    }
-                    node.Schema = Schema(_reader.SchemaInfo);
-                    if (node.Parent == Root && _reader is IXmlNamespaceResolver resolver)
-                    {
-                        var declared = new HashSet<string>(StringComparer.Ordinal) { "xml" };
-                        if (namespaces != null)
-                            foreach (Namespace ns in namespaces) declared.Add(ns.Prefix);
-                        foreach (var ns in resolver.GetNamespacesInScope(XmlNamespaceScope.All))
-                            if (ns.Value.Length != 0 && declared.Add(ns.Key)) (namespaces ??= new()).Add(new(ns.Key, ns.Value, node.Number));
-                    }
-                    if (attributeCount != attributes.Length) Array.Resize(ref attributes, attributeCount);
-                    node.Attributes = attributes;
-                    node.Namespaces = namespaces?.ToArray() ?? Array.Empty<Namespace>();
-                    _open.Add(node);
-                    _current = node;
+                    ReadElement();
                     return;
-                }
                 case XmlNodeType.EndElement:
                     _current = _open[^1];
                     if (_current == Root)
@@ -424,56 +381,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     _current.Ended = _current.ChildrenStarted = true;
                     return;
                 case XmlNodeType.Text: case XmlNodeType.CDATA: case XmlNodeType.SignificantWhitespace: case XmlNodeType.Whitespace:
-                {
-                    Node? text = null;
-                    string first = "";
-                    StringBuilder? value = null;
-                    do
-                    {
-                        if (KeepText())
-                        {
-                            text ??= Child(_reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA ? XPathNodeType.Text
-                                : _reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve ? XPathNodeType.SignificantWhitespace : XPathNodeType.Whitespace);
-                            if (first.Length == 0) first = _reader.Value;
-                            else (value ??= new StringBuilder(first)).Append(_reader.Value);
-                            // Kind precedence is Text, then SignificantWhitespace, then Whitespace.
-                            if (_reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA && text.Kind != XPathNodeType.Text)
-                                text = ReplaceTextKind(text, XPathNodeType.Text);
-                            else if (_reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve && text.Kind == XPathNodeType.Whitespace)
-                                text = ReplaceTextKind(text, XPathNodeType.SignificantWhitespace);
-                        }
-                        _cancellation.ThrowIfCancellationRequested();
-                        _ready = _reader.Read();
-                        while (_ready && _reader.NodeType is XmlNodeType.EntityReference or XmlNodeType.EndEntity)
-                        {
-                            if (_reader.NodeType == XmlNodeType.EntityReference) _reader.ResolveEntity();
-                            _cancellation.ThrowIfCancellationRequested();
-                            _ready = _reader.Read();
-                        }
-                    } while (_ready && _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace);
-                    if (text == null)
-                    {
-                        if (_ready) continue;
-                        Root.Ended = Root.ChildrenStarted = true;
-                        _current = Root;
-                        return;
-                    }
-                    Node parent = text.Parent!;
-                    if (_ready && _reader.NodeType == XmlNodeType.EndElement) parent.Schema = Schema(_reader.SchemaInfo) ?? parent.Schema;
-                    string content = value?.ToString() ?? first;
-                    text.Text = parent.Schema?.SchemaType is XmlSchemaComplexType { ContentType: XmlSchemaContentType.ElementOnly }
-                        && string.IsNullOrWhiteSpace(content) ? "" : Normalize(content, parent.Schema?.SchemaType);
-                    if (text.Text.Length == 0)
-                    {
-                        if (parent.FirstChild == text.Number) parent.FirstChild = -1;
-                        if (_ready) continue;
-                        Root.Ended = Root.ChildrenStarted = true;
-                        _current = Root;
-                        return;
-                    }
-                    _current = text;
-                    return;
-                }
+                    if (ReadText()) return;
+                    break;
                 case XmlNodeType.Comment: case XmlNodeType.ProcessingInstruction:
                     _current = Child(_reader.NodeType == XmlNodeType.Comment ? XPathNodeType.Comment : XPathNodeType.ProcessingInstruction);
                     _current.LocalName = _reader.NodeType == XmlNodeType.ProcessingInstruction ? _reader.LocalName : "";
@@ -484,6 +393,105 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     break;
             }
         }
+    }
+
+    private void ReadElement()
+    {
+        Node node = Child(XPathNodeType.Element);
+        node.LocalName = _reader.LocalName;
+        node.Namespace = _reader.NamespaceURI;
+        node.Prefix = _reader.Prefix;
+        node.EmptyElement = node.Ended = _reader.IsEmptyElement;
+        // Reader headers give an upper bound including namespace declarations. Keep
+        // the final attribute array directly; ordinary elements need no temporary lists.
+        int headerAttributeCount = _reader.AttributeCount;
+        Attribute[] attributes = headerAttributeCount == 0 ? Array.Empty<Attribute>() : new Attribute[headerAttributeCount];
+        int attributeCount = 0;
+        List<Namespace>? namespaces = null;
+        if (_reader.MoveToFirstAttribute())
+        {
+            do
+            {
+                string localName = _reader.LocalName, ns = _reader.NamespaceURI, prefix = _reader.Prefix;
+                if (ns == "http://www.w3.org/2000/xmlns/")
+                    (namespaces ??= new()).Add(new(prefix == "xmlns" ? localName : "", _reader.Value, node.Number));
+                else
+                {
+                    IXmlSchemaInfo? schema = Schema(_reader.SchemaInfo);
+                    string value = Normalize(_reader.Value, schema?.SchemaType);
+                    if (localName == "id" && ns == QName.Ns.Xml) value = Lexical.Collapse(value);
+                    attributes[attributeCount++] = new(localName, ns, prefix, value, schema);
+                }
+            } while (_reader.MoveToNextAttribute());
+            _reader.MoveToElement();
+        }
+        node.Schema = Schema(_reader.SchemaInfo);
+        if (node.Parent == Root && _reader is IXmlNamespaceResolver resolver)
+        {
+            var declared = new HashSet<string>(StringComparer.Ordinal) { "xml" };
+            if (namespaces != null)
+                foreach (Namespace ns in namespaces) declared.Add(ns.Prefix);
+            foreach (var ns in resolver.GetNamespacesInScope(XmlNamespaceScope.All))
+                if (ns.Value.Length != 0 && declared.Add(ns.Key)) (namespaces ??= new()).Add(new(ns.Key, ns.Value, node.Number));
+        }
+        if (attributeCount != attributes.Length) Array.Resize(ref attributes, attributeCount);
+        node.Attributes = attributes;
+        node.Namespaces = namespaces?.ToArray() ?? Array.Empty<Namespace>();
+        _open.Add(node);
+        _current = node;
+    }
+
+    // False means discarded text left the next token ready for dispatch.
+    private bool ReadText()
+    {
+        Node? text = null;
+        string first = "";
+        StringBuilder? value = null;
+        do
+        {
+            if (KeepText())
+            {
+                text ??= Child(_reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA ? XPathNodeType.Text
+                    : _reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve ? XPathNodeType.SignificantWhitespace : XPathNodeType.Whitespace);
+                if (first.Length == 0) first = _reader.Value;
+                else (value ??= new StringBuilder(first)).Append(_reader.Value);
+                // Kind precedence is Text, then SignificantWhitespace, then Whitespace.
+                if (_reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA && text.Kind != XPathNodeType.Text)
+                    text = ReplaceTextKind(text, XPathNodeType.Text);
+                else if (_reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve && text.Kind == XPathNodeType.Whitespace)
+                    text = ReplaceTextKind(text, XPathNodeType.SignificantWhitespace);
+            }
+            _cancellation.ThrowIfCancellationRequested();
+            _ready = _reader.Read();
+            while (_ready && _reader.NodeType is XmlNodeType.EntityReference or XmlNodeType.EndEntity)
+            {
+                if (_reader.NodeType == XmlNodeType.EntityReference) _reader.ResolveEntity();
+                _cancellation.ThrowIfCancellationRequested();
+                _ready = _reader.Read();
+            }
+        } while (_ready && _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace);
+        if (text == null)
+        {
+            if (_ready) return false;
+            Root.Ended = Root.ChildrenStarted = true;
+            _current = Root;
+            return true;
+        }
+        Node parent = text.Parent!;
+        if (_ready && _reader.NodeType == XmlNodeType.EndElement) parent.Schema = Schema(_reader.SchemaInfo) ?? parent.Schema;
+        string content = value?.ToString() ?? first;
+        text.Text = parent.Schema?.SchemaType is XmlSchemaComplexType { ContentType: XmlSchemaContentType.ElementOnly }
+            && string.IsNullOrWhiteSpace(content) ? "" : Normalize(content, parent.Schema?.SchemaType);
+        if (text.Text.Length == 0)
+        {
+            if (parent.FirstChild == text.Number) parent.FirstChild = -1;
+            if (_ready) return false;
+            Root.Ended = Root.ChildrenStarted = true;
+            _current = Root;
+            return true;
+        }
+        _current = text;
+        return true;
     }
 
     private Node Child(XPathNodeType kind)
