@@ -52,6 +52,15 @@ profiling branch retains merged runtime behavior. Next investigate source-produc
 preserving the original capacity, demand, read-order and cancellation contracts; do not repeat the
 rejected short-wait, no-yield or short-poll controls recorded in the completion history.
 
+**Demand review and configuration investigation:** the [speculative refill control](p7-fork-production-overlap.md)
+at `1b2ef47` gains about 19.6% locally but violates the original no-read-ahead-without-demand contract,
+and is rejected. Its new negative control passes on the unchanged runtime. Current branch
+`feature/p7-fork-buffer-policy` retains only that demand regression and
+[public buffer-setting diagnostics](p7-fork-buffer-policy.md). All 24 local observations validate output;
+256 configured events gains about 8.0% over 64, with diminishing gains at larger sizes. Every local ratio
+still exceeds one. A hosted comparison is required before considering a default change; the default
+remains 64 and all original memory/throughput gates remain unchanged.
+
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):

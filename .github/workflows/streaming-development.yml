@@ -20,6 +20,10 @@ on:
         description: Run bounded P7F identity comparison and original memory matrices
         type: boolean
         default: false
+      capacity_comparison:
+        description: Compare explicit public fork buffer capacities (never an acceptance gate)
+        type: boolean
+        default: false
       cpu_profile:
         description: Capture Linux fork CPU samples only (never an acceptance gate)
         type: boolean
@@ -32,7 +36,7 @@ jobs:
   # S7 uses fresh paired processes so source parsing and first output are measured.
   # The benchmark heap guard is separate from the exact memory gates below.
   streaming-benchmark:
-    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true && inputs.cpu_profile != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.allocation_comparison != true && inputs.cpu_profile != true && inputs.capacity_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -62,7 +66,7 @@ jobs:
   # P7 decision 6: exact generated-input size and absolute process/managed limits.
   # A failed or incomplete matrix is a failed job; retained artifacts expose it.
   streaming-memory:
-    if: ${{ inputs.memory_diagnosis != true && inputs.cpu_profile != true }}
+    if: ${{ inputs.memory_diagnosis != true && inputs.cpu_profile != true && inputs.capacity_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -105,7 +109,7 @@ jobs:
 
   # P7E is an explicitly selected diagnostic job. Scheduled/default acceptance is unchanged.
   identity-memory-diagnosis:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true && inputs.cpu_profile != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.memory_diagnosis && inputs.allocation_comparison != true && inputs.cpu_profile != true && inputs.capacity_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -152,7 +156,7 @@ jobs:
 
   # P7F comparisons use the same saved entrypoints on both runtime versions.
   identity-allocation-comparison:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison && inputs.cpu_profile != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.allocation_comparison && inputs.cpu_profile != true && inputs.capacity_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -202,7 +206,7 @@ jobs:
 
   # Actual kernel CPU samples distinguish running work from sampled waits and GC polls.
   streaming-cpu-profile:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.cpu_profile }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.cpu_profile && inputs.capacity_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -255,3 +259,43 @@ jobs:
             baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.pdb
             baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.dll
             baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.pdb
+
+  streaming-capacity-comparison:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.capacity_comparison }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: baseline-source
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Record unchanged source and diagnostic host
+        env:
+          MEMORY_DIAGNOSIS: ${{ inputs.memory_diagnosis }}
+          ALLOCATION_COMPARISON: ${{ inputs.allocation_comparison }}
+          CPU_PROFILE: ${{ inputs.cpu_profile }}
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/capacity-diagnostic-revision.txt
+          git -C baseline-source rev-parse HEAD > artifacts/capacity-source-revision.txt
+          dotnet --info > artifacts/capacity-dotnet-info.txt
+          uname -a > artifacts/capacity-host.txt
+          lscpu >> artifacts/capacity-host.txt
+          if [ "$MEMORY_DIAGNOSIS" = true ] || [ "$ALLOCATION_COMPARISON" = true ] || [ "$CPU_PROFILE" = true ]; then echo "Select only one diagnostic mode" >&2; exit 64; fi
+      - name: Build the unchanged runtime and canonical benchmark
+        run: dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
+      - name: Compare explicit capacities through the public compiler API
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 eng/diagnose-streaming-capacity.py --source baseline-source --output artifacts/p7-capacity
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: p7-fork-capacity-comparison
+          path: |
+            artifacts/capacity-*.txt
+            artifacts/p7-capacity
