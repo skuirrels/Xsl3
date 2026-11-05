@@ -276,7 +276,7 @@ public class StreamedForkProjectionTests
     {
         foreach (bool debug in new[] { false, true })
         foreach (int delivery in new[] { 0, 1, 2 })
-        foreach (int capacity in new[] { 1, 7, 64, 4096 })
+        foreach (int capacity in new[] { 1, 7, 64, 256, 4096 })
         {
 #if !NET10_0_OR_GREATER
             if (delivery == 2) continue;

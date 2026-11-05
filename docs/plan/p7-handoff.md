@@ -1,5 +1,17 @@
 # P7 agent handoff after 1.1.7
 
+**Current capacity follow-up:** `feature/p7-fork-capacity-256` tests the smaller 256-event default.
+Its [qualification record](p7-fork-capacity-qualification.md) preserves the 4,096-event candidate's
+failed push-memory result, completed nightly job and still-running throughput job. The 256-event
+candidate has no qualification result yet. Relative to merged main `a5e89ac`, only the default setting
+changes in runtime code. Both buffer candidates remain unaccepted; original gates are unchanged.
+
+Correctness work is separate: [PR #37](https://github.com/skuirrels/Xsl3/pull/37) adds fork grouping/sorting
+payload retention, and [PR #38](https://github.com/skuirrels/Xsl3/pull/38) adds hidden-grounding memory
+controls. Their local tests pass and hosted CI is running. Do not replace these branches with the
+performance experiments or infer full P7 completion from their ordinary CI results.
+
+
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 Start from merged main `a5e89ac` or a verified descendant. [S3-25 verifier coverage](p7-verifier-coverage.md),
 [S5-14 group read positions](p7-group-read-positions.md), and

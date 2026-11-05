@@ -1,5 +1,34 @@
 # P7 fork capacity qualification
 
+## Smaller-buffer follow-up: 256 events
+
+`feature/p7-fork-capacity-256` starts from `aebb3a2`, retaining its historical 4,096-event control and
+diagnostic tooling. Its only additional runtime change is reducing that candidate default to 256.
+Relative to merged main `a5e89ac`, the only runtime difference is therefore the default from 64 to 256.
+No allocation, producer, wait-policy, fixture, output oracle, heap guard or acceptance limit changes.
+
+The 4,096-event original run [42112345048](https://github.com/skuirrels/Xsl3/actions/runs/42112345048)
+fails push memory: fork peaks at 22,941,696 bytes versus the original 20,971,520-byte limit, with all
+48 outputs correct and 15/16 workload budgets met. Its nightly job passes all 16 workload budgets
+and all 48 outputs: exact 2,147,483,648-byte inputs, actual 209,715,200-byte managed guard, maximum
+absolute whole-process RSS 32,321,536 bytes (fork). The throughput job is still running. The larger default is not accepted. Retain both results instead of substituting the later run.
+
+The unchanged-runtime public-setting comparison previously measured a 15.1% lower Linux fork median
+at 256 than at 64, with overlapping ranges and a still-failing 1.425856 stream/tree ratio. This motivates
+measuring the smaller buffer's memory/throughput tradeoff; it does not establish an acceptance pass.
+
+Default/clone assertions now expect 256. Projection and no-input-without-demand tests add 256 while
+retaining 1/7/64/4,096 coverage. Existing saved assemblies keep their compiled capacities. The original
+sixteen-workload memory matrices and complete 126-observation benchmark must qualify this exact source
+before any adoption; local diagnostics and the earlier 4,096-event results cannot qualify it.
+
+Local Release and Debug each pass 440 .NET 10 / 364 .NET 8 checks, 1,608 total with no failures or
+skips. Exact source hashes and raw TRX are retained under
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification is next.
+No candidate has been merged or released.
+
+## Historical 4,096-event candidate
+
 ## Candidate and evidence
 
 The [public-setting comparison](p7-fork-buffer-policy.md) at unchanged runtime `a5e89ac` found
@@ -39,3 +68,18 @@ check all output fingerprints, borrowed input ownership and first output before 
 
 Hosted original memory/throughput qualification is pending. The larger default is not adopted into
 main or published.
+
+
+## Audited 4,096-event nightly result
+
+Run `42112345048`, source `aebb3a23aa26df7a9a0226d489100e61833fbd9a`, artifact
+`13456366235` (`streaming-memory-nightly`, expires 3 February 2027) reports all 16 budgets and all
+48 independent output checks passing. Every child is NativeAOT with dynamic code and trusted platform
+assemblies absent. The external `wait4` and internal `getrusage` peaks are both retained and their maximum
+is checked. All 32 generated stylesheets match the push artifact byte for byte. Original controller
+validation was reapplied to every report and matched each raw child stdout. GitHub's archive digest is
+`6dae4a1414db58ca18a6c086617e06d426e0af49720bf833f88735ac6b7b2847`.
+
+The report and review are retained under
+`/private/tmp/xsl3-p7-fork-capacity-qualification-20261105/hosted-nightly/` and `nightly-review.json`.
+A nightly pass does not override the original tighter push-memory failure or qualify a different default.

@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Increase the experimental forward-fork default `XsltSettings.StreamingBufferCapacity` from 64 to
-  4,096 logical input events. Explicit settings and capacities embedded in existing saved styles
+  256 logical input events. Explicit settings and capacities embedded in existing saved styles
   remain unchanged. Larger event buffers trade more retained input for fewer producer handoffs;
   this is an event-count bound, not a byte bound. Full streaming qualification is still required.
 

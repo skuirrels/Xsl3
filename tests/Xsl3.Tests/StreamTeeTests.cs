@@ -394,6 +394,7 @@ public class StreamTeeTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(7)]
+    [InlineData(256)]
     [InlineData(4096)]
     public void CallerOwnedSourceDoesNotReadAheadAfterBufferedRequestsComplete(int capacity)
     {

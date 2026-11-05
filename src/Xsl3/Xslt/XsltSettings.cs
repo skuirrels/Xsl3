@@ -47,8 +47,8 @@ namespace Xsl3
         internal bool? StreamedExecution { get; set; }
         internal bool UseStreamedExecution => StreamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
 
-        private int _streamingBufferCapacity = 4096;
-        /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 4096.</summary>
+        private int _streamingBufferCapacity = 256;
+        /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 256.</summary>
         public int StreamingBufferCapacity
         {
             get => _streamingBufferCapacity;

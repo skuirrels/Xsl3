@@ -26,7 +26,7 @@ static checking and does not enable forward execution by itself. Published defau
 tree-based; forward execution requires the explicit development opt-in. The original streaming RSS
 and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
-The unreleased development branch tests a 4,096-event default for `XsltSettings.StreamingBufferCapacity`
+The unreleased development branch tests a 256-event default for `XsltSettings.StreamingBufferCapacity`
 (previously 64); explicit settings and existing saved capacities remain unchanged. This bounds logical
 input events, not bytes or buffered output. See the [qualification record](docs/plan/p7-fork-capacity-qualification.md).
 
