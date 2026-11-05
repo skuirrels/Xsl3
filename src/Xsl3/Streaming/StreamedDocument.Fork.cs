@@ -14,6 +14,39 @@ internal sealed partial class StreamedDocument
 {
     private readonly Node? _forkBoundary;
     private readonly long _forkFirstChild = -1;
+    private Node? _projectedDiscard;
+    private int _projectedDiscardDepth;
+
+    private void BeginProjectedDiscard(Node node)
+    {
+        // Other consumers need every logical node for replay, matches or observations.
+        // An omitted projection subtree can avoid frames only when this fork is its sole consumer.
+        if (node.Kind != XPathNodeType.Element || node.Ended || _ready || _observer != null
+            || _capturing != null || _consumedHeaders != null || _consumptionMatches != null
+            || _descendants != null || _consuming != 1) return;
+        _projectedDiscard = node;
+        _projectedDiscardDepth = _reader.Depth;
+        node.Skipped = node.ChildrenStarted = true;
+    }
+
+    private void ReadProjectedDiscard()
+    {
+        Check();
+        Node node = _projectedDiscard!;
+        // One reader advance per source scan preserves the tee's demand and batch bound.
+        // Keep the normal wrapper chain so validation, whitespace state and read errors still run.
+        bool read = _reader.Read();
+        if (read && _reader.NodeType == XmlNodeType.EntityReference) _reader.ResolveEntity();
+        if (!read || _reader.Depth <= _projectedDiscardDepth)
+        {
+            bool end = read && _reader.NodeType == XmlNodeType.EndElement && _reader.Depth == _projectedDiscardDepth;
+            if (end) node.Schema = Schema(_reader.SchemaInfo) ?? node.Schema;
+            _ready = read && !end;
+            node.Ended = true;
+            _current = node;
+            _projectedDiscard = null;
+        }
+    }
 
     // Binding projection reads only this prong's navigation state. The source may already
     // be pumping events on another thread, so its mutable frame flags are never consulted.
@@ -200,9 +233,16 @@ internal sealed partial class StreamedDocument
 
         private ForkProngs.SourceRead<ForkEvent> ReadProjected()
         {
+            if (_source._projectedDiscard != null)
+            {
+                _source.ReadProjectedDiscard();
+                return default;
+            }
             Node? node = ReadNode(out bool end);
             if (node == null) return new(null, true);
-            return _projection!.Keep(node, end) ? new(new(node, end), false) : default;
+            if (_projection!.Keep(node, end)) return new(new(node, end), false);
+            if (!end) _source.BeginProjectedDiscard(node);
+            return default;
         }
 
         internal void Run(IReadOnlyList<Action<StreamedNavigator, CancellationToken>> bodies, int capacity,

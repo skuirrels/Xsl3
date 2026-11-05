@@ -1,24 +1,21 @@
 # P7 agent handoff after 1.1.7
 
-**5 November memory qualification update:** the isolated 256-event default candidate on
-`feature/p7-fork-capacity-256`, runtime source `deed3c1`, passes both original hosted memory matrices:
-32 workload budgets and 96 independent outputs. See [the qualification record](p7-fork-capacity-qualification.md)
-for original limits, raw-report audits and artifact provenance. Its full throughput run
-[42116432334](https://github.com/skuirrels/Xsl3/actions/runs/42116432334) is still active; this default is
-not adopted. The 4,096-event control retains its push-memory failure and separate live throughput run.
-Source-header and accumulator-traversal controls were independently rejected and pushed as evidence.
-Their patches are excluded. Full P7 remains active with every original gate required.
+**5 November current status:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
+CI jobs in run `42113850460` and merged at `f453216`. Its fork grouping/sorting retention contracts
+are now on main. [PR #38](https://github.com/skuirrels/Xsl3/pull/38) still needs reconciliation with
+that merge and CI on the reconciled head before merging. Ordinary CI does not close full P7.
 
-**Current capacity follow-up:** `feature/p7-fork-capacity-256` tests the smaller 256-event default.
-Its [qualification record](p7-fork-capacity-qualification.md) preserves the 4,096-event candidate's
-failed push-memory result, completed nightly job and still-running throughput job. The 256-event
-candidate has no qualification result yet. Relative to merged main `a5e89ac`, only the default setting
-changes in runtime code. Both buffer candidates remain unaccepted; original gates are unchanged.
+The isolated 256-event default candidate `deed3c1` passes both original memory matrices: 32 budgets
+and 96 independent outputs. Its completed full throughput run passes four of seven targets; identity,
+fork and source-document fail. The 4,096-event control also passes four throughput targets and retains
+its tighter push-memory failure. See [the audited qualification record](p7-fork-capacity-qualification.md).
+Neither candidate is adopted. Source-header and accumulator-traversal controls remain rejected.
 
-Correctness work is separate: [PR #37](https://github.com/skuirrels/Xsl3/pull/37) adds fork grouping/sorting
-payload retention, and [PR #38](https://github.com/skuirrels/Xsl3/pull/38) adds hidden-grounding memory
-controls. Their local tests pass and hosted CI is running. Do not replace these branches with the
-performance experiments or infer full P7 completion from their ordinary CI results.
+Current branch `feature/p7-projection-discard` starts from the 256-event candidate and adds only
+[incremental discard of excluded fork descendants](p7-projection-discard.md). All 48 paired local
+observations validate output; the fork median improves 12.7% with nonoverlapping samples. It still
+requires broader Release/Debug contracts and fresh original hosted qualification. Preserve the original
+input, RSS, heap, throughput, demand, first-output and both-API requirements. Full P7 remains active.
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.

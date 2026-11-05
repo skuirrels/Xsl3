@@ -24,8 +24,8 @@ before any adoption; local diagnostics and the earlier 4,096-event results canno
 
 Local Release and Debug each pass 440 .NET 10 / 364 .NET 8 checks, 1,608 total with no failures or
 skips. Exact source hashes and raw TRX are retained under
-`/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification is running on `deed3c1b31657e0740d532182cb1e39eeea15aa4`;
-both original memory results are audited below. The full throughput job remains pending.
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification completed on `deed3c1b31657e0740d532182cb1e39eeea15aa4`;
+both original memory matrices pass, while throughput passes four of seven targets. All results are audited below.
 No candidate has been merged or released.
 
 ## Historical 4,096-event candidate
@@ -121,7 +121,7 @@ Raw files, executable re-audit and per-workload peaks are retained under
 `/private/tmp/xsl3-p7-fork-capacity-256-20261105/hosted-nightly/`, `audit-nightly.py` and `nightly-review.json`.
 
 Together these qualify all **32 original memory budgets and 96 outputs** for the named 256-event source.
-The full 126-observation throughput run is still active; no passing throughput or final P7 claim is made.
+The full 126-observation throughput audit below retains three failing targets; no full P7 claim is made.
 
 ## Independent rejected controls
 
@@ -206,3 +206,38 @@ contract and is not an acceptable implementation.
 CPU artifact `13457479106` expires 3 February 2027, GitHub digest
 `59b4aecf1149a0242dd0099adf0a0eb0eb94a751812ba29a1f13ca87f04a2b6b`. Raw files and `cpu-review.json`
 are in the 256-event evidence directory. Instrumented elapsed time is not throughput qualification.
+
+## Audited 256-event throughput result
+
+The completed [run 42116432334](https://github.com/skuirrels/Xsl3/actions/runs/42116432334) has
+126 valid observations: all seven original workloads, three sizes, three rounds and both modes.
+Raw child outputs match their reports and the independent output fingerprints match across modes
+and rounds. Every child has the actual 4 GiB managed guard, tiering disabled and four effective CPUs.
+The original acceptance rule requires every 100 MB streaming median to be no slower than tree plus
+transform; no tolerance band is applied.
+
+| Workload | Stream/tree median | Original target |
+|---|---:|---|
+| identity | 1.084938531 | Fail |
+| adjacent | 0.737723476 | Pass |
+| accumulator | 0.872910007 | Pass |
+| iterate | 0.798591774 | Pass |
+| merge | 0.837666816 | Pass |
+| fork | 1.439500185 | Fail |
+| source-document | 1.093985420 | Fail |
+
+Thus **four of seven** targets pass. Identity, fork and source-document remain open. Cross-run
+comparisons with the 4,096-event candidate do not isolate a causal capacity effect.
+
+Artifact `13458866120` (`streaming-benchmark-nightly`, expires 3 February 2027) has GitHub digest
+`bed5287cc688b72c229f4da3236fa1522ff9c735eed3020a84a3bb454f4461e1`. Report SHA-256:
+`37d8f9c935bfdddb058d5dfdfd406f48eb6413bc71e80a482282d6e688e01579`. Retained engine SHA-256:
+`25dcecb228801903e4f7f82de00cd1b0a9356c538450a10127e6ea1318aa13a0`. All 409 tracked library PDB source hashes match
+`deed3c1b31657e0740d532182cb1e39eeea15aa4`; three generated documents are excluded from Git comparison.
+Raw artifacts, the executable audit and source-check results are in
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/hosted-throughput/`, `audit-throughput.py`,
+`throughput-review.json` and `throughput-source-review.json`.
+
+The next isolated control is [incremental projection discard](p7-projection-discard.md), which avoids
+constructing frames for compiler-proven excluded descendants while preserving bounded reader demand.
+The capacity candidate and its original failing results remain retained and unaccepted.
