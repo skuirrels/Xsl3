@@ -172,7 +172,9 @@ internal sealed class ForkCaller : IDisposable
         private SpinWait _spin;
         internal bool Continue()
         {
-            if (Environment.TickCount64 - started >= 1) return false;
+            // Once SpinWait would yield, use the enclosing monitor's publication
+            // notification instead of spending the rest of the budget polling it.
+            if (_spin.NextSpinWillYield || Environment.TickCount64 - started >= 1) return false;
             _spin.SpinOnce(sleep1Threshold: -1);
             return true;
         }
