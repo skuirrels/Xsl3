@@ -85,8 +85,8 @@ Do not merge either variant based on allocation reduction or these local timings
 Next investigate consumer-side frame creation and per-item output construction under profiling. The
 first allocation trace places the surviving frame allocations in `ForkHeader.Create`; `SimpleContentState`
 and single-item arrays are separate measured contributors. Preserve both candidate binaries so future
-controls can distinguish producer-only and composed effects. No candidate PR, full hosted acceptance,
-support claim or release is authorized by these diagnostic results alone.
+controls can distinguish producer-only and composed effects. No candidate PR has been opened; full
+hosted acceptance, the supported-streaming claim and release readiness remain unproven.
 
 ## Next implementation boundary
 
