@@ -42,7 +42,7 @@ step with a reader stopped inside nested discarded content.
    execution and fresh original hosted qualification are required before adoption. Both public APIs,
    buffers, output oracles, memory limits and all seven final throughput targets remain required.
 
-## Current validation
+## Initial validation and rejected first candidate
 
 The initial unchanged contract population passes 145 .NET 10 / 105 .NET 8 Release checks. With six new
 cases, the targeted population passes 151 / 111 (262 total, no failures/skips). The first test build had
@@ -67,4 +67,26 @@ raw test TRX, frozen engines and comparison scripts. Engine SHA-256:
 - Baseline 256: `65ab315c5757321647170c1336150a4110ee1f9d53bb0e75bfe35ab1d2edfa3b`.
 - Candidate: `3cc280164165870e56cde7196ae8c1ad9b1f2390e3fea90dcf8c4576fb9da69f`.
 
-The candidate is unaccepted. Full Phase 7, the supported-streaming claim and release remain incomplete.
+The broader Release run exposed three failures in the existing
+`ForkContinuationContractsTests.OmittedMixedContentKeepsFollowingPositionIdentity` cases on each framework (.NET 10: 4,728 passed / 3 failed; .NET 8: 3,806 passed / 3 failed):
+following row positions changed from `[8, 12]` to `[3, 7]`. The first candidate `fb6d4cd` is therefore
+**rejected**, regardless of its measured speedup. Its original hosted qualification
+[42122349414](https://github.com/skuirrels/Xsl3/actions/runs/42122349414) was cancelled after this failure
+was established; it cannot qualify the corrected source. The original identity assertions remain unchanged.
+
+The correction counts omitted logical positions without allocating their frames. Element, comment and
+processing-instruction events advance the position once; adjacent retained text, CDATA and whitespace
+across entity boundaries advance it only once, using the ordinary whitespace-retention rule. A new
+8-case control compares projected and unprojected positions across explicit text/markup entities,
+ordinary/preserved whitespace and capacities 1/7/64/256. The corrected source passes 1,523 .NET 10 / 1,245 .NET 8 affected checks in each of Release and
+Debug: **5,536 total**, zero failures/skips. These include all fork, replay, observer, source-boundary,
+source-document, namespace, schema-header, disposal, copied-attribute identity and navigator contracts
+selected by the retained validation script. The initial broad run's other 8,534 checks remain retained;
+its six failures are not relabelled as passes. Full final-source CI remains required.
+
+Fresh paired timing is running from frozen corrected binaries and controllers in
+`/private/tmp/xsl3-p7-projection-discard-corrected-20261105/`. The corrected engine SHA-256 is
+`91f491ffa4676894b2adba8d3932dd4b0047df0d8fe3471dfe18e4d562eb2226`.
+The first candidate's 12.7% result does not qualify this correction.
+
+Full Phase 7, the supported-streaming claim and release remain incomplete.

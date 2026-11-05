@@ -16,6 +16,7 @@ internal sealed partial class StreamedDocument
     private readonly long _forkFirstChild = -1;
     private Node? _projectedDiscard;
     private int _projectedDiscardDepth;
+    private bool _projectedDiscardText;
 
     private void BeginProjectedDiscard(Node node)
     {
@@ -26,6 +27,7 @@ internal sealed partial class StreamedDocument
             || _descendants != null || _consuming != 1) return;
         _projectedDiscard = node;
         _projectedDiscardDepth = _reader.Depth;
+        _projectedDiscardText = false;
         node.Skipped = node.ChildrenStarted = true;
     }
 
@@ -45,6 +47,31 @@ internal sealed partial class StreamedDocument
             node.Ended = true;
             _current = node;
             _projectedDiscard = null;
+        }
+        else
+        {
+            // Projection must preserve the source's position numbering even for omitted nodes.
+            // Adjacent text/CDATA/whitespace and entity boundaries form one XPath text node.
+            switch (_reader.NodeType)
+            {
+                case XmlNodeType.Element: case XmlNodeType.Comment: case XmlNodeType.ProcessingInstruction:
+                    _number++;
+                    _projectedDiscardText = false;
+                    break;
+                case XmlNodeType.Text: case XmlNodeType.CDATA:
+                case XmlNodeType.SignificantWhitespace: case XmlNodeType.Whitespace:
+                    if (!_projectedDiscardText && KeepText())
+                    {
+                        _number++;
+                        _projectedDiscardText = true;
+                    }
+                    break;
+                case XmlNodeType.EntityReference: case XmlNodeType.EndEntity:
+                    break;
+                default:
+                    _projectedDiscardText = false;
+                    break;
+            }
         }
     }
 

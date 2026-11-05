@@ -13,8 +13,12 @@ Neither candidate is adopted. Source-header and accumulator-traversal controls r
 
 Current branch `feature/p7-projection-discard` starts from the 256-event candidate and adds only
 [incremental discard of excluded fork descendants](p7-projection-discard.md). All 48 paired local
-observations validate output; the fork median improves 12.7% with nonoverlapping samples. It still
-requires broader Release/Debug contracts and fresh original hosted qualification. Preserve the original
+observations validate output and the fork median improves 12.7%, but broader regression tests reject
+the first candidate `fb6d4cd`: it changes following source position numbers. The unchanged identity
+contracts caught this. Its hosted run `42122349414` was cancelled. A correction retains logical node
+numbering without constructing excluded frames; all 5,536 affected Release/Debug checks pass, including
+the unchanged failing contracts and eight new entity/whitespace cases. Renewed timing is running;
+fresh hosted qualification remains required. Preserve the original
 input, RSS, heap, throughput, demand, first-output and both-API requirements. Full P7 remains active.
 
 
