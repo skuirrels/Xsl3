@@ -65,6 +65,14 @@ identity/accumulator CPU runs `42109632792` / `42109637672` validate both 1 GB o
 26,875 / 25,889 CPU samples without reported loss. Source construction is a shared cost; underlying
 parser frames remain partly unresolved. See the linked CPU evidence before choosing a runtime control.
 
+**Current candidate:** `feature/p7-fork-capacity-qualification` independently raises the public default
+from 64 to 4,096 logical events, based on the hosted comparison above. It starts at `42d2329` and
+excludes every rejected runtime control. Explicit settings and old saved constants remain unchanged.
+See [qualification criteria](p7-fork-capacity-qualification.md); the original memory/throughput gates
+are required. The source-dispatch extraction at `3793df5` on `feature/p7-source-dispatch` is rejected:
+3,141 Release contracts and 48 paired outputs pass, but it establishes no convincing timing gain.
+Do not merge that control.
+
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
 evidence have shipped. The current bounded follow-up is [PR #33](https://github.com/skuirrels/Xsl3/pull/33):
