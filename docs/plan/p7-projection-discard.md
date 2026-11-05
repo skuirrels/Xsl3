@@ -191,3 +191,27 @@ Original acceptance jobs remain unchanged unless the opt-in revision comparison 
 
 Adoption requires a useful paired benefit without unexplained regressions, then every original gate
 on final integrated source. A successful diagnostic job alone does not establish that benefit.
+
+[Paired Linux run 42131056101](https://github.com/skuirrels/Xsl3/actions/runs/42131056101) is complete.
+All 60 observations, raw outputs, actual guards, unchanged consumer files, archive digest and 409
+tracked PDB source hashes per variant verify. All five fingerprints also match the original full
+qualification. Candidate `9fbd8e1` has runtime source identical to corrected discard `a8d322a`.
+Streaming medians are milliseconds:
+
+| Workload | Baseline `deed3c1` | Corrected discard `a8d322a` | Candidate/baseline | Winner |
+|---|---:|---:|---:|---|
+| identity | 3161.721 | 3113.142 | 0.984635 | No meaningful winner; ranges overlap |
+| accumulator | 3263.663 | 3296.698 | 1.010122 | No meaningful winner; ranges overlap |
+| merge | 5324.816 | 5363.994 | 1.007358 | No meaningful winner; ranges overlap |
+| fork | 3218.088 | 2755.886 | 0.856374 | Corrected discard |
+| source-document | 3136.589 | 3141.849 | 1.001677 | No meaningful winner; ranges overlap |
+
+All three fork candidate observations (2808.725, 2755.886, 2479.421 ms) are below all three baseline
+observations (3218.088, 3326.008, 3209.348 ms). The 14.4% lower median supports keeping corrected
+discard as the next candidate's foundation. Its fork stream/tree ratio remains 1.132795 in this
+diagnostic, and the separate original qualification's four failed targets remain failed.
+
+Artifact `13463177772` expires 3 February 2027; verified ZIP SHA-256:
+`ad84e2a36e14258d858dd01bdbc4f030777e3688f3e78ab06ee6f97f8af1df51`. Raw files, both PDB inventories
+and executable `audit.py` are retained at `/private/tmp/xsl3-p7-discard-host-comparison-20261105/`.
+This result does not qualify a supported-streaming claim, merge of public integration or release.
