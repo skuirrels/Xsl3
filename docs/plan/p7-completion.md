@@ -3,9 +3,12 @@
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
 All original requirements and gates remain in force; the earlier stopping instructions below are historical.
 Accounting and extension review shipped in 1.2.0/1.3.0; [PR #33](https://github.com/skuirrels/Xsl3/pull/33)
-merged entry and forward-execution evidence at `8582a5b`. The next implementation is
-[S3-25 verifier coverage](p7-verifier-coverage.md), followed by the remaining runtime evidence,
-throughput qualification and supported-streaming integration. No intermediate audit or release completes P7.
+merged entry and forward-execution evidence at `8582a5b`. The subsequent verifier, group-position and
+managed-retention increments in PRs #34–#36 are merged through `a5e89ac`. The
+[producer allocation](p7-producer-allocation.md) and [simple-content value-state](p7-simple-content-state.md)
+controls have not established a useful throughput benefit and remain unadopted. Remaining runtime evidence,
+original throughput/memory qualification and supported-streaming integration are still required.
+No intermediate audit or release completes P7.
 
 The owner resumed the full P7 objective on 2026-10-29: complete Phase 7, review all changes,
 merge the pull request and release. Branch: `feature/p7-completion`. Baseline: released
