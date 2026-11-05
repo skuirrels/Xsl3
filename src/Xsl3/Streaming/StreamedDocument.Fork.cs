@@ -317,15 +317,13 @@ internal sealed partial class StreamedDocument
         _cancellation = cancellation;
         NameTable = _reader.NameTable;
         Identity = source.Identity;
-        Node? parent = null;
-        for (int i = 0; i < headers.Length; i++)
+        Node parent = Root = headers[0].Create(null, boundary: headers.Length == 1, NameTable);
+        for (int i = 1; i < headers.Length; i++)
         {
             Node node = headers[i].Create(parent, boundary: i == headers.Length - 1, NameTable);
-            _open.Add(node);
             parent = node;
         }
-        Root = _open[0];
-        _current = _forkBoundary = _open[^1];
+        _openTop = _current = _forkBoundary = parent;
         _number = _current.Number;
         _forkFirstChild = headers[^1].FirstChild;
     }
@@ -346,19 +344,19 @@ internal sealed partial class StreamedDocument
         ForkHeader header = item.Header;
         if (item.End)
         {
-            Node current = _open[^1];
+            Node current = _openTop;
             if (current.Number != header.Original.Number) throw PositionError();
             current.Schema = Schema(header.SchemaInfo) ?? current.Schema;
             current.Ended = current.ChildrenStarted = true;
             _current = current;
             return;
         }
-        Node parent = _open[^1];
+        Node parent = _openTop;
         Node node = header.CreateFresh(parent, NameTable);
         parent.ChildrenStarted = true;
         if (parent.FirstChild < 0) parent.FirstChild = node.Number;
         _number = Math.Max(_number, node.Number);
-        if (node.Kind == XPathNodeType.Element) _open.Add(node);
+        if (node.Kind == XPathNodeType.Element) _openTop = node;
         _current = node;
     }
 

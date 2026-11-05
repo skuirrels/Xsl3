@@ -153,7 +153,6 @@ internal sealed partial class StreamedDocument
             cancellation.ThrowIfCancellationRequested();
             parent = header.HeaderOnly(parent, NameTable);
             _replayPositions.Add(parent.Number, parent);
-            _open.Add(parent);
         }
         ReplayBuffer? replay = null;
         foreach (var entry in nodes)
@@ -165,14 +164,13 @@ internal sealed partial class StreamedDocument
             if (node.Number == boundary)
             {
                 replay = new(node);
-                _open.Add(node);
             }
             replay!.Add(node);
         }
         replay!.Complete = true;
         replay.ReleaseConstructionState();
         Root = _replayPositions[0];
-        _current = _forkBoundary = _replayPositions[boundary];
+        _openTop = _current = _forkBoundary = _replayPositions[boundary];
         _number = _current.Number;
     }
 
@@ -184,7 +182,7 @@ internal sealed partial class StreamedDocument
         Identity = identity;
         NameTable = new NameTable();
         Root = _current = new ForkHeader(rootHeader).HeaderOnly(null, NameTable);
-        _open.Add(Root);
+        _openTop = Root;
     }
 
     // Metadata-only documents have no input stream. Fail even if a future content path

@@ -1,5 +1,14 @@
 # P7 agent handoff after 1.1.7
 
+**Latest isolated control, 5 November:** `feature/p7-linked-source-stack` replaces the duplicate
+source ancestor list with the existing parent links. All 5,868 affected Release/Debug checks and
+48 paired local observations pass, but timing changes are small and mixed; there is no adoption.
+The opt-in Linux revision comparison measures this profile-led hypothesis on the target architecture.
+See [the candidate record](p7-linked-source-stack.md). The separate framework-symbol capture is audited
+and pushed at `5db06fb` on `feature/p7-framework-cpu-symbols`: valid original 1 GB output, 409 tracked
+source hashes, 26,343 CPU samples, zero lost events and 213 XML parser symbols. This diagnostic uses
+a different framework compilation policy and supplies no acceptance timings.
+
 **5 November current status:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
 CI jobs in run `42113850460` and merged at `f453216`. Its fork grouping/sorting retention contracts
 are now on main. [PR #38](https://github.com/skuirrels/Xsl3/pull/38) still needs reconciliation with

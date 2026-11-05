@@ -49,7 +49,9 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private readonly bool _completeValidation;
     private IReadOnlyDictionary<(string, string), (string, string)>? _idDeclarations;
     private IReadOnlySet<(string, string, string, string)>? _idrefDeclarations;
-    private readonly List<Node> _open = new();
+    // Frames already retain their ancestors. Keep just the top rather than maintaining
+    // a second stack of the same references for every start/end event.
+    private Node _openTop;
     private Node _current;
     private bool _ready, _disposed;
     private long _number;
@@ -60,7 +62,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private readonly long _created;
     internal long Created => Identity._created;
     internal XmlNameTable NameTable { get; }
-    internal int RetainedNodeCount => _open.Count + (_open[^1] == _current ? 0 : 1);
+    internal int RetainedNodeCount => _disposed ? 0 : _openTop.Depth + 2 + (_openTop == _current ? 0 : 1);
 
     internal StreamedDocument(XmlReader reader, bool ownsReader = false, XmlSpace space = XmlSpace.Preserve,
         CancellationToken cancellation = default, bool completeValidation = false)
@@ -79,7 +81,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         _idrefDeclarations = Runtime.DocumentFragment.IdrefDeclarations(reader);
         NameTable = reader.NameTable ?? new NameTable();
         Root = _current = new(0, XPathNodeType.Root, null) { BaseUri = reader.BaseURI };
-        _open.Add(Root);
+        _openTop = Root;
         _ready = reader.ReadState == ReadState.Interactive;
     }
 
@@ -329,7 +331,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private static bool IsText(XPathNodeType kind) => kind is XPathNodeType.Text or XPathNodeType.SignificantWhitespace or XPathNodeType.Whitespace;
     private bool KeepText() => _reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA
         || _reader.NodeType == XmlNodeType.SignificantWhitespace && _reader.XmlSpace == XmlSpace.Preserve
-        || _space == XmlSpace.Preserve && _open.Count > 1;
+        || _space == XmlSpace.Preserve && _openTop != Root;
 
     private void ReadNext()
     {
@@ -353,7 +355,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
             while (_projectedDiscard != null) ReadProjectedDiscard();
             return;
         }
-        if (_open.Count > 1 && _open[^1].Ended) _open.RemoveAt(_open.Count - 1);
+        if (_openTop != Root && _openTop.Ended) _openTop = _openTop.Parent!;
         if (_reader is ForkEventReader fork)
         {
             ReadForkEvent(fork);
@@ -416,12 +418,12 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
                     if (attributeCount != attributes.Length) Array.Resize(ref attributes, attributeCount);
                     node.Attributes = attributes;
                     node.Namespaces = namespaces?.ToArray() ?? Array.Empty<Namespace>();
-                    _open.Add(node);
+                    _openTop = node;
                     _current = node;
                     return;
                 }
                 case XmlNodeType.EndElement:
-                    _current = _open[^1];
+                    _current = _openTop;
                     if (_current == Root)
                     {
                         Root.Ended = Root.ChildrenStarted = true;
@@ -495,7 +497,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
 
     private Node Child(XPathNodeType kind)
     {
-        Node parent = _open[^1];
+        Node parent = _openTop;
         Node? original = (_reader as ForkEventReader)?.Current?.Header.Original;
         long number = original?.Number ?? _number + 1;
         _number = Math.Max(_number, number);
@@ -521,7 +523,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _open.Clear();
+        _openTop = Root;
         _projectedDiscard = null;
         // Retained positions own their closed headers; the source needs no current row.
         _current = Root;
