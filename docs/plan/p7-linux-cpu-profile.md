@@ -22,7 +22,7 @@ The `cpu_workload` choice defaults to `fork` and can select any of the seven can
 Each run still profiles exactly one child. Identity and accumulator can therefore be investigated
 independently of fork scheduling, with their original input and output validation.
 
-The new job builds that immutable source and profiles only its own canonical 1 GB fork streaming
+The new job builds that immutable source and profiles only its own selected canonical 1 GB streaming
 child. Collection is limited to that PID and 30 seconds; child/collector timeouts are bounded.
 The benchmark retains the original 4 GiB heap guard, disabled tiering and independent output checks.
 No processor-count override is added. Raw command, PID, source revisions, tool/runtime versions,
@@ -84,3 +84,38 @@ dotnet run --project eng/StreamingCpuReport -c Release -- path/to/cpu.nettrace >
 Main `a5e89ac` has the same runtime and benchmark source as reviewed contract head `78815e8`; all three
 contract PRs passed their own CI before merging. Neither source contains the unaccepted producer,
 tee reclamation or simple-content value-state controls.
+
+
+## Independent identity and accumulator profiles
+
+[Identity run 42109632792](https://github.com/skuirrels/Xsl3/actions/runs/42109632792) and
+[accumulator run 42109637672](https://github.com/skuirrels/Xsl3/actions/runs/42109637672) both
+succeed at controller `5a7760f`, immutable source `a5e89ac`. Each validates the original 1 GB
+input and output, with four host CPUs, no processor override, disabled tiering and the actual
+4 GiB heap allowance. Both use runtime SHA-256
+`68394e63c2f2e27c7fae6f23df54a0a3149e7ed055715a028718b50eae9b67c9`.
+
+| Evidence | Identity | Accumulator |
+|---|---:|---:|
+| Kernel CPU samples | 26,875 | 25,889 |
+| Samples with an Xsl3 frame | 26,827 | 25,854 |
+| Reported lost events | 0 | 0 |
+| Inclusive `StreamedDocument.ReadNextCore` | 11,211 | 10,886 |
+| Inclusive `StreamedInputReader.Read` | 7,303 | 6,000 |
+| Inclusive `StreamedDocument.Child` | 1,151 | 933 |
+
+Identity also spends 7,292 inclusive samples in `XmlQueryOutput.StartCopy`; accumulator spends
+11,473 in `StreamedAccumulators.Visit`. Inclusive counts overlap. Many framework leaf frames
+remain unresolved, so reader-wrapper attribution includes its underlying parser and does not
+prove that wrapper dispatch itself is the bottleneck. Instrumented elapsed times are not acceptance.
+The older metadata bypass and token-kind caching controls in the completion history already failed
+to establish reliable gains; these profiles are not a reason to repeat them unchanged.
+
+Artifacts `13454560274` (identity) and `13454325230` (accumulator) expire 3 February 2027.
+Their GitHub archive SHA-256 digests are, respectively:
+
+- `b94b5cf030f8c3b6a057da9b8d949b4ee97cb6670a0d7b5ef22e9c7c180b2216`
+- `8f79cf0a513a36154e684d54d7f6f9235e923184df97cb68b644a581a856d6fb`
+
+Each includes the raw trace, JIT maps, source revisions, child report and CPU analysis. Local copies
+are under `/private/tmp/xsl3-p7-linux-cpu-20261105/{identity,accumulator}/`.

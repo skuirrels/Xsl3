@@ -43,4 +43,25 @@ Dispatch `streaming-development.yml` with `capacity_comparison=true`, all other 
 and `source_ref=a5e89ac7f6fb630e47872a2bcc297cb010ad36f6`. Default/scheduled runs still execute the original
 memory and throughput gates. This explicit diagnostic job cannot establish a full-P7 pass.
 
-Hosted comparison pending. No runtime or default-setting change is adopted on this branch.
+The [hosted comparison](https://github.com/skuirrels/Xsl3/actions/runs/42109352467) completed at
+controller `46504c2`, source `a5e89ac`. All 24 observations pass the original input/output checks,
+report four effective processors and the actual 4 GiB heap allowance, and preserve identical output
+fingerprints across capacities. The copied runtime hash matches the immutable source build.
+
+| Configured events | Tree median (ms) | Streaming median (ms) | Stream/tree |
+|---:|---:|---:|---:|
+| 64 | 3,541.516 | 6,132.158 | 1.731507 |
+| 256 | 3,652.220 | 5,207.540 | 1.425856 |
+| 1,024 | 3,487.006 | 5,505.342 | 1.578816 |
+| 4,096 | 3,521.554 | 4,420.869 | 1.255375 |
+
+The 4,096-event median is 27.9% below 64 events; all three larger-buffer streaming observations
+(4,371–4,716 ms) are below all three baseline observations (5,220–6,688 ms). The 256-event ranges
+overlap and the progression is not monotonic. Every configuration still misses throughput. These
+settings have not passed the original whole-process memory or saved-style compatibility gates.
+No runtime or default-setting change is adopted on this branch.
+
+Artifact `13453063368` expires 3 February 2027; GitHub reports archive digest
+`sha256:3e7bf49c382ab2d5b4cc88de3f08c074afcde3f85af42d892851a67e5e76af63`.
+The downloaded source/binary manifest, raw reports and reviewed results are under
+`/private/tmp/xsl3-p7-buffer-policy-20261105/hosted/` (`paired-review.json`).

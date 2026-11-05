@@ -58,8 +58,12 @@ and is rejected. Its new negative control passes on the unchanged runtime. Curre
 `feature/p7-fork-buffer-policy` retains only that demand regression and
 [public buffer-setting diagnostics](p7-fork-buffer-policy.md). All 24 local observations validate output;
 256 configured events gains about 8.0% over 64, with diminishing gains at larger sizes. Every local ratio
-still exceeds one. A hosted comparison is required before considering a default change; the default
-remains 64 and all original memory/throughput gates remain unchanged.
+still exceeds one. Hosted run `42109352467` also validates all 24 outputs; 4,096 events reduces the
+fork streaming median by 27.9%, but its stream/tree ratio remains 1.255375. The default remains 64;
+no capacity policy is adopted without the original memory and compatibility checks. Independent
+identity/accumulator CPU runs `42109632792` / `42109637672` validate both 1 GB outputs and provide
+26,875 / 25,889 CPU samples without reported loss. Source construction is a shared cost; underlying
+parser frames remain partly unresolved. See the linked CPU evidence before choosing a runtime control.
 
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
