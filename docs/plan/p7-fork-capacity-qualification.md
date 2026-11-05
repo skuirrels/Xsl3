@@ -24,7 +24,8 @@ before any adoption; local diagnostics and the earlier 4,096-event results canno
 
 Local Release and Debug each pass 440 .NET 10 / 364 .NET 8 checks, 1,608 total with no failures or
 skips. Exact source hashes and raw TRX are retained under
-`/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification is next.
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/`. Hosted original qualification is running on `deed3c1b31657e0740d532182cb1e39eeea15aa4`;
+its push-memory result is audited below. Nightly memory and throughput remain pending.
 No candidate has been merged or released.
 
 ## Historical 4,096-event candidate
@@ -83,3 +84,23 @@ validation was reapplied to every report and matched each raw child stdout. GitH
 The report and review are retained under
 `/private/tmp/xsl3-p7-fork-capacity-qualification-20261105/hosted-nightly/` and `nightly-review.json`.
 A nightly pass does not override the original tighter push-memory failure or qualify a different default.
+
+## Audited 256-event push result
+
+[Run 42116432334](https://github.com/skuirrels/Xsl3/actions/runs/42116432334), source
+`deed3c1b31657e0740d532182cb1e39eeea15aa4`, passes all 16 original push-memory budgets and all
+48 independent output checks. Each measured input is exactly 209,715,200 bytes with an actual
+20,971,520-byte managed-heap guard. All children report NativeAOT execution (dynamic code and trusted
+platform assemblies absent). The maximum of external full-lifetime `wait4` and internal
+`getrusage(RUSAGE_SELF)` is checked without subtraction. The largest measured peak is **17,395,712 bytes**
+(conditional-content); fork peaks at **17,305,600 bytes**. All baseline tree/stream output fingerprints
+match. Original controller validation was reapplied to every report and matched each raw child stdout.
+
+Artifact `13457196442` (`streaming-memory-push`, expires 3 February 2027) has GitHub archive digest
+`6aef2ed82cbe86db92104f9117698aa3622c752d43e6de6f3f351b6d770b3282`. Report SHA-256:
+`cffad0fd35bdc6e14b5c8f43ac05b17ac92a141844c9fc50ff29eef234146432`.
+Local raw files, executable re-audit and per-workload peaks are retained in
+`/private/tmp/xsl3-p7-fork-capacity-256-20261105/hosted-push/`, `audit-push.py` and `push-review.json`.
+
+This establishes the original push-memory pass for the named candidate only. Nightly memory,
+throughput, final integration and full P7 completion remain unproven; the candidate is not adopted.
