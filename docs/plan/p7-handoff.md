@@ -3,16 +3,19 @@
 **Fork attribution update, 6 November 2026:** the unchanged integration source `32c845d` has a
 new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 42149213380.
 The original 1 GB outputs, artifact/binary/source hashes and all sample counts verify. The isolated
-`feature/p7-fork-name-cache` candidate now passes 2,298 affected Release/Debug checks. All 60 corrected
-local paired observations validate; fork's median is 6.48% lower with non-overlapping ranges, while
-accumulator is 0.57% slower with non-overlapping ranges. The paired Linux comparison of all five
-workloads is running at [42152035144](https://github.com/skuirrels/Xsl3/actions/runs/42152035144),
-candidate `d571953` / baseline `32c845d`. The initial null-argument defect and all initial results
-are retained. No cache is adopted yet. Full Debug units for integration `32c845d` passed all 14,053
+`feature/p7-fork-name-cache` is **closed without adoption**. All 2,298 affected Release/Debug checks
+and all 60 corrected local paired observations pass, but the local 6.48% fork gain does not reproduce
+in [Linux comparison 42152035144](https://github.com/skuirrels/Xsl3/actions/runs/42152035144),
+candidate `d571953` / baseline `32c845d`. All 60 Linux observations and source hashes verify;
+fork's median is 0.28% slower, all five ranges overlap, and fork stream/tree remains 1.198992.
+Do not integrate this cache or repeat its comparison without new evidence. The corrected null-argument
+defect and all initial results are retained on its branch. Full Debug units for integration `32c845d` passed all 14,053
 checks; raw results, frozen-binary checks and the final audit are under
-`/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. CI 42148343009 is still running: NativeAOT and
-ordinary performance and all Ubuntu steps passed; Windows continues through compatibility checks.
-Neither run replaces original P7 performance qualification,
+`/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. All four jobs in CI 42148343009 passed.
+Both test artifacts are independently audited: full Release units pass 7,613/6,440 per platform,
+all 60 hosted exact-dispatch cases pass, strict inventories remain 2,696/16/0, all 4,968 eligible Debug
+verifications complete, and reviewed S1/S2 acceptance and stage accounting are unchanged. See the
+[current-head evidence update](p7-integrated-evidence-review.md). These results do not replace original P7 performance qualification,
 and no full-P7 completion or merge is claimed.
 
 **Integrated evidence update, 6 November 2026:** all four jobs in
