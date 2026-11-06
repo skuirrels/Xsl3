@@ -4,23 +4,25 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.1.6: P7H Debug compiler source-line contracts.** XSLT 1.0 and 2.0 are complete. XPath 3.1 is too, including maps, arrays and
-> higher-order functions. XSLT 3.0 works apart from streaming, including packages, `xsl:evaluate` (opt-in) and schema
-> awareness (opt-in, `XsltSettings.SchemaAware`).
+> **1.3.0: named streamability extensions.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> XSLT 3.0 works apart from supported streaming. Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
-Streaming remains in development, with static analysis, forward execution and process probes. It is not
-claimed as a supported package feature; normal execution remains tree-based and `supports-streaming` remains `no`.
-Version **1.1.6** fixes the Debug compiler assertion for repeated bare-variable `xsl:sequence`
-instructions. Each use retains its own source location without cloning or re-evaluating the binding.
-Normal/debug source and saved styles retain all six P7G copied-attribute identity contracts.
-P7G identity, P7F allocation and P7D/P7C correctness fixes remain included. XSLT 1.0 keeps its stock
-compatibility policy. The strict 20 MiB target and the separate stylesheet-reader mapping issue remain deferred.
-No public API or saved-format change is introduced.
-See the [1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
+Version **1.3.0** adds `XsltSettings.StreamabilityExtensions` (default `true`), which names the five
+extensions to the XSLT 3.0 streamability rules that strict analysis applies and turns them off for the
+specification's analysis exactly (§19.10). Behaviour is unchanged by default. 1.2.0's union change remains:
+a union of two striding operands is crawling (§19.8.8.4), so select `Fallback` or write the selection as one
+striding step where a construct relied on the former extension.
 
-Strict analysis now rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
-motionless instructions. Select `XsltStreamabilityMode.Fallback` explicitly when ordinary tree execution is intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.1.6 and regenerate saved stylesheets with matching packages.
+Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
+static checking and does not enable forward execution by itself. Published default execution stays
+tree-based; forward execution requires the explicit development opt-in. The original streaming memory
+and throughput gates remain unchanged and unmet; this release does not complete full P7.
+
+See the [1.3.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/releases/1.3.0.md) and
+[checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/plan/p7-runtime-checkpoint.md).
+Strict analysis rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
+motionless instructions. Select `XsltStreamabilityMode.Fallback` when strict static checking is not intended.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.0 and regenerate saved stylesheets with matching packages.
 
 ## Getting started
 

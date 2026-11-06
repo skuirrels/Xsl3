@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedDeferredAccumulatorTests
 {
     private const string Input = "<doc><row id='a'><x/></row><row id='b'><y/></row><row id='c'><x/><y/></row></doc>";

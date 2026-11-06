@@ -46,6 +46,8 @@ internal sealed partial class QilGenerator
     private int _forkDepth31;
     private QilNode CompileFork31(XslNode node)
     {
+        string?[]? projection = !_compiler.Settings.SchemaAware && !_compiler.Settings.EnableTracing
+            ? ForkProjectionAnalysis.Analyze(node.Content, StaticContext31(), _scope.LookupNamespace(XsltInput.ExpandTextPrefix) == "yes") : null;
         QilList functions = _f.BaseFactory.Sequence(), results = _f.BaseFactory.Sequence();
         foreach (XslNode prong in node.Content)
         {
@@ -58,8 +60,10 @@ internal sealed partial class QilGenerator
                 return Stateful31(nameof(XsltLibrary.X31ForkPush), T.Empty, body);
             }, 0, debugName: "<xsl:fork prong>", outputWorker: true));
         }
-        return Stateful31(nameof(XsltLibrary.X31Fork), results.XmlType!, functions,
-            FocusAbsent ? X31(nameof(XsltLibrary.X31AbsentFocus), T.Item) : ((IXPathEnvironment)this).GetCurrent()!,
-            _f.Double(_compiler.Settings.StreamingBufferCapacity));
+        QilNode focus = FocusAbsent ? X31(nameof(XsltLibrary.X31AbsentFocus), T.Item) : ((IXPathEnvironment)this).GetCurrent()!;
+        return projection == null ? Stateful31(nameof(XsltLibrary.X31Fork), results.XmlType!, functions, focus,
+            _f.Double(_compiler.Settings.StreamingBufferCapacity))
+            : Stateful31(nameof(XsltLibrary.X31ForkProjected), results.XmlType!, functions, focus,
+                _f.Double(_compiler.Settings.StreamingBufferCapacity), _f.Double(ConstantPool.Add(projection)));
     }
 }

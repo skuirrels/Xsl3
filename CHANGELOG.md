@@ -2,6 +2,131 @@
 
 ## Unreleased
 
+## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
+
+- Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0
+  streamability rules that strict analysis already applied: `E//N` analysed as `E/descendant::N`, scanning
+  expressions starting with `.`, quantified expressions over streamed nodes with a motionless condition,
+  `S except .`, and `current-group()` over a grounded selection. The W3C test suite expects them, so the
+  default is unchanged. Set it to `false` for the specification's analysis exactly, when such constructs
+  raise XTSE3430 under `Strict` (§19.10).
+- Update the `Xsl3.Build` and `Xsl3.Cli` package readmes, which still described 1.1.7.
+- Strengthen P7 phase A evidence for S3-18, S3-27 and S4-21/24/25: the streamed optimizer policy now has a
+  test against the rewrites it withholds, an injected tree fallback is shown to fail the strict forwarding
+  audit, and inspection, ascent and deep-descent functions are shown to run forward from streamable
+  template rules through both APIs. Tests only; no engine change.
+
+## [1.2.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.2.0) — 2026-11-02
+
+**Breaking for some streamable stylesheets.** Strict streamability analysis no longer accepts an
+undeclared extension for unions.
+
+- Classify a union of two striding operands as crawling, as XSLT 3.0 §19.8.8.4 requires, even when
+  both are child steps from the same parent. The former peer-union extension treated such unions as
+  striding without the user asking for an extension (§19.10). `Streamability = Strict` is the default,
+  so a declared-streamable construct that relied on it, which compiled with 1.1.7, now raises XTSE3430
+  unless `Fallback` is selected (it then runs unstreamed) or the selection is written as one striding
+  step. W3C `sx-union-202` now passes and `sx-union-315`, which relies on the extension, fails.
+- Add P7 phase A evidence: retained-state bounds for `xsl:iterate`, adjacent grouping and node-valued
+  accumulators through both APIs, and failing-prong cancellation in compiled `xsl:fork` (later prongs
+  are cancelled, earlier prongs finish). CI now fails when the original S3-S7 conformance exits regress
+  or a strict failure has no recorded disposition.
+- Honour W3C collection environments whose declared documents are exactly the `.xml` files of the
+  named directory in the XSLT 3.0 test runner, so `merge-039` runs.
+
+## [1.1.7](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.7) — 2026-11-01
+
+This bounded P7 checkpoint retains published tree-based execution by default. Full streaming remains
+experimental and unsupported; its original memory and throughput gates remain unchanged and unmet.
+
+
+- Avoid division when indexing a fork tee whose configured capacity is a power of two. Retain
+  remainder indexing for arbitrary positive capacities, the same buffer bounds and atomic ownership.
+
+- Keep forward execution an explicit development opt-in through both APIs. `Streamability = Strict`
+  controls static analysis without changing published default execution. Compiled settings are copied
+  and saved styles retain their recorded mode. Preserve the original qualification gates and
+  `supports-streaming = no` while streaming memory and throughput acceptance remains incomplete.
+
+- Reduce fork handoff delays with a bounded optimistic wait when the effective CPU allowance
+  has a spare processor beyond the caller and prongs. Retain parking on lower CPU allowances,
+  the existing thread count and buffer capacity, and callback/cancellation ownership.
+
+- Reject saved named-function values whose name and arity are unavailable in the loading engine,
+  rather than accepting a function with a missing implementation.
+
+- Reduce internal Linux NativeAOT streaming-probe metadata overhead with packed relative relocations.
+  Require LLD and glibc 2.36+ for that probe, verify its ELF layout before measurement,
+  and retain the original input sizes, whole-process budgets and runtime features.
+
+- Reduce the native streaming gate's reporting overhead with a direct UTF-8 JSON writer.
+  Preserve every computed measurement, output fingerprint, nullable timing and numeric validation;
+  keep the original absolute memory and throughput requirements unchanged.
+- Reject impossible simple accumulator rule matches directly from forward node headers using
+  compiler-resolved element names. Preserve namespace semantics, rule ordering, phase values,
+  cancellation and the general matcher for complex patterns and older saved styles. Optional
+  saved filter metadata retains the legacy schema and typed-node payload layouts.
+- Reuse a streamed accumulator's published before-phase when computing its after-phase,
+  avoiding a redundant locked frame lookup while preserving initialization and cycle/error checks.
+- Check copied accumulator applicability before looking up a corresponding source node. Preserve
+  source selection for declared-streamable accumulators and streamed provenance, including schema-created
+  text, while retaining the existing grounded nonstreamable validation policy.
+- Isolate unit tests that force process-wide garbage collections, including in-process streaming
+  probes, from other test collections. Keep their assertions, inputs and cancellation limits intact.
+- Reduce dynamic-call allocations by storing the first two arguments directly on each call.
+  Avoid temporary one/two-argument arrays and accumulator matcher argument arrays while preserving
+  argument copying, conversion, larger arities and saved/native execution.
+- Insert schema-supplied default/fixed element text alongside comments and processing instructions.
+  Apply assessed whitespace normalization while preserving QName prefixes, timezone components
+  and calendar duration units from schema declarations.
+- Preserve inherited accumulator phases when `xsl:copy-of` combines
+  `type="xs:untypedAtomic"` with `copy-accumulators="yes"`. Reuse the existing validated-copy
+  provenance policy so copied values keep their positions in the original source. Cover
+  both APIs, normal/debug compilation, supported saved loading and NativeAOT execution.
+- Measure rolling string-valued accumulator lifetimes across window widths, payload sizes and
+  input lengths. Verify shared empty-sequence reuse, collection of evicted values and sensitivity
+  to retained prior states without changing the runtime or original acceptance limits.
+- Avoid copying an accumulator matcher's already-owned argument a second time. Deliver intrinsic
+  accumulator notifications directly from source frames while ordinary observers keep fresh,
+  retainable positions. Preserve matcher/body focus, argument conversion and deferred failures.
+- Consolidate fork events with their headers and share immutable name/text data through existing
+  provenance. Preserve private attribute/schema snapshots and verify that nested events release
+  consumed prong state even while a slower reader retains the published event.
+- Measure tee payload retention and scalar accumulator frame/value lifetimes under explicit
+  payload and input-shape assumptions. Verify collection of consumed state, reader ownership,
+  and sensitivity to an isolated consumed-slot retention regression.
+- Retain actual primary compiler/runtime diagnostics and initial-source declarations in optional
+  conformance exports. Require complete evaluation observations in strict CI audits and document
+  every case without forwarding evidence while preserving raw outcomes and the original inventory.
+- Verify physical input reads and actual sink emission for all seven canonical streaming workloads
+  through both APIs and saved execution. Guard incremental reads against eager consumption, preserve
+  complete-input accumulator/iterate totals, and validate original independent output fingerprints.
+- Reuse each output writer's removal callback when reattaching its attribute cache. Preserve
+  nested and pooled output ownership, duplicate attributes, saved execution and XML/HTML selection.
+- Reject process-probe reports whose live managed heap exceeds the configured cap even when
+  their status claims success; preserve the original memory limits and retained measurements.
+- Capture actual forward/tree source representations during optional strict-suite audits,
+  including failed source openings and nested, dedicated-thread and fork execution. Separate
+  preparation, compilation, stylesheet execution/replay and assertion observations. Require
+  every frozen forwarding case in hosted strict audits while preserving raw conformance results.
+- Publish tee reader counts atomically so source-batch checks avoid taking the ring lock.
+  Preserve reader detachment, payload release, configured capacity and cancellation.
+- Reject function items, maps and arrays in atomic type checks without dereferencing absent
+  schema annotations; general sequence checks consistently recognize them as items.
+- Reuse immutable fork attribute and namespace arrays when prong atomization leaves their
+  references unchanged. Preserve private name-table atoms and independent schema snapshots.
+- Copy mutable schema snapshots for fork boundary and ancestor headers as well as events,
+  so a prong cannot alter another prong's node or attribute validation metadata.
+- Reject ambiguous, out-of-range or non-SDK assembly-version metadata and use the authoritative
+  assembly header instead. Emit SDK provenance only alongside an SDK-generated version attribute;
+  verify actual .NET 8/10 headers for standard, normalized, disabled and manual configurations.
+- Hash benchmark artifacts with bounded reads so Linux child memory observations are not
+  inflated by whole-image allocations in the controller before process creation. Retain tested
+  benchmark and native binaries alongside hosted acceptance reports for independent verification.
+- Preserve only the XML reader reflection members used by the bridge during NativeAOT trimming.
+  Shared unit/native contracts verify resolver identity, explicit null policies, whitespace and external DTD reads.
+- Write the native streaming probe's JSON protocol as explicit UTF-8 without a BOM, avoiding
+  host console charset discovery while preserving full-lifetime memory measurement.
 - Use the BCL's read-only invariant numeric data for XDM numbers and climbing-set plans,
   avoiding culture initialization for numeric-only work. Reuse typed captured numbers and
   accumulator priorities while preserving float lexical rounding, NaN normalization and errors.
@@ -59,8 +184,8 @@
 - Avoid initializing default cultures when fork workers already inherit the captured execution
   context. Preserve explicit cultures, suppressed-flow behavior and worker state, and release
   captured ambient objects when a prong finishes.
-- Full [Phase 7 qualification](docs/plan/p7-completion.md) remains in progress. Streaming support
-  is not yet claimed; original memory, throughput and release gates remain required.
+- Close the [bounded P7 runtime checkpoint](docs/plan/p7-runtime-checkpoint.md) for release. Full
+  [Phase 7 qualification](docs/plan/p7-completion.md) remains deferred with original gates intact.
 
 ## [1.1.6](https://github.com/skuirrels/Xsl3/releases/tag/v1.1.6) — 2026-10-29
 

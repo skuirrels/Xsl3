@@ -15,6 +15,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedTypeTestRuntimeTests
 {
     private static (XsltLibrary Library, int Type) Runtime(SequenceTypeTest required)

@@ -1111,3 +1111,13 @@ Xsl3.Runtime.XsltLibrary.X31ValueOperand(System.Xml.XPath.XPathItem! item) -> Sy
 Xsl3.Runtime.XsltLibrary.X31MaterializedMergeNew(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! sources, System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! keyFunctions, System.Xml.XPath.XPathItem! plan) -> System.Xml.XPath.XPathItem!
 Xsl3.Runtime.XsltLibrary.X31MaterializedMergeNextGroup(System.Xml.XPath.XPathItem! state) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
 Xsl3.Runtime.XsltLibrary.X31MaterializedMergeSize(System.Xml.XPath.XPathItem! state) -> double
+Xsl3.Runtime.XmlQueryOutput.XsltCopyOfStrippedAttribute(System.Xml.XPath.XPathNavigator! navigator) -> void
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupCount(System.Xml.XPath.XPathItem! state) -> double
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupNext(System.Xml.XPath.XPathItem! state) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31AdjacentGroupsNew(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! tuples, string! collation, bool composite) -> System.Xml.XPath.XPathItem!
+Xsl3.Runtime.XsltLibrary.X31Data(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! value) -> System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>!
+Xsl3.Runtime.XsltLibrary.X31ForkProjected(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! prongs, System.Xml.XPath.XPathItem! focus, double capacity, double projectionId) -> void
+Xsl3.Runtime.XsltLibrary.X31SimpleContentText(string! value) -> string!
+Xsl3.Runtime.XsltLibrary.X31StringJoin(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! separator) -> string!
+Xsl3.XsltSettings.StreamabilityExtensions.get -> bool
+Xsl3.XsltSettings.StreamabilityExtensions.set -> void

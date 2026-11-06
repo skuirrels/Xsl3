@@ -25,6 +25,7 @@
     <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Memory.cs" Link="StreamingProbe.Memory.cs" />
     <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Stylesheets.cs" Link="StreamingProbe.Stylesheets.cs" />
     <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Json.cs" Link="StreamingProbe.Json.cs" />
+    <Compile Include="../../tests/Xsl3.Tests/StreamingProbe.Report.cs" Link="StreamingProbe.Report.cs" />
     <Compile Include="../../tests/Xsl3.Tests/ProbeSha256.cs" Link="ProbeSha256.cs" />
     <Content Include="../corpus/xslt30/micro/streaming/*.xsl" Link="corpus/xslt30/micro/streaming/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

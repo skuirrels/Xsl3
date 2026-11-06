@@ -17,7 +17,7 @@ WORKLOADS = ('identity', 'adjacent', 'accumulator', 'iterate', 'merge', 'fork', 
 def valid_fingerprints(outputs, workload):
     names = {'principal'}
     if workload == 'fork':
-        names.update(('urn:stream-probe:first', 'urn:stream-probe:second'))
+        names.update(('http://stream-probe.test/first', 'http://stream-probe.test/second'))
     return (isinstance(outputs, dict) and set(outputs) == names
             and all(isinstance(value, dict) and type(value.get('Bytes')) is int and value['Bytes'] >= 0
                     and isinstance(value.get('Sha256'), str) and re.fullmatch(r'[0-9A-Fa-f]{64}', value['Sha256'])
@@ -43,7 +43,7 @@ def valid_measurement(result, workload, mode, size, limit, native):
             and type(result.get('HasTrustedPlatformAssemblies')) is bool
             and (not native or result['DynamicCodeSupported'] is False and result['HasTrustedPlatformAssemblies'] is False)
             and result['AvailableManagedBytes'] > 0
-            and (not limit or result['AvailableManagedBytes'] <= limit)
+            and (not limit or result['AvailableManagedBytes'] <= limit and result['LiveManagedBytes'] <= limit)
             and valid_fingerprints(result.get('Outputs'), workload))
 
 

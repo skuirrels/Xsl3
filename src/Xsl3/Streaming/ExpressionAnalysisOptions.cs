@@ -19,7 +19,7 @@ internal sealed class ExpressionAnalysisOptions
     internal bool InSequenceConstructor { get; init; }
     internal bool PrecedingConsumingInstruction { get; init; }
     internal Streamability? CurrentGroupSelection { get; init; }
-    // Compiler optimization (§19.10); the analysis-only harness leaves source syntax unchanged.
+    // Xsl3 extensions to the §19 rules (§19.10, XsltSettings.StreamabilityExtensions); the analysis-only harness leaves them off.
     internal bool AllowStreamabilityRewrites { get; init; }
     internal bool StreamingParameterRepeated { get; init; }
 

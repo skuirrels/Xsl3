@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class PullCallRuntimeTests(ITestOutputHelper output)
 {
     private static (XsltLibrary Library, CompiledFunction Function) Compile(string expression = "function($state){$state}")

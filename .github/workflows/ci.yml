@@ -41,6 +41,12 @@ jobs:
       - name: Debug compiler source-line contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --filter "FullyQualifiedName~BareVariableSequencesKeepIdentity|FullyQualifiedName~DebugSourceLineTests" --logger trx --results-directory artifacts/test-results/debug-source-lines
 
+      - name: Debug hidden-grounding memory contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedHiddenGroundingTests" --logger trx --results-directory artifacts/test-results/debug-hidden-grounding
+
+      - name: Debug fork grouping and sorting retention contracts
+        run: dotnet test tests/Xsl3.Tests -c Debug --no-build --filter "FullyQualifiedName~StreamedForkGroupRetentionTests" --logger trx --results-directory artifacts/test-results/debug-fork-groups
+
       # Functional probe checks only. The approved absolute RSS gates remain separate and unmet.
       - name: Streaming process probe smoke
         if: matrix.os == 'ubuntu-latest'
@@ -133,7 +139,7 @@ jobs:
       - name: Debug streamability declaration regressions
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'
         run: |
-          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
+          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests|FullyQualifiedName~StreamedQilVerifierTests|FullyQualifiedName~StreamedOptimizerPolicyTests|FullyQualifiedName~StreamedCompilationCaptureTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
 
       - name: Build Debug W3C harness
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'
@@ -171,9 +177,10 @@ jobs:
           XSL3_XSLT30_PROFILE: strm
           XSL3_STREAM_STRICT: "1"
           XSL3_XSLT30_RESULTS: ${{ github.workspace }}/artifacts/test-results/streaming-strict.jsonl
+          XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-strict
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --output artifacts/test-results/streaming-strict-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --require-evaluation --output artifacts/test-results/streaming-strict-audit.json
 
       # Same frozen selection with a Debug engine; an inventory audit does not waive P7's memory gates.
       - name: Debug strict streaming runtime inventory
@@ -182,9 +189,10 @@ jobs:
           XSL3_XSLT30_PROFILE: strm
           XSL3_STREAM_STRICT: "1"
           XSL3_XSLT30_RESULTS: ${{ github.workspace }}/artifacts/test-results/streaming-strict-debug.jsonl
+          XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Debug --no-build --filter "FullyQualifiedName~Xslt30Conformance|FullyQualifiedName~RuntimeCaseReportTests" --logger trx --results-directory artifacts/test-results/streaming-strict-debug
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --output artifacts/test-results/streaming-strict-debug-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Debug/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --require-evaluation --require-verifier --output artifacts/test-results/streaming-strict-debug-audit.json
 
       - name: Legacy strict runtime inventory with saved sampling
         if: matrix.os == 'ubuntu-latest'
@@ -194,15 +202,20 @@ jobs:
           XSL3_W3C_API: "0"
           XSL3_W3C_SAVED: "10"
           XSL3_XSLT30_RESULTS: ${{ github.workspace }}/artifacts/test-results/streaming-strict-legacy.jsonl
+          XSL3_XSLT30_FORWARDING: "1"
         run: |
           dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-strict-legacy
-          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --output artifacts/test-results/streaming-strict-legacy-audit.json
+          python3 eng/audit-streaming-runtime.py --report "$XSL3_XSLT30_RESULTS" --suite external/xslt30-test --engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --manifest docs/plan/p7-runtime-inventory.json --require-forwarding --require-stylesheet-forwarding --require-evaluation --output artifacts/test-results/streaming-strict-legacy-audit.json
 
       - name: Streaming development baseline (UNSTREAMED)
         if: matrix.os == 'ubuntu-latest'
         env:
           XSL3_XSLT30_PROFILE: strm
-        run: dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-unstreamed
+          XSL3_XSLT30_RESULTS: ${{ github.workspace }}/artifacts/test-results/streaming-unstreamed.jsonl
+        run: |
+          dotnet test tests/Xsl3.W3C -c Release --no-build --filter "FullyQualifiedName~Xslt30Conformance" --logger trx --results-directory artifacts/test-results/streaming-unstreamed
+          # Original S3-S7 exit accounting against the strict export above; outcomes only, not forward execution or memory.
+          python3 eng/stage-exit-report.py --strict artifacts/test-results/streaming-strict.jsonl --unstreamed "$XSL3_XSLT30_RESULTS" --dispositions docs/plan/p7-phase-a-dispositions.csv --output artifacts/test-results/streaming-stage-exits.json
 
       # Pass rates per test set and per spec and feature (remaining-scope 8.5), as docs/conformance-sets.md is
       # generated: in the job summary and the test-results artifact.
@@ -211,6 +224,10 @@ jobs:
         run: |
           eng/conformance-report.sh tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports artifacts/test-results/conformance-sets.md
           cat artifacts/test-results/conformance-sets.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Runtime assembly-version build contracts (.NET 8/10)
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 eng/verify-runtime-version.py --frameworks net8.0 net10.0 --output artifacts/test-results/runtime-version-builds
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -240,6 +257,21 @@ jobs:
 
       - name: Run it
         run: artifacts/aot/Xsl3.AotSample
+
+      - name: Trimmed NativeAOT reader bridge contracts
+        run: |
+          set -o pipefail
+          dotnet publish tests/Xsl3.ReaderBridgeProbe -c Release -r linux-x64 -m:1 -p:UseSharedCompilation=false -o artifacts/reader-bridge 2>&1 | tee artifacts/reader-bridge-publish.log
+          artifacts/reader-bridge/Xsl3.ReaderBridgeProbe | tee artifacts/reader-bridge.log
+          set +e
+          dotnet tests/Xsl3.ReaderBridgeProbe/bin/Release/net10.0/linux-x64/Xsl3.ReaderBridgeProbe.dll > artifacts/reader-bridge-jit-guard.stdout 2> artifacts/reader-bridge-jit-guard.stderr
+          probe_status=$?
+          set -e
+          test "$probe_status" -eq 1
+          grep -Fq "Publish this reader bridge probe with NativeAOT" artifacts/reader-bridge-jit-guard.stderr
+
+      - name: Install the internal Linux probe linker
+        run: sudo apt-get update && sudo apt-get install -y lld
 
       # Saved versions of all real process workloads. This smoke proves the native
       # artifact and its public legacy result-delivery path; limit 0 is not a budget pass.
@@ -278,6 +310,9 @@ jobs:
         with:
           name: native-streaming-probe
           path: |
+            artifacts/reader-bridge-publish.log
+            artifacts/reader-bridge.log
+            artifacts/reader-bridge-jit-guard.*
             artifacts/streaming-probe-publish.log
             artifacts/streaming-probe-jit-guard.*
             artifacts/streaming-probe-smoke

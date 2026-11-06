@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The benchmark controller must retain failures and never infer a winner from missing runs."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -34,18 +35,55 @@ if case == 'timeout' and mode == 'tree': time.sleep(30)
 '''
 
 
+BOUNDED_READ_BOOTSTRAP = r'''import pathlib, runpy, sys
+original_open = pathlib.Path.open
+class BoundedBinary:
+    def __init__(self, file): self.file = file
+    def __enter__(self): return self
+    def __exit__(self, *args): return self.file.__exit__(*args)
+    def __getattr__(self, name): return getattr(self.file, name)
+    def read(self, size=-1):
+        if size < 0 or size > 1024 * 1024: raise AssertionError('unbounded binary read')
+        return self.file.read(size)
+    def readinto(self, buffer):
+        if len(buffer) > 1024 * 1024: raise AssertionError('oversized binary read buffer')
+        return self.file.readinto(buffer)
+def bounded_open(path, mode='r', *args, **kwargs):
+    file = original_open(path, mode, *args, **kwargs)
+    return BoundedBinary(file) if mode == 'rb' else file
+pathlib.Path.open = bounded_open
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name='__main__')
+'''
+
+
 @unittest.skipUnless(sys.platform in ('darwin', 'linux') and hasattr(os, 'wait4'), 'requires Unix wait4')
 class StreamingBenchmarkTests(unittest.TestCase):
-    def run_benchmark(self, case='valid', native=False, extra=()):
+    def run_benchmark(self, case='valid', native=False, extra=(), bounded_reads=False):
         with tempfile.TemporaryDirectory(prefix='streaming-benchmark-test-') as directory:
             root = Path(directory); probe = root / 'probe'; probe.write_text(PROBE); probe.chmod(0o700)
             assembly = root / 'unused.dll'; assembly.touch()
+            (root / 'Xsl3.dll').write_bytes(b'engine fixture')
             source = ['--native', str(probe)] if native else ['--assembly', str(assembly), '--dotnet', str(probe)]
             command = [sys.executable, str(SCRIPT), *source, '--sizes', '1024', '--workloads', 'identity',
                        '--rounds', '2', '--output', str(root / 'report'), *extra]
+            if bounded_reads:
+                command = [sys.executable, '-c', BOUNDED_READ_BOOTSTRAP, *command[1:]]
             result = subprocess.run(command, env=dict(os.environ, STREAM_BENCH_TEST_CASE=case), capture_output=True, text=True, timeout=30)
+            self.assertTrue((root / 'report/report.json').is_file(), result.stderr)
             report = json.loads((root / 'report/report.json').read_text())
             return result, report, (root / 'report/summary.md').read_text()
+
+    def test_artifact_engine_and_controller_hashes_use_bounded_reads(self):
+        for native in (False, True):
+            with self.subTest(native=native):
+                result, report, _ = self.run_benchmark(native=native, bounded_reads=True)
+                self.assertEqual(0, result.returncode, result.stderr)
+                expected = PROBE.encode() if native else b''
+                self.assertEqual(hashlib.sha256(expected).hexdigest(), report['artifactSha256'])
+                self.assertEqual(hashlib.sha256(SCRIPT.read_bytes()).hexdigest(), report['controllerSha256'])
+                if not native:
+                    self.assertEqual(hashlib.sha256(b'engine fixture').hexdigest(), report['engineSha256'])
 
     def test_complete_pairs_alternate_and_preserve_every_observation(self):
         result, report, text = self.run_benchmark()

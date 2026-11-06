@@ -1,9 +1,10 @@
 # P7: streaming
 
-> **Full objective resumed, 2026-10-29:** the owner has resumed this entire plan through qualification,
-> review, merge and release. See [P7 completion](p7-completion.md) for the current evidence matrix.
-> The release boundaries and progress records below are historical. Original gates remain unchanged,
-> and streaming support cannot be claimed until they pass.
+> **Current handoff, 2026-11-05:** the owner resumed the full objective: “continue with phase 7 until it's complete”.
+> The current release is 1.3.0; PR #33 merged at `8582a5b`. The next work is
+> [S3-25 verifier coverage](p7-verifier-coverage.md), then remaining runtime evidence and original performance gates.
+> See [phase A](p7-phase-a.md) and [handoff](p7-handoff.md). Full P7 remains incomplete and streaming remains unsupported.
+> This file retains the original design and acceptance targets; older progress entries are historical.
 
 > **2026-10-26 release boundary:** P7A closes the implemented foundations for the 1.1.0 release.
 > Full P7 runtime/performance work is deferred and streaming remains unsupported.
@@ -358,11 +359,11 @@ Sizes follow remaining-scope.md: S is days, M is one to three weeks, L is a mont
 |---|---|---|---|
 | S0 | This plan; the owner's decisions below (approved 2026-10-22) | S | Complete: decisions recorded here and in SPEC §17 and §6.3 where they change them |
 | S1 | **The `strm` profile** in the runner (`XSL3_XSLT30_PROFILE=strm`: the 3.0 profile plus `streaming`, selecting only tests that need it; its own report, `xslt30-run-strm.md`), and the expression analysis: U-types, postures, sweeps, §19.1 to §19.8.1, §19.8.8 and §19.8.9. The runner's `assert-posture-and-sweep` and the `sweep_and_posture` dependency, through the test hook | L | At least 99% on the explicitly approved P7B reviewed population: 1,000 cases preserving all 66,643 expressions from the original 919; raw results retained. Achieved 1,000/0/0. See the P7B acceptance revision |
-| S2 | **The construct analysis**: §19.8.3 to §19.8.7, §19.8.10, and the declaration rules of §6.6.4, §10.2.3, §10.3.5, §15.4, §18.1 and §18.2.9. XTSE3430 with reasons, XTSE3155, `XsltSettings.Streamability`, `Explain` | L | All 155 reviewed catalogue cases pass: 152 exact static codes (including both XTSE3155 cases) and three positive results. This reconciles the original 136+2 failing-case target with the complete catalogue inventory; raw results retained. Ordinary conformance and performance gates remain required |
+| S2 | **The construct analysis**: §19.8.3 to §19.8.7, §19.8.10, and the declaration rules of §6.6.4, §10.2.3, §10.3.5, §15.4, §18.1 and §18.2.9. XTSE3430 with reasons, XTSE3155, `XsltSettings.Streamability`, `Explain` | L | All 155 reviewed catalogue cases pass: 152 exact static codes (including both XTSE3155 cases) and three positive results (153 and two since [phase A](p7-phase-a.md) restored `sx-union-202`'s XTSE3430). This reconciles the original 136+2 failing-case target with the complete catalogue inventory; raw results retained. Ordinary conformance and performance gates remain required |
 | S3 | **`StreamedDocument` and `StreamedNavigator`**, grounding (`copy-of`, `snapshot`), `xsl:source-document streamable="yes"`, and the optimizer restrictions and debug verifier. The runner's **strict streamed mode** (`XSL3_STREAM_STRICT=1`): a streamed input can't be built as a tree, so a guaranteed-streamable construct that falls back fails its test | L | In strict mode: `source-document`, `sf-*`, `sx-*` and the `si-*` sets other than fork, merge, iterate and for-each-group pass at the levels of the baseline |
 | S4 | **Streamable modes**: the initial match selection streamed, the new API overloads, the legacy `Transform(XmlReader)` path, the global context item rules, and `xsl:attribute-set` and streamable functions in streamed templates | M | `si-apply-templates`, `si-next-match`, `si-apply-imports`, `su-*` and `streamable` in strict mode |
 | S5 | **Streamed accumulators, `xsl:iterate`, `xsl:for-each-group` and `xsl:merge`** (section 3) | L | `accumulator`, `si-iterate`, `si-for-each-group`, `si-merge`, `merge` (the 9 XTDE2220 cases included) in strict mode |
-| S6 | **`xsl:fork`**: the tee, the prong threads, output buffering, `group-by` and `xsl:sort` inside fork, and errors and cancellation across prongs | M | `si-fork` in strict mode; a test that a failing prong cancels the others; the tee's memory bound measured |
+| S6 | **`xsl:fork`**: the tee, the prong threads, output buffering, `group-by` and `xsl:sort` inside fork, and errors and cancellation across prongs | M | `si-fork` in strict mode; a test that a failing prong cancels the others (since [phase A](p7-phase-a.md): all later prongs; earlier prongs finish so the error follows declaration order, as sequential evaluation would); the tee's memory bound measured |
 | S7 | **The constant-memory test, benchmarks and the claim** (below). Claim `streaming` in `Profile.cs`, make `supports-streaming` `"yes"`, cover the saved-assembly round trip, and write the docs: getting-started, migration, divergences and conformance | M | The P7 exit: the streaming tests at 90% or more **in strict mode**, the 2 GB test passing in CI |
 
 S1 and S2 can start alone. S3 needs S2's annotations. S4 to S6 can run in parallel once S3 is in, since they touch

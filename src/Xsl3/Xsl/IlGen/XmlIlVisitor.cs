@@ -3709,12 +3709,14 @@ namespace Xsl3.IlGen
                     _iterCurr.Storage = StorageDescriptor.Stack(typeof(XPathItem), true);
                     return ndInvoke;
                 }
-                if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31Fork))
+                if (ndInvoke.ClrMethod.Name is nameof(XsltLibrary.X31Fork) or nameof(XsltLibrary.X31ForkProjected))
                 {
                     _helper.LoadXsltLibrary();
                     NestedVisitEnsureStack(ndInvoke.Arguments[0], typeof(XPathItem), true);
                     NestedVisitEnsureStack(ndInvoke.Arguments[1], typeof(XPathItem), false);
                     NestedVisitEnsureStack(ndInvoke.Arguments[2], typeof(double), false);
+                    if (ndInvoke.ClrMethod.Name == nameof(XsltLibrary.X31ForkProjected))
+                        NestedVisitEnsureStack(ndInvoke.Arguments[3], typeof(double), false);
                     _helper.Call(ndInvoke.ClrMethod);
                     _iterCurr.Storage = StorageDescriptor.None();
                     return ndInvoke;

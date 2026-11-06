@@ -2,6 +2,7 @@
 
 using System;
 using System.Runtime.ExceptionServices;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Xsl3.Streaming;
@@ -22,15 +23,16 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly CancellationTokenRegistration _registration;
     private readonly T?[] _events;
     private readonly int[] _remaining;
+    private readonly int _slotMask;
     private readonly long[] _positions;
     private readonly Reader[] _readers;
     private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread;
-    private long _first, _next;
+    private long _first, _next, _publicationVersion;
     private bool _producing, _productionRequested, _complete;
     private volatile bool _disposed;
     private ExceptionDispatchInfo? _fault;
 
-    internal readonly record struct Batch(int Count, bool Complete, ExceptionDispatchInfo? Fault = null);
+    internal readonly record struct Batch(int Count, bool Complete, ExceptionDispatchInfo? Fault = null, bool Progress = false);
 
     internal StreamTee(Func<T?> readSource, int readers, int capacity, CancellationToken cancellation = default)
         : this(OneAtATime(readSource), readers, capacity, cancellation) { }
@@ -56,6 +58,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         _readSource = readSource;
         _productionCaller = productionCaller;
         _cancellation = cancellation;
+        _slotMask = (capacity & (capacity - 1)) == 0 ? capacity - 1 : -1;
         _events = new T?[capacity];
         _staging = new T?[capacity];
         _remaining = new int[capacity];
@@ -66,11 +69,16 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         _registration = cancellation.UnsafeRegister(static state => ((StreamTee<T>)state!).Wake(), this);
     }
 
+    // Avoid division in the event path when the configured ring size is a power of two.
+    // Arbitrary capacities keep the original remainder operation.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int Slot(long position) => _slotMask >= 0 ? (int)position & _slotMask : (int)(position % _events.Length);
+
     internal Reader GetReader(int index) => _readers[index];
     internal int BufferedCount { get { lock (_gate) return (int)(_next - _first); } }
     internal int HighWaterMark { get { lock (_gate) return _highWaterMark; } }
     internal int WaitingReaders { get { lock (_gate) return _waiting; } }
-    internal int ActiveReaders { get { lock (_gate) return _active; } }
+    internal int ActiveReaders => Volatile.Read(ref _active);
 
     internal sealed class Reader(StreamTee<T> owner, int index) : IDisposable
     {
@@ -78,6 +86,8 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         // The predicate inspects immutable headers while the ring is locked. It must
         // not perform I/O, request another event or call back into a prong.
         internal T? ReadUntil(Predicate<T> stop) => owner.Read(index, stop);
+        // Inspection must be pure and nonthrowing: a failed range claim may retry it.
+        internal T? ReadUntilImmutable(Predicate<T> stop) => owner.ReadImmutable(index, stop);
         public void Dispose() => owner.Detach(index);
     }
 
@@ -95,7 +105,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         ObjectDisposedException.ThrowIf(_disposed || position < 0, this);
         if (position < Volatile.Read(ref _next))
         {
-            int slot = (int)(position % _events.Length);
+            int slot = Slot(position);
             T? result = Volatile.Read(ref _events[slot]);
             if (result != null && Interlocked.CompareExchange(ref _positions[reader], position + 1, position) == position)
             {
@@ -107,6 +117,53 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
         item = null;
         return false;
+    }
+
+    private T? ReadImmutable(int reader, Predicate<T> stop)
+    {
+        ArgumentNullException.ThrowIfNull(stop);
+        if (!ForkCaller.HasSpareProcessor(_readers.Length)) return Read(reader, stop);
+        while (true)
+        {
+            if (TryClaimImmutableRun(reader, stop, out T? match))
+            {
+                if (match != null) return match;
+                continue;
+            }
+            T? item = Read(reader);
+            if (item == null || stop(item)) return item;
+        }
+    }
+
+    private bool TryClaimImmutableRun(int reader, Predicate<T> stop, out T? match)
+    {
+        match = null;
+        _cancellation.ThrowIfCancellationRequested();
+        long start = Volatile.Read(ref _positions[reader]);
+        ObjectDisposedException.ThrowIf(_disposed || start < 0, this);
+        long published = Volatile.Read(ref _next), end = start;
+        while (end < published)
+        {
+            _cancellation.ThrowIfCancellationRequested();
+            T? item = Volatile.Read(ref _events[Slot(end)]);
+            // An alias may already have claimed/released this epoch. Retry through
+            // the ordinary path rather than inspecting a reused or empty slot.
+            if (item == null) return false;
+            end++;
+            if (stop(item)) { match = item; break; }
+        }
+        if (end == start || Interlocked.CompareExchange(ref _positions[reader], end, start) != start)
+        {
+            match = null;
+            return false;
+        }
+        // Every claimed epoch still owns this reader's count until the complete
+        // range has been released. Neither an alias nor detachment can free it early.
+        bool released = false;
+        for (long position = start; position < end; position++)
+            if (Interlocked.Decrement(ref _remaining[Slot(position)]) == 0) released = true;
+        if (released) lock (_gate) ReleaseHead();
+        return true;
     }
 
     private T? Read(int reader, Predicate<T>? stop = null)
@@ -126,7 +183,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                     {
                         do
                         {
-                            int slot = (int)(position % _events.Length);
+                            int slot = Slot(position);
                             T result = _events[slot]!;
                             if (Interlocked.CompareExchange(ref _positions[reader], position + 1, position) != position)
                             {
@@ -158,12 +215,12 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         _productionRequested = true;
                         NotifyProduction();
                     }
-                    WaitForPublication();
+                    WaitForPublication(reader);
                     continue;
                 }
                 if (_producing || _next - _first == _events.Length)
                 {
-                    WaitForPublication(waitingForSpace: !_producing);
+                    WaitForPublication(reader, waitingForSpace: !_producing);
                     continue;
                 }
                 available = _events.Length - (int)(_next - _first);
@@ -175,11 +232,34 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
     }
 
-    private void WaitForPublication(bool waitingForSpace = false)
+    private void WaitForPublication(int reader, bool waitingForSpace = false)
     {
         _waiting++;
         if (waitingForSpace) _waitingForSpace++;
-        try { Monitor.Wait(_gate); }
+        try
+        {
+            // Only spend a bounded optimistic wait when caller plus prongs fit the
+            // effective processor allowance. Oversubscribed forks retain parking.
+            if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length))
+            {
+                long publication = _publicationVersion;
+                Monitor.Exit(_gate);
+                try
+                {
+                    var spin = new ForkCaller.SpinBudget(Environment.TickCount64);
+                    while (Volatile.Read(ref _publicationVersion) == publication && !_disposed
+                        && !_cancellation.IsCancellationRequested && Volatile.Read(ref _positions[reader]) >= 0
+                        && spin.Continue()) { }
+                }
+                finally { Monitor.Enter(_gate); }
+                // A publication, terminal state or reclaimed slot can arrive while
+                // the monitor is released. Recheck before parking to retain its pulse.
+                if (_publicationVersion != publication || _complete || _fault != null || _disposed || _cancellation.IsCancellationRequested
+                    || _positions[reader] < 0 || _positions[reader] < _next
+                    || waitingForSpace && !_producing && _next - _first < _events.Length) return;
+            }
+            Monitor.Wait(_gate);
+        }
         finally
         {
             _waiting--;
@@ -222,7 +302,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         try
         {
             batch = _readSource(_staging.AsMemory(0, available));
-            if (batch.Count < 0 || batch.Count > available || batch.Count == 0 && !batch.Complete && batch.Fault == null)
+            if (batch.Count < 0 || batch.Count > available || batch.Count == 0 && !batch.Complete && batch.Fault == null && !batch.Progress)
                 throw new InvalidOperationException("A stream tee source batch must fit its reserved space and make progress");
             for (int i = 0; i < batch.Count; i++)
                 if (_staging[i] == null) throw new InvalidOperationException("A stream tee source batch cannot contain null events");
@@ -245,7 +325,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         long next = _next;
                         for (int i = 0; i < batch.Count; i++)
                         {
-                            int slot = (int)(next % _events.Length);
+                            int slot = Slot(next);
                             _events[slot] = _staging[i];
                             _remaining[slot] = _active;
                             next++;
@@ -258,6 +338,9 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                     }
                 }
                 Array.Clear(_staging);
+                // Empty filtered scans still publish bounded source progress. A
+                // spinning reader must not lose this notification when next is unchanged.
+                Volatile.Write(ref _publicationVersion, _publicationVersion + 1);
                 Monitor.PulseAll(_gate);
             }
         }
@@ -269,7 +352,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         long first = _first;
         while (_first < _next)
         {
-            int slot = (int)(_first % _events.Length);
+            int slot = Slot(_first);
             if (Volatile.Read(ref _remaining[slot]) != 0) break;
             _events[slot] = null;
             _first++;
@@ -289,8 +372,8 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         {
             long position = Interlocked.Exchange(ref _positions[reader], -1);
             if (position < 0) return;
-            _active--;
-            for (; position < _next; position++) Interlocked.Decrement(ref _remaining[(int)(position % _events.Length)]);
+            Volatile.Write(ref _active, _active - 1);
+            for (; position < _next; position++) Interlocked.Decrement(ref _remaining[Slot(position)]);
             ReleaseHead();
             Monitor.PulseAll(_gate);
         }
@@ -306,7 +389,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             Array.Clear(_events);
             Array.Clear(_remaining);
             _first = _next;
-            _active = 0;
+            Volatile.Write(ref _active, 0);
             Monitor.PulseAll(_gate);
         }
         // Disposing a registration can wait for its callback, which also acquires the ring lock.

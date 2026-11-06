@@ -2,11 +2,15 @@
 
 using System;
 using System.IO;
+using System.Text;
 using System.Xml;
+using System.Xml.XPath;
 using Xsl3.IlGen;
 using Xsl3.Qil;
 using Xsl3.Runtime;
 using Xsl3.XPath31;
+using Xsl3.XPath31.Functions;
+using Xsl3.Xdm;
 using Xunit;
 using T = Xsl3.XmlQueryTypeFactory;
 
@@ -105,5 +109,43 @@ public sealed class SavedFunctionUsageTests
         byte[] bytes = Save(command.StaticData);
         ChangeFingerprint(bytes);
         Assert.False(new XmlQueryStaticData(bytes, null).UsesBuiltinFunctionIds);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SavedNamedFunctionsMustResolveBeforeTheTableIsAccepted(bool missing)
+    {
+        var definition = FunctionLibrary.Find(QName.Ns.Fn, "true", 0)!;
+        var function = new LibraryFunction(definition, 0,
+            new FunctionContext(0, (left, right) => left.ComparePosition(right) switch
+            {
+                XmlNodeOrder.Before => -1, XmlNodeOrder.After => 1, _ => 0,
+            }));
+        var table = new ConstantTable();
+        table.Add(new XPathItem[] { function });
+        using var output = new MemoryStream();
+        using var writer = new XmlQueryDataWriter(output);
+        ConstantSerializer.Write(writer, table);
+        writer.Flush();
+        byte[] bytes = output.ToArray();
+        if (missing)
+        {
+            // Change only the saved local name, keeping the genuine record layout.
+            byte[] name = Encoding.UTF8.GetBytes("true");
+            int offset = bytes.AsSpan().IndexOf(name);
+            Assert.True(offset >= 0);
+            Assert.Equal(-1, bytes.AsSpan(offset + name.Length).IndexOf(name));
+            Encoding.UTF8.GetBytes("gone").CopyTo(bytes, offset);
+        }
+        using var input = new MemoryStream(bytes);
+        using var reader = new XmlQueryDataReader(input);
+        if (missing) Assert.Throws<NotSupportedException>(() => ConstantSerializer.Read(reader));
+        else
+        {
+            var values = Assert.IsAssignableFrom<System.Collections.Generic.IList<XPathItem>>(ConstantSerializer.Read(reader).Get(0));
+            var restored = Assert.IsType<LibraryFunction>(Assert.Single(values));
+            Assert.Same(definition, restored.Definition);
+        }
     }
 }

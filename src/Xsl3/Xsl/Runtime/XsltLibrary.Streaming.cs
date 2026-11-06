@@ -84,23 +84,39 @@ public sealed partial class XsltLibrary
 
     private XPathNavigator OpenStreamedSourceCore(string href, string baseUri, string validation, string type, XmlSchemaSet? schemas)
     {
-        if (XmlQueryRuntime.DocumentFunctions == false)
-            throw new XdmException("FODC0002", $"Document '{href}' can't be retrieved (XsltSettings.EnableDocumentFunction is off)");
-        bool validating = validation is "strict" or "lax" || type.Length != 0;
-        if (!validating)
-            return _runtime.ExternalContext.OpenStreamedSource(href, baseUri,
-                validation == "strip" || validation.Length == 0 && Tree.CompactDocument.StripInputAnnotations);
-        if (schemas == null)
-            throw new XdmException("streaming-unimplemented", "This streamed source entry point has no schema context")
-                { Name = new QName("http://xsl3/err", "streaming-unimplemented") };
-        XmlSchemaType? schemaType = null;
-        if (type.Length != 0)
+        try
         {
-            int end = type.IndexOf('}');
-            schemaType = FindValidationType(schemas, new XmlQualifiedName(type[(end + 1)..], type[2..end]))
-                ?? throw new XdmException("XTTE1540", $"No type definition is available for {type}");
+            if (XmlQueryRuntime.DocumentFunctions == false)
+                throw new XdmException("FODC0002", $"Document '{href}' can't be retrieved (XsltSettings.EnableDocumentFunction is off)");
+            bool validating = validation is "strict" or "lax" || type.Length != 0;
+            XPathNavigator selection;
+            if (!validating)
+                selection = _runtime.ExternalContext.OpenStreamedSource(href, baseUri,
+                    validation == "strip" || validation.Length == 0 && Tree.CompactDocument.StripInputAnnotations);
+            else
+            {
+                if (schemas == null)
+                    throw new XdmException("streaming-unimplemented", "This streamed source entry point has no schema context")
+                        { Name = new QName("http://xsl3/err", "streaming-unimplemented") };
+                XmlSchemaType? schemaType = null;
+                if (type.Length != 0)
+                {
+                    int end = type.IndexOf('}');
+                    schemaType = FindValidationType(schemas, new XmlQualifiedName(type[(end + 1)..], type[2..end]))
+                        ?? throw new XdmException("XTTE1540", $"No type definition is available for {type}");
+                }
+                selection = _runtime.ExternalContext.OpenStreamedSource(href, baseUri, stripAnnotations: false,
+                    new Streaming.StreamedValidation(schemas, validation == "strict", schemaType));
+            }
+            Streaming.StreamingExecutionCapture.RecordSource(Streaming.StreamingExecutionCapture.SourceKind.SourceDocument,
+                requestedForward: true, selection);
+            return selection;
         }
-        return _runtime.ExternalContext.OpenStreamedSource(href, baseUri, stripAnnotations: false,
-            new Streaming.StreamedValidation(schemas, validation == "strict", schemaType));
+        catch (Exception error) when (XmlException.IsCatchableException(error))
+        {
+            Streaming.StreamingExecutionCapture.RecordSourceFailure(Streaming.StreamingExecutionCapture.SourceKind.SourceDocument,
+                requestedForward: true);
+            throw;
+        }
     }
 }

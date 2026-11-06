@@ -3,13 +3,11 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
-Version **1.1.6** includes the bounded P7H Debug compiler source-line correction. Repeated
-bare-variable sequences retain separate instruction locations and one shared binding, with the
-compiler assertion retained. Normal/debug saved styles preserve the six P7G identity contracts.
-P7G identity, P7F allocation and P7D/P7C correctness fixes remain included.
-Update this package with `Xsl3` and `Xsl3.Cli`, and regenerate
-saved stylesheets using matching packages. Streaming remains unsupported; see the
-[1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
+Version **1.3.0** adds `XsltSettings.StreamabilityExtensions`, which names the five extensions to the XSLT 3.0
+streamability rules that strict analysis applies and can turn them off; the default is unchanged. It includes
+1.2.0's union change (§19.8.8.4). Default execution stays tree-based; streaming remains experimental and unsupported.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
+See the [1.3.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/releases/1.3.0.md).
 
 ```xml
 <ItemGroup>

@@ -49,10 +49,30 @@ namespace Xsl3
             // The SDK writes this from the same effective AssemblyVersion used in
             // the assembly header. Reading it avoids constructing a culture merely
             // to retrieve a version from Assembly.GetName().
-            foreach (AssemblyMetadataAttribute metadata in typeof(XslCompiledTransform).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
-                if (metadata.Key == "Xsl3.RuntimeAssemblyVersion" && IsCanonicalAssemblyVersion(metadata.Value)) return metadata.Value;
-            // Let reflection preserve compiler normalization for short or wildcard
-            // AssemblyVersion inputs and builds without the SDK-generated metadata.
+            return ReadAssemblyVersionText(typeof(XslCompiledTransform).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>());
+        }
+
+        internal static string? ReadAssemblyVersionText(System.Collections.Generic.IEnumerable<AssemblyMetadataAttribute> attributes)
+        {
+            string? candidate = null;
+            int matches = 0, sources = 0;
+            bool sdkGenerated = false;
+            foreach (AssemblyMetadataAttribute metadata in attributes)
+            {
+                if (metadata.Key == "Xsl3.RuntimeAssemblyVersion.Source")
+                {
+                    if (++sources > 1) break;
+                    sdkGenerated = metadata.Value == "SDK";
+                }
+                else if (metadata.Key == "Xsl3.RuntimeAssemblyVersion")
+                {
+                    if (++matches > 1) break;
+                    candidate = metadata.Value;
+                }
+            }
+            if (sources == 1 && sdkGenerated && matches == 1 && IsCanonicalAssemblyVersion(candidate)) return candidate;
+            // The assembly header remains authoritative for ambiguous, invalid or
+            // non-SDK metadata and for compiler-normalized short/wildcard versions.
             return typeof(XslCompiledTransform).Assembly.GetName().Version?.ToString();
         }
 
@@ -64,8 +84,13 @@ namespace Xsl3
             foreach (string component in components)
             {
                 if (component.Length == 0 || component.Length > 1 && component[0] == '0') return false;
+                int value = 0;
                 foreach (char c in component)
+                {
                     if (!char.IsAsciiDigit(c)) return false;
+                    value = value * 10 + c - '0';
+                    if (value > ushort.MaxValue) return false;
+                }
             }
             return true;
         }

@@ -101,7 +101,8 @@ public partial class Xslt30RunTests
             : strm || sandp ? Xslt30.Profile.Streaming : Xslt30.Profile.Xslt30;
         string? caseReportPath = Environment.GetEnvironmentVariable("XSL3_XSLT30_RESULTS");
         using RuntimeCaseReport? caseReport = caseReportPath == null ? null : new RuntimeCaseReport(
-            caseReportPath, root, requestedProfile ?? "3.0", Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1");
+            caseReportPath, root, requestedProfile ?? "3.0", Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1",
+            captureSources: Environment.GetEnvironmentVariable("XSL3_XSLT30_FORWARDING") == "1", captureEvaluation: true);
         bool Selected(Xslt30.TestCase t) => sandp ? Requires(t, "sweep_and_posture", "supports-sweep-and-posture-assessments")
             : strm ? Requires(t, "feature", "streaming") : !sa || Requires(t, "feature", "schema_aware");
         foreach (Xslt30.TestCase test in catalog.TestCases.Where(profile.Applies).Where(Routine).Where(Selected).Where(t => sets == null || sets.Any(s => t.Set.Name.StartsWith(s, StringComparison.Ordinal))))
@@ -110,8 +111,10 @@ public partial class Xslt30RunTests
             {
                 File.AppendAllText(trace, test.Id + Environment.NewLine);
             }
-            Outcome outcome = runner.Run(test);
-            caseReport?.Record(test, outcome);
+            using var sourceCapture = caseReport?.CaptureCase();
+            var evaluation = caseReport?.CaptureEvaluation();
+            Outcome outcome = evaluation == null ? runner.Run(test) : runner.Run(test, evaluation.Observe);
+            caseReport?.Record(test, outcome, sourceCapture, evaluation);
             int[] counts = perSet.TryGetValue(test.Set.Name, out int[]? c) ? c : perSet[test.Set.Name] = new int[3];
             counts[(int)outcome.Kind]++;
             foreach (Xslt30.Dependency d in test.EffectiveDependencies.Where(d => d.Satisfied && d.Type is "spec" or "feature"))
@@ -183,12 +186,12 @@ public partial class Xslt30RunTests
 
     internal static void CheckStrictStreamingCoverage(int selected, int unmatchedCodes, IReadOnlyDictionary<string, int> notRunReasons)
     {
-        // P7C freezes the complete pinned-suite population, including its one unsupported collection
-        // (docs/plan/p7c-results.json: 2695 passed + 16 failed + 1 not run).
+        // P7C freezes the complete pinned-suite population (docs/plan/p7c-results.json: 2,712 cases). Since P7 phase A
+        // the runner honours merge-039's directory collection, so every selected case runs.
         // A failure-ID baseline alone cannot detect lost passing cases, new skips or wrong-code passes.
         Assert.True(selected == 2712, $"Strict-forward population changed: {selected}; reconcile the P7C inventory.");
         Assert.True(unmatchedCodes == 0, $"Strict-forward expected errors lost their exact codes: {unmatchedCodes}.");
-        Assert.True(notRunReasons.Count == 1 && notRunReasons.TryGetValue("environment: collection", out int count) && count == 1,
+        Assert.True(notRunReasons.Count == 0,
             "Strict-forward not-run coverage changed: " + string.Join("; ", notRunReasons.Select(reason => $"{reason.Key} ({reason.Value})")));
     }
 

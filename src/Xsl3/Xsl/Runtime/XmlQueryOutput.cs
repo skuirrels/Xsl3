@@ -39,6 +39,7 @@ namespace Xsl3.Runtime
 
         // It is OK to set these properties directly
         private readonly XmlQueryRuntime _runtime;            // The XmlQueryRuntime instance that keeps global state
+        private OnRemoveWriter? _onWriterRemoved;     // Reused when the same output reattaches its attribute cache
         private XmlAttributeCache? _attrCache;        // Cache used to detect duplicate attributes
         private int _depth;                          // Depth of the currently constructing tree
         private int _nestedRoots;                    // Xsl3: document constructors inside content, contributing their children
@@ -172,7 +173,7 @@ namespace Xsl3.Runtime
             {
                 // If new writer might remove itself from pipeline, have it callback on this method when it's ready to go
                 IRemovableWriter? removable = value as IRemovableWriter;
-                removable?.OnRemoveWriterEvent = SetWrappedWriter;
+                if (removable != null) removable.OnRemoveWriterEvent = _onWriterRemoved ??= SetWrappedWriter;
 
                 _xwrt = value;
             }

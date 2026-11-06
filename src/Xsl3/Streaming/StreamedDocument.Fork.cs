@@ -1,6 +1,7 @@
 // Licensed under the MIT license. See LICENSE.TXT in the repository root.
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Threading;
 using System.Xml;
@@ -34,12 +35,19 @@ internal sealed partial class StreamedDocument
 
     // Source frames continue to advance, so an event freezes their metadata and phase flags.
     // The original frame supplies identity/provenance, not mutable navigation state.
-    private sealed class ForkHeader(Node node)
+    private class ForkHeader(Node node)
     {
         internal readonly Node Original = node.Original ?? node;
-        internal readonly XPathNodeType Kind = node.Kind;
-        internal readonly string LocalName = node.LocalName, Namespace = node.Namespace, Prefix = node.Prefix,
-            Text = node.Text, BaseUri = node.BaseUri, Language = node.Language;
+        // Original already supplies provenance. Its name/text data is immutable after
+        // publication; do not retain an intermediate prong's observer or replay state.
+        internal XPathNodeType Kind => Original.Kind;
+        internal string LocalName => Original.LocalName;
+        internal string Namespace => Original.Namespace;
+        internal string Prefix => Original.Prefix;
+        internal string Text => Original.Text;
+        internal string BaseUri => Original.BaseUri;
+        internal string Language => Original.Language;
+        // Prongs may own atomized arrays and private schema annotations.
         internal readonly Attribute[] Attributes = node.Attributes;
         internal readonly Namespace[] Namespaces = node.Namespaces;
         internal readonly IXmlSchemaInfo? SchemaInfo = node.Schema;
@@ -53,11 +61,18 @@ internal sealed partial class StreamedDocument
             {
                 Original = Original, LocalName = LocalName, Namespace = Namespace, Prefix = Prefix,
                 Text = Text, BaseUri = BaseUri, Language = Language, Attributes = Attributes, Namespaces = Namespaces,
-                Schema = SchemaInfo, EmptyElement = Empty, Ended = boundary ? Empty : Ended,
+                Schema = Schema(SchemaInfo), EmptyElement = Empty, Ended = boundary ? Empty : Ended,
                 ChildrenStarted = !boundary && Started, FirstChild = boundary ? -1 : FirstChild,
                 Consumed = Consumed, Skipped = Skipped, NoNext = NoNext,
             };
             if (names != null) Atomize(node, names);
+            for (int i = 0; i < node.Attributes.Length; i++)
+                if (node.Attributes[i].Schema is { } info)
+                {
+                    // Boundary, ancestor and event projections all own their PSVI snapshots.
+                    if (ReferenceEquals(node.Attributes, Attributes)) node.Attributes = (Attribute[])node.Attributes.Clone();
+                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
+                }
             return node;
         }
 
@@ -78,10 +93,6 @@ internal sealed partial class StreamedDocument
             // Navigation and observer state belong to this view, not the pumping source.
             Node node = Create(parent, boundary: true, names);
             node.Consumed = node.Skipped = node.NoNext = false;
-            node.Schema = Schema(SchemaInfo);
-            for (int i = 0; i < node.Attributes.Length; i++)
-                if (node.Attributes[i].Schema is { } info)
-                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
             return node;
         }
 
@@ -89,23 +100,33 @@ internal sealed partial class StreamedDocument
         {
             node.LocalName = names.Add(node.LocalName); node.Namespace = names.Add(node.Namespace); node.Prefix = names.Add(node.Prefix);
             Attribute[] attributes = node.Attributes;
-            if (attributes.Length != 0) node.Attributes = new Attribute[attributes.Length];
             for (int i = 0; i < attributes.Length; i++)
             {
                 Attribute a = attributes[i];
-                node.Attributes[i] = a with { LocalName = names.Add(a.LocalName), Namespace = names.Add(a.Namespace), Prefix = names.Add(a.Prefix) };
+                string local = names.Add(a.LocalName), uri = names.Add(a.Namespace), prefix = names.Add(a.Prefix);
+                if (ReferenceEquals(local, a.LocalName) && ReferenceEquals(uri, a.Namespace) && ReferenceEquals(prefix, a.Prefix)) continue;
+                // Published records are immutable; copy only when this view has different atoms.
+                if (ReferenceEquals(node.Attributes, attributes)) node.Attributes = (Attribute[])attributes.Clone();
+                node.Attributes[i] = a with { LocalName = local, Namespace = uri, Prefix = prefix };
             }
             Namespace[] namespaces = node.Namespaces;
-            if (namespaces.Length != 0) node.Namespaces = new Namespace[namespaces.Length];
             for (int i = 0; i < namespaces.Length; i++)
             {
                 Namespace ns = namespaces[i];
-                node.Namespaces[i] = ns with { Prefix = names.Add(ns.Prefix), Uri = names.Add(ns.Uri) };
+                string prefix = names.Add(ns.Prefix), uri = names.Add(ns.Uri);
+                if (ReferenceEquals(prefix, ns.Prefix) && ReferenceEquals(uri, ns.Uri)) continue;
+                if (ReferenceEquals(node.Namespaces, namespaces)) node.Namespaces = (Namespace[])namespaces.Clone();
+                node.Namespaces[i] = ns with { Prefix = prefix, Uri = uri };
             }
         }
     }
 
-    private sealed record ForkEvent(ForkHeader Header, bool End);
+    private sealed class ForkEvent(Node node, bool end) : ForkHeader(node)
+    {
+        internal ForkHeader Header => this;
+        internal readonly bool End = end;
+        internal long Number => Original.Number;
+    }
 
     internal bool CanFork(Node boundary)
     {
@@ -115,12 +136,13 @@ internal sealed partial class StreamedDocument
             && (_current == boundary || _current.Parent == boundary && _current.Number == boundary.FirstChild && !_current.ChildrenStarted);
     }
 
-    internal ForkSource Fork(StreamedNavigator position)
+    internal ForkSource Fork(StreamedNavigator position, ForkInputProjection? projection = null)
     {
         ArgumentNullException.ThrowIfNull(position);
         if (!ReferenceEquals(position.Document, this) || position.NodeType is not (XPathNodeType.Root or XPathNodeType.Element))
             throw PositionError();
-        return new(this, position.PositionNode);
+        return new(this, position.PositionNode, _forkBoundary == null && _observer == null
+            && _current == position.PositionNode && !_current.ChildrenStarted ? projection : null);
     }
 
     /// <summary>A forward subtree and its ancestor headers, shared by one invocation of fork.</summary>
@@ -131,21 +153,25 @@ internal sealed partial class StreamedDocument
         private readonly ForkHeader[] _headers;
         private ConsumptionScope _consumption;
         private bool _entered, _first = true, _complete, _disposed, _ran;
+        private readonly ForkInputProjection.Matcher? _projection;
 
-        internal ForkSource(StreamedDocument source, Node boundary)
+        internal ForkSource(StreamedDocument source, Node boundary, ForkInputProjection? projection = null)
         {
             source.Check();
             if (!source.CanFork(boundary)) throw PositionError();
             _source = source;
             _boundary = boundary;
+            _projection = projection?.NewMatcher(boundary);
             var headers = new List<ForkHeader>();
             for (Node? node = boundary; node != null; node = node.Parent) headers.Add(new(node));
             headers.Reverse();
             _headers = headers.ToArray();
         }
 
-        private ForkEvent? Read()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Node? ReadNode(out bool end)
         {
+            end = false;
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_complete || _boundary.Ended) return null;
             if (!_entered)
@@ -161,9 +187,22 @@ internal sealed partial class StreamedDocument
                 _source.ReadNext();
             }
             Node current = _source._current;
-            bool end = current.Kind is XPathNodeType.Root or XPathNodeType.Element && current.Ended && !current.EmptyElement;
+            end = current.Kind is XPathNodeType.Root or XPathNodeType.Element && current.Ended && !current.EmptyElement;
             if (current == _boundary && current.Ended) _complete = true;
-            return new(new(current), end);
+            return current;
+        }
+
+        private ForkEvent? Read()
+        {
+            Node? node = ReadNode(out bool end);
+            return node == null ? null : new(node, end);
+        }
+
+        private ForkProngs.SourceRead<ForkEvent> ReadProjected()
+        {
+            Node? node = ReadNode(out bool end);
+            if (node == null) return new(null, true);
+            return _projection!.Keep(node, end) ? new(new(node, end), false) : default;
         }
 
         internal void Run(IReadOnlyList<Action<StreamedNavigator, CancellationToken>> bodies, int capacity,
@@ -187,7 +226,11 @@ internal sealed partial class StreamedDocument
             using var linked = sourceCancellation.CanBeCanceled && cancellation.CanBeCanceled && sourceCancellation != cancellation
                 ? CancellationTokenSource.CreateLinkedTokenSource(sourceCancellation, cancellation) : null;
             CancellationToken effective = linked?.Token ?? (cancellation.CanBeCanceled ? cancellation : sourceCancellation);
-            try { ForkProngs.Run(Read, prongs, capacity, effective, caller); }
+            try
+            {
+                if (_projection == null) ForkProngs.Run(Read, prongs, capacity, effective, caller);
+                else ForkProngs.RunSource(ReadProjected, prongs, capacity, effective, caller);
+            }
             finally { Dispose(); }
         }
 
@@ -303,7 +346,7 @@ internal sealed partial class StreamedDocument
             if (_state is ReadState.Closed or ReadState.EndOfFile) return false;
             _attribute = -1; _attributeValue = false;
             Current = input.Read();
-            if (Current is null || Current.Header.Kind == XPathNodeType.Root)
+            if (Current is null || Current.Kind == XPathNodeType.Root)
             {
                 Current = null; _state = ReadState.EndOfFile;
                 return false;
@@ -318,7 +361,7 @@ internal sealed partial class StreamedDocument
             if (Current is { End: false, Header.Kind: XPathNodeType.Element, Header.Empty: false })
             {
                 _skipNumber = Header.Original.Number;
-                Current = input.ReadUntil(_skipEnd ??= item => item.End && item.Header.Original.Number == _skipNumber);
+                Current = input.ReadUntilImmutable(_skipEnd ??= item => item.End && item.Number == _skipNumber);
                 if (Current is null)
                 {
                     _state = ReadState.EndOfFile;

@@ -10,6 +10,8 @@ public static class Program
 {
     public const string MemoryProbe = "memory-probe";
     public const string StreamProbe = "stream-probe";
+    public const string HiddenGroundingProbe = "hidden-grounding-probe";
+    public const string NavigatorMemoryProbe = "navigator-memory-probe";
 
     public static int Main(string[] args)
     {
@@ -19,6 +21,11 @@ public static class Program
             return 0;
         }
         if (args.Length > 0 && args[0] == StreamProbe) return StreamingProbe.RunCommand(args[1..]);
+        if (args is [NavigatorMemoryProbe, "release"]) return StreamedNavigatorMemoryTests.Probe(retain: false);
+        if (args is [NavigatorMemoryProbe, "retain"]) return StreamedNavigatorMemoryTests.Probe(retain: true);
+        if (args is [HiddenGroundingProbe, var mode, var configuration, var bytes] && configuration is "release" or "debug")
+            return StreamedHiddenGroundingTests.Probe(mode, configuration == "debug",
+                long.Parse(bytes, System.Globalization.CultureInfo.InvariantCulture));
         return 1;
     }
 }

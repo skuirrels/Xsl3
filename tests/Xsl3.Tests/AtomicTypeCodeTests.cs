@@ -19,6 +19,39 @@ namespace Xsl3.Tests;
 
 public sealed class AtomicTypeCodeTests
 {
+    private static XmlQueryRuntime Runtime(StaticDataManager manager) => new(
+        new XmlQueryStaticData(new XmlWriterSettings(), Array.Empty<WhitespaceRule>(), manager) { Xslt2 = true },
+        XslCompiledTransform.AbsentInput, XmlResolver.ThrowingResolver, null, new XmlCachedSequenceWriter());
+
+    [Fact]
+    public void GeneralSequenceChecksRejectFunctionsAsAtomicAndAcceptThemAsItems()
+    {
+        var manager = new StaticDataManager();
+        int atomic = manager.DeclareXmlType(T.AnyAtomicType), item = manager.DeclareXmlType(T.ItemS);
+        var runtime = Runtime(manager);
+        var definition = FunctionLibrary.Find(QName.Ns.Fn, "true", 0)!;
+        XPathItem[] functions = { MapItem.Empty, ArrayItem.Empty, new LibraryFunction(definition, 0, runtime.XsltFunctions.X31Context) };
+        foreach (XPathItem function in functions)
+        {
+            Assert.False(runtime.MatchesXmlType(new[] { function }, atomic));
+            Assert.True(runtime.MatchesXmlType(new[] { function }, item));
+            Assert.True(runtime.MatchesXmlType(new[] { AtomicValue.OfString("text"), function }, item));
+        }
+    }
+
+    [Fact]
+    public void SpecificAtomicCodesRejectFunctionsWithoutDereferencingTheirMissingSchemaType()
+    {
+        var runtime = Runtime(new StaticDataManager());
+        var definition = FunctionLibrary.Find(QName.Ns.Fn, "true", 0)!;
+        XPathItem[] functions = { MapItem.Empty, ArrayItem.Empty, new LibraryFunction(definition, 0, runtime.XsltFunctions.X31Context) };
+        foreach (XPathItem function in functions)
+        {
+            Assert.False(runtime.MatchesXmlType(function, XmlTypeCode.String));
+            Assert.False(runtime.MatchesXmlType(new[] { function }, XmlTypeCode.Integer));
+        }
+    }
+
     [Fact]
     public void AtomicCodeMatchesTheGeneralTypeTestForNodesAtomsAndFunctions()
     {

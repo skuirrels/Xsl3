@@ -24,5 +24,5 @@ streamable/streamable-042
 streamable/streamable-043
 streamable/streamable-116
 streamable/streamable-147
-sx-UnionExpr/sx-union-202
+sx-UnionExpr/sx-union-315
 system-property/system-property-012

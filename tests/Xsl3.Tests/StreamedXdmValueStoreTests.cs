@@ -18,6 +18,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamedXdmValueStoreTests
 {
     private static IList<XPathItem>? Roundtrip(StreamedXdmValueStore store, IList<XPathItem>? items)

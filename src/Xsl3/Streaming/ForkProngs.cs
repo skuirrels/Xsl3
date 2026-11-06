@@ -47,6 +47,51 @@ internal static class ForkProngs
                 return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
             }
         }, bodies.Count, capacity, cancellation, productionCaller: caller);
+        RunProngs(tee, bodies, cancellation, caller);
+    }
+
+    internal readonly record struct SourceRead<T>(T? Item, bool Complete) where T : class;
+
+    internal static void RunSource<T>(Func<SourceRead<T>> readSource,
+        IReadOnlyList<Action<StreamTee<T>.Reader, CancellationToken>> bodies, int capacity,
+        CancellationToken cancellation = default, ForkCaller? caller = null) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(readSource);
+        ArgumentNullException.ThrowIfNull(bodies);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        cancellation.ThrowIfCancellationRequested();
+        if (bodies.Count == 0) return;
+        using var ownedCaller = caller == null ? new ForkCaller(cancellation) : null;
+        caller ??= ownedCaller!;
+        caller.Start(bodies.Count);
+        StreamTee<T>? sourceTee = null;
+        using var tee = sourceTee = new StreamTee<T>(destination => {
+            int count = 0, scanned = 0;
+            try
+            {
+                while (scanned < destination.Length)
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    if (sourceTee!.ActiveReaders == 0) return new StreamTee<T>.Batch(count, true);
+                    SourceRead<T> read = readSource();
+                    scanned++;
+                    if (read.Item != null) destination.Span[count++] = read.Item;
+                    if (read.Complete) return new StreamTee<T>.Batch(count, true);
+                }
+                return new StreamTee<T>.Batch(count, false, Progress: scanned != 0);
+            }
+            catch (Exception error)
+            {
+                return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
+            }
+        }, bodies.Count, capacity, cancellation, productionCaller: caller);
+        RunProngs(tee, bodies, cancellation, caller);
+    }
+
+    private static void RunProngs<T>(StreamTee<T> tee,
+        IReadOnlyList<Action<StreamTee<T>.Reader, CancellationToken>> bodies,
+        CancellationToken cancellation, ForkCaller caller) where T : class
+    {
         var workers = new Thread[bodies.Count];
         var cancellations = new CancellationTokenSource[bodies.Count];
         var faults = new ExceptionDispatchInfo?[bodies.Count];

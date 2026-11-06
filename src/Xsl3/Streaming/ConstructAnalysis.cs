@@ -141,7 +141,7 @@ internal sealed partial class ConstructAnalysis
             Types = Types(), Variables = variables, ResolveFunction = ResolveFunction, InPattern = pattern,
             InSequenceConstructor = true, PrecedingConsumingInstruction = _precedingConsuming,
             AccumulatorPhase = _accumulatorPhase, CurrentGroupSelection = _currentGroup,
-            AllowStreamabilityRewrites = true,
+            AllowStreamabilityRewrites = _compiler.Settings.StreamabilityExtensions,
             StreamingParameterRepeated = _repeated != 0,
         });
     }

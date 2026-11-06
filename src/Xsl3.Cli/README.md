@@ -2,12 +2,11 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Version **1.1.6** includes the bounded P7H Debug compiler source-line correction. Repeated
-bare-variable sequences retain separate instruction locations and one shared binding, with the
-compiler assertion retained. Normal/debug saved styles preserve the six P7G identity contracts.
-P7G identity, P7F allocation and P7D/P7C correctness fixes remain included.
-Keep the CLI and runtime/build packages at the same version. Streaming remains unsupported; see the
-[1.1.6 release notes](https://github.com/skuirrels/Xsl3/blob/v1.1.6/docs/releases/1.1.6.md).
+Version **1.3.0** adds `XsltSettings.StreamabilityExtensions`, which names the five extensions to the XSLT 3.0
+streamability rules that strict analysis applies and can turn them off; the default is unchanged. It includes
+1.2.0's union change (§19.8.8.4). Default execution stays tree-based; streaming remains experimental and unsupported.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
+See the [1.3.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/releases/1.3.0.md).
 
 ```
 dotnet tool install --global Xsl3.Cli

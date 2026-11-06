@@ -100,8 +100,10 @@ namespace Xsl3
 #endif
 
             // Optimize and annotate the Qil graph
+            var compilation = Streaming.StreamingExecutionCapture.BeginCompilation(_qil.HasStreamedInputs);
             _optVisitor = new XmlILOptimizerVisitor(_qil, !_qil.IsDebug);
-            _qil = _optVisitor.Optimize();
+            _qil = _optVisitor.Optimize(compilation);
+            compilation?.CompleteOptimization();
 
             // In debug code, ensure that output QIL is correct
             QilValidationVisitor.Validate(_qil);

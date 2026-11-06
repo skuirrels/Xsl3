@@ -148,6 +148,9 @@ namespace Xsl3.XPath31
         /// and abstract ones not at all (function-lookup in a used package); null if the host has no such components.
         /// </summary>
         System.IDisposable? DeclaredComponents() => null;
+
+        /// <summary>Isolates host dynamic context that is not part of a function value's closure.</summary>
+        System.IDisposable? FunctionBody() => null;
     }
 
     internal delegate QilNode CompileXPathArgument(Expr expression, ItemTest? requiredType = null);

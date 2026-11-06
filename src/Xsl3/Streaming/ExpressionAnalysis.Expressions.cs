@@ -42,13 +42,9 @@ internal sealed partial class ExpressionAnalysis
                 if (_options.AllowStreamabilityRewrites && op == BinaryOp.Except && left.Posture == Posture.Striding
                     && expression.Right is ContextItemExpr && right.Sweep == Sweep.Motionless)
                     return left with { Type = resultType, Rule = rule };
-                // Children of the same peer selection remain peers when united. This is a
-                // compiler extension; the syntax-only harness retains the general crawling rule.
-                if (_options.AllowStreamabilityRewrites && op == BinaryOp.Union && left.Posture == Posture.Striding && right.Posture == Posture.Striding
-                    && expression.Left is PathExpr { Descendants: false, Right: AxisStep { Axis: Axis.Child } } lp
-                    && expression.Right is PathExpr { Descendants: false, Right: AxisStep { Axis: Axis.Child } } rp
-                    && lp.Left.ToString() == rp.Left.ToString())
-                    return new(resultType, Posture.Striding, Wider(left.Sweep, right.Sweep), rule);
+                // Two striding operands are crawling even when they are children of the same parent:
+                // treating such a union as striding is an extension (the Note to §19.8.8.4), which
+                // §19.10 allows only when the user asks for one, so XTSE3430 follows under Strict.
                 return new(resultType, Posture.Crawling, Wider(left.Sweep, right.Sweep), rule);
             }
             return Roaming(resultType, rule);

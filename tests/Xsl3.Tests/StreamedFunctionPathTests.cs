@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using Xunit;
+using static Xsl3.Tests.ForwardEvidence;
 
 namespace Xsl3.Tests;
 
@@ -42,7 +43,7 @@ public class StreamedFunctionPathTests
         new XsltCompiler { Settings = new() { StreamedExecution = true } }.Compile(new StringReader(sheet))
             .CreateTransformer().ApplyTemplates(reader, output);
         Assert.Equal("b", output.ToString());
-        Assert.InRange(output.FirstWriteCharacters, 1, xml.Length / 2);
+        AssertWrittenEarly(output.FirstWrite, xml.Length, forward: true);
     }
 
     [Theory]
@@ -104,6 +105,62 @@ public class StreamedFunctionPathTests
         Assert.Contains(code, Assert.Throws<XsltDynamicException>(() => transform.ApplyTemplates(reader)).Message);
     }
 
+    // S4-21, S4-22, S4-24 and S4-25: a stylesheet function of each category, called on the streamed context node of a
+    // streamable-mode template rule, through both public APIs. Forward execution writes the first row's result
+    // before reading half of the input; tree execution, the control, only writes once the whole input is read.
+    [Theory]
+    [InlineData("inspection", "row", "local-name($node)", "xs:string", "f:select(.)", "row", false)]
+    [InlineData("inspection", "row", "local-name($node)", "xs:string", "f:select(.)", "row", true)]
+    [InlineData("ascent", "row", "$node/..", "element()?", "f:select(.)/@id", "s1", false)]
+    [InlineData("ascent", "row", "$node/..", "element()?", "f:select(.)/@id", "s1", true)]
+    [InlineData("deep-descent", "section", "$node//v", "element()*", "f:select(.)", "ab", false)]
+    [InlineData("deep-descent", "section", "$node//v", "element()*", "f:select(.)", "ab", true)]
+    [InlineData("filter", "section", "$node[@id]", "element()?", "f:select(.)//v", "ab", false)]
+    [InlineData("filter", "section", "$node[@id]", "element()?", "f:select(.)//v", "ab", true)]
+    public void FunctionCategoriesRunForwardInStreamableTemplateRules(string category, string match, string body, string result, string select, string first, bool legacy)
+    {
+        string sheet = $$"""
+            <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                xmlns:f="urn:test" exclude-result-prefixes="xs f">
+              <xsl:mode streamable="yes" on-no-match="shallow-skip"/><xsl:output method="text"/>
+              <xsl:function name="f:select" streamability="{{category}}" as="{{result}}">
+                <xsl:param name="node" as="node()"/><xsl:sequence select="{{body}}"/>
+              </xsl:function>
+              <xsl:template match="{{match}}"><xsl:value-of select="{{select}}" separator=""/>;</xsl:template>
+            </xsl:stylesheet>
+            """;
+        string section = "<section id='s{0}'><row><v>{1}</v></row><row><v>b</v></row></section>";
+        string xml = "<doc>" + string.Format(section, 1, "a") + string.Concat(Enumerable.Range(2, 19999).Select(i => string.Format(section, i, "c"))) + "</doc>";
+        int rows = match == "row" ? 2 : 1;
+        foreach (bool forward in new[] { false, true })
+        {
+            using var source = new CountingReader(xml);
+            using var output = new EarlyWriter(source);
+            Run(sheet, source, output, forward, legacy);
+            string[] results = output.ToString().Split(';', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(20000 * rows, results.Length);
+            Assert.Equal(first, results[0]);
+            AssertWrittenEarly(output.FirstWrite, xml.Length, forward, category + ":");
+        }
+    }
+
+    private static void Run(string sheet, CountingReader source, EarlyWriter output, bool forward, bool legacy)
+    {
+        var settings = new XsltSettings { StreamedExecution = forward };
+        using var reader = XmlReader.Create(source);
+        if (legacy)
+        {
+            var transform = new XslCompiledTransform();
+            using var stylesheet = XmlReader.Create(new StringReader(sheet));
+            transform.Load(stylesheet, settings, null);
+            transform.Transform(reader, null, output);
+        }
+        else
+        {
+            new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet)).CreateTransformer().ApplyTemplates(reader, output);
+        }
+    }
+
 #if NET10_0_OR_GREATER
     [Theory]
     [InlineData("filter", "$node[self::section]", "node()", "doc/f:select(section[1])/section/p[2]", "bd")]
@@ -124,27 +181,6 @@ public class StreamedFunctionPathTests
         Assert.Equal(expected, output.ToString());
     }
 #endif
-
-    private sealed class CountingReader(string xml) : TextReader
-    {
-        private readonly StringReader _source = new(xml);
-        internal int Characters;
-        public override int Peek() => _source.Peek();
-        public override int Read() { int value = _source.Read(); if (value >= 0) Characters++; return value; }
-        public override int Read(char[] buffer, int index, int count) { int read = _source.Read(buffer, index, count); Characters += read; return read; }
-        public override int Read(Span<char> buffer) { int read = _source.Read(buffer); Characters += read; return read; }
-        protected override void Dispose(bool disposing) { if (disposing) _source.Dispose(); base.Dispose(disposing); }
-    }
-
-    private sealed class EarlyWriter(CountingReader reader) : StringWriter
-    {
-        internal int FirstWriteCharacters = -1;
-        private void Capture() { if (FirstWriteCharacters < 0) FirstWriteCharacters = reader.Characters; }
-        public override void Write(char value) { Capture(); base.Write(value); }
-        public override void Write(string? value) { if (!string.IsNullOrEmpty(value)) Capture(); base.Write(value); }
-        public override void Write(char[] buffer, int index, int count) { if (count != 0) Capture(); base.Write(buffer, index, count); }
-        public override void Write(ReadOnlySpan<char> buffer) { if (!buffer.IsEmpty) Capture(); base.Write(buffer); }
-    }
 
     private static string Sheet(string category, string body, string result, string select) => $$"""
             <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:f="urn:test">

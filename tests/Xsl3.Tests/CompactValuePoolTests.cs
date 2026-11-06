@@ -94,7 +94,7 @@ public sealed class CompactValuePoolTests
         static (string First, string Second) FindCollision()
         {
             var hashes = new Dictionary<int, string>();
-            for (long i = 0; ; i++)
+            for (long i = 0; i < 1_000_000; i++)
             {
                 string value = i.ToString("D20", CultureInfo.InvariantCulture);
                 int hash = StringComparer.Ordinal.GetHashCode(value);
@@ -102,6 +102,7 @@ public sealed class CompactValuePoolTests
                     return (previous, value);
                 hashes.Add(hash, value);
             }
+            throw new InvalidOperationException("No ordinal hash collision found within the bounded fixture search");
         }
 
         var (first, second) = FindCollision();

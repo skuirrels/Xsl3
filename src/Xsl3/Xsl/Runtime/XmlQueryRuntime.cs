@@ -1183,11 +1183,6 @@ namespace Xsl3.Runtime
         /// </summary>
         public bool MatchesXmlType(XPathItem item, int indexType)
         {
-            if (!item.IsNode && item.XmlType == null)
-            {
-                // Xsl3: function items, maps and arrays, which QIL types don't describe, match only item().
-                return XmlQueryTypeFactory.Item.IsSubtypeOf(GetXmlType(indexType));
-            }
             return CreateXmlType(item).IsSubtypeOf(GetXmlType(indexType));
         }
 
@@ -1209,7 +1204,7 @@ namespace Xsl3.Runtime
         {
             // All atomic type codes appear after AnyAtomicType
             if (code > XmlTypeCode.AnyAtomicType)
-                return !item.IsNode && item.XmlType!.TypeCode == code;
+                return !item.IsNode && item.XmlType is { } annotation && annotation.TypeCode == code;
 
             // Handle node code and AnyAtomicType
             switch (code)
@@ -1276,8 +1271,11 @@ namespace Xsl3.Runtime
                 return XmlQueryTypeFactory.Type(nav.NodeType, XmlQualifiedNameTest.Wildcard, XmlSchemaComplexType.AnyType, false);
             }
 
-            // Atomic value
-            return XmlQueryTypeFactory.Type((XmlSchemaSimpleType)item.XmlType!, true);
+            // Function items, maps and arrays have no schema annotation. QIL's general
+            // type model represents them as item(), for both item and sequence checks.
+            XmlSchemaType? annotation = item.XmlType;
+            return annotation == null ? XmlQueryTypeFactory.Item
+                : XmlQueryTypeFactory.Type((XmlSchemaSimpleType)annotation, true);
         }
 
 

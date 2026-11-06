@@ -12,6 +12,7 @@ using Xunit;
 
 namespace Xsl3.Tests;
 
+[Collection("Process-wide state")]
 public class StreamTeeTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(10);
@@ -561,6 +562,62 @@ public class StreamTeeTests
             Assert.InRange(tee.HighWaterMark, 1, capacity);
         }
         finally { cancellation.Cancel(); tee.Dispose(); foreach (Thread thread in threads) Join(thread); }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void AliasesReleaseAPartialPrefixBeforeAnyFurtherReadIsRequested(int aliases)
+    {
+        const int readsPerCheckpoint = 13, checkpoints = 128, capacity = 64;
+        int produced = 0;
+        // Each checkpoint has a liveness guard; total elapsed time is not a throughput assertion.
+        using var cancellation = new CancellationTokenSource();
+        using var tee = new StreamTee<Event>(destination => {
+            for (int i = 0; i < destination.Length; i++) destination.Span[i] = new(++produced);
+            return new(destination.Length, false);
+        }, 1, capacity, cancellation.Token);
+        using var barrier = new Barrier(aliases + 1);
+        var errors = new ConcurrentQueue<Exception>();
+        var workers = new Thread[aliases];
+        int started = 0;
+        try
+        {
+            for (int i = 0; i < aliases; i++)
+            {
+                workers[i] = Start(() => {
+                    try
+                    {
+                        for (int point = 0; point < checkpoints; point++)
+                        {
+                            for (int read = 0; read < readsPerCheckpoint; read++)
+                                Assert.NotNull(tee.GetReader(0).Read());
+                            Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
+                            Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
+                        }
+                    }
+                    catch { cancellation.Cancel(); throw; }
+                }, errors);
+                started++;
+            }
+            for (int point = 0; point < checkpoints; point++)
+            {
+                Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
+                int consumed = (point + 1) * aliases * readsPerCheckpoint;
+                // Every read has returned and no alias can request another event.
+                // Consumed slots must already be released, including a partial batch.
+                Assert.Equal(Volatile.Read(ref produced) - consumed, tee.BufferedCount);
+                Assert.True(barrier.SignalAndWait(Deadline, cancellation.Token), "A tee prefix checkpoint did not make progress");
+            }
+            foreach (Thread worker in workers) Join(worker);
+            Assert.Empty(errors);
+            Assert.InRange(tee.HighWaterMark, 1, capacity);
+        }
+        finally
+        {
+            cancellation.Cancel(); tee.Dispose();
+            for (int i = 0; i < started; i++) Join(workers[i]);
+        }
     }
 
     [Fact]

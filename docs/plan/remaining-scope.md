@@ -1,9 +1,11 @@
 # Remaining scope: everything after P5
 
-> **Full P7 resumed, 2026-10-29:** the owner resumed implementation through complete qualification,
-> review, merge and release on `feature/p7-completion`. The [completion plan](p7-completion.md)
-> records current requirements and evidence. Every original runtime, memory and throughput gate
-> remains required. Streaming is still unsupported; the bounded release records below are historical.
+> **Current handoff, 2026-11-05:** the owner resumed the full P7 objective: “continue with phase 7 until it's complete”.
+> Phase A accounting shipped in 1.2.0, and extension review and further evidence shipped in 1.3.0.
+> [PR #33](https://github.com/skuirrels/Xsl3/pull/33) merged at `8582a5b`; the next implementation is
+> [S3-25 verifier coverage](p7-verifier-coverage.md). See [phase A](p7-phase-a.md) for remaining evidence gaps.
+> Streaming remains unsupported and all original acceptance targets remain required. Older stopping points
+> and progress entries below are historical.
 
 > **P7H bounded implementation and local close-out complete:** the
 > [Debug compiler source-line phase](p7h-debug-source-line-contracts.md) resolves the original

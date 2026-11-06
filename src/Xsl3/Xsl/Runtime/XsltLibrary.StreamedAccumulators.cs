@@ -4,17 +4,22 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Xml;
 using System.Xml.XPath;
 using Xsl3.Streaming;
+using Xsl3.Tree;
 using Xsl3.Xdm;
 
 namespace Xsl3.Runtime;
 
 public sealed partial class XsltLibrary
 {
-    private sealed class StreamedAccumulators : IStreamedNodeObserver
+    private sealed class StreamedAccumulators : IStreamedNodeObserver, IStreamedAccumulatorCopyProvider
     {
+        // Copies must observe a later detected cycle without retaining Current or the source document.
+        private sealed class CycleState { internal volatile ExceptionDispatchInfo? Fault; }
+
         private sealed class State(string name, AccumulatorInfo info)
         {
             internal readonly string Name = name;
@@ -23,7 +28,27 @@ public sealed partial class XsltLibrary
             internal readonly bool HasEndRules = Array.IndexOf(info.EndPhases, true) >= 0;
             internal IList<XPathItem>? Current;
             internal bool Initialized, Initializing;
-            internal volatile ExceptionDispatchInfo? Fault;
+            internal bool MayMatch(StreamedDocument.Node node, bool end)
+            {
+                for (int r = 0; r < Info.EndPhases.Length; r++)
+                {
+                    // Rejecting many simple rules must retain a cancellation rendezvous.
+                    XmlQueryRuntime.CheckCancellation();
+                    if (Info.EndPhases[r] == end && (Info.Filters?[r] is not { } filter || filter.Matches(node))) return true;
+                }
+                return false;
+            }
+            internal readonly CycleState Cycles = new();
+            private volatile ExceptionDispatchInfo? _fault;
+            internal ExceptionDispatchInfo? Fault
+            {
+                get => _fault;
+                set
+                {
+                    _fault = value;
+                    if (value != null && IsAccumulatorCycle(value.SourceException)) Cycles.Fault = value;
+                }
+            }
         }
 
         private sealed class Phase
@@ -158,6 +183,143 @@ public sealed partial class XsltLibrary
             }
         }
 
+        private readonly record struct CopyError(CycleState Cycles, ExceptionDispatchInfo? Fault);
+
+        private sealed class CopiedValues(CompactDocument document, object owner,
+            Dictionary<long, NodeValues?> nodes, Dictionary<string, CopyError> errors) : IStreamedAccumulatorCopy
+        {
+            public bool Applies(string name) => errors.ContainsKey(name);
+
+            public bool Contains(XPathNavigator node) => node is CompactNavigator compact
+                && node.NodeType is not (XPathNodeType.Attribute or XPathNodeType.Namespace)
+                && ReferenceEquals(compact.Document, document) && nodes.ContainsKey(compact.TraversalPhases.Before);
+
+            public bool TryValue(XPathNavigator node, string name, bool after, out IList<XPathItem>? value)
+            {
+                value = null;
+                if (node is not CompactNavigator compact || node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace
+                    || !ReferenceEquals(compact.Document, document) || !nodes.TryGetValue(compact.TraversalPhases.Before, out var recorded)) return false;
+                if (!errors.TryGetValue(name, out var error))
+                    throw new XdmException("XTDE3362", $"The accumulator {name} isn't applicable to the document (use-accumulators)");
+                if (error.Cycles.Fault is { } cycle) cycle.Throw();
+                lock (owner)
+                    if (recorded != null && recorded.TryGetValue(name, out var phase))
+                        value = after ? phase.After : phase.Before;
+                if (value != null) return true;
+                error.Fault?.Throw();
+                throw StreamedDocument.PositionError();
+            }
+        }
+
+        public IStreamedAccumulatorCopy? CaptureCopy(XPathNavigator copy, StreamedNavigator original)
+        {
+            StreamedDocument.Node boundary = original.PositionNode;
+            if (copy is not CompactNavigator compact) return null;
+            if (boundary.Replay?.Sealed == true) return CaptureCompletedCopy(compact, original);
+            if (!StreamedDocument.CanReplay(boundary))
+                return boundary.Ended && !boundary.Skipped && boundary.Replay is { } pending
+                    ? new DeferredCopy(this, compact, original, pending) : null;
+            return CaptureCompletedCopy(compact, original);
+        }
+
+        private sealed class DeferredCopy : IStreamedAccumulatorCopy
+        {
+            private sealed record Pending(StreamedAccumulators Observer, CompactNavigator Copy, StreamedNavigator Original);
+            private object _state;
+            // The replay holds only a weak delegate; a discarded copy owns no live subscription.
+            private readonly Action _completed;
+
+            internal DeferredCopy(StreamedAccumulators observer, CompactNavigator copy, StreamedNavigator original,
+                StreamedDocument.ReplayBuffer replay)
+            {
+                _state = new Pending(observer, (CompactNavigator)copy.Clone(), (StreamedNavigator)original.Clone());
+                _completed = Complete;
+                replay.WhenComplete(_completed);
+            }
+
+            private void Complete()
+            {
+                if (Volatile.Read(ref _state) is Pending pending
+                    && pending.Observer.CaptureCompletedCopy(pending.Copy, pending.Original) is { } captured)
+                    Volatile.Write(ref _state, captured);
+            }
+
+            public bool Applies(string name)
+            {
+                object state = Volatile.Read(ref _state);
+                return state is IStreamedAccumulatorCopy captured ? captured.Applies(name)
+                    : ((Pending)state).Observer.Applies(name);
+            }
+
+            public bool Contains(XPathNavigator node)
+            {
+                object state = Volatile.Read(ref _state);
+                if (state is IStreamedAccumulatorCopy captured) return captured.Contains(node);
+                if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace) return false;
+                var cursor = node.Clone();
+                do { if (cursor.IsSamePosition(((Pending)state).Copy)) return true; } while (cursor.MoveToParent());
+                return false;
+            }
+
+            public bool TryValue(XPathNavigator node, string name, bool after, out IList<XPathItem>? value)
+            {
+                object state = Volatile.Read(ref _state);
+                if (state is IStreamedAccumulatorCopy captured) return captured.TryValue(node, name, after, out value);
+                var pending = (Pending)state;
+                value = null;
+                if (node.NodeType is XPathNodeType.Attribute or XPathNodeType.Namespace
+                    || Original(node, pending.Copy, pending.Original) is not StreamedNavigator original) return false;
+                value = pending.Observer.Value(name, original, after);
+                return true;
+            }
+        }
+
+        private IStreamedAccumulatorCopy? CaptureCompletedCopy(CompactNavigator compact, StreamedNavigator original)
+        {
+            StreamedDocument.Node boundary = original.PositionNode;
+            if (boundary.Replay is not { } replay || !replay.Complete
+                && !(replay.Sealed && boundary.Ended && !boundary.Skipped)) return null;
+            var nodes = new Dictionary<long, NodeValues?>();
+            var cursor = (CompactNavigator)compact.Clone();
+            using var source = replay.Subtree(boundary).GetEnumerator();
+            int depth = 0;
+            do
+            {
+                if (!source.MoveNext() || source.Current.Depth - boundary.Depth != depth || source.Current.Kind != cursor.NodeType
+                    || source.Current.Skipped || source.Current.LocalName != cursor.LocalName || source.Current.Namespace != cursor.NamespaceURI) return null;
+                lock (_valuesGate)
+                    nodes.Add(cursor.TraversalPhases.Before,
+                        source.Current.ObserverValues is NodeValues values && ReferenceEquals(values.Owner, _valuesGate) ? values
+                            : source.Current.Original?.ObserverValues is NodeValues originalValues && ReferenceEquals(originalValues.Owner, _valuesGate) ? originalValues : null);
+            } while (NextCopiedNode(cursor, compact, ref depth));
+            if (source.MoveNext()) return null;
+            var errors = new Dictionary<string, CopyError>(StringComparer.Ordinal);
+            lock (_valuesGate)
+                foreach (var (name, state) in _states)
+                {
+                    bool missing = false;
+                    foreach (var recorded in nodes.Values)
+                        if (recorded == null || !recorded.TryGetValue(name, out var phase) || phase.Before == null || phase.After == null)
+                        { missing = true; break; }
+                    // Complete phases need no later ordinary error or its optional payload.
+                    // Missing phases preserve the failure already known when this copy was made.
+                    errors.Add(name, new(state.Cycles, missing ? state.Fault : null));
+                }
+            return new CopiedValues(compact.Document, _valuesGate, nodes, errors);
+        }
+
+        private static bool NextCopiedNode(XPathNavigator cursor, XPathNavigator boundary, ref int depth)
+        {
+            if (cursor.MoveToFirstChild()) { depth++; return true; }
+            while (!cursor.IsSamePosition(boundary))
+            {
+                if (cursor.MoveToNext()) return true;
+                if (!cursor.MoveToParent()) return false;
+                depth--;
+            }
+            return false;
+        }
+
         private XsltLibrary? _owner;
         private IList<XPathItem>? _items;
         private readonly StreamedDocument _document;
@@ -243,7 +405,7 @@ public sealed partial class XsltLibrary
             {
                 Initialize(state);
                 // Even a phase without rules must initialize and publish its unchanged value.
-                var value = state.HasStartRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                var value = state.HasStartRules && state.MayMatch(node, end: false) ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
                     end: false, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: false); return state.Current = value; }
             }
@@ -267,8 +429,8 @@ public sealed partial class XsltLibrary
             phase.Ending = true;
             try
             {
-                Before(state, node);
-                var value = state.HasEndRules ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
+                if (phase.Before == null) Before(state, node);
+                var value = state.HasEndRules && state.MayMatch(node, end: true) ? _owner.AccumulatorApply(new StreamedNavigator(_document, node), state.Current!,
                     end: true, _items!, state.Info, state.Name) : state.Current!;
                 lock (_valuesGate) { phase.Publish(value, after: true); return state.Current = value; }
             }
@@ -281,15 +443,15 @@ public sealed partial class XsltLibrary
             finally { phase.Ending = false; }
         }
 
-        private void Visit(StreamedNavigator node, bool end)
+        private void Visit(StreamedDocument.Node node, bool end)
         {
             foreach (State state in _states.Values)
             {
                 if (state.Fault != null) continue;
                 try
                 {
-                    if (end) After(state, node.PositionNode);
-                    else Before(state, node.PositionNode);
+                    if (end) After(state, node);
+                    else Before(state, node);
                 }
                 catch (Exception error) when (error is not OperationCanceledException && XmlException.IsCatchableException(error))
                 {
@@ -301,8 +463,12 @@ public sealed partial class XsltLibrary
             }
         }
 
-        public void Start(StreamedNavigator node) => Visit(node, end: false);
-        public void End(StreamedNavigator node) => Visit(node, end: true);
+        public void Start(StreamedNavigator node) => Visit(node.PositionNode, end: false);
+        public void End(StreamedNavigator node) => Visit(node.PositionNode, end: true);
+        void IStreamedNodeObserver.Start(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: false);
+        void IStreamedNodeObserver.End(StreamedDocument document, StreamedDocument.Node node) => Visit(node, end: true);
+
+        internal bool Applies(string name) => _states.ContainsKey(name);
 
         internal IList<XPathItem> Value(string name, StreamedNavigator node, bool after)
         {
