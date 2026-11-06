@@ -1,5 +1,19 @@
 # P7 agent handoff after 1.1.7
 
+**Attribute-cache control closed without adoption, 6 November 2026:**
+`feature/p7-attribute-first-text` retains [the control and complete audit](p7-attribute-first-text.md).
+All 28,202 full Release/Debug checks and 16 baseline controls pass. The nullable-analysis correction
+passes 16 focused warning-as-error checks, with identical method bodies/signatures in all four
+engines and separately retained source/PDB cohorts. All 60 canonical paired observations validate,
+but every stream range overlaps; identity is effectively unchanged. No Linux rerun or integration
+adoption is justified. The runtime and test remain excluded from integration and PR #40.
+Integration CI [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) remains
+live on `a4f7301`. The [native and ordinary-performance artifacts](p7-integrated-evidence-review.md)
+are independently audited: 48 native smoke observations, 1,728 saved-style checks, nine reader-bridge
+checks and the ordinary micro gate pass. Platform jobs continue; do not restart them.
+The next optimization must address the remaining identity/fork/source-document costs from new
+source evidence. All original final-source gates and full-P7 release requirements remain active.
+
 **Merge source-group control qualified for integration, 6 November 2026:** runtime/compiler
 `370178a` passes 7,976 affected checks and a fresh 80-case baseline comparison. The expanded named
 closure regression passes another 80 cases on each frozen engine; these are strengthened reruns,
