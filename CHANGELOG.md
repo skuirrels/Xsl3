@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [1.3.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.1) — 2026-11-06
+
+- Add direct P7 contracts for forward execution, group read/drain positions, retained navigator memory,
+  fork grouping/sorting payloads, declaration-order output and hidden grounding behind a forward source.
+- Record actual Debug optimizer-verifier execution and require that evidence for eligible strict
+  streaming compilations, including a negative control for missing verification.
+- Use HTTP probe URIs to avoid incidental ICU initialization in the experimental memory harness;
+  retain the original input sizes, absolute memory budgets and throughput targets.
+- Isolate native initialization tracing in its own manually dispatchable workflow, with a Linux PR
+  check for changes to the diagnostic. Preserve the scheduled P7 acceptance workflow unchanged.
+- Full streaming remains experimental and unsupported. Default execution stays tree-based and
+  `supports-streaming` remains `no`; this release does not complete P7.
+
 ## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
 
 - Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0

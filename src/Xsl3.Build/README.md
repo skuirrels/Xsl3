@@ -3,11 +3,12 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
-Version **1.3.0** adds `XsltSettings.StreamabilityExtensions`, which names the five extensions to the XSLT 3.0
-streamability rules that strict analysis applies and can turn them off; the default is unchanged. It includes
-1.2.0's union change (§19.8.8.4). Default execution stays tree-based; streaming remains experimental and unsupported.
+Version **1.3.1** strengthens P7 verification of forward execution, Debug compiler checks, retained
+navigator memory, fork payloads and hidden grounding. Native initialization diagnostics now run in a
+separate workflow; the scheduled memory and throughput acceptance gates remain unchanged.
+Default execution stays tree-based; streaming remains experimental and unsupported.
 Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
-See the [1.3.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/releases/1.3.0.md).
+See the [1.3.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.1/docs/releases/1.3.1.md).
 
 ```xml
 <ItemGroup>

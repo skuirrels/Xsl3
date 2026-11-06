@@ -10,23 +10,23 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.3.0: named streamability extensions.** XSLT 1.0 behaves as stock `System.Xml.Xsl`;
+> **1.3.1: streaming verification checkpoint.** XSLT 1.0 behaves as stock `System.Xml.Xsl`;
 > XSLT 2.0 and XPath 3.1 are implemented. XSLT 3.0 works apart from supported streaming; schema awareness
 > remains opt-in through `XsltSettings.SchemaAware`. Packages are available on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build),
 > [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli), [releases](https://github.com/skuirrels/Xsl3/releases)).
 
-**1.3.0 adds `XsltSettings.StreamabilityExtensions`.** It names the five extensions to the XSLT 3.0
-streamability rules that strict analysis applies (§19.10) and lets you turn them off for the
-specification's analysis exactly. The default is on, so behaviour is unchanged. 1.2.0's union change,
-which follows §19.8.8.4 (see the [migration guide](docs/migration.md)), remains included.
+Version **1.3.1** strengthens P7 verification of forward execution, Debug compiler checks, retained
+navigator memory, fork payloads and hidden grounding. Native initialization diagnostics now run in a
+separate workflow; the scheduled memory and throughput acceptance gates remain unchanged.
+Default execution stays tree-based; streaming remains experimental and unsupported.
 
 Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
 static checking and does not enable forward execution by itself. Published default execution stays
 tree-based; forward execution requires the explicit development opt-in. The original streaming RSS
 and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
-See the [changelog](CHANGELOG.md), [1.3.0 release notes](docs/releases/1.3.0.md),
+See the [changelog](CHANGELOG.md), [1.3.1 release notes](docs/releases/1.3.1.md),
 [checkpoint boundary](docs/plan/p7-runtime-checkpoint.md) and [P7 phase A](docs/plan/p7-phase-a.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`
 together and regenerate saved stylesheets with matching compiler/runtime packages.
 
