@@ -5,8 +5,9 @@ new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 4214
 The original 1 GB outputs, artifact/binary/source hashes and all sample counts verify. The isolated
 `feature/p7-fork-name-cache` candidate now passes 2,298 affected Release/Debug checks. All 60 corrected
 local paired observations validate; fork's median is 6.48% lower with non-overlapping ranges, while
-accumulator is 0.57% slower with non-overlapping ranges. A paired Linux comparison of all five
-workloads is the next qualification step. The initial null-argument defect and all initial results
+accumulator is 0.57% slower with non-overlapping ranges. The paired Linux comparison of all five
+workloads is running at [42152035144](https://github.com/skuirrels/Xsl3/actions/runs/42152035144),
+candidate `d571953` / baseline `32c845d`. The initial null-argument defect and all initial results
 are retained. No cache is adopted yet. Full Debug units for integration `32c845d` passed all 14,053
 checks; raw results, frozen-binary checks and the final audit are under
 `/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. CI 42148343009 is still running: NativeAOT and

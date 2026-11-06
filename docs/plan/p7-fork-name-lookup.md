@@ -75,6 +75,11 @@ accumulator's 0.57% higher median is also retained and must be checked; it is no
 the source change targets fork. This justifies one paired Linux comparison of all five workloads,
 not adoption or a full qualification rerun. No original gate pass or release readiness is claimed.
 
+The [paired Linux comparison](https://github.com/skuirrels/Xsl3/actions/runs/42152035144) is running
+on `d571953ab83e29ca651866b3b5c55504d7700dde` (runtime `7570b3a`), against immutable baseline
+`32c845daf89818aeb4950e7d549a34fa3cef18e9`. It uses the existing `revision_comparison` workflow
+and all five workloads. Inspect this run to completion before deciding whether the control advances.
+
 Separately, unchanged integration source `32c845d` passes **14,053 full Debug unit checks**:
 7,613 .NET 10 and 6,440 .NET 8, with zero failures/skips. Every TRX result and frozen binary hash
 verifies; runtime/test source remained unchanged during the run. Evidence is
