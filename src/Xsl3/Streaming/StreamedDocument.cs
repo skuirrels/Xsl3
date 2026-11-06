@@ -23,8 +23,12 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         internal Node? Original;
         internal readonly int Depth = parent == null ? -1 : parent.Depth + 1;
         internal string LocalName = "", Namespace = "", Prefix = "", Text = "", BaseUri = "", Language = "";
-        internal Attribute[] Attributes = Array.Empty<Attribute>();
-        internal Namespace[] Namespaces = Array.Empty<Namespace>();
+        private Attribute[]? _attributes;
+        private Namespace[]? _namespaces;
+        // Leaf frames need no header arrays. Resolve the shared empty defaults only when
+        // inspected, and preserve each assigned array without an allocation or copy.
+        internal Attribute[] Attributes { get => _attributes ?? Array.Empty<Attribute>(); set => _attributes = value; }
+        internal Namespace[] Namespaces { get => _namespaces ?? Array.Empty<Namespace>(); set => _namespaces = value; }
         // Immutable namespace headers only: clones can share a resolved scope without
         // retaining descendants or transferring a source NameTable into a fork view.
         internal Namespace[]? InScopeNamespaces;
