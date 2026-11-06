@@ -32,6 +32,10 @@ on:
         description: Capture Linux CPU samples only (never an acceptance gate)
         type: boolean
         default: false
+      cpu_jit_disasm:
+        description: Optional method filter for same-child CPU diagnostic disassembly
+        type: string
+        default: ''
       cpu_tree_control:
         description: Also profile the unchanged tree control on the same CPU diagnostic host
         type: boolean
@@ -231,6 +235,7 @@ jobs:
     timeout-minutes: 20
     env:
       CPU_WORKLOAD: ${{ inputs.cpu_workload }}
+      CPU_JIT_DISASM: ${{ inputs.cpu_jit_disasm }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -266,7 +271,7 @@ jobs:
       - name: Profile one canonical 1 GB child
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
+        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --jit-disasm "$CPU_JIT_DISASM" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
       - name: Profile the canonical tree control on the same host
         if: ${{ inputs.cpu_tree_control }}
         env:
@@ -275,7 +280,9 @@ jobs:
       - name: Report actual kernel CPU samples
         run: |
           dotnet build eng/StreamingCpuReport -c Release -m:1
-          sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD/cpu.nettrace" > artifacts/p7-cpu/cpu-sites.json
+          report_args=()
+          if [ -n "$CPU_JIT_DISASM" ]; then report_args+=(--instruction-addresses); fi
+          sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD/cpu.nettrace" "${report_args[@]}" > artifacts/p7-cpu/cpu-sites.json
       - name: Report the tree control's actual kernel CPU samples
         if: ${{ inputs.cpu_tree_control }}
         run: sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD-tree/cpu.nettrace" > artifacts/p7-cpu/cpu-tree-sites.json

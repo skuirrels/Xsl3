@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--workload', default='fork', choices=('identity', 'adjacent', 'accumulator', 'iterate', 'merge', 'fork', 'source-document'))
     parser.add_argument('--mode', default='stream', choices=('tree', 'stream'))
+    parser.add_argument('--jit-disasm', default='', help='Optional method filter for same-child JIT disassembly')
     args = parser.parse_args()
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('collect-linux requires a Linux host and root privileges')
@@ -36,11 +37,21 @@ def main():
     # diagnostic directory too, and preserve maps even if automatic JIT discovery fails.
     env['TMPDIR'] = '/tmp'
     env['DOTNET_PerfMapEnabled'] = '3'
+    child_env = dict(env)
+    disassembly = output / 'jit-disasm.txt'
+    if args.jit_disasm:
+        child_env['DOTNET_JitDisasm'] = args.jit_disasm
+        child_env['DOTNET_JitDisasmWithCodeBytes'] = '1'
+        child_env['DOTNET_JitStdOutFile'] = str(disassembly)
     command = ['dotnet', str(args.assembly.resolve()), 'streaming-child', args.workload, args.mode, str(size), '0']
     report = dict(scope='Instrumented diagnostic only; elapsed time is not throughput acceptance',
                   command=command, heapLimit=heap_limit, tieredCompilation=False,
                   hostCpuCount=os.cpu_count(), processorCountOverride=env.get('DOTNET_PROCESSOR_COUNT'),
                   perfMapEnabled=3, diagnosticDirectory=env['TMPDIR'],
+                  jitDisasmFilter=args.jit_disasm,
+                  jitEnvironment={key: child_env.get(key) for key in (
+                      'DOTNET_ReadyToRun', 'COMPlus_ReadyToRun', 'DOTNET_JitDisasm',
+                      'COMPlus_JitDisasm', 'DOTNET_JitDisasmWithCodeBytes', 'DOTNET_JitStdOutFile')},
                   sourceArtifacts={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                    for p in args.assembly.parent.iterdir() if p.suffix in ('.dll', '.pdb')},
                   complete=False, validOutput=False)
@@ -50,7 +61,7 @@ def main():
                 (output / 'child.stderr').open('w') as stderr, \
                 (output / 'collector.log').open('w') as trace_log:
             start = time.monotonic()
-            child = subprocess.Popen(command, env=env, stdout=stdout, stderr=stderr)
+            child = subprocess.Popen(command, env=child_env, stdout=stdout, stderr=stderr)
             report['childPid'] = child.pid
             while not list(Path(env['TMPDIR']).glob(f'dotnet-diagnostic-{child.pid}-*-socket')):
                 if child.poll() is not None or time.monotonic() - start > 10:
@@ -86,6 +97,11 @@ def main():
                                      and benchmark._gate.valid_measurement(result, args.workload, args.mode, size, 0, False)
                                      and result['AvailableManagedBytes'] <= heap_limit)
             report['traceBytes'] = (output / 'cpu.nettrace').stat().st_size if (output / 'cpu.nettrace').exists() else 0
+            if args.jit_disasm:
+                report['jitDisasmBytes'] = disassembly.stat().st_size if disassembly.exists() else 0
+                if report['jitDisasmBytes'] == 0:
+                    raise RuntimeError('Requested JIT disassembly was not produced')
+                report['jitDisasmSha256'] = hashlib.sha256(disassembly.read_bytes()).hexdigest()
             report['complete'] = collector.returncode == 0 and report['validOutput'] and report['traceBytes'] > 0
     except Exception as error:
         report['error'] = f'{type(error).__name__}: {error}'

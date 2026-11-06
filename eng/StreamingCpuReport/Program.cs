@@ -4,9 +4,9 @@ using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Etlx;
 using System.Text.Json;
 
-if (args.Length != 1 || !File.Exists(args[0]))
+if (args.Length is < 1 or > 2 || !File.Exists(args[0]) || args.Length == 2 && args[1] != "--instruction-addresses")
 {
-    Console.Error.WriteLine("Usage: StreamingCpuReport <cpu.nettrace>");
+    Console.Error.WriteLine("Usage: StreamingCpuReport <cpu.nettrace> [--instruction-addresses]");
     return 2;
 }
 string etlx = TraceLog.CreateFromEventPipeDataFile(args[0]);
@@ -20,11 +20,23 @@ var symbols = new List<object>();
 var inclusive = new Dictionary<string, long>();
 var regions = new Dictionary<string, long>();
 var regionalInclusive = new Dictionary<(string Region, string Frame), long>();
+var instructionSites = args.Length == 2
+    ? new Dictionary<(int Process, int Thread, ulong Address, string Method, int ILOffset), long>() : null;
+long samplesWithoutLeaf = 0;
 source.AllEvents += data => {
     string kind = data.ProviderName + "/" + data.EventName;
     counts.TryGetValue(kind, out long n); counts[kind] = n + 1;
     if (data.EventName == "ProcessSymbol") symbols.Add(data.PayloadNames.ToDictionary(name => name, name => data.PayloadByName(name)?.ToString()));
     if (data.ProviderName != "Universal.Events" || data.EventName != "cpu") return;
+    if (instructionSites != null) {
+        var leaf = data.CallStack()?.CodeAddress;
+        if (leaf == null) samplesWithoutLeaf++;
+        else {
+            var instruction = (data.ProcessID, data.ThreadID, leaf.Address, leaf.FullMethodName, leaf.ILOffset);
+            instructionSites.TryGetValue(instruction, out long instructionCount);
+            instructionSites[instruction] = instructionCount + 1;
+        }
+    }
     if (examples.Count < 5) examples.Add(new { data.ProcessID, data.ThreadID, data.TimeStampRelativeMSec,
         Payload = data.PayloadNames.ToDictionary(name => name, name => data.PayloadByName(name)?.ToString()) });
     var index = data.CallStackIndex();
@@ -56,7 +68,7 @@ source.AllEvents += data => {
 };
 source.Process();
 long cpuSamples = counts.GetValueOrDefault("Universal.Events/cpu");
-Console.WriteLine(JsonSerializer.Serialize(new {
+var report = new {
     Scope = "Kernel Universal.Events/cpu samples only; instrumented diagnostic, not throughput acceptance",
     CpuSamples = cpuSamples,
     CpuSamplesWithEngineFrame = sites.Where(s => s.Key.Engine.Length != 0).Sum(s => s.Value),
@@ -70,5 +82,14 @@ Console.WriteLine(JsonSerializer.Serialize(new {
         Region = g.Key,
         Frames = g.OrderByDescending(s => s.Value).Take(100).Select(s => new { Frame = s.Key.Frame, Samples = s.Value })
     })
-}, new JsonSerializerOptions { WriteIndented = true }));
+};
+var options = new JsonSerializerOptions { WriteIndented = true };
+if (instructionSites == null) Console.WriteLine(JsonSerializer.Serialize(report, options));
+else {
+    var json = JsonSerializer.SerializeToNode(report)!;
+    json["SamplesWithoutLeaf"] = samplesWithoutLeaf;
+    json["InstructionSites"] = JsonSerializer.SerializeToNode(instructionSites.OrderByDescending(s => s.Value)
+        .Select(s => new { s.Key.Process, s.Key.Thread, s.Key.Address, s.Key.Method, s.Key.ILOffset, Samples = s.Value }));
+    Console.WriteLine(json.ToJsonString(options));
+}
 return cpuSamples > 0 ? 0 : 1;
