@@ -1,5 +1,14 @@
 # P7 agent handoff after 1.1.7
 
+**Merge source-group control started, 6 November 2026:** `feature/p7-merge-source-groups` starts
+from the audited profile record `9a5948d`. Framework-symbol run 42163291085 completed; original
+outputs, retained binaries, source checksums and all 24,395 samples verify. The distinct
+[deferred named-source group control](p7-merge-source-groups.md) preserves existing public/saved
+helpers and input advancement. Contract tests and canonical paired measurements determine adoption.
+Integration remains `402cbed`; all four jobs in CI 42159708129 are now successful. This is a
+verified hosted job-state result; its raw artifacts have not been independently reaudited. The
+prior source-identical `32c845d` audit remains the detailed compatibility evidence. Full P7 remains open.
+
 **Snapshot cursor control closed, 6 November 2026:** `feature/p7-snapshot-cursor` retains the
 [implementation and complete audit](p7-snapshot-cursor.md) without adoption. All 7,976 affected
 checks and 80 additional forced-compact checks pass; 160 baseline positive controls also pass.
