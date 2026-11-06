@@ -13,7 +13,9 @@ memory matrices and all 126 throughput observations. No diagnostic switch or thr
 used. The run's actual head and its three active acceptance jobs were verified, and the original
 controllers are retained under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
 This new qualification is justified by the adopted merge runtime/compiler change; it is not a retry
-of unchanged source. Results are pending. The earlier three-of-seven throughput result remains
+of unchanged source. The [push matrix audit](p7-integrated-original-acceptance.md) passes all 16 original budgets and
+48 observations (maximum absolute RSS 17,498,112 bytes). Nightly and throughput are still running.
+The earlier three-of-seven throughput result remains
 historical until this new cohort is complete and independently audited. Do not restart the live run.
 Full P7 remains active with every original completion and publication requirement intact.
 

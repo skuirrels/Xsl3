@@ -59,7 +59,43 @@ and replay-backed rebinding. No runtime behavior was changed to accommodate this
 Initial TRXs, matching baseline test binaries, reconstructed initial test source and the baseline audit
 are retained separately; those failures are not counted as passes.
 
-Full warning-as-error Release/Debug unit validation is running. Baseline controls and the paired
-comparison are queued sequentially after it. No elapsed-time benefit or adoption is established.
+Full warning-as-error Release/Debug unit validation and the paired comparison are complete.
+The control is closed without adoption: every workload has overlapping timing ranges.
 Source manifests, patches, executable validation/audit scripts and results are retained under
 `/private/tmp/xsl3-p7-navigator-node-kind-20261106/`. Recheck the existing process before restarting work.
+
+## Completed qualification and decision, 6 November 2026
+
+Runtime/test commit `81e084f` passes all **28,218** full unit checks: **7,645 .NET 10 /6,464 .NET 8**
+in each of Release and Debug, with no failures/skips. The individual TRX rows, all four frozen
+engine/test binary sets and PDB source checksums verify (409 runtime and 201 test sources per set).
+The **32** focused unchanged-baseline controls pass, eight per configuration/framework. The original
+failed test expectations and matching baseline failures remain retained separately as described above.
+
+All **60** canonical observations independently validate, including exact 100,000,000-byte inputs,
+original output fingerprints, identical benchmark consumers, 409 source checksums per engine, four
+processors, a 4 GiB guard and disabled tiered compilation. Runtime: .NET 10.0.14, macOS 27.0.1 ARM64.
+The unchanged integration baseline includes the adopted merge change. No other local build, test or
+source-manifest sweep was run during these timed observations.
+
+| Workload | Baseline stream samples (ms) | Candidate stream samples (ms) | Median change | Candidate stream/tree |
+|---|---|---|---|---|
+| identity | 2132.088, 2126.285, 2129.986 | 2137.898, 2147.344, 2115.315 | +0.37% | 1.071300 |
+| accumulator | 2066.154, 2080.539, 2074.334 | 2078.155, 2071.099, 2067.162 | -0.16% | 0.848207 |
+| merge | 3211.684, 3230.396, 3217.399 | 3216.783, 3275.690, 3256.270 | +1.21% | 0.886896 |
+| fork | 1525.159, 1507.370, 1507.548 | 1502.631, 1515.674, 1520.015 | +0.54% | 1.020784 |
+| source-document | 2146.684, 2118.855, 2124.860 | 2113.334, 2120.180, 2156.193 | -0.22% | 1.057473 |
+
+Every baseline/candidate stream range overlaps. Identity is slightly slower, and neither the small
+accumulator/source-document median changes nor this getter micro-optimization establish a useful
+benefit. Do not adopt the runtime/test change or repeat it unchanged on Linux to seek a better result.
+The branch retains the experiment and its evidence; integration and PR #40 remain unchanged.
+
+Compared engine SHA-256 values:
+
+- Baseline: `e0c2e9fa1fefeee5bd02e0ca0964b63b1dc36c53b48a7e1337aebbc1346807bb`.
+- Candidate: `83451582a587b8f18aa66acb5e9b9067c726d8a2ebe9b898a683cd2d75a663e8`.
+
+Executable audits and detailed evidence: `audit-validation.py`, `validation-review.json`,
+`baseline-controls.py`, `baseline-review.json`, `audit-comparison.py` and `comparison-review.json`
+in the evidence root above. All qualification processes are terminal; do not restart them.

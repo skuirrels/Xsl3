@@ -1,5 +1,16 @@
 # P7 agent handoff after 1.1.7
 
+**Navigator node-kind control closed without adoption, 6 November 2026:**
+The [complete navigator record](p7-navigator-node-kind.md) retains runtime/test `81e084f`, all
+28,218 full Release/Debug checks, 32 passing baseline controls and 60 independently audited
+canonical observations. Every timing range overlaps; identity is slightly slower. No Linux repeat
+or integration adoption is justified. All local qualification processes are terminal, including
+session 57323. The experiment remains on `feature/p7-navigator-node-kind`; PR #40 is unchanged.
+The original integration run 42173435783 has passed its push memory job; nightly memory and
+throughput remain active. Its [push artifact audit](p7-integrated-original-acceptance.md) verifies all 48 observations and
+16 budgets, with maximum absolute RSS 17,498,112 bytes. Earlier entries below are dated history.
+
+
 **Original integration gates running, 6 November 2026:**
 [42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) runs both original
 16-workload memory matrices and all 126 throughput observations on immutable `a4f7301`, after its
