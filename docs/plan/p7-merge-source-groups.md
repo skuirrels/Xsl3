@@ -119,3 +119,15 @@ Raw evidence and auditors are under `/private/tmp/xsl3-p7-merge-source-lowering-
 [Linux comparison 42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) is live
 on candidate `370178a`, using the unchanged controller against integration `402cbed`. Recheck this
 same run before any replacement. No runtime adoption, original gate pass, merge or release is claimed.
+
+## Additional named-closure review
+
+The final test-only extension retains a named group's nodes in an explicit closure, invokes it after
+later groups complete, and checks its content and identity against the combined group. All 80
+expanded cases pass on the exact frozen corrected candidate engines, and all 80 pass on the exact
+baseline engines. These are stronger reruns of the named-source cases, not 160 new distinct cases.
+
+The auditor verifies all eight raw result sets, unique execution identifiers, engine/test hashes and
+200 test-source PDB checksums per configuration/framework. Evidence is retained under
+`/private/tmp/xsl3-p7-merge-source-closures-20261106/`. Runtime, compiler, consumer and controllers
+remain byte-identical in source to `370178a`, the candidate in the live Linux comparison.

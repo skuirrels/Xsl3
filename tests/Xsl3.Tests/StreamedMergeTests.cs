@@ -107,13 +107,14 @@ public class StreamedMergeTests
                 <xsl:variable name="groups" as="map(*)*">
                   <xsl:merge>{{sources}}<xsl:merge-action>
                     <xsl:variable name="name" select="concat('ri', substring(name(.), 1, 0), 'ght')"/>
+                    <xsl:variable name="left" select="current-merge-group('left')"/>
                     <xsl:variable name="right" select="current-merge-group($name)"/>
-                    <xsl:sequence select="map { 'key': current-merge-key(), 'all': current-merge-group(), 'left': current-merge-group('left'), 'right': $right, 'again': current-merge-group('right'), 'empty': (current-merge-group('before'), current-merge-group('middle'), current-merge-group('after')) }"/>
+                    <xsl:sequence select="map { 'key': current-merge-key(), 'all': current-merge-group(), 'left': $left, 'right': $right, 'again': current-merge-group('right'), 'captured': function() { $left }, 'empty': (current-merge-group('before'), current-merge-group('middle'), current-merge-group('after')) }"/>
                   </xsl:merge-action></xsl:merge>
                 </xsl:variable>
                 <out><xsl:for-each select="reverse($groups)">
-                  <g key="{.?key}" all="{.?all ! string(@id)}" left="{.?left ! string(@id)}" right="{.?right ! string(@id)}" empty="{count(.?empty)}"
-                     identity="{every $n in (.?left, .?right, .?again) satisfies some $a in .?all satisfies $n is $a}"/>
+                  <g key="{.?key}" all="{.?all ! string(@id)}" left="{.?left ! string(@id)}" right="{.?right ! string(@id)}" captured="{(.?captured)() ! string(@id)}" empty="{count(.?empty)}"
+                     identity="{every $n in (.?left, .?right, .?again, (.?captured)()) satisfies some $a in .?all satisfies $n is $a}"/>
                 </xsl:for-each></out>
               </xsl:template>
             </xsl:stylesheet>
@@ -129,6 +130,7 @@ public class StreamedMergeTests
             new System.Xml.Linq.XAttribute("all", string.Join(" ", group.Select(row => row.Id))),
             new System.Xml.Linq.XAttribute("left", string.Join(" ", group.Where(row => row.Source == "left").Select(row => row.Id))),
             new System.Xml.Linq.XAttribute("right", string.Join(" ", group.Where(row => row.Source == "right").Select(row => row.Id))),
+            new System.Xml.Linq.XAttribute("captured", string.Join(" ", group.Where(row => row.Source == "left").Select(row => row.Id))),
             new System.Xml.Linq.XAttribute("empty", 0), new System.Xml.Linq.XAttribute("identity", true))));
         var resolver = new Sources(documents);
         string actual = Run(sheet, resolver, forward, legacy, debug: debug, saved: saved);
