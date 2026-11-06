@@ -32,6 +32,10 @@ on:
         description: Capture Linux CPU samples only (never an acceptance gate)
         type: boolean
         default: false
+      cpu_tree_control:
+        description: Also profile the unchanged tree control on the same CPU diagnostic host
+        type: boolean
+        default: false
       cpu_workload:
         description: Canonical workload for the CPU diagnostic
         type: choice
@@ -263,10 +267,18 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
+      - name: Profile the canonical tree control on the same host
+        if: ${{ inputs.cpu_tree_control }}
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --mode tree --output "artifacts/p7-cpu/$CPU_WORKLOAD-tree"
       - name: Report actual kernel CPU samples
         run: |
           dotnet build eng/StreamingCpuReport -c Release -m:1
           sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD/cpu.nettrace" > artifacts/p7-cpu/cpu-sites.json
+      - name: Report the tree control's actual kernel CPU samples
+        if: ${{ inputs.cpu_tree_control }}
+        run: sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD-tree/cpu.nettrace" > artifacts/p7-cpu/cpu-tree-sites.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

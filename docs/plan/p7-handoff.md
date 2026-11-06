@@ -1,5 +1,13 @@
 # P7 agent handoff after 1.1.7
 
+**Next performance diagnostic prepared, 6 November 2026:**
+`feature/p7-tree-stream-cpu` adds an optional same-host tree CPU control to the existing streaming
+capture. Its [bounded evidence criteria](p7-tree-stream-cpu.md) pin integration runtime `a4f7301`,
+the unchanged 1 GB input and both output oracles. Runtime/tests/controllers and all existing workflow
+behavior are unchanged; only a default-false input and two guarded profiling/report steps are added.
+The workflow structural comparison and shell checks pass. Dispatch and CPU artifact audit are pending.
+Full Debug integration session 60509 and original throughput run 42173435783 remain live; do not restart them.
+
 **Current integration checkout, 6 November 2026:** the rejected navigator runtime and tests are
 excluded. Its complete evidence and the current CI/push-memory audits are carried into the
 integration documentation. Full Debug units now run on unchanged `a4f7301` source, session 60509,
