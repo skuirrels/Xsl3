@@ -1,17 +1,18 @@
 # P7 agent handoff after 1.1.7
 
-**Attribute-cache correctness verified, 6 November 2026:** `feature/p7-attribute-first-text` isolates
-[first-text cache storage](p7-attribute-first-text.md) from integration `a4f7301`. All 28,202 full
-Release/Debug unit checks and 16 baseline event-contract controls pass. The nullable-warning
-correction passes 16 focused checks with warnings treated as errors; all method bodies/signatures
-match the full-suite engines, and both source/PDB cohorts are retained. The corrected engine's
-60-observation paired comparison is live under `/private/tmp/xsl3-p7-attribute-first-text-20261106/corrected/`.
-It changes no canonical input or expected output; its baseline includes the adopted merge improvement.
-No performance benefit or adoption is established. Integration CI
-[42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) remains live on `a4f7301`.
-Completed NativeAOT and ordinary-performance artifacts are independently audited in the
-[integration evidence record](p7-integrated-evidence-review.md); platform suites continue.
-All original P7 gates and draft PR #40 remain open.
+**Attribute-cache control closed without adoption, 6 November 2026:**
+`feature/p7-attribute-first-text` retains [the control and complete audit](p7-attribute-first-text.md).
+All 28,202 full Release/Debug checks and 16 baseline controls pass. The nullable-analysis correction
+passes 16 focused warning-as-error checks, with identical method bodies/signatures in all four
+engines and separately retained source/PDB cohorts. All 60 canonical paired observations validate,
+but every stream range overlaps; identity is effectively unchanged. No Linux rerun or integration
+adoption is justified. The runtime and test remain excluded from integration and PR #40.
+Integration CI [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) remains
+live on `a4f7301`. The [native and ordinary-performance artifacts](p7-integrated-evidence-review.md)
+are independently audited: 48 native smoke observations, 1,728 saved-style checks, nine reader-bridge
+checks and the ordinary micro gate pass. Platform jobs continue; do not restart them.
+The next optimization must address the remaining identity/fork/source-document costs from new
+source evidence. All original final-source gates and full-P7 release requirements remain active.
 
 **Merge source-group control qualified for integration, 6 November 2026:** runtime/compiler
 `370178a` passes 7,976 affected checks and a fresh 80-case baseline comparison. The expanded named
