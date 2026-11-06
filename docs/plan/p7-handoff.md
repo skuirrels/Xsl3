@@ -1,5 +1,17 @@
 # P7 agent handoff after 1.1.7
 
+**Navigator node-kind control started, 6 November 2026:** `feature/p7-navigator-node-kind`
+starts from documentation head `bb50e62` with integration runtime `a4f7301`. The
+[navigator control record](p7-navigator-node-kind.md) identifies 426 direct getter samples and
+verifies that the profiled navigator source exactly matches the baseline. Eight corrected focused
+cases pass on each framework; initial header-only rebinding failures reproduce on the baseline and
+are retained. Full warning-as-error Release/Debug validation, baseline controls and the original
+60-observation comparison run sequentially under `/private/tmp/xsl3-p7-navigator-node-kind-20261106/`.
+No gain or adoption is established. The rejected attribute-cache runtime/test are excluded.
+Integration CI 42167378456 is still live on remote/PR head `a4f7301`; local integration `bb50e62`
+contains only the completed cache/native-audit documentation and is not yet pushed. Full P7 remains active.
+
+
 **Attribute-cache control closed without adoption, 6 November 2026:**
 `feature/p7-attribute-first-text` retains [the control and complete audit](p7-attribute-first-text.md).
 All 28,202 full Release/Debug checks and 16 baseline controls pass. The nullable-analysis correction

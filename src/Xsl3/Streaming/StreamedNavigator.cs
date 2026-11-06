@@ -20,13 +20,16 @@ internal sealed class StreamedNavigator : XPathNavigator
     private StreamedDocument.Namespace[]? _scope;
     private StreamedDescendantCursor? _valueCursor;
     private bool _valueOperand;
+    // Header kind is immutable. Reclassify only when the cursor changes position,
+    // so repeated NodeType queries need no attribute/namespace/header traversal.
+    private XPathNodeType _kind;
     private bool Content => _attribute < 0 && _namespace < 0;
     internal StreamedDocument Document => _document;
     internal StreamedDocument.Node PositionNode => _node;
     internal StreamedNavigator AtHeaderAttribute(int index)
     {
         if (index < -1 || index >= _node.Attributes.Length) throw new ArgumentOutOfRangeException(nameof(index));
-        return new(_document, _node) { _attribute = index };
+        return new(_document, _node) { _attribute = index, _kind = index >= 0 ? XPathNodeType.Attribute : _node.Kind };
     }
     internal bool IsIdAttribute => _attribute >= 0 && _namespace < 0 && _document.IsIdAttribute(_node, _attribute);
     internal bool IsIdrefAttribute => _attribute >= 0 && _namespace < 0 && _document.IsIdrefAttribute(_node, _attribute);
@@ -40,11 +43,12 @@ internal sealed class StreamedNavigator : XPathNavigator
         return (StreamedNavigator)Clone();
     }
 
-    internal StreamedNavigator(StreamedDocument document, StreamedDocument.Node node) => (_document, _node) = (document, node);
+    internal StreamedNavigator(StreamedDocument document, StreamedDocument.Node node) => (_document, _node, _kind) = (document, node, node.Kind);
     private StreamedNavigator(StreamedNavigator other)
     {
         _document = other._document;
         _node = other._node;
+        _kind = other._kind;
         _attribute = other._attribute;
         _namespace = other._namespace;
         _scope = other._scope;
@@ -59,7 +63,13 @@ internal sealed class StreamedNavigator : XPathNavigator
         internal StreamedNavigator InFork(StreamedDocument? document, StreamedDocument.ForkViews views)
         {
             var local = views.Bind(position, document);
-            return new(local.Document, local.Node) { _attribute = attribute, _namespace = ns, _scope = ScopeIn(local.Document, scope) };
+            return new(local.Document, local.Node)
+            {
+                _attribute = attribute,
+                _namespace = ns,
+                _kind = ns >= 0 ? XPathNodeType.Namespace : attribute >= 0 ? XPathNodeType.Attribute : local.Node.Kind,
+                _scope = ScopeIn(local.Document, scope),
+            };
         }
     }
 
@@ -72,6 +82,7 @@ internal sealed class StreamedNavigator : XPathNavigator
         {
             _attribute = _attribute,
             _namespace = _namespace,
+            _kind = _kind,
             _scope = ScopeIn(document, _scope),
         };
 
@@ -86,7 +97,7 @@ internal sealed class StreamedNavigator : XPathNavigator
         }
         return result;
     }
-    public override XPathNodeType NodeType => _namespace >= 0 ? XPathNodeType.Namespace : _attribute >= 0 ? XPathNodeType.Attribute : _node.Kind;
+    public override XPathNodeType NodeType => _kind;
     public override string LocalName => _namespace >= 0 ? _scope![_namespace].Prefix : _attribute >= 0 ? _node.Attributes[_attribute].LocalName : _node.LocalName;
     public override string NamespaceURI => _namespace >= 0 ? "" : _attribute >= 0 ? _node.Attributes[_attribute].Namespace : _node.Namespace;
     public override string Prefix => _namespace >= 0 ? "" : _attribute >= 0 ? _node.Attributes[_attribute].Prefix : _node.Prefix;
@@ -134,6 +145,7 @@ internal sealed class StreamedNavigator : XPathNavigator
     {
         if (node == null) return false;
         _node = node;
+        _kind = node.Kind;
         _attribute = _namespace = -1;
         _scope = null;
         return true;
@@ -153,6 +165,7 @@ internal sealed class StreamedNavigator : XPathNavigator
         if (!Content)
         {
             _attribute = _namespace = -1;
+            _kind = _node.Kind;
             _scope = null;
             return true;
         }
@@ -164,6 +177,7 @@ internal sealed class StreamedNavigator : XPathNavigator
     {
         if (other is not StreamedNavigator that || !ReferenceEquals(that._document, _document)) return false;
         _node = that._node;
+        _kind = that._kind;
         _attribute = that._attribute;
         _namespace = that._namespace;
         _scope = that._scope;
@@ -176,6 +190,7 @@ internal sealed class StreamedNavigator : XPathNavigator
     {
         if (!HasAttributes) return false;
         _attribute = 0;
+        _kind = XPathNodeType.Attribute;
         return true;
     }
     public override bool MoveToNextAttribute()
@@ -191,6 +206,7 @@ internal sealed class StreamedNavigator : XPathNavigator
             if (_node.Attributes[i].LocalName == localName && _node.Attributes[i].Namespace == namespaceURI)
             {
                 _attribute = i;
+                _kind = XPathNodeType.Attribute;
                 return true;
             }
         return false;
@@ -250,6 +266,7 @@ internal sealed class StreamedNavigator : XPathNavigator
         if (index < 0) return false;
         _scope = list;
         _namespace = index;
+        _kind = XPathNodeType.Namespace;
         return true;
     }
     public override bool MoveToNextNamespace(XPathNamespaceScope namespaceScope)
@@ -268,6 +285,7 @@ internal sealed class StreamedNavigator : XPathNavigator
         if (index < 0) return false;
         _scope = list;
         _namespace = index;
+        _kind = XPathNodeType.Namespace;
         return true;
     }
     public override string? LookupNamespace(string prefix)
