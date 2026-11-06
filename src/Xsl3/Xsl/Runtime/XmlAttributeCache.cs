@@ -158,8 +158,15 @@ namespace Xsl3.Runtime
         {
             Debug.Assert(text != null);
             Debug.Assert(_arrAttrs != null && _numEntries != 0);
+            // A name entry has room for its first text fragment. Keep later
+            // fragments and typed values in the existing ordered value entries.
+            if (text != null && _numEntries == _idxLastName + 1 && _arrAttrs[_idxLastName].Text == null)
+            {
+                _arrAttrs[_idxLastName].SetFirstText(text);
+                return;
+            }
             EnsureAttributeCache();
-            _arrAttrs[_numEntries++].Init(text);
+            _arrAttrs[_numEntries++].Init(text!);
         }
 
         /// <summary>
@@ -263,6 +270,9 @@ namespace Xsl3.Runtime
 
                     _wrapped!.WriteStartAttribute(prefix, localName, ns);
 
+                    if (_arrAttrs[idx].Text is { } firstText)
+                        _wrapped.WriteString(firstText);
+
                     // Output all of this attribute's text or typed values
                     while (++idx != idxNext)
                     {
@@ -314,7 +324,10 @@ namespace Xsl3.Runtime
                 _namespaceName = ns;
                 _hashCode = hashCode;
                 _nextNameIndex = 0;
+                _text = null;
             }
+
+            public void SetFirstText(string text) => _text = text;
 
             /// <summary>
             /// Cache all or part of the attribute's string value.
