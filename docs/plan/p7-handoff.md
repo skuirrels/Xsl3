@@ -24,11 +24,12 @@ Earlier entries below retain their dated scope and do not override this current 
 [a current-event guard before stack cleanup](p7-current-event-stack.md). Review found and corrected
 a reader-failure/retry defect in the initial control; the new cases pass the baseline, fail that
 withdrawn runtime and pass the correction on both frameworks. The corrected affected contracts
-and serial paired timing are running under `/private/tmp/xsl3-p7-current-event-stack-corrected-20261106/`.
-Session `75871` is live, with all 4,344 selected .NET 10 Release checks passing. Observe that same
-session and the serial `qualify.py` logs; do not restart it or run competing local benchmarks.
-No timing benefit or adoption is established. Do not merge this experimental runtime into PR #40
-without completed regression and paired-performance qualification.
+and serial paired timing are complete under `/private/tmp/xsl3-p7-current-event-stack-corrected-20261106/`.
+Session `75871` is terminal and successful: **15,834 checks and all 60 original paired outputs**
+verify, including frozen binaries and tracked PDB sources. Identity's local median is 0.63% lower
+with separated ranges; all other ranges overlap, including accumulator's 1.18% higher median.
+One target-platform comparison is justified; no integration or original-gate pass is established.
+Do not merge this experimental runtime into PR #40 without completed Linux performance qualification.
 
 **Paired CPU diagnostic and Debug qualification complete, 6 November 2026:**
 `feature/p7-tree-stream-cpu` retains [the same-host capture](p7-tree-stream-cpu.md) from terminal

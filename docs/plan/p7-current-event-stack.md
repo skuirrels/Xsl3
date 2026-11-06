@@ -60,11 +60,41 @@ results. Full compatibility and original hosted gates are required before final 
 targeted diagnostic cannot replace either memory matrix or the 126-observation throughput gate.
 
 Corrected evidence directory: `/private/tmp/xsl3-p7-current-event-stack-corrected-20261106/`.
-Qualification is in progress; the two new retry cases are included in the affected suites.
-The corrected .NET 10 Release suite has passed all 4,344 selected checks, with no failures/skips.
-The serial qualification process continues with .NET 8 Release, both Debug suites, source/binary
-audits and then the 60-observation comparison. Process session `75871` is live; do not start a
-second local qualification or timing run while it is active. Its orchestrator is `qualify.py` in
-the corrected evidence directory. The withdrawn session `60454` is terminal (exit 143, deliberately
-stopped after the review finding); the focused corrected and baseline/withdrawn control runs are terminal.
-No adoption, performance improvement, supported-streaming or release claim is established.
+The serial qualification is terminal and successful (session `75871`): all **15,834 affected checks**
+pass, 4,344 .NET 10 /3,573 .NET 8 in each configuration, with no failures/skips. All eight instances
+of the new retry cases pass. Every TRX row and unique execution ID, frozen binary hash and all
+409 runtime /200 test tracked PDB source checksums per configuration/framework verify. The same
+source audit verifies the baseline/withdrawn retry controls; all four withdrawn failures occur at
+the attempted sibling retry. No tests or source changed during corrected qualification.
+
+The withdrawn session `60454` is terminal (exit 143, deliberately stopped after the review finding);
+the focused corrected and baseline/withdrawn control runs are also terminal. `qualify.py`,
+`validation-review.json`, `retry-source-review.json` and `comparison-review.json` retain the evidence.
+
+## Local paired result
+
+All **60 observations** validate through the original controller and independent audit, including
+original hosted output fingerprints, raw stdout, actual 4 GiB guards, four processors, disabled tiering,
+unchanged consumer/dependencies and 409 tracked PDB sources per engine. Runtime: .NET 10.0.14,
+macOS 27.0.1 ARM64. The measured runtime source is `1ef7c32`.
+
+| Workload | Baseline stream median ms | Candidate stream median ms | Candidate / baseline | Winner |
+|---|---:|---:|---:|---|
+| Identity | 2130.641 | 2117.210 | 0.993696 | Candidate in this local cohort; 0.63% |
+| Accumulator | 2067.166 | 2091.647 | 1.011842 | No meaningful winner; ranges overlap |
+| Merge | 3220.539 | 3216.855 | 0.998856 | No meaningful winner; ranges overlap |
+| Fork | 1521.847 | 1524.016 | 1.001425 | No meaningful winner; ranges overlap |
+| Source-document | 2117.592 | 2118.635 | 1.000492 | No meaningful winner; ranges overlap |
+
+Identity baseline samples are `[2130.640958, 2140.7335, 2124.620667]` ms; candidate samples are
+`[2117.20975, 2122.25625, 2116.900458]` ms. Every candidate observation is below every baseline
+observation. Accumulator's higher median is retained explicitly, not dismissed because this control
+targets source reading. Candidate stream/tree ratios still fail locally for identity (1.062414),
+fork (1.023316) and source-document (1.058327).
+
+Engine SHA-256: baseline `e0c2e9fa1fefeee5bd02e0ca0964b63b1dc36c53b48a7e1337aebbc1346807bb`;
+candidate `74a0ebaa553c017716bb1c6b8f6e069a3f0b8664d8c02f0db21e2947119130af`.
+
+The small separated identity result and the original Linux instruction evidence justify one paired
+Linux comparison of all five workloads. They do not justify integration or a full original-gate retry.
+No supported-streaming or release claim is established; all original Phase 7 requirements remain.
