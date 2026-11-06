@@ -1,12 +1,21 @@
 # P7 agent handoff after 1.1.7
 
-**Next performance diagnostic prepared, 6 November 2026:**
-`feature/p7-tree-stream-cpu` adds an optional same-host tree CPU control to the existing streaming
-capture. Its [bounded evidence criteria](p7-tree-stream-cpu.md) pin integration runtime `a4f7301`,
-the unchanged 1 GB input and both output oracles. Runtime/tests/controllers and all existing workflow
-behavior are unchanged; only a default-false input and two guarded profiling/report steps are added.
-The workflow structural comparison and shell checks pass. Dispatch and CPU artifact audit are pending.
-Full Debug integration session 60509 and original throughput run 42173435783 remain live; do not restart them.
+**Paired CPU diagnostic and Debug qualification complete, 6 November 2026:**
+`feature/p7-tree-stream-cpu` retains [the same-host capture](p7-tree-stream-cpu.md) from terminal
+successful run 42176230838, controller `1364f77` / runtime source `a4f7301`. Both original 1 GB
+outputs, retained binaries and 409/14 tracked PDB sources verify; stream/tree traces contain
+26,388 /28,704 CPU samples with zero lost events. Full-stack counts are conserved. Their different
+collection windows prohibit an elapsed-time or removable-CPU-share claim. The next source
+investigation is the hot instruction regions in `StreamedDocument.ReadNextCore`; do not repeat
+closed cache/header controls without new evidence. The rejected runtime experiments remain excluded.
+
+Full Debug integration session 60509 is also terminal and successful: **14,093 checks** (7,637 .NET 10,
+6,456 .NET 8), every row and frozen binary audited, 409 runtime /200 test PDB sources per framework.
+The [qualification record](p7-integrated-qualification.md) contains the exact source and evidence.
+Integration docs are pushed at `4024e19`; CI 42175873435 remains live on that documentation head.
+The original throughput run 42173435783 remains live; both of its memory matrices are independently
+verified at **32/32 budgets and 96 valid outputs**. Do not restart either active run. Current runtime,
+tests and benchmark consumers remain `a4f7301`; supported streaming, merge and release remain unproven.
 
 **Current integration checkout, 6 November 2026:** the rejected navigator runtime and tests are
 excluded. Its complete evidence and the current CI/push-memory audits are carried into the

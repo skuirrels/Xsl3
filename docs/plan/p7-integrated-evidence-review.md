@@ -42,6 +42,19 @@ Both archives, raw reports, regenerated fixtures and executable audits are retai
 as current status.
 
 
+## Full Debug units on the exact integrated source
+
+After the hosted Release audit, both complete local Debug suites pass on unchanged runtime/test
+source `a4f7301`: **7,637 .NET 10 /6,456 .NET 8**, **14,093 total**, with no failures or skips and
+warnings treated as errors. All TRX rows and unique execution IDs, four engine/test binaries and
+409 runtime /200 test tracked PDB source checksums per framework verify. The 732-file source
+manifest matches `a4f7301`. The rejected navigator test/runtime is excluded.
+
+Evidence: `/private/tmp/xsl3-p7-integrated-debug-20261106/`, including `source-manifest.json`,
+`validation-review.json`, all raw TRXs/logs, frozen DLLs/PDBs and executable validation/audit scripts.
+This closes the current integration's full Debug-unit gap; original throughput and the other final
+P7 requirements remain separate. Session 60509 is terminal and successful.
+
 ## Changed runtime: merge source groups
 
 The draft integration branch now contains candidate history `f308ab8`: the runtime/compiler source
