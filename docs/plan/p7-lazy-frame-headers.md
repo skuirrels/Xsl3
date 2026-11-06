@@ -84,9 +84,10 @@ all five pairs have overlapping ranges, and the accumulator median is higher. Th
 alone does not justify integration or a full qualification rerun. Do not repeat this comparison merely
 to seek a favorable median. Keep the original gates and the separate public-selection branch unchanged.
 
-The Release regression suites pass **4,951 .NET 10 /4,027 .NET 8** checks, with every TRX result audited
-and no failures/skips. Debug validation was already running when this decision was recorded; it is not
-claimed complete. Review confirms that the frame-lifetime test reads the header properties directly and
+The Release and Debug regression suites each pass **4,951 .NET 10 /4,027 .NET 8** checks:
+**17,956 total**, with every TRX result audited and no failures/skips. Runtime/test source remained
+unchanged throughout validation; all four engine/test binary pairs and PDBs are frozen with hashes.
+`full-review.json` and `frozen-validation.json` retain the completed audit. Review confirms that the frame-lifetime test reads the header properties directly and
 the managed-memory test uses actual GC measurements; private backing fields do not hide retained payloads.
 The compiled fork failure contract passes in both Release frameworks (including saved execution on .NET 10),
 observing that earlier prongs finish and later prongs stop before consuming the complete source.
