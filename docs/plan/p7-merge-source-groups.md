@@ -70,3 +70,29 @@ Raw evidence is retained under `/private/tmp/xsl3-p7-merge-source-groups-2026110
 The original four failed throughput targets, both final-source memory matrices, all 126 throughput
 observations, compatibility qualification, supported claims, review/merge and matching release
 remain the full Phase 7 completion boundary.
+
+## Compiler binding correction
+
+The first compiler variant directly inlined the accessor. Its Release run failed 12 of 2,220
+.NET 10 cases and eight of 1,768 .NET 8 cases, all in the new retained named-group regression.
+The IL visitor encountered an unbound captured reference. The run stopped before Debug, and no
+performance comparison was run for that variant. Its source manifest, patch, frozen Release
+binaries and failed results remain in `/private/tmp/xsl3-p7-merge-source-lowering-20261106/`.
+
+The corrected variant retains the existing source-group binding when the compiled action has a
+free reference to it. It omits only an unused binding, using the existing `FreeReferences31`
+analysis. This preserves named lookup and captured-value scope instead of introducing shared
+inline expression nodes. Runtime source-count storage and atomic source-array caching are unchanged.
+The corrected variant passes all 7,976 affected checks and a fresh 80-case baseline comparison.
+Every result row and all four engine/test binary sets are audited, including 409 engine and 200
+test source checksums per build. The rebuilt test assembly hashes differ from the first variant,
+so the baseline controls were rerun against the new assemblies rather than reusing earlier results.
+
+QIL inspection verifies zero `X31MergeGroupSources` calls for the original canonical action and
+one for a separate named-group control, in both tree and streamed optimized QIL. The original
+stylesheet file matches the baseline revision byte for byte. The first named diagnostic stylesheet
+had an XML quote-escaping error; the corrected diagnostic changes only that control string. This
+is outside the canonical benchmark and does not change the source or timings of the gate workloads.
+
+A fresh 60-observation comparison is running under
+`/private/tmp/xsl3-p7-merge-source-lowering-corrected-20261106/`; no benefit or adoption is established.

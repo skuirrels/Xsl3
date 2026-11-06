@@ -101,7 +101,16 @@ internal sealed partial class QilGenerator
                     bySource = _f.Let(X31(nameof(XsltLibrary.X31MergeGroupSources), T.ItemS, group));
                 _currentMerge31 = (items, key, bySource, names);
                 EnterScope(action);
-                try { return _f.Loop(items, _f.Loop(key, _f.Loop(bySource, CompileInstructions(action.Content)))); }
+                try
+                {
+                    QilNode body = CompileInstructions(action.Content);
+                    // Keep the binding for named lookups and captured values, but
+                    // do not materialize source groups when the action never uses them.
+                    var references = new FreeReferences31(new());
+                    references.Find(body);
+                    if (references.Free.Contains(bySource)) body = _f.Loop(bySource, body);
+                    return _f.Loop(items, _f.Loop(key, body));
+                }
                 finally { ExitScope(); }
             });
             return _f.Loop(cursor, _curLoop.ConstructLoop(body));
