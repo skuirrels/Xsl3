@@ -40,7 +40,7 @@ public class StreamedForwardExecutionTests
         using var source = new CountingReader(xml);
         using var reader = XmlReader.Create(source);
         using var output = new EarlyWriter(source);
-        var settings = new XsltSettings { StreamedExecution = forward };
+        var settings = new XsltSettings { StreamedExecution = forward ? null : false };
         if (legacy)
         {
             var transform = new XslCompiledTransform();
@@ -97,7 +97,7 @@ public class StreamedForwardExecutionTests
         foreach (bool forward in new[] { false, true })
         {
             var resolver = new CountingResolver(Input);
-            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward, EnableDocumentFunction = true } }.Compile(new StringReader(sheet)).CreateTransformer();
+            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward ? null : false, EnableDocumentFunction = true } }.Compile(new StringReader(sheet)).CreateTransformer();
             transform.DocumentResolver = resolver;
             using var output = new EarlyWriter(() => resolver.Bytes);
             transform.CallTemplate(null, output);
@@ -127,7 +127,7 @@ public class StreamedForwardExecutionTests
         string sheet = Sheet("<xsl:template match='record'><xsl:value-of select='@id'/>;</xsl:template>");
         foreach (bool forward in new[] { false, true })
         {
-            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward } }.Compile(new StringReader(sheet)).CreateTransformer();
+            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward ? null : false } }.Compile(new StringReader(sheet)).CreateTransformer();
             var resolver = new CountingResolver(Input);
             transform.DocumentResolver = resolver;
             using var text = new CountingReader(Input);
@@ -182,7 +182,7 @@ public class StreamedForwardExecutionTests
         string? tree = null;
         foreach (bool forward in new[] { false, true })
         {
-            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward } }.Compile(new StringReader(sheet)).CreateTransformer();
+            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward ? null : false } }.Compile(new StringReader(sheet)).CreateTransformer();
             using var source = new CountingReader(Input);
             using var reader = XmlReader.Create(source);
             using var output = new EarlyWriter(source);
@@ -272,7 +272,7 @@ public class StreamedForwardExecutionTests
         {
             var transform = new XslCompiledTransform();
             using (var stylesheet = XmlReader.Create(new StringReader(sheet)))
-                transform.Load(stylesheet, new XsltSettings { StreamedExecution = forward }, null);
+                transform.Load(stylesheet, new XsltSettings { StreamedExecution = forward ? null : false }, null);
             using var reader = XmlReader.Create(new StringReader(Input));
             using var output = new StringWriter();
             using var capture = new StreamingExecutionCapture();
@@ -302,7 +302,7 @@ public class StreamedForwardExecutionTests
         string sheet = Sheet("<xsl:template match='/'><xsl:value-of select='count(doc/record)'/></xsl:template>");
         foreach (bool forward in new[] { false, true })
         {
-            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward } }
+            var transform = new XsltCompiler { Settings = new() { StreamedExecution = forward ? null : false } }
                 .Compile(new StringReader(sheet)).CreateTransformer();
             using var text = new StringWriter();
             using var bytes = new MemoryStream();
@@ -341,7 +341,7 @@ public class StreamedForwardExecutionTests
         string sheet = Sheet("<xsl:template match='/'><xsl:value-of select='count(doc/record)'/></xsl:template>");
         if (version == "1.0")
             sheet = sheet.Replace("version=\"3.0\"", "version=\"1.0\"").Replace("<xsl:mode streamable=\"yes\"/>", "");
-        var settings = new XsltSettings { StreamedExecution = forward };
+        var settings = new XsltSettings { StreamedExecution = forward ? null : false };
         using var source = new CountingReader(Input);
         using var reader = XmlReader.Create(source);
         using var output = new EarlyWriter(source);
@@ -388,7 +388,7 @@ public class StreamedForwardExecutionTests
             + "select='. instance of element(*, xs:integer), "
             + "../@version instance of attribute(*, xs:integer), ../@version'/>;</xsl:template>",
             "<xsl:import-schema>" + Schema + "</xsl:import-schema>");
-        var settings = new XsltSettings { StreamedExecution = forward, SchemaAware = true };
+        var settings = new XsltSettings { StreamedExecution = forward ? null : false, SchemaAware = true };
         using var source = new CountingReader(input);
         using var reader = XmlReader.Create(source, new XmlReaderSettings { ValidationType = ValidationType.Schema, Schemas = schemas });
         using var output = new EarlyWriter(source);

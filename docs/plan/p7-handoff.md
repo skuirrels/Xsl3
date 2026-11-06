@@ -1,20 +1,77 @@
 # P7 agent handoff after 1.1.7
 
-**5 November contract integration:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all
-four CI jobs in [run 42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged
-at `f453216`. Its [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) are now on main.
-[PR #38](https://github.com/skuirrels/Xsl3/pull/38), the [S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md),
-passed all four CI jobs at `ac183fd` in [run 42115246979](https://github.com/skuirrels/Xsl3/actions/runs/42115246979).
-This branch reconciles both sets of docs and preserves both dedicated Debug workflow steps. It needs
-CI on the reconciled head before merging. Runtime and benchmark sources remain unchanged from `a5e89ac`.
+**Public integration preparation, 6 November:** `feature/p7-public-streaming-selection` starts from
+merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
+excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved
+contracts fail on the unchanged policy; the candidate passes all 966 focused Release/Debug checks,
+including actual representation and physical read boundaries. Full local unit compatibility also passes:
+27,798 checks across Release/Debug and .NET 8/10, with matching source and engine hashes. Draft PR #39
+has passed all four hosted CI jobs on `c889023` in
+[42127805496](https://github.com/skuirrels/Xsl3/actions/runs/42127805496).
+See [the selection record](p7-public-streaming-selection.md). It must not merge or claim release
+readiness until final integrated source passes every original gate.
 
-Separate performance candidates are unaccepted. The 256-event source `deed3c1` passes both original
-memory matrices but only four of seven throughput targets in run `42116432334`; identity, fork and
-source-document fail. The 4,096-event source `aebb3a2` also passes four throughput targets and retains
-its push-memory failure. The initial projection-discard source `fb6d4cd` improves local fork time but
-fails source-position contracts and was rejected; its original qualification run was cancelled.
-Correction `a8d322a` on `feature/p7-projection-discard` passes 5,536 affected Release/Debug checks;
-new timings and original qualification remain required. These runtime experiments are not part of this PR.
+Separate performance evidence: corrected discard `a8d322a` now passes both original memory matrices
+in [42123882563](https://github.com/skuirrels/Xsl3/actions/runs/42123882563): 32 budgets and 96 outputs,
+independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput is now complete:
+all 126 observations validate, with 409 tracked PDB source hashes matching, but only 3/7 targets pass.
+Stream/tree medians at 100 MB are identity 1.064619, adjacent 0.745620, accumulator 0.861578,
+iterate 0.798460, merge 1.052924, fork 1.447580 and source-document 1.066196. Do not infer a
+before/after effect from separate hosts. The 60-observation paired Linux comparison completed at
+[42131056101](https://github.com/skuirrels/Xsl3/actions/runs/42131056101), candidate `9fbd8e1`
+(runtime identical to `a8d322a`) versus `deed3c1`, including merge and four other workloads.
+All observations and 409 tracked PDB source hashes per engine verify. Fork's streaming median falls
+from 3,218.088 to 2,755.886 ms (14.4%); every candidate fork sample is below every baseline sample.
+Other workload ranges overlap, with no meaningful winner. The candidate fork stream/tree ratio is
+still 1.132795. This establishes a useful discard improvement, not original throughput acceptance.
+
+The isolated `feature/p7-discard-short-poll` control reapplies only bounded short polling to this
+corrected-discard foundation. It passes 5,868 affected Release/Debug .NET 8/10 checks and 150 one/two-CPU
+caller/tee/prong checks. All 60 local paired observations and source hashes validate, but the 2.1%
+lower fork median has overlapping ranges; no local timing benefit or adoption is established.
+The fresh target-platform wait profile below justifies one paired Linux comparison at
+[42133558420](https://github.com/skuirrels/Xsl3/actions/runs/42133558420), baseline `a8d322a`, candidate
+`a6f018a` (runtime `225260f`). The original one-millisecond wait bound, spare-processor guard, capacity,
+payload reclamation and demand-driven source reads are unchanged. The comparison is running; no
+full qualification rerun is justified yet. See the
+[isolated control record](https://github.com/skuirrels/Xsl3/blob/feature/p7-discard-short-poll/docs/plan/p7-discard-short-poll.md).
+
+The linked ancestor-stack control `7b24202` is rejected after the paired Linux diagnostic
+[42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005): all 48 outputs and 409 source
+hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
+accumulator and source-document regress. Do not merge that control. Raw evidence and executable audit
+are under `/private/tmp/xsl3-p7-linked-source-stack-linux-20261105/`.
+
+A fresh Linux fork CPU diagnostic completed at
+[42129815135](https://github.com/skuirrels/Xsl3/actions/runs/42129815135), using corrected discard
+`a8d322a` and controller `5db06fb`. The original 1 GB output, actual 4 GiB heap guard, ordinary
+ReadyToRun policy, artifact digest, four retained binary hashes and 409 tracked PDB sources verify.
+It records 71,109 kernel CPU samples and zero lost events; 11,254 leaves are `ThreadNative_SpinWait`,
+but most of those lack an unwound engine caller. Scheduler/yield stacks do resolve to publication
+waits and the caller pump. Sample shares are not removable elapsed time. The artifact does not retain
+the 24 dependency binaries whose hashes the report lists; no independent hash verification of those
+files is claimed. Evidence and executable audit: `/private/tmp/xsl3-p7-fork-cpu-discard-20261105/`.
+
+PR #38 is merged as `8bdec4c` after all four jobs passed at its unchanged `7ea0190` head in
+[42123616078](https://github.com/skuirrels/Xsl3/actions/runs/42123616078), with no open review threads.
+The public-selection branch now incorporates that test-only increment. Both dedicated Debug CI steps
+and both contract suites are preserved. Combined head `9f0fed3` passes all 1,318 selected Release/Debug
+checks across .NET 8/10, including every hidden-grounding, fork-retention and optimizer/verifier case.
+The preceding `c889023` CI completed successfully before pushing the reconciled head; no live
+compatibility job was cancelled. The combined head still requires its own CI.
+
+**Merged contract increments:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
+jobs in [42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged as `f453216`.
+Its [S6-11/12 payload-retention contracts](p7-fork-group-retention.md) and PR #38's
+[S3-27 hidden-grounding contracts](p7-hidden-grounding-contracts.md) are both on main.
+
+Separate runtime candidates remain unaccepted. The 256-event `deed3c1` passes both memory matrices
+and four throughput targets; identity, fork and source-document fail. The 4,096-event `aebb3a2`
+also passes four throughput targets but fails push memory at 22,941,696 bytes against 20,971,520.
+The initial discard `fb6d4cd` failed source-position contracts and its qualification was cancelled;
+corrected `a8d322a` passes all 5,536 affected Release/Debug checks, with hosted results above.
+The source-dispatch control `3793df5` remains rejected. No performance control is part of PR #39.
+
 
 
 **Full objective resumed, 5 November 2026:** the owner instructed “continue with phase 7 until it's complete”.
