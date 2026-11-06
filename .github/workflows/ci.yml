@@ -136,10 +136,10 @@ jobs:
           cp tests/Xsl3.W3C/bin/Release/net10.0/w3c-reports/xslt30-static-streamability-reviewed.* artifacts/test-results/
           exit "$reviewed_exit"
 
-      - name: Debug streamability declaration regressions
+      - name: Debug streamability declaration and read-position regressions
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'
         run: |
-          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests|FullyQualifiedName~StreamedQilVerifierTests|FullyQualifiedName~StreamedOptimizerPolicyTests|FullyQualifiedName~StreamedCompilationCaptureTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
+          dotnet test tests/Xsl3.Tests -c Debug -m:1 -p:UseSharedCompilation=false --filter "FullyQualifiedName~StreamingDeclarationTests|FullyQualifiedName~StreamedQilVerifierTests|FullyQualifiedName~StreamedOptimizerPolicyTests|FullyQualifiedName~StreamedCompilationCaptureTests|FullyQualifiedName~StreamedDispatchReadPositionTests" --logger trx --results-directory artifacts/test-results/streamability-declarations-debug
 
       - name: Build Debug W3C harness
         if: matrix.os == 'ubuntu-latest' && !cancelled() && steps.prepare-reviewed.outcome == 'success'

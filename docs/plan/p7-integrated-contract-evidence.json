@@ -1,0 +1,2487 @@
+{
+  "sourceRevision": "6c24a9270e5e1ca589a73e867beb381d9ff8950e",
+  "workflowRun": 42141508372,
+  "scope": "Coverage references and passing hosted result rows; not a universal semantic proof, memory qualification, or completion claim. Historical strengths remain historical. See the current evidence review for scope and pending obligations.",
+  "artifacts": [
+    {
+      "name": "test-results-windows-latest",
+      "id": 13470365562,
+      "sha256": "f584340d6990e372dca04e7d03635822e551277d7d2c3a98470adc3894fc9273"
+    },
+    {
+      "name": "test-results-ubuntu-latest",
+      "id": 13470752032,
+      "sha256": "e796201e04c3a1c196d9c5c9eb84308d58e912b9f72dc474a67b128409ef3ddc"
+    }
+  ],
+  "unitSuites": [
+    {
+      "platform": "windows",
+      "framework": "net8.0",
+      "path": "windows/runneradmin_runnervmm7ud1_2026-11-06_01_18_23_net8.0.trx",
+      "sha256": "ec27725a5517baeb9c5c5ad4f2f72ddcba561413a677a1ad2f76a7b97822c2c9",
+      "passed": 6432
+    },
+    {
+      "platform": "windows",
+      "framework": "net10.0",
+      "path": "windows/runneradmin_runnervmm7ud1_2026-11-06_01_07_40_net10.0.trx",
+      "sha256": "7280290d7388087747681e9495f7eeee3ac753b48a022fddcd86dcc634083605",
+      "passed": 7601
+    },
+    {
+      "platform": "ubuntu",
+      "framework": "net8.0",
+      "path": "ubuntu/_runnervm7aw5e_2026-11-06_01_21_57_net8.0.trx",
+      "sha256": "9b81117f4749098585bc401cd53ea124ab1099a7afd47691ff28a6883c74569b",
+      "passed": 6432
+    },
+    {
+      "platform": "ubuntu",
+      "framework": "net10.0",
+      "path": "ubuntu/_runnervm7aw5e_2026-11-06_01_07_53_net10.0.trx",
+      "sha256": "c63b864877deaa37650d498ec61b8bb186cd574f730664248f03bcc8f54e1418",
+      "passed": 7601
+    }
+  ],
+  "uniqueReferencedMethods": 199,
+  "sourceHashes": {
+    "tests/Xsl3.Tests/StreamedNavigatorTests.cs": "98cb1c122a41944e23ec3e890a962c1ce7e9a64061c39669108ab708562fe9ae",
+    "tests/Xsl3.Tests/StreamedNavigatorMemoryTests.cs": "8bab29d99e5a32860a6658834e02da1f6073b1f3dd59d79ed4471705eed4fcbf",
+    "tests/Xsl3.Tests/StreamedSourceDocumentTests.cs": "e1892f95c79f94f65bbb37bebc549b2af7dc8a036a3738366f6c39b6518145dd",
+    "tests/Xsl3.Tests/StreamedReplayTests.cs": "385f16a1bd8ca9bd2371afee5dd124345791bc9d7b55c460718e29d779734340",
+    "tests/Xsl3.Tests/CopyOriginRegistryTests.cs": "e9e26a9e11017a244e697bda9b092753f35839a4fb7f8cde7e1d57c6b5562e4d",
+    "tests/Xsl3.Tests/StreamingReadBoundaryTests.cs": "f623fd4c105793613ca9702373da659d242fecd677009f47a9978b0ee3c1b041",
+    "tests/Xsl3.Tests/StreamedForwardExecutionTests.cs": "056f0008d4ed5600c247c96a9307457463b9d70b4958db9eccc7d9483c0e4ffd",
+    "tests/Xsl3.Tests/StreamedFunctionTests.cs": "8a3a2aabd487ea0e480e37fd329dbc2ba094d2e3f61ea26b1d3f6a55541e3c21",
+    "tests/Xsl3.Tests/StreamedOptimizerPolicyTests.cs": "bdfd68f914bdfb76d6fd539e1bd4fe1ca2519d11ab3ee4b95763000c541b6b4c",
+    "tests/Xsl3.Tests/StreamedQilVerifierTests.cs": "9c79c8aa726e3d391bb77ef15581829cb6df8efd3ecc5fcb4f3d5d07ed17a220",
+    "tests/Xsl3.Tests/StreamedCompilationCaptureTests.cs": "8fcd168b7960dcdfacb1c4714b7c863e88f9f6f905773b92d2ea073ad5ffc2e7",
+    "tests/Xsl3.Tests/StreamedHiddenGroundingTests.cs": "ec5733f7dcbb44956b8aba72b76e6591fb9c42c10ac1c00f67a0dcf97dee78f4",
+    "tests/Xsl3.Tests/StreamedInitialModeTests.cs": "f539f1b0577da3e0f4d9ad6547e98fe6b847b0c29eedb3af9a74635649fcaf23",
+    "tests/Xsl3.Tests/StreamingExecutionCaptureTests.cs": "6ca4bc0bdc4f3f8805c768ccd735536b05b301c824ad5d427ad1fe6554b7d5ff",
+    "tests/Xsl3.Tests/StreamedAccumulatorTests.cs": "0a39e9beaadd60daed44fe83f94d1b97ad3a30833c86be428bc255abe8e303b8",
+    "tests/Xsl3.Tests/StreamedGroupingTests.cs": "689f5ac9915b6e2247dbec7f6f7f7466bd2cd61fb49f9a8e130c16341c6c9516",
+    "tests/Xsl3.Tests/StreamingDeclarationTests.cs": "a57ceeedd327d3f134ba22eb7891c867dc4a55f6c798044f5193017ca40c6aec",
+    "tests/Xsl3.Tests/StreamedSingletonFunctionTests.cs": "1ac167bc31b9d1a043d476a1a2512ce9d3bfef9d8d242246e12991d355542533",
+    "tests/Xsl3.Tests/StreamedFunctionPathTests.cs": "d3f90f2a786b087a64c15d45325cbcfc47194436e414b89f15d58b08d4dae0e5",
+    "tests/Xsl3.Tests/StreamedTransmittingFunctionTests.cs": "0987298044f68974485f0331805e8a936dbcaacfcd887125ab2c6664d963d284",
+    "tests/Xsl3.Tests/StreamedRecursiveFunctionTests.cs": "cde7c400f9e7365858ec022f024c5970ff7bcf349f3a3db5a038e88e829b132a",
+    "tests/Xsl3.Tests/FunctionStreamabilityTests.cs": "7fcc023d3d16b6e14da86c6268fbaa69b517e824ac5bf0236c50222d84c28346",
+    "tests/Xsl3.Tests/StreamedSequenceContractTests.cs": "acc3143241d6f68a6d75086a1afbbcb5a3d3536a6cd9cb12eaf2269493d00349",
+    "tests/Xsl3.Tests/StreamedTemplateParameterTests.cs": "285acab8ff7e62795f488d5d3abfc5025b8756a7bc15726d89861891d56bbd2e",
+    "tests/Xsl3.Tests/StreamedAccumulatorLifetimeTests.cs": "1e7e4ca34197f469b1ce9870ff4ddae01ea27426d2a1d7d2cb308f637cdf13ab",
+    "tests/Xsl3.Tests/StreamedStateRetentionTests.cs": "3176500df6a618faab0e137b80bb64a938f55b6745f89a9c04c171a2b0cfb03b",
+    "tests/Xsl3.Tests/StreamedIterateTests.cs": "b7bc74f1955cf6de5da440b9826c19b6351a941dd57e90ebf76cd2f4a9b964ae",
+    "tests/Xsl3.Tests/StreamedMergeTests.cs": "d4105511be5c6a0e8ac73b34deadbc65e6b9bfd6336d10eb1e72a71a818fed33",
+    "tests/Xsl3.Tests/StreamedMergeLifetimeTests.cs": "728a984f7ad7b1030e19d684161ce735532908fde7ee23a74b9580f1eb689c36",
+    "tests/Xsl3.Tests/ForkProngsTests.cs": "4638e09c34e6b7a7ca9a0ba81a41adba4395da16ca7955e59452713553478580",
+    "tests/Xsl3.Tests/StreamTeeTests.cs": "9682e8928f71ee7dd5841c280adc999f45c746854fb960f9126c1b4751580d4e",
+    "tests/Xsl3.Tests/StreamTeePayloadTests.cs": "1fa1e7dd9a1958c54862a83b9b9243d712546a1e045441a1c10b3db7c76d123c",
+    "tests/Xsl3.Tests/StreamedForkFrameLifetimeTests.cs": "deffacd44c3da58d0ff8a4d63a63b36235c3895eea0c00f19552478f1a19dd33",
+    "tests/Xsl3.Tests/StreamedForkTests.cs": "90a8243c636a0b40b3955302bea037583a92c0c2b842399341edae3a1e9e1a63",
+    "tests/Xsl3.Tests/StreamedForkProjectionTests.cs": "39a6c7cdd715a4707fbab21e7edd5ec60551fd856e13aec064a45659ee79a8de",
+    "tests/Xsl3.Tests/ForkCallerTests.cs": "b023b5e94998de37eb872b9ae1368d83b48f5cb251cfa6d9813ea4d14feebcce",
+    "tests/Xsl3.Tests/StreamedForkGroupRetentionTests.cs": "0cd61fc2c79db37cb29d25c3e44b6bdf7f345d45a7ab0e7a04ab1b998af2894b",
+    "tests/Xsl3.Tests/StreamedForkValueTests.cs": "46e281fe1b9b0c15226c464b94552e1ce4faa0375ae9d7de1b7a5f4a406caae4",
+    "tests/Xsl3.Tests/ForkRuntimeTests.cs": "db9f56fbf0e7e9b2ae1ec934964e94a34ab4fcfa2cc92ec1c941b03ab79ea31c",
+    "tests/Xsl3.Tests/StreamedForkInputTests.cs": "023f4a1cf656f44add57b5851195dc1962429ff8fe2d3c20a0523a8210328926"
+  },
+  "obligations": [
+    {
+      "id": "S3-01",
+      "obligation": "`StreamedNavigator` forward traversal over `XmlReader` matches tree semantics",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.EntityBoundariesDoNotSplitAdjacentTextNodes",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ForwardTraversalMatchesXPathDocument",
+          "passedCasesPerPlatform": {
+            "net8.0": 5,
+            "net10.0": 5
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.UnselectedSubtreesAreSkippedAndIdsKeepDocumentOrder",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-02",
+      "obligation": "Revisiting consumed content raises `stream-position`, never wrong/empty results",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ANewDescendantScanMustNotTreatConsumedContentAsEmpty",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ClonesShareConsumptionAndRejectRevisitingPassedContent",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ConsumingAMatchingNestedDescendantFailsInsteadOfDroppingIt",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ValueAfterTraversingChildrenRaisesAnErrorInsteadOfReturningEmpty",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-03",
+      "obligation": "Attribute/namespace/ancestor inspection does not advance the reader",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.AttributesNamespacesAndAncestorsDoNotAdvanceTheReader",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-04",
+      "obligation": "Navigator retained state bounded by depth, not record count",
+      "historicalStrength": "PARTIAL: asserts internal `RetainedNodeCount` for one shape at two sizes; no byte/RSS bound",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorMemoryTests.LiveBytesStayBoundedUnlessTheCallerRetainsPastPositions",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.RetainedFramesAreBoundedByDepthRatherThanRecordCount",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-05",
+      "obligation": "Reader ownership and cancellation explicit (borrowed readers not closed)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.CancellationAndReaderOwnershipAreExplicit",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.ClosedSourceFramesReleaseBorrowedReadersWithoutClosingThem",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-06",
+      "obligation": "`copy-of` grounds each selected node and leaves the next sibling unread",
+      "historicalStrength": "DIRECT (navigator level). Note: `CopyFunctionsGroundEachSelectedRecordBeforeAdvancing` asserts only output and stream closure despite its name",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.CompiledGroundingRunsOncePerRecord",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedNavigatorTests.GroundingUsesACompactSubtreeAndLeavesTheNextSiblingUnread",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.CopyFunctionsGroundEachSelectedRecordBeforeAdvancing",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-07",
+      "obligation": "`snapshot` semantics on forward input (typed selected nodes, ancestors `xs:anyType`, shallow attribute/namespace parents)",
+      "historicalStrength": "DIRECT (functional); no retention bound for snapshot ancestors",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.AttributeSnapshotsKeepOtherAttributesButNoParentChildren",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.SnapshotPreservesAParentlessNamespaceNode",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.TypedSnapshotsPreserveSelectedTypesAndGiveAncestorsAnyType",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-08",
+      "obligation": "Overlapping selections are replayed; nested matches never silently dropped; replay buffer released",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedReplayTests.AbortedGroundingCannotSilentlyLoseMatchingDescendants",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedReplayTests.AdvancingPastACopiedSubtreeReleasesItsReplayBuffer",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedReplayTests.ExplicitGroundingKeepsNestedMatchesAndFollowingInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.AbsorbingOverlappingDescendantsNeverSilentlyDropsNestedMatches",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-09",
+      "obligation": "Copy options (`copy-namespaces`, `validation`, `copy-accumulators`) independent on forward copies",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedReplayTests.CopyInstructionsReplayIndependentlyOfNamespaceAndAnnotationOptions",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.CopyOptionsIndependentlyControlAnnotationsAndNamespaces",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.NamespaceSensitiveCopiesRespectBothOptions",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.PreservingCopyAnnotationsDoesNotImplicitlyCopyAccumulators",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-10",
+      "obligation": "Copy provenance registry does not retain unreferenced copies",
+      "historicalStrength": "DIRECT (GC reachability, not bytes)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.CopyOriginRegistryTests.DiscardedStreamedCopiesAndTheirReadersAreNotOwnedByTheRegistry",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.CopyOriginRegistryTests.UnreferencedCopiesAndTheirOriginsAreNotKeptByTheRegistry",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-11",
+      "obligation": "`xsl:source-document streamable=\"yes\"` actually executes on a forward source with early output",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.PerRecordResultsAreWrittenBeforeTheReaderReachesTheEnd",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-12",
+      "obligation": "Owned source streams close at exit, on parse/body errors, on cancellation, before an outer catch",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.ACloseFailureDoesNotHideASourceError",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.ASourceCaughtByAnOuterTryClosesBeforeItsCatchRuns",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.CancellationDuringSkippedContentClosesTheSource",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.OwnedSourcesCloseOnParsingAndBodyErrors",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-13",
+      "obligation": "Nested source-documents use independent readers",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.NestedSourcesHaveSeparateReadersAndCloseAtTheirOwnExit",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-14",
+      "obligation": "Source-document reuses the ordinary whitespace/DTD reader chain",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.DtdElementContentWhitespaceMatchesOrdinaryInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.SkippingAnUnselectedSubtreeKeepsWhitespaceReaderState",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.SourceExpressionsMatchOrdinaryExecution",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-15",
+      "obligation": "Forward source validation (strict, lax, `type`) with early results and error/closure semantics",
+      "historicalStrength": "DIRECT (identity-constraint state retention not bounded, per S3 notes)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.ForwardValidationAppliesImportedSchemasAndDefaults",
+          "passedCasesPerPlatform": {
+            "net8.0": 10,
+            "net10.0": 10
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.ForwardValidationReportsErrorsAndClosesItsInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 11,
+            "net10.0": 11
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.UndeclaredLaxRootsKeepInstanceAttributesWithoutApplyingTheirElementConstraints",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.ValidationProducesResultsBeforeTheReaderReachesTheEnd",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-16",
+      "obligation": "Document access settings and read/write URI conflicts enforced for streamed sources",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.InvalidAndDisabledDocumentAccessNeverOpensTheResolver",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.StreamedReadAndResultDocumentUrisCannotOverlap",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-17",
+      "obligation": "Expression/function operands atomized/consumed item by item before advancing",
+      "historicalStrength": "PARTIAL: test names claim per-item ordering but assert output only; no read-position/early-output observation",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.OperandsAreAtomizedItemByItemBeforeTheInputAdvances",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.SourceDocumentOperandsAreAtomizedItemByItemBeforeTheInputAdvances",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedFunctionTests.AbsorbingSequenceArgumentsAreConsumedBeforeAdvancing",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.AtomizationConsumesEachRecordBeforeAdvancing",
+          "passedCasesPerPlatform": {
+            "net8.0": 9,
+            "net10.0": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-18",
+      "obligation": "Optimizer restricted for forward QIL (no inline/hoist/duplicate/index rewrites)",
+      "historicalStrength": "PARTIAL: no test compiles a stylesheet that ordinary optimisation would hoist/duplicate and asserts the conservative policy kept the read in place",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedOptimizerPolicyTests.TheStreamedPolicyKeepsReadsThatTheOrdinaryPolicyMoves",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-19",
+      "obligation": "Debug verifier rejects a second pass (duplicated read) over a streamed operand",
+      "historicalStrength": "DIRECT (synthetic QIL mutation)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.DuplicatingAReadIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-20",
+      "obligation": "Verifier rejects hoisting a read out of a loop or branch",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.HoistingAReadOutOfABranchIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.HoistingAReadOutOfALoopIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-21",
+      "obligation": "Verifier rejects reordering reads",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ReorderingReadsIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-22",
+      "obligation": "Verifier rejects introducing a read, buffer or cache",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.AddingACacheBindingIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ChangingAForBindingIntoACacheIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.IntroducingAReadOrBufferIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-23",
+      "obligation": "Verifier rejects changing a read's axis, pull/before-next policy or pruning",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ChangingSubtreePruningOfAnExistingScanIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ChangingTheAxisOfAnExistingReadIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ChangingTheBeforeNextPolicyOfAFilterIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.ChangingThePullPolicyOfAnOperationIsRejected",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-24",
+      "obligation": "Verifier allows elimination and unchanged reads",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedQilVerifierTests.UnchangedReadsAndEliminatedOrderingAreAllowed",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-25",
+      "obligation": "Verifier runs on real compilations and accepts every strict-suite stylesheet",
+      "historicalStrength": "PARTIAL: verifier invocation per case is not counted or asserted; Debug unit run in CI covers only `StreamingDeclarationTests` and source-line tests",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedCompilationCaptureTests.ARejectedRewriteRecordsAnAttemptWithoutClaimingVerification",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedCompilationCaptureTests.PublicCompilationPathsRecordActualVerifierCompletion",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-26",
+      "obligation": "Strict mode supplies streamed inputs as readers and executes them forward",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-27",
+      "obligation": "Strict mode: a guaranteed-streamable construct that falls back to a tree fails its test",
+      "historicalStrength": "PARTIAL: silent materialisation (grounding a whole input) is not detected (the plan's own risk table says strict mode cannot see it); 253 non-forwarded cases are dispositioned, not failed; no negative test injects a fallback and expects failure",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedHiddenGroundingTests.MemoryGuardDetectsGroundingThatForwardSourceAndOutputChecksCannot",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-28",
+      "obligation": "Strict coverage cannot regress silently (lost passes, new skips, wrong codes)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-29",
+      "obligation": "Exit: `source-document` in strict mode at baseline",
+      "historicalStrength": "DIRECT (equals the unstreamed 45/2 level); note only 26/47 forwarded",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-30",
+      "obligation": "Exit: `sf-*` in strict mode at baseline",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-31",
+      "obligation": "Exit: `sx-*` in strict mode at baseline",
+      "historicalStrength": "DIRECT (at baseline); the XTSE3430 miss is an S2 analysis gap",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-32",
+      "obligation": "Exit: `si-*` other than fork/merge/iterate/for-each-group in strict mode at baseline",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S3-33",
+      "obligation": "Strict results identical through the legacy/saved API path",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S4-01",
+      "obligation": "New `ApplyTemplates(XmlReader, ...)` streams the initial match selection",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.ReaderOutputIsDeliveredDuringTheForwardPass",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingExecutionCaptureTests.BothApisReportTheActualInputRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-02",
+      "obligation": "New `ApplyTemplates(Stream, Uri?, ...)` streams",
+      "historicalStrength": "DIRECT (captured forward representation); no early-output check for this overload",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.AllSourceAndDestinationOverloadsShareTheEntryContract",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingExecutionCaptureTests.OtherPublicInputPathsKeepTheirActualForwardRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-03",
+      "obligation": "New `ApplyTemplates(Uri, ...)` streams and owns the resolver's stream",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.RequestedStreamedObserversRunForTheInitialSelection",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.UriResolverReadersAreOwnedIncludingPositionedSubtrees",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingExecutionCaptureTests.OtherPublicInputPathsKeepTheirActualForwardRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-04",
+      "obligation": "All 12 source x destination overload combinations share the entry contract",
+      "historicalStrength": "PARTIAL: output and ownership only; forward execution not asserted for the 12 combinations",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.EverySourceAndDestinationOverloadRunsTheInitialModeForward",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.AllSourceAndDestinationOverloadsShareTheEntryContract",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-05",
+      "obligation": "Overloads pass mode, parameters and tunnel parameters in streamed execution",
+      "historicalStrength": "PARTIAL: output only (forward and tree runs)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.NamedModeParametersReachForwardTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.NamedModeReceivesParametersAndTunnelParameters",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-06",
+      "obligation": "`ApplyTemplates(XdmValue)` never streams",
+      "historicalStrength": "PARTIAL: output/error only; no capture asserting a tree representation",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.XdmSelectionKeepsItsTreeRepresentationForEveryDestination",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.InitialSelectionDoesNotAcquireUnrequestedAccumulators",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.XdmSelectionKeepsItsTreeAndGlobalContext",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-07",
+      "obligation": "A non-streamable mode builds a tree through the new overloads",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.NonstreamableModeUsesAnOrdinaryTree",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-08",
+      "obligation": "Legacy `Transform(XmlReader)` streams a streamable default mode",
+      "historicalStrength": "DIRECT, but only with `XsltSettings.StreamedExecution = true` (see S4-12)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.ReaderOutputIsDeliveredDuringTheForwardPass",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingExecutionCaptureTests.BothApisReportTheActualInputRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-09",
+      "obligation": "Legacy `Transform(string uri)` also streams",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamingExecutionCaptureTests.OtherPublicInputPathsKeepTheirActualForwardRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-10",
+      "obligation": "Saved assembly loaded through the legacy API keeps the forward initial mode",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.SavedInitialModePreservesForwardExecutionAndAbsence",
+          "passedCasesPerPlatform": {
+            "net8.0": 0,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-11",
+      "obligation": "Legacy path keeps tree behaviour for 1.0 stylesheets or when forward execution is off",
+      "historicalStrength": "PARTIAL: output only; no representation capture",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.TreeEntryContractsKeepTheirActualRepresentation",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.LegacyReaderKeepsItsGlobalContextWhenForwardExecutionIsOff",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.VersionOneReaderEntryKeepsItsExistingTreeBehavior",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-12",
+      "obligation": "Public selection: streaming follows the documented opt-in under Strict/Fallback",
+      "historicalStrength": "DIRECT. Asserts that with default settings neither API streams (forward only if `StreamedExecution` or `XSL3_STREAM_STRICT=1`): decision 5's \"legacy Transform streams a streamable default mode\" holds only when opted in",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.PublicSettingsSelectForwardOrTreeExecution",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.SavedPublicSelectionSurvivesOppositeLoaderSettings",
+          "passedCasesPerPlatform": {
+            "net8.0": 0,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-13",
+      "obligation": "Global context item is independent of the streamed initial selection",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.GlobalContextAndInitialSelectionHaveIndependentAccumulatorValues",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.GlobalContextIsGroundedAndIndependent",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-14",
+      "obligation": "Required global context absent raises XTDE3086 before opening input",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.RequiredGlobalContextFailsBeforeOpeningInitialInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-15",
+      "obligation": "Global context item type is checked (XTTE0590)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.OptionalGlobalContextChecksItsTypeWhenPresent",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-16",
+      "obligation": "`position()`/`last()` in global focus raise XPDY0002 with a streamed selection",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.NumericGlobalFocusCannotUseTheInitialSelection",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-17",
+      "obligation": "Global prerequisites do not buffer the principal result",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.GlobalPrerequisitesDoNotBufferThePrincipalResult",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-18",
+      "obligation": "Streamable `xsl:attribute-set` runs in a streamed template",
+      "historicalStrength": "PARTIAL: output only; no forward/read-position assertion; no W3C set isolates attribute sets in streamed template rules",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.StreamableAttributeSetsRunInForwardTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.OrdinaryAttributeSetsInheritTheGroup",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.StreamableFunctionAndAttributeSetRunInAnInitialMode",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-19",
+      "obligation": "Attribute-set streamability declaration rules (overrides, references)",
+      "historicalStrength": "DIRECT (static)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamingDeclarationTests.AttributeSetDeclarationsRetainTheirOwnStreamingFlags",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingDeclarationTests.AttributeSetOverridesPreserveTheStreamingContract",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingDeclarationTests.AttributeSetReferenceRuleAppliesEvenWithFallback",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-20",
+      "obligation": "Function category absorbing in a streamed template",
+      "historicalStrength": "DIRECT (functional, forward-captured W3C initial-mode cases); unit tests are output only; no early-output/bound assertion",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionTests.AbsorbingFunctionsCanConstructTheirResultWhileDispatchingInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSingletonFunctionTests.TheFirstNodeIsConsumedWithinTheOriginalFunctionCall",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-21",
+      "obligation": "Function category inspection in a streamed template",
+      "historicalStrength": "PARTIAL: no unit runtime test invokes an `inspection` function on a streamed node; W3C cases are not streamable-mode template rules; output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.FunctionCategoriesRunForwardInStreamableTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-22",
+      "obligation": "Function category filter in a streamed template",
+      "historicalStrength": "PARTIAL: streamable-mode template, output only; no read-position or early-output assertion",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.FunctionCategoriesRunForwardInStreamableTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.TransmittedFunctionPathsConsumeEachNodeWhileCurrent",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedTransmittingFunctionTests.FilterResultsCanBeNavigatedBeforeTheNextInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-23",
+      "obligation": "Function category shallow-descent in a streamed template",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.AShortCircuitConsumerEmitsBeforeTheRemainingFunctionPopulationIsRead",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedRecursiveFunctionTests.RecursiveOutputStartsBeforeEofWithBoundedSourceHeaders",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedTransmittingFunctionTests.ShallowDescentResultsAreConsumedBeforeTheNextChild",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-24",
+      "obligation": "Function category deep-descent in a streamed template",
+      "historicalStrength": "PARTIAL: one output-only case; the W3C suite has no `su-deep-descent` set; no forward/early-output assertion",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.FunctionCategoriesRunForwardInStreamableTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.SavedAssembliesPreserveFunctionPathAndPruningContracts",
+          "passedCasesPerPlatform": {
+            "net8.0": 0,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.TransmittedFunctionPathsConsumeEachNodeWhileCurrent",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-25",
+      "obligation": "Function category ascent in a streamed template",
+      "historicalStrength": "PARTIAL: no unit runtime test; positive cases are not streamable-mode template rules; output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedFunctionPathTests.FunctionCategoriesRunForwardInStreamableTemplateRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-26",
+      "obligation": "Function category static rules (declared category, override compatibility, XTSE3155)",
+      "historicalStrength": "DIRECT (static)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.FunctionStreamabilityTests.AppliesTheDeclaredFunctionCategory",
+          "passedCasesPerPlatform": {
+            "net8.0": 12,
+            "net10.0": 12
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingDeclarationTests.FunctionOverridesPreserveStreamabilityCategory",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 8
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingDeclarationTests.ZeroArityFunctionCannotDeclareStreamability",
+          "passedCasesPerPlatform": {
+            "net8.0": 7,
+            "net10.0": 7
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-27",
+      "obligation": "Schema contracts: typed/validated streamed initial input keeps annotations in streamable modes",
+      "historicalStrength": "PARTIAL: no unit test of a validating/typed initial streamed input through `ApplyTemplates` or legacy `Transform`; three schema cases fail",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.ValidatedInitialReadersKeepAnnotationsAndForwardExecution",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-28",
+      "obligation": "Schema contracts: declared parameter/result types checked incrementally on streamed nodes",
+      "historicalStrength": "DIRECT (error codes in forward mode)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedSequenceContractTests.CardinalityAssertionsRetainCanonicalErrors",
+          "passedCasesPerPlatform": {
+            "net8.0": 10,
+            "net10.0": 10
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedTemplateParameterTests.ExplicitWithParamTypesPreserveTheirChecksBeforeTheCalleeConversion",
+          "passedCasesPerPlatform": {
+            "net8.0": 5,
+            "net10.0": 5
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedTransmittingFunctionTests.IncrementalResultChecksRetainTheirTypeErrors",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-29",
+      "obligation": "`xsl:next-match` in a streamed mode dispatches without advancing",
+      "historicalStrength": "PARTIAL: output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.NextMatchRunsForwardWithoutAdvancingPastTheCurrentNode",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.NextMatchDispatchesWithoutAdvancingPastTheCurrentNode",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-30",
+      "obligation": "Built-in rules (shallow-copy, text-only-copy, shallow-skip) visit forward children/attributes",
+      "historicalStrength": "PARTIAL: output only despite the second test's name",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.BuiltinRulesVisitChildrenAndAttributesForward",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.BuiltinRulesVisitForwardChildrenAndAttributes",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.CopyWithRecursiveTemplatesOnlyReadsTheHeaderBeforeItsChildren",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4-31",
+      "obligation": "Exit: `si-apply-templates` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S4-32",
+      "obligation": "Exit: `si-next-match` strict",
+      "historicalStrength": "DIRECT (small population)",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S4-33",
+      "obligation": "Exit: `si-apply-imports` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S4-34",
+      "obligation": "Exit: `su-*` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S4-35",
+      "obligation": "Exit: `streamable` strict",
+      "historicalStrength": "PARTIAL: four failures",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-01",
+      "obligation": "Streamed accumulator observers run on forward initial and source-document input (before/after values)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.BeforeAndAfterValuesFollowStartAndEndRules",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.RequestedStreamedObserversRunForTheInitialSelection",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.DeclaredStreamedAccumulatorObserversRunOnTheReader",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.FinalTotalsRequireTheCompleteInputInEitherMode",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-02",
+      "obligation": "Skipped subtrees still contribute to accumulators",
+      "historicalStrength": "PARTIAL: forward vs tree output only; skipping is not observed",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.SkippedSubtreesStillContributeToTheAccumulator",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.SkippedSubtreesContributeToAccumulatorsWhileStreaming",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-03",
+      "obligation": "Applicability (`use-accumulators`, XTDE3362, only applicable streamable accumulators run)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.OnlyApplicableStreamableAccumulatorsRun",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedInitialModeTests.InitialSelectionDoesNotAcquireUnrequestedAccumulators",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedSourceDocumentTests.NoAccumulatorAppliesWhenTheSourceOmitsUseAccumulators",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-04",
+      "obligation": "Rule dependency cycles raise XTDE3400",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.ADetectedCycleIsNotHiddenByAnEarlierRootValue",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.CyclicRuleDependenciesReportTheCanonicalError",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-05",
+      "obligation": "Accumulator values on copies survive source closure",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.CopiesKeepDescendantValuesAfterTheirInputCloses",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorTests.ValidatedCopiesKeepValuesAfterTheirStreamCloses",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-06",
+      "obligation": "Accumulator state bounded for scalar and rolling-string state",
+      "historicalStrength": "DIRECT (logical counts/characters asserted; not bytes/RSS)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorLifetimeTests.RollingAtomicValuesFollowTheWindowBoundRatherThanProcessedRecords",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedAccumulatorLifetimeTests.ScalarPhaseValuesAndFramesDoNotAccumulateWithProcessedRecords",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-07",
+      "obligation": "Accumulator state bounded for general growing/opaque/node-valued state",
+      "historicalStrength": "NONE",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.RetainedStateDoesNotGrowWithProcessedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.TheMeasurementDetectsRetainedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-08",
+      "obligation": "Exit: `accumulator` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-09",
+      "obligation": "`xsl:iterate` executes forward with output before input ends",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.IterationResultsReachTheWriterBeforeTheInputEnds",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.SourceResultsReachTheirConsumerWhileCurrent",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.FinalTotalsRequireTheCompleteInputInEitherMode",
+          "passedCasesPerPlatform": {
+            "net8.0": 8,
+            "net10.0": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-10",
+      "obligation": "Iterate semantics in streamed mode (simultaneous parameter updates, break, on-completion without focus)",
+      "historicalStrength": "DIRECT (functional); `ARunningBalanceConsumesEachRowBeforeAdvancing` asserts output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.ARunningBalanceConsumesEachRowBeforeAdvancing",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.BreakDoesNotEvaluateTheNextSelectionItem",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.CompletionHasNoFocus",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedIterateTests.ParameterUpdatesAreSimultaneous",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-11",
+      "obligation": "Iterate retained state bounded",
+      "historicalStrength": "NONE",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.RetainedStateDoesNotGrowWithProcessedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.TheMeasurementDetectsRetainedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-12",
+      "obligation": "Exit: `si-iterate` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-13",
+      "obligation": "`for-each-group` adjacent/starting/ending streams: first group starts after one row",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.TheFirstGroupBodyStartsBeforeItsMembersAreRead",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-14",
+      "obligation": "Members consumed before the population advances; unused members drained; truncated selection keeps the next group",
+      "historicalStrength": "PARTIAL: forward vs tree output only; the consumption order is not observed",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.ATruncatedMemberSelectionDoesNotLoseTheNextGroup",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.MembersAreConsumedBeforeThePopulationAdvances",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.MembersAreReadOrDrainedBeforeTheNextGroupStarts",
+          "passedCasesPerPlatform": {
+            "net8.0": 18,
+            "net10.0": 27
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.UnusedMembersAreDrainedBeforeTheNextGroup",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-15",
+      "obligation": "Grouping key rules (single atomic key, error codes)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.AKeyFailureKeepsItsErrorCode",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedGroupingTests.NonCompositeKeysRequireExactlyOneAtomicValue",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-16",
+      "obligation": "Grouping retains only the current group (bounded)",
+      "historicalStrength": "NONE",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.RetainedStateDoesNotGrowWithProcessedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedStateRetentionTests.TheMeasurementDetectsRetainedRows",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-17",
+      "obligation": "Exit: `si-for-each-group` strict",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-18",
+      "obligation": "`xsl:merge` k-way over streamed inputs, stable groups, forward execution",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedMergeTests.SortedInputsAreMergedWithStableGroups",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-19",
+      "obligation": "Merge retention bounded to the current group plus one lookahead per input",
+      "historicalStrength": "DIRECT (snapshot/key counts; not bytes/RSS)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedMergeLifetimeTests.CompletedGroupsDoNotAccumulateWithProcessedInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 24,
+            "net10.0": 36
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-20",
+      "obligation": "XTDE2220 raised when a streamed merge input is out of order",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedMergeTests.OutOfOrderInputRaisesItsDefinedError",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-21",
+      "obligation": "The 9 original XTDE2220 cases (`merge-070`, `-071`, `-076`, `-078`, `-079`, `-080`, `-081`, `-083`, `-084`) pass in strict mode",
+      "historicalStrength": "PARTIAL",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-22",
+      "obligation": "Merge resource ownership, failures and cancellation",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedMergeLifetimeTests.CompletionEarlyExitAndFaultsReleaseUnretainedState",
+          "passedCasesPerPlatform": {
+            "net8.0": 56,
+            "net10.0": 84
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedMergeTests.OwnedStreamsCloseOnCompletionAndActionFailure",
+          "passedCasesPerPlatform": {
+            "net8.0": 4,
+            "net10.0": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-23",
+      "obligation": "Function items do not capture the implicit merge context (XTDE3480/3510)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedMergeTests.FunctionItemsDoNotCaptureTheImplicitMergeContext",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5-24",
+      "obligation": "Exit: `si-merge` strict",
+      "historicalStrength": "PARTIAL",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S5-25",
+      "obligation": "Exit: `merge` strict",
+      "historicalStrength": "PARTIAL",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S6-01",
+      "obligation": "Tee: every prong sees the same ordered events; the source is read once",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.EveryProngRunsOnItsOwnThreadAndSeesTheSameInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.ReadersReceiveTheSameOrderedEventsAndReadTheSourceOnlyOnce",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-02",
+      "obligation": "Tee ring bounded by event capacity; fast reader waits for the slow one; partial prefixes released",
+      "historicalStrength": "DIRECT (event counts)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.AliasesReleaseAPartialPrefixBeforeAnyFurtherReadIsRequested",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.ConsumedEventsAreCollectibleWhileTheTeeIsStillAlive",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.FastReaderWaitsForTheSlowReaderAndTheRingStaysBounded",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-03",
+      "obligation": "Tee memory bound measured with explicit payload assumptions",
+      "historicalStrength": "DIRECT as an assertion for the synthetic tee with fixed payload P; it is not a compiled-fork or process measurement",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamTeePayloadTests.RetainedPayloadBytesFollowTheRingBoundRatherThanTheInputLength",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-04",
+      "obligation": "Compiled-fork frames and variable header payloads bounded and released",
+      "historicalStrength": "DIRECT for that input shape; replay graphs, parser buffers, schema objects, array overhead and buffered prong output are excluded (per doc)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkFrameLifetimeTests.ForkFramesAndHeaderPayloadsStayBoundedAndCollectAfterClosure",
+          "passedCasesPerPlatform": {
+            "net8.0": 18,
+            "net10.0": 18
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-05",
+      "obligation": "Process-level fork/tee memory within the original budget",
+      "historicalStrength": "PARTIAL: number recorded, failing the push budget, no b0bf3bb measurement and no assertion",
+      "currentUnitEvidence": []
+    },
+    {
+      "id": "S6-06",
+      "obligation": "Each prong runs on its own thread",
+      "historicalStrength": "DIRECT (internal `ForkProngs` with synthetic bodies)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.EveryProngRunsOnItsOwnThreadAndSeesTheSameInput",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-07",
+      "obligation": "Compiled `xsl:fork` executes forward (secondary output before half the input; first prong starts before input end)",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.FirstProngStartsBeforeTheInputEndsOnTheInvokingThread",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamingReadBoundaryTests.ForwardExecutionWritesBeforeCrossingThePhysicalReadBoundary",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-08",
+      "obligation": "Output buffering: prong results appear in declaration order whatever the completion order",
+      "historicalStrength": "PARTIAL: order checked only under natural scheduling; no test forces a later prong to finish first",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkProjectionTests.ProngsKeepDifferentChildNamesAndNamespacesInTheirOriginalResultOrder",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ALaterProngThatFinishesFirstStillFollowsTheEarlierOne",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ProngsConsumeTheSameForwardInputAndConcatenateTheirResults",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.RawResultApiReceivesPrincipalDocumentContentsInProngOrder",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-09",
+      "obligation": "Principal writer stays on the invoking thread; secondary results independent",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkCallerTests.InputAndOutputRequestsRunOnTheInvokingThread",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ProngsWriteIndependentSecondaryResultDocuments",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.SuppliedPrincipalWriterRunsOnTheOriginalThreadAndRemainsBorrowed",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-10",
+      "obligation": "Principal raw items buffered before the source advances",
+      "historicalStrength": "PARTIAL: output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.PrincipalRawItemsAreBufferedBeforeTheSourceAdvances",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForwardExecutionTests.ForkPrincipalRawItemsAreCopiedBeforeTheSourceAdvances",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-11",
+      "obligation": "`group-by` inside fork",
+      "historicalStrength": "PARTIAL: forward vs tree output only; buffering and its size are not asserted",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.ForkGroupingBuffersItsRequiredPopulationAndReleasesPayloads",
+          "passedCasesPerPlatform": {
+            "net8.0": 48,
+            "net10.0": 72
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.RetainedPayloadControlIsDetectedUntilItsOwnerReleasesIt",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.UnsortedAdjacentControlDoesNotRetainTheWholePopulation",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ForkCapturesForwardGroupsBeforeStartingProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ForkGroupByBuffersItsPopulationBeforeSortingAndMemberAccess",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-12",
+      "obligation": "`xsl:sort` inside fork (\u00a719.8.4.19 exemption)",
+      "historicalStrength": "PARTIAL: output only",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.ForkGroupingBuffersItsRequiredPopulationAndReleasesPayloads",
+          "passedCasesPerPlatform": {
+            "net8.0": 48,
+            "net10.0": 72
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.RetainedPayloadControlIsDetectedUntilItsOwnerReleasesIt",
+          "passedCasesPerPlatform": {
+            "net8.0": 3,
+            "net10.0": 3
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkGroupRetentionTests.UnsortedAdjacentControlDoesNotRetainTheWholePopulation",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ForkGroupByBuffersItsPopulationBeforeSortingAndMemberAccess",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ForkSortingByGroupPositionAllowsOneDownwardMemberSelection",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-13",
+      "obligation": "The error is chosen by prong declaration order",
+      "historicalStrength": "DIRECT (internal runtime)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.CancellationCallbackFailuresDoNotReplaceTheOriginalProngFailure",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.DeclarationOrderSelectsTheErrorEvenWhenALaterProngFailsFirst",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-14",
+      "obligation": "Compiled-fork prong errors reach the containing try with their codes",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkProjectionTests.ConstructorErrorsKeepTheirCodeAndReleaseFollowingProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.PrincipalWriterFailuresReturnToTheProngsTry",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.ProngErrorsReturnToTheContainingTry",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-15",
+      "obligation": "A failing prong cancels the following (later-declared) prongs",
+      "historicalStrength": "DIRECT (internal `ForkProngs`, synthetic bodies)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkCallerTests.CallbackFailureCancelsAndJoinsFollowingProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.AFailingProngReleasesFollowingReadersBlockedByBackpressure",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.DeclarationOrderSelectsTheErrorEvenWhenALaterProngFailsFirst",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-16",
+      "obligation": "A failing prong cancels earlier-declared prongs too (\"cancels the others\")",
+      "historicalStrength": "NONE: by design only following prongs are cancelled (deterministic declaration-order error)",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.ALaterFailureDoesNotCancelAnEarlierProng",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-17",
+      "obligation": "Failure cancellation inside a compiled `xsl:fork` stylesheet",
+      "historicalStrength": "PARTIAL: neither asserts that the sibling prong observed cancellation or stopped reading",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.StreamedForkProjectionTests.ConstructorErrorsKeepTheirCodeAndReleaseFollowingProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 20,
+            "net10.0": 30
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkTests.AFailingProngCancelsLaterProngsAndEarlierProngsFinish",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkValueTests.FailureAndCancellationInterruptAValueWithoutStrandingOtherProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 6,
+            "net10.0": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-18",
+      "obligation": "External cancellation stops and joins every prong",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.ParentCancellationStopsAndJoinsEveryProng",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkRuntimeTests.BothTransformationAndProngCancellationApply",
+          "passedCasesPerPlatform": {
+            "net8.0": 2,
+            "net10.0": 2
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkInputTests.OriginalSourceCancellationReachesProngsEvenWithoutFurtherReads",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-19",
+      "obligation": "Worker and source faults are transferred to the caller after the buffered prefix",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.RuntimeFaultsAreTransferredToTheCallerWithoutEscapingTheWorkerThread",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.SourceRuntimeFaultsAreTransferredThroughTheTee",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.SourceFailureFollowsBufferedEventsForEveryReader",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-20",
+      "obligation": "An early-finishing prong does not truncate the others; no deadlock",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkProngsTests.FinishingAProngEarlyDoesNotTruncateTheOtherProngs",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.AProngThatStopsEarlyDoesNotHoldBackOtherReaders",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.NestedTeesShareOneSourceWithoutDeadlocking",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamTeeTests.RecursiveSourceRequestsFailInsteadOfDeadlocking",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-21",
+      "obligation": "Ownership: a failed prong closes only its own sources; borrowed readers stay open",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkRuntimeTests.BorrowedInitialSelectionIsNeverClosedOrReopenedByTheChild",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkRuntimeTests.FailedProngClosesOnlyItsOwnForwardSources",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.StreamedForkInputTests.MalformedSourceErrorsDoNotCloseTheBorrowedReader",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-22",
+      "obligation": "Caller ownership: no lost wakeups; active callback buffers kept",
+      "historicalStrength": "DIRECT",
+      "currentUnitEvidence": [
+        {
+          "method": "Xsl3.Tests.ForkCallerTests.CancellationDoesNotDetachAnActiveCallbackFromItsArgumentBuffer",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkCallerTests.DisposalDoesNotReleaseAnActiveCallbacksArgumentBuffer",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        },
+        {
+          "method": "Xsl3.Tests.ForkCallerTests.ProductionRequestsBetweenTheSourceCheckAndWaitAreNotLost",
+          "passedCasesPerPlatform": {
+            "net8.0": 1,
+            "net10.0": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6-23",
+      "obligation": "Exit: `si-fork` strict",
+      "historicalStrength": "PARTIAL",
+      "currentUnitEvidence": []
+    }
+  ]
+}

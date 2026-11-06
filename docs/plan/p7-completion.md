@@ -1,5 +1,74 @@
 # P7 completion
 
+**Source-stack integration, 6 November 2026:** draft PR #40 now adds the qualified
+[current-event stack control](p7-current-event-stack.md), runtime/test source `1ef7c32`.
+All 15,834 affected Release/Debug checks pass. Both 60-observation paired comparisons verify;
+identity improves 0.63% locally and 3.99% on Linux with separated ranges. Other workload ranges
+overlap; Linux source-document's median is 0.52% higher. Full compatibility and reviewed-head CI
+are the next gates. The original `a4f7301` results below remain predecessor evidence, not qualification
+of this added runtime change. All original targets, supported-feature review and release remain required.
+
+**Current integration qualification, 6 November 2026:** all four jobs in
+[CI 42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) passed on `a4f7301`.
+The [completed current-source audit](p7-integrated-evidence-review.md) verifies both platform
+unit artifacts, strict inventories, reviewed S1/S2, stage accounting and native/saved/micro results.
+The merge improvement is included; the rejected attribute-cache and isolated navigator controls
+are excluded from this source.
+
+The [full original acceptance audit](p7-integrated-original-acceptance.md) is complete on the same
+immutable `a4f7301` in [42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783).
+Both memory matrices pass: **32/32 budgets and 96 valid outputs**, maximum absolute RSS
+17,498,112 bytes (push) and 32,305,152 bytes (nightly). All **126 throughput observations** are valid,
+but only **four of seven original 100 MB targets** pass. Stream/tree ratios are identity **1.180101**,
+adjacent **0.862840**, accumulator **0.994798**, iterate **0.934988**, merge **0.987935**, fork **1.516701**
+and source-document **1.144763**. Identity, fork and source-document remain open. This replaces the
+historical component cohort as current integration evidence; separate-cohort changes are not paired
+speedups. No input, oracle, controller or threshold was relaxed. All original-gate jobs are terminal;
+do not repeat unchanged source for favorable medians. Source, artifacts and independent audits are
+retained under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
+Full P7 remains active with every original completion and publication requirement intact.
+
+
+**Merge performance update, 6 November 2026:** the draft integration branch now incorporates
+[deferred merge source groups](p7-merge-source-groups.md), runtime/compiler `370178a` via `f308ab8`.
+The change passes 7,976 affected checks, baseline semantic controls and expanded named-closure
+checks. All 60 local and 60 Linux paired observations independently verify; merge improves 4.24%
+locally and 3.93% on Linux with fully separated ranges. The Linux stream/tree ratio is 0.987767
+for merge in this comparison. Other workload ranges overlap; fork's higher median remains explicit.
+Fresh integration CI is required. The prior full original gate remains three-of-seven; this diagnostic
+does not replace its 126 observations. Identity, fork and source-document are the next performance
+targets. Final-source memory, throughput, compatibility, physical-I/O evidence, supported claims,
+review/merge and matching release remain required. Earlier updates below retain their original scope.
+
+**Integrated evidence update, 6 November 2026:** all four jobs in
+[CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
+The [current evidence review](p7-integrated-evidence-review.md) independently rechecks strict inventories,
+4,968 actual Debug verifications, all 66,643 S1 expressions and reviewed S1/S2 acceptance, and maps
+199 passing test methods to the 116 original obligation entries. The new test-only S4-29 contract observes
+unchanged physical reader positions across next-match dispatch; all 40 new cases pass in Release/Debug
+(257 checks with related Debug coverage). Runtime is unchanged; the new test head still needs hosted CI.
+
+The [current-mode control](https://github.com/skuirrels/Xsl3/blob/feature/p7-current-mode-lowering/docs/plan/p7-current-mode-lowering.md)
+at `2401775` and [fork value-event control](https://github.com/skuirrels/Xsl3/blob/feature/p7-fork-value-events/docs/plan/p7-fork-value-events.md)
+at `e0ad958` are closed without adoption: their paired timing ranges overlap. Do not repeat or integrate
+those controls. Four original throughput targets remain unresolved (identity, merge, fork, source-document).
+Final-source original memory/throughput qualification, supported claims, review/merge and release remain required.
+
+**Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
+combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
+(runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected
+runtime controls. Hosted CI passed at `6c24a92`; original final-source qualification remains incomplete.
+See [the integration record](p7-integrated-qualification.md). Full P7 remains active; no release claim.
+
+The isolated short-polling control is closed after its 100 MB and 1 GB Linux comparisons; overlapping
+fork ranges and other-workload regressions do not justify adoption. The tail-call control is also closed
+without useful timing benefit. Lazy frame headers completed all 60 Linux observations in
+[42136785894](https://github.com/skuirrels/Xsl3/actions/runs/42136785894), with verified binaries,
+409 tracked PDB source hashes per engine and original outputs, but all timing ranges overlap.
+It is closed without adoption. Their branches retain the source, audit records and decisions.
+The earlier descriptions below are dated investigation history, not current approval to merge them.
+
+
 **5 November hidden-grounding follow-up:** [S3-27 contracts](p7-hidden-grounding-contracts.md)
 now demonstrate a measured budget failure for a real grounding helper inside an otherwise forward
 execution. Correct output, actual forward entry and the Debug graph verifier all pass that negative

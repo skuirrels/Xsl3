@@ -18,6 +18,11 @@ static checking and does not enable forward execution by itself. Published defau
 tree-based; forward execution requires the explicit development opt-in. The original streaming memory
 and throughput gates remain unchanged and unmet; this release does not complete full P7.
 
+An unreleased P7 integration candidate selects forward execution under default/explicit `Strict`
+for declared-streamable reader, stream and URI inputs through both APIs. `Fallback` remains tree-based;
+existing XDM trees and saved execution modes are preserved. This behavior is under qualification on
+`feature/p7-public-streaming-selection` and is not part of the published 1.3.0 packages.
+
 See the [1.3.0 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/releases/1.3.0.md) and
 [checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.3.0/docs/plan/p7-runtime-checkpoint.md).
 Strict analysis rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including

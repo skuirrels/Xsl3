@@ -69,6 +69,76 @@ public class StreamedMergeTests
         public override void Close() { Closed = true; base.Close(); }
     }
 
+    public static IEnumerable<object[]> NamedSourceGroupPaths()
+    {
+        foreach (bool forward in new[] { false, true })
+        foreach (bool debug in new[] { false, true })
+        foreach (bool sort in new[] { false, true })
+        {
+            yield return new object[] { forward, debug, sort, false, false };
+            yield return new object[] { forward, debug, sort, true, false };
+#if NET10_0_OR_GREATER
+            yield return new object[] { forward, debug, sort, true, true };
+#endif
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(NamedSourceGroupPaths))]
+    public void NamedSourceGroupsKeepStableOrderAndIdentityAfterLaterGroups(bool forward, bool debug, bool sort, bool legacy, bool saved)
+    {
+        var documents = new Dictionary<string, string>
+        {
+            ["urn:empty"] = "<rows/>",
+            ["urn:left-a"] = sort
+                ? "<rows><row k='3' id='a3'/><row k='1' id='a1'/><row k='1' id='a2'/></rows>"
+                : "<rows><row k='1' id='a1'/><row k='1' id='a2'/><row k='3' id='a3'/></rows>",
+            ["urn:left-b"] = "<rows><row k='1' id='b1'/><row k='2' id='b2'/></rows>",
+            ["urn:right"] = "<rows><row k='1' id='r1'/><row k='3' id='r3'/><row k='4' id='r4'/></rows>"
+        };
+        string left = Source("left", "('urn:left-a','urn:left-b')", attributes: sort ? "sort-before-merge='yes'" : "");
+        if (sort) left = left.Replace("streamable='yes'", "streamable='no'", StringComparison.Ordinal);
+        string sources = Source("before", "'urn:empty'") + left + Source("middle", "'urn:empty'")
+            + Source("right", "'urn:right'") + Source("after", "'urn:empty'");
+        string sheet = $$"""
+            <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" exclude-result-prefixes="xs">
+              <xsl:output omit-xml-declaration="yes"/>
+              <xsl:template match="/">
+                <xsl:variable name="groups" as="map(*)*">
+                  <xsl:merge>{{sources}}<xsl:merge-action>
+                    <xsl:variable name="name" select="concat('ri', substring(name(.), 1, 0), 'ght')"/>
+                    <xsl:variable name="left" select="current-merge-group('left')"/>
+                    <xsl:variable name="right" select="current-merge-group($name)"/>
+                    <xsl:sequence select="map { 'key': current-merge-key(), 'all': current-merge-group(), 'left': $left, 'right': $right, 'again': current-merge-group('right'), 'captured': function() { $left }, 'empty': (current-merge-group('before'), current-merge-group('middle'), current-merge-group('after')) }"/>
+                  </xsl:merge-action></xsl:merge>
+                </xsl:variable>
+                <out><xsl:for-each select="reverse($groups)">
+                  <g key="{.?key}" all="{.?all ! string(@id)}" left="{.?left ! string(@id)}" right="{.?right ! string(@id)}" captured="{(.?captured)() ! string(@id)}" empty="{count(.?empty)}"
+                     identity="{every $n in (.?left, .?right, .?again, (.?captured)()) satisfies some $a in .?all satisfies $n is $a}"/>
+                </xsl:for-each></out>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+        // The expected source order comes from the declared inputs, independently
+        // parsed and stably grouped, rather than another engine execution.
+        var rows = new[] { "urn:left-a", "urn:left-b", "urn:right" }
+            .SelectMany(uri => System.Xml.Linq.XDocument.Parse(documents[uri]).Root!.Elements("row")
+                .Select(row => (Source: uri == "urn:right" ? "right" : "left", Key: (int)row.Attribute("k")!, Id: (string)row.Attribute("id")!)))
+            .OrderBy(row => row.Key).GroupBy(row => row.Key).Reverse();
+        var expected = new System.Xml.Linq.XElement("out", rows.Select(group => new System.Xml.Linq.XElement("g",
+            new System.Xml.Linq.XAttribute("key", group.Key),
+            new System.Xml.Linq.XAttribute("all", string.Join(" ", group.Select(row => row.Id))),
+            new System.Xml.Linq.XAttribute("left", string.Join(" ", group.Where(row => row.Source == "left").Select(row => row.Id))),
+            new System.Xml.Linq.XAttribute("right", string.Join(" ", group.Where(row => row.Source == "right").Select(row => row.Id))),
+            new System.Xml.Linq.XAttribute("captured", string.Join(" ", group.Where(row => row.Source == "left").Select(row => row.Id))),
+            new System.Xml.Linq.XAttribute("empty", 0), new System.Xml.Linq.XAttribute("identity", true))));
+        var resolver = new Sources(documents);
+        string actual = Run(sheet, resolver, forward, legacy, debug: debug, saved: saved);
+        Assert.True(System.Xml.Linq.XNode.DeepEquals(expected, System.Xml.Linq.XElement.Parse(actual)),
+            $"Expected: {expected}\nActual: {actual}");
+        Assert.All(resolver.Opened, reader => Assert.False(reader.Closed));
+    }
+
     private sealed class Sources(Dictionary<string, string> documents) : XmlResolver
     {
         internal readonly List<TrackingReader> Opened = new();
