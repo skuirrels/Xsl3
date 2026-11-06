@@ -21,6 +21,7 @@ namespace Xsl3.IlGen
         private static readonly QilPatterns s_patternsOpt = new QilPatterns((int)XmlILOptimization.Last_, allSet: true);
 
         private readonly QilExpression _qil;
+        private readonly bool _streamedTailCalls;
         private readonly XmlILElementAnalyzer _elemAnalyzer;
         private readonly XmlILStateAnalyzer _contentAnalyzer;
         private readonly XmlILNamespaceAnalyzer _nmspAnalyzer;
@@ -94,6 +95,7 @@ namespace Xsl3.IlGen
         public XmlILOptimizerVisitor(QilExpression qil, bool optimize) : base(qil.HasStreamedInputs ? s_patternsStreamed : optimize ? s_patternsOpt : s_patternsNoOpt, qil.Factory)
         {
             _qil = qil;
+            _streamedTailCalls = qil.HasStreamedInputs && optimize;
             _elemAnalyzer = new XmlILElementAnalyzer(qil.Factory);
             _contentAnalyzer = new XmlILStateAnalyzer(qil.Factory);
             _nmspAnalyzer = new XmlILNamespaceAnalyzer();
@@ -110,7 +112,9 @@ namespace Xsl3.IlGen
             QilExpression qil = (QilExpression)Visit(_qil);
 
             // Perform tail-call analysis on all functions within the Qil expression
-            if (this[XmlILOptimization.TailCall])
+            // Tail-call analysis annotates existing writer calls without moving, duplicating,
+            // caching or eliminating their operands. Keep debug stylesheet frames intact.
+            if (this[XmlILOptimization.TailCall] || _streamedTailCalls)
                 TailCallAnalyzer.Analyze(qil);
 
 #if DEBUG
