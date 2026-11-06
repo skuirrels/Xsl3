@@ -1,5 +1,15 @@
 # P7 agent handoff after 1.1.7
 
+**Snapshot cursor control closed, 6 November 2026:** `feature/p7-snapshot-cursor` retains the
+[implementation and complete audit](p7-snapshot-cursor.md) without adoption. All 7,976 affected
+checks and 80 additional forced-compact checks pass; 160 baseline positive controls also pass.
+Forced noncompact mode reproduces the same 80 provenance failures per runtime; those failures
+remain explicit and deferred. All 60 paired observations and original fingerprints verify, but
+all timing ranges overlap, including merge's 1.76% lower median. Do not repeat or integrate this
+control. Integration remains unchanged at `402cbed`; its live CI run is still 42159708129.
+Next resolve the merge profile's framework symbols before selecting another optimization.
+Replay is already conditional; its source does not justify a new unconditional-replay control.
+
 **Merge profiling update, 6 November 2026:** `feature/p7-merge-snapshot-profile` preserves the
 unchanged integration runtime at `402cbed`. The [audited Linux merge profile](p7-merge-snapshot-profile.md)
 verifies original 1 GB outputs, source/binary hashes and 25,253 CPU samples with zero lost events.

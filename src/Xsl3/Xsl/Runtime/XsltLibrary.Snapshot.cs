@@ -228,13 +228,34 @@ namespace Xsl3.Runtime
         private static void CopyChildren(XmlRawWriter w, XPathNavigator node)
         {
             XPathNavigator c = node.Clone();
-            if (c.MoveToFirstChild())
+            if (!c.MoveToFirstChild()) return;
+            // Keep one traversal cursor for the subtree. Returning to an ancestor only
+            // changes this navigator's position; forward input still advances through
+            // the same child/sibling operations as the recursive walk.
+            int depth = 0;
+            while (true)
             {
-                do
+                if (c.NodeType == XPathNodeType.Element)
+                {
+                    WriteStartShallow(w, c);
+                    if (c.MoveToFirstChild())
+                    {
+                        depth++;
+                        continue;
+                    }
+                    w.WriteFullEndElement(c.Prefix, c.LocalName, c.NamespaceURI);
+                }
+                else
                 {
                     CopyDeep(w, c);
                 }
-                while (c.MoveToNext());
+                while (!c.MoveToNext())
+                {
+                    if (depth == 0) return;
+                    c.MoveToParent();
+                    depth--;
+                    w.WriteFullEndElement(c.Prefix, c.LocalName, c.NamespaceURI);
+                }
             }
         }
     }
