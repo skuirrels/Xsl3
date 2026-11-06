@@ -60,3 +60,18 @@ memory and throughput qualification, full-P7 review, supported claims and releas
 See [public selection](p7-public-streaming-selection.md),
 [corrected discard and original gates](p7-projection-discard.md), and
 [the original completion requirements](p7-completion.md#requirements-and-evidence).
+
+
+**6 November current-source audit and control decisions:** integration `32c845d` passed all four
+jobs in [CI 42148343009](https://github.com/skuirrels/Xsl3/actions/runs/42148343009). The independently
+reviewed Windows/Ubuntu artifacts pass full Release units at 7,613 /6,440 per host, all 60 hosted
+physical-dispatch instances, reviewed S1/S2 and unchanged strict accounting. Full local Debug units
+pass 14,053 checks. The [evidence review](p7-integrated-evidence-review.md) records exact artifacts,
+source hashes and limitations.
+
+The fork-name cache, built-in text dispatch and corrected private fork cursor remain excluded.
+Their complete records are linked from the [handoff](p7-handoff.md). The text-dispatch local gain did
+not reproduce reliably on Linux; the private cursor needed an immediate-cleanup correction and then
+regressed locally. No runtime, test, benchmark, controller or gate change accompanies this documentation
+update. CI on the documentation head is distinct from the already-audited `32c845d` run. Original
+final-source qualification and full-P7 completion remain unproven.

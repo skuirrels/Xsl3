@@ -1,5 +1,37 @@
 # P7 integrated acceptance evidence, 6 November 2026
 
+## Integration head `32c845d`
+
+All four jobs in [CI 42148343009](https://github.com/skuirrels/Xsl3/actions/runs/42148343009) passed
+for `32c845daf89818aeb4950e7d549a34fa3cef18e9`. This adds only the exact dispatch contract and its
+CI inclusion to the runtime reviewed below. It excludes the separate, rejected fork name-cache control.
+
+| Current test artifact | ID | Verified ZIP SHA-256 |
+|---|---:|---|
+| Windows | 13473236027 | `05810a1cd3798a2d780bb2b7fd125189e4be71489333dee7755e6604e1590416` |
+| Ubuntu | 13472936071 | `17cab5164d2d3320b1fc04bdc1ef605d62868e7315ca0d5d993de6638ad56f2d` |
+
+Every full Release result row and counter verifies: **7,613 .NET 10 /6,440 .NET 8** per platform.
+All **60 hosted exact-dispatch cases** pass: 12/8 in each platform's Release suite and 12/8 in
+Ubuntu Debug. Independent re-audits reproduce all three hosted strict inventories at 2,696/16/0,
+with no unmatched expected codes; all 4,968 eligible Debug compilations verify out of 119,303 records.
+Regenerated fixtures and all 66,643 original/reviewed expressions verify, and reviewed S2 retains
+153 exact static diagnostics plus two allowed results. Stage outcomes and dispositions equal the
+preceding audit. The new reported engine hashes are preserved and checked against the new raw
+headers; the archives still do not retain the W3C engine binary for an independent local file check.
+
+Full local Debug units on the same unchanged integration source pass **14,053 checks** (7,613/6,440),
+with no failures/skips. Every result row and the frozen binary hashes verify. The current CI audit
+and raw archives are under `/private/tmp/xsl3-p7-integration-head-32c845-20261106/`; the full Debug
+evidence is under `/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. The original audit attempts
+are retained, including the expected engine-hash difference from the earlier build and the audit
+tool's refusal to overwrite an existing result. No source, fixture or expected outcome was changed.
+
+PR #40 remains draft under the unchanged full-P7 completion boundary. This is current compatibility
+and contract evidence, not final-source original memory/throughput qualification.
+
+## Preceding detailed obligation review
+
 Reviewed source: `6c24a9270e5e1ca589a73e867beb381d9ff8950e`, the integrated public-selection and
 corrected-discard candidate in draft [PR #40](https://github.com/skuirrels/Xsl3/pull/40).
 All four jobs in [CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed:
@@ -74,7 +106,7 @@ conformance rate is 99.41%; this is the conformance portion of S7, not completio
 | S3-18/25 | Real optimizer rewrite controls and per-compilation Debug capture cover restricted transformations and actual verifier invocation. |
 | S3-27 | Entry-tree fallback fails the forwarding audit. An injected helper that grounds behind a genuine forward entry fails the separate managed-byte control despite correct output and verifier success. This is not a universal internal-materialization detector; explicit copies and other payload shapes have separate contracts. |
 | S4-06/11/12 | Actual tree/forward representation is checked. Strict selects streaming by default when applicable; Fallback selects tree execution. Explicit development overrides and saved compiled selection remain covered. |
-| S4-29 | Hosted tests establish output and early streaming. The new exact per-dispatch reader-position contract below closes the remaining observation gap locally; it is not present in the audited CI head above. |
+| S4-29 | Hosted tests establish output and early streaming. The exact per-dispatch reader-position contract below also passes all 60 hosted instances at `32c845d`, as recorded in the current-head update. It is absent only from the preceding `6c24a92` artifact cohort. |
 | S4-35; S5-21/24/25; S6-23 | Current full inventories preserve the recorded fixture/profile/optional-feature dispositions. The former `merge-039` skip is fixed and cannot return. |
 | S5-07/11/16 | Managed-retention tests cover bounded node-valued accumulator windows, iterate parameters and adjacent groups, with a deliberately growing-state control. Program-retained unbounded state is not claimed to have constant memory. |
 | S5-14 | Direct physical row-start/end observations cover unused, truncated and complete members, draining and boundary lookahead through modern, legacy and saved paths. |
