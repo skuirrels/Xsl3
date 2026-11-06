@@ -1,5 +1,17 @@
 # P7 agent handoff after 1.1.7
 
+**Fork attribution update, 6 November 2026:** the unchanged integration source `32c845d` has a
+new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 42149213380.
+The original 1 GB outputs, artifact/binary/source hashes and all sample counts verify. The isolated
+`feature/p7-fork-name-cache` candidate now passes 2,298 affected Release/Debug checks; its corrected
+60-observation comparison is running. The initial null-argument defect and all initial results are
+retained. No cache is adopted yet. Full Debug units for integration `32c845d` passed all 14,053
+checks; raw results, frozen-binary checks and the final audit are under
+`/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. CI 42148343009 is still running: NativeAOT and
+ordinary performance passed; Windows/Ubuntu have passed their unit steps and continue through
+compatibility/conformance checks. Neither run replaces original P7 performance qualification,
+and no full-P7 completion or merge is claimed.
+
 **Integrated evidence update, 6 November 2026:** all four jobs in
 [CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
 The [current evidence review](p7-integrated-evidence-review.md) independently rechecks strict inventories,

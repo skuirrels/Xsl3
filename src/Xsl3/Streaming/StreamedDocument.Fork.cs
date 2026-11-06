@@ -362,10 +362,31 @@ internal sealed partial class StreamedDocument
         _current = node;
     }
 
+    // Source name references commonly recur, but a prong can already own a different
+    // canonical reference for the same value. Cache that mapping, never the source
+    // reference alone. The fixed working set retains no frames or attribute values.
+    private sealed class ForkNameTable : NameTable
+    {
+        private readonly (string? Input, string? Atom)[] _recent = new (string?, string?)[8];
+        private int _next;
+
+        public override string Add(string key)
+        {
+            ArgumentNullException.ThrowIfNull(key);
+            if (key.Length == 0) return string.Empty;
+            for (int i = 0; i < _recent.Length; i++)
+                if (ReferenceEquals(_recent[i].Input, key)) return _recent[i].Atom!;
+            string atom = base.Add(key);
+            _recent[_next] = (key, atom);
+            _next = (_next + 1) % _recent.Length;
+            return atom;
+        }
+    }
+
     /// <summary>Projects logical events into the existing streamed document parser without serializing XML.</summary>
     private sealed class ForkEventReader(ForkHeader boundary, StreamTee<ForkEvent>.Reader input) : XmlReader
     {
-        private readonly NameTable _names = new();
+        private readonly ForkNameTable _names = new();
         private ReadState _state;
         private int _attribute = -1;
         private bool _attributeValue;
