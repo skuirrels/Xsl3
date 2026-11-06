@@ -56,10 +56,24 @@ median is 1,509.809 ms baseline / 1,434.138 ms candidate, but its candidate samp
 `[1414.582125, 1434.137667, 1656.566292]` overlap baseline
 `[1509.809375, 1509.520833, 1514.284833]`; no reliable gain is established. Other workloads also have
 overlapping ranges. These are retained as superseded diagnostic results, not corrected-source
-qualification. The corrected-source comparison is running with the unchanged canonical consumer,
-normal ReadyToRun, exact 100 MB inputs, three alternating rounds, four effective CPUs and the actual
-4 GiB heap guard. Only a useful result warrants a Linux comparison and full final-source qualification.
-No cache adoption, original gate pass or release readiness is claimed.
+qualification. The corrected-source comparison uses the unchanged canonical consumer, normal
+ReadyToRun, exact 100 MB inputs, three alternating rounds, four effective CPUs and the actual 4 GiB
+heap guard. All 60 observations validate, including original fingerprints, the complete population,
+raw outputs, frozen consumer/dependency hashes and 409 tracked PDB source hashes per engine.
+
+| Workload | Baseline streaming median (ms) | Corrected candidate (ms) | Candidate / baseline | Local observation |
+|---|---:|---:|---:|---|
+| identity | 2,110.730 | 2,124.288 | 1.006423 | Overlapping ranges |
+| accumulator | 2,066.237 | 2,077.999 | 1.005693 | Candidate slower; non-overlapping ranges |
+| merge | 3,383.471 | 3,372.654 | 0.996803 | Overlapping ranges |
+| fork | 1,520.386 | 1,421.875 | 0.935207 | Candidate faster; non-overlapping ranges |
+| source-document | 2,112.452 | 2,127.180 | 1.006972 | Overlapping ranges |
+
+Corrected fork samples are `[1417.475916, 1423.884417, 1421.875375]` ms, all below baseline
+`[1537.031125, 1520.386375, 1511.378833]`. The 6.48% lower median is a useful local signal. The
+accumulator's 0.57% higher median is also retained and must be checked; it is not dismissed because
+the source change targets fork. This justifies one paired Linux comparison of all five workloads,
+not adoption or a full qualification rerun. No original gate pass or release readiness is claimed.
 
 Separately, unchanged integration source `32c845d` passes **14,053 full Debug unit checks**:
 7,613 .NET 10 and 6,440 .NET 8, with zero failures/skips. Every TRX result and frozen binary hash

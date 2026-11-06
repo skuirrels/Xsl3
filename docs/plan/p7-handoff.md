@@ -3,13 +3,15 @@
 **Fork attribution update, 6 November 2026:** the unchanged integration source `32c845d` has a
 new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 42149213380.
 The original 1 GB outputs, artifact/binary/source hashes and all sample counts verify. The isolated
-`feature/p7-fork-name-cache` candidate now passes 2,298 affected Release/Debug checks; its corrected
-60-observation comparison is running. The initial null-argument defect and all initial results are
-retained. No cache is adopted yet. Full Debug units for integration `32c845d` passed all 14,053
+`feature/p7-fork-name-cache` candidate now passes 2,298 affected Release/Debug checks. All 60 corrected
+local paired observations validate; fork's median is 6.48% lower with non-overlapping ranges, while
+accumulator is 0.57% slower with non-overlapping ranges. A paired Linux comparison of all five
+workloads is the next qualification step. The initial null-argument defect and all initial results
+are retained. No cache is adopted yet. Full Debug units for integration `32c845d` passed all 14,053
 checks; raw results, frozen-binary checks and the final audit are under
 `/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. CI 42148343009 is still running: NativeAOT and
-ordinary performance passed; Windows/Ubuntu have passed their unit steps and continue through
-compatibility/conformance checks. Neither run replaces original P7 performance qualification,
+ordinary performance and all Ubuntu steps passed; Windows continues through compatibility checks.
+Neither run replaces original P7 performance qualification,
 and no full-P7 completion or merge is claimed.
 
 **Integrated evidence update, 6 November 2026:** all four jobs in
