@@ -73,6 +73,17 @@ Baseline engine SHA-256: `4a454adc501c00eace78bb495d62182ea45979ecb3df9bc730fc70
 Candidate: `65285fd3386b251f14ceb55535a080d7c55f3f5bdeeee9aa33fa6088c6b82968`.
 Audits: `validation-review.json`, `baseline-contracts-review.json`, `comparison-review.json`.
 Executable audit scripts and the frozen QIL inspection engine are retained in the same evidence root.
+An independent rerun of the same inspection tool with each frozen engine also confirms that both
+optimized tree graphs are byte-for-byte identical (`qil-proof/review.json`). The shortcut is present
+only in the streaming graphs; the inspection tool invokes the real optimizer with CheckOnly unset.
+
+## Target-platform comparison
+
+[Linux run 42156324228](https://github.com/skuirrels/Xsl3/actions/runs/42156324228) compares
+candidate `76174b918e64e3595869404a27d00bd24afcfcbe` against integration
+`32c845daf89818aeb4950e7d549a34fa3cef18e9`. Both builds have completed and the paired measurements
+are running. Its evidence destination is `/private/tmp/xsl3-p7-builtin-text-dispatch-linux-20261106/`.
+Do not infer a target-platform benefit until the full artifact and raw observations are audited.
 
 ## Decision criteria
 

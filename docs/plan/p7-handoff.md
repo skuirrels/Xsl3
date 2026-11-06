@@ -7,6 +7,8 @@ operation but bypasses text dispatch only when the effective matcher proves no u
 text. All 2,794 affected Release/Debug checks and 320 baseline semantic controls pass. The audited 60-observation
 local comparison gives 1.64%/1.93% lower identity/source-document medians, with every candidate sample
 faster than every baseline sample for those workloads. This justifies one paired Linux comparison.
+[Run 42156324228](https://github.com/skuirrels/Xsl3/actions/runs/42156324228) is measuring candidate
+`76174b9` against `32c845d`; both builds have passed. Inspect that live run before starting any replacement.
 No adoption or full-P7 gate claim is made. This branch also carries the prior fresh integration CI
 audit and fork-name-cache rejection below as documentation only.
 
