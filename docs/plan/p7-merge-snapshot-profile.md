@@ -60,11 +60,10 @@ Evidence, source manifests, binaries, metadata, raw child output, full stacks, r
 log and auditors are retained under `/private/tmp/xsl3-p7-merge-cpu-20261106/`, particularly
 `review.json`, `verified-source-hashes.json` and `full-stack-conservation.json`.
 
-## Next bounded implementation
+## Original bounded implementation (closed below)
 
 Test a single-cursor snapshot subtree walk that reduces per-node navigator clones while retaining
-the existing writer events and shallow ancestor reconstruction. No runtime change for this control
-has been made yet. Inspect the shared `CopyChildren` callers, including copy-without-namespaces,
+the existing writer events and shallow ancestor reconstruction. This was the proposed control; the completed outcome is recorded below. Inspect the shared `CopyChildren` callers, including copy-without-namespaces,
 before deciding whether the optimization belongs in a shared helper or a snapshot-only path.
 
 Completion criteria for the control:
@@ -88,3 +87,35 @@ This control cannot close P7 by itself. Identity, merge, fork and source-documen
 failed original throughput targets. Final integrated source still needs both original memory
 matrices, all 126 original throughput observations with seven passing 100 MB targets, complete
 compatibility/physical-I/O qualification, supported claims, review/merge and matching publication.
+
+## Subsequent control and supplemental diagnostic
+
+The [single-cursor control](p7-snapshot-cursor.md) is now closed at `6eb42dd` without adoption.
+Its affected/default and forced-compact contracts pass, with explicit baseline/candidate failures
+under forced noncompact mode. All 60 observations verify, but every timing range overlaps.
+This profiling branch carries only that record; its runtime/tests remain identical to integration.
+
+[Framework-symbol diagnostic 42163291085](https://github.com/skuirrels/Xsl3/actions/runs/42163291085)
+completed successfully against unchanged source `402cbed`, using controller
+`5db06fbcd023302e70fb06bfb5fc354478c10403`. It explicitly disables ReadyToRun to improve
+framework symbol resolution. The altered code-generation policy makes its elapsed time unsuitable
+for throughput acceptance.
+
+Independent audit verifies all six original 1 GB merge output controls, the actual 4 GiB heap and
+four host CPUs, disabled tiering, all four retained engine/consumer binary hashes, and 409 engine
+plus 14 consumer tracked source checksums. The 24 unretained dependency hashes remain unverified.
+The profile contains 24,395 CPU samples, 24,130 with engine frames, and zero reported lost events.
+The full-stack report preserves every original sample, inclusive count and event count.
+
+Artifact `13478121304` expires on 2027-02-04. ZIP SHA-256:
+`321f7a08cf3f0d3a5e3be82c49d688be9eb8cf65a3ed6ad741b82fb6c908785c`. Trace SHA-256:
+`a8c8f3c9cbe42cd2423046a47236b188c725f014bbeeb245494574a2a2b13088`. Auditors and raw evidence are retained under
+`/private/tmp/xsl3-p7-merge-framework-20261106/`, including `review.json`,
+`verified-source-hashes.json` and `full-stack-conservation.json`.
+
+Immutable-list construction appears in 581 inclusive samples: 302 nearest `X31MergeNextGroup`,
+277 nearest `X31MergeRowNew` and two elsewhere. This supports inspecting per-group construction;
+it does not establish a removable elapsed-time percentage. The next distinct control will defer
+named-source group materialization using the merge's existing stable source order, preserving
+public helper signatures, saved styles, named-group contents and retained node identity. Its
+adoption still requires contract checks and the unchanged canonical paired measurements.
