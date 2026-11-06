@@ -1,5 +1,51 @@
 # P7 agent handoff after 1.1.7
 
+**Current integration checkout, 6 November 2026:** the rejected navigator runtime and tests are
+excluded. Its complete evidence and the current CI/push-memory audits are carried into the
+integration documentation. Full Debug units now run on unchanged `a4f7301` source, session 60509,
+with evidence under `/private/tmp/xsl3-p7-integrated-debug-20261106/`. Both framework suites and
+source/binary audits must finish. Both original memory matrices in 42173435783 pass their independent artifact audits: **32/32
+budgets, 96 valid outputs**, with maximum absolute RSS 17,498,112 bytes (push) and 32,305,152
+(nightly). The original throughput job remains live. See the [current gate record](p7-integrated-original-acceptance.md).
+No supported-streaming or release claim follows from memory qualification alone.
+
+**Navigator node-kind control closed without adoption, 6 November 2026:**
+The [complete navigator record](p7-navigator-node-kind.md) retains runtime/test `81e084f`, all
+28,218 full Release/Debug checks, 32 passing baseline controls and 60 independently audited
+canonical observations. Every timing range overlaps; identity is slightly slower. No Linux repeat
+or integration adoption is justified. All local qualification processes are terminal, including
+session 57323. The experiment remains on `feature/p7-navigator-node-kind`; PR #40 is unchanged.
+The original integration run 42173435783 has passed its push memory job; nightly memory and
+throughput remain active. Its [push artifact audit](p7-integrated-original-acceptance.md) verifies all 48 observations and
+16 budgets, with maximum absolute RSS 17,498,112 bytes. Earlier entries below are dated history.
+
+
+**Original integration gates running, 6 November 2026:**
+[42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) runs both original
+16-workload memory matrices and all 126 throughput observations on immutable `a4f7301`, after its
+ordinary CI and full artifact audit passed. All diagnostic switches are off. Before dispatch, no
+streaming workflow was queued or running; the actual new head and all three acceptance jobs verify.
+Source/controllers and executable audits are under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
+Recheck this same live run; do not restart it. This source includes the accepted merge improvement
+but neither the rejected attribute-cache change nor the active navigator experiment below.
+All outcomes are pending; the historical three-of-seven result is not a result for this head.
+
+
+**Navigator node-kind control started, 6 November 2026:** `feature/p7-navigator-node-kind`
+starts from documentation head `bb50e62` with integration runtime `a4f7301`. The
+[navigator control record](p7-navigator-node-kind.md) identifies 426 direct getter samples and
+verifies that the profiled navigator source exactly matches the baseline. Eight corrected focused
+cases pass on each framework; initial header-only rebinding failures reproduce on the baseline and
+are retained. Full warning-as-error Release/Debug validation, baseline controls and the original
+60-observation comparison run sequentially under `/private/tmp/xsl3-p7-navigator-node-kind-20261106/`.
+No gain or adoption is established. The rejected attribute-cache runtime/test are excluded.
+Integration CI 42167378456 passed all four jobs on remote/PR head `a4f7301`; the full
+[current-source artifact audit](p7-integrated-evidence-review.md) verifies 7,637/6,456 Release units
+per host, 80 named merge cases, 60 dispatch-position cases, unchanged strict inventories and all
+4,968 eligible Debug verifications. The run is terminal; do not restart it. Local integration `bb50e62`
+contains only the completed cache/native-audit documentation and is not yet pushed. Full P7 remains active.
+
+
 **Attribute-cache control closed without adoption, 6 November 2026:**
 `feature/p7-attribute-first-text` retains [the control and complete audit](p7-attribute-first-text.md).
 All 28,202 full Release/Debug checks and 16 baseline controls pass. The nullable-analysis correction

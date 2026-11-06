@@ -96,3 +96,38 @@ not prove the new head. The latest full original throughput run still records th
 identity, fork and source-document are now the next optimization targets. Both original memory
 matrices and all 126 throughput observations remain mandatory on final source. PR #40 stays draft,
 `supports-streaming` stays `no`, and no merge to main or release is authorized by these diagnostics.
+
+
+## Current merge integration CI complete
+
+All four jobs passed on `a4f7301` in [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456).
+The [current-head audit](p7-integrated-evidence-review.md) independently verifies both test archives,
+all full Release rows (7,637/6,456 per host), the 80 expanded named-merge and 60 physical-dispatch
+instances, unchanged strict inventories and stage accounting, all 4,968 eligible Debug verifications,
+and original/reviewed S1/S2 populations. Native/saved and ordinary micro artifacts also verify.
+The attribute-cache runtime is excluded after its inconclusive comparison; navigator node-kind work
+is isolated and unqualified. No original final-source memory/throughput qualification or full-P7
+completion follows from the green CI run. PR #40 remains draft.
+
+
+## Original acceptance dispatched on the CI-verified integration
+
+[42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) is the full original
+acceptance for immutable `a4f7301`: 209,715,200-byte inputs under 20,971,520-byte absolute/managed
+limits and 2,147,483,648-byte inputs under 209,715,200-byte limits, across all 16 NativeAOT workloads;
+plus all seven canonical throughput workloads at 1 MB, 100 MB and 1 GB, both modes, three rounds,
+with the original 4 GiB guard and all seven 100 MB targets required. Source/controller identity and
+the actual three running acceptance jobs are verified. No diagnostic mode or gate change is used.
+The changed merge runtime justifies this current-source qualification. Results remain pending and
+must be audited before replacing the historical component results. Evidence root:
+`/private/tmp/xsl3-p7-integrated-original-20261106/`. Neither isolated cache nor navigator code is included.
+
+## Current full Debug compatibility qualification
+
+The exact integrated runtime/test source `a4f7301` is running the full Debug unit suites on both
+.NET 10 and .NET 8, with warnings treated as errors and four configured processors. This fills the
+full-Debug gap left by the already-audited hosted Release suites and focused Debug contracts.
+The rejected navigator control's full suites do not substitute for this unchanged integration run.
+All 732 tracked runtime/test/consumer/controller source files were checked against `a4f7301` before
+starting. TRX-row, frozen-binary and PDB-source audits follow sequentially under
+`/private/tmp/xsl3-p7-integrated-debug-20261106/`. Session 60509 is live; do not restart it.
