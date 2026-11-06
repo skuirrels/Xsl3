@@ -11,6 +11,36 @@ ranges and a 0.987767 stream/tree ratio; other ranges overlap. The runtime chang
 integration CI. The predecessor artifacts below are historical evidence, not proof of the new head.
 All original final-source gates and release requirements remain active.
 
+## Current integration native and ordinary-performance audit
+
+Run [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) is on
+`a4f730130728480748112af547aa999426bcfbff`. Its NativeAOT and ordinary performance jobs passed;
+the Windows/Ubuntu platform jobs remain live at this check. The following completed artifacts
+were downloaded, checked against GitHub's digests, and independently audited:
+
+| Artifact | ID | Verified ZIP SHA-256 |
+|---|---:|---|
+| Native streaming probe | 13480350324 | `82efe644c4e4816ed03786145f5aa7a947fb6a9ff37be41f9c6ba8ab266df1ea` |
+| Ordinary performance | 13479338508 | `0afbb849306b2908344c85509a6b17d3489ad10599a7bcf3f106b5f4099b5142` |
+
+All 48 native smoke observations cover the 16 original workload names with exact 64 KiB baseline
+and 2 MiB measured input. Actual NativeAOT metadata, complete outputs, stdout/report agreement,
+matching tree/stream baseline fingerprints and whole-lifetime `wait4` RSS fields verify. The memory
+limit is zero: this is compatibility evidence, not either original memory-budget matrix. The archive
+does not retain the streaming probe executable, so no independent executable-file hash check is claimed.
+
+All 1,728 saved-style checks verify as distinct required scenarios: three fixture/compiler cohorts,
+24 styles and 192 scenarios per runtime, each on .NET 8, .NET 10 and NativeAOT. The reader bridge
+reports nine passing checks and native execution; both managed-intermediate rejection messages are
+retained. Exact artifact file hashes and the executable audit are under
+`/private/tmp/xsl3-p7-integration-head-a4f7301-20261106/`.
+
+The three ordinary-performance rounds per variant each contain all 40 rows. Recalculation of the
+39 gated row medians yields a time geometric ratio of **1.00127247** and a maximum allocation ratio
+of **1.00017326**, passing the unchanged ordinary gate. Cold startup remains reported separately.
+These rows do not replace the seven original P7 throughput workloads. Full current-head platform
+artifact review and original final-source qualification remain outstanding.
+
 ## Preceding integration head `32c845d`
 
 All four jobs in [CI 42148343009](https://github.com/skuirrels/Xsl3/actions/runs/42148343009) passed
