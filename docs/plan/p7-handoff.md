@@ -15,8 +15,20 @@ checks/removes the open-stack top. The next investigation is using current-event
 unnecessary stack lookups while retaining the existing frame-removal boundary. The rejected linked
 stack and method-splitting controls remain excluded. Sample counts do not establish an elapsed-time
 gain. Runtime/tests and canonical consumers remain `a4f7301`; full Debug qualification is complete.
-Integration CI 42175873435 remains live on documentation head `4024e19`; PR #40 remains draft.
+All four jobs in integration CI 42175873435 now pass on documentation head `4024e19`; its runtime,
+tests and consumers are unchanged from `a4f7301`. The independent artifact audit remains scoped to
+the earlier `a4f7301` run. PR #40 remains draft.
 Earlier entries below retain their dated scope and do not override this current state.
+
+**Current source-event control, 6 November 2026:** `feature/p7-current-event-stack` isolates
+[a current-event guard before stack cleanup](p7-current-event-stack.md). Review found and corrected
+a reader-failure/retry defect in the initial control; the new cases pass the baseline, fail that
+withdrawn runtime and pass the correction on both frameworks. The corrected affected contracts
+and serial paired timing are running under `/private/tmp/xsl3-p7-current-event-stack-corrected-20261106/`.
+Session `75871` is live, with all 4,344 selected .NET 10 Release checks passing. Observe that same
+session and the serial `qualify.py` logs; do not restart it or run competing local benchmarks.
+No timing benefit or adoption is established. Do not merge this experimental runtime into PR #40
+without completed regression and paired-performance qualification.
 
 **Paired CPU diagnostic and Debug qualification complete, 6 November 2026:**
 `feature/p7-tree-stream-cpu` retains [the same-host capture](p7-tree-stream-cpu.md) from terminal
