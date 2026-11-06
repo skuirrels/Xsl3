@@ -1,13 +1,17 @@
 # P7 agent handoff after 1.1.7
 
-**Merge source-group control started, 6 November 2026:** `feature/p7-merge-source-groups` starts
-from the audited profile record `9a5948d`. Framework-symbol run 42163291085 completed; original
-outputs, retained binaries, source checksums and all 24,395 samples verify. The distinct
-[deferred named-source group control](p7-merge-source-groups.md) preserves existing public/saved
-helpers and input advancement. Contract tests and canonical paired measurements determine adoption.
-Integration remains `402cbed`; all four jobs in CI 42159708129 are now successful. This is a
-verified hosted job-state result; its raw artifacts have not been independently reaudited. The
-prior source-identical `32c845d` audit remains the detailed compatibility evidence. Full P7 remains open.
+**Merge source-group control, 6 November 2026:** `feature/p7-merge-source-groups` contains the
+corrected runtime/compiler candidate `370178a`. All 7,976 affected checks and a fresh 80-case
+baseline comparison pass. QIL inspection proves the original combined-group action omits the
+unused named-source binding, while named-group controls retain it. All 60 canonical local
+observations verify; merge improves 4.24% with fully separated sample ranges. Other ranges overlap.
+The [complete control record](p7-merge-source-groups.md) retains the inconclusive runtime-only
+variant and the corrected compiler-capture defect. Linux comparison
+[42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) is live at `370178a`
+against `402cbed`. Recheck this same run; its outcome determines adoption.
+Integration remains `402cbed`; all four CI 42159708129 jobs passed. Its raw artifacts were not
+independently reaudited; the source-identical `32c845d` audit remains the detailed evidence.
+The original Phase 7 requirements and draft PR #40 remain open.
 
 **Snapshot cursor control closed, 6 November 2026:** `feature/p7-snapshot-cursor` retains the
 [implementation and complete audit](p7-snapshot-cursor.md) without adoption. All 7,976 affected

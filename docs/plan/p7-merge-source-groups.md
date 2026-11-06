@@ -61,10 +61,10 @@ no named-group reference in the action. The runtime-only change therefore does n
 intended demand behavior in this workload. The isolated inspection uses the frozen candidate engine
 and byte-identical canonical stylesheet; its source, build log, XML and JSON are retained in `qil/`.
 
-The next variant will lower source-group access at each actual named-group use rather than create
-an unconditional binding. Runtime caching preserves repeated lookup and the existing XDM array
-representation. It needs fresh affected tests, source/binary verification and a separate comparison;
-retain the initial results and do not repeat the unchanged runtime-only variant.
+The follow-up below investigates compiler lowering so an action without any named-group reference
+can avoid the source-array binding. Runtime caching preserves the existing XDM array representation.
+It uses fresh affected tests, source/binary verification and a separate comparison. The initial
+results remain retained; do not repeat the unchanged runtime-only variant.
 
 Raw evidence is retained under `/private/tmp/xsl3-p7-merge-source-groups-20261106/`.
 The original four failed throughput targets, both final-source memory matrices, all 126 throughput
@@ -94,5 +94,28 @@ stylesheet file matches the baseline revision byte for byte. The first named dia
 had an XML quote-escaping error; the corrected diagnostic changes only that control string. This
 is outside the canonical benchmark and does not change the source or timings of the gate workloads.
 
-A fresh 60-observation comparison is running under
-`/private/tmp/xsl3-p7-merge-source-lowering-corrected-20261106/`; no benefit or adoption is established.
+All 60 corrected local observations validate with the original 100 MB inputs/output fingerprints,
+unchanged consumer/dependencies, actual 4 GiB heap, four reported CPUs, disabled tiering and normal
+ReadyToRun policy. Frozen baseline/candidate binaries and all 409 tracked engine source checksums
+per variant verify. These are macOS ARM64 diagnostics, not Linux acceptance.
+
+| Workload | Baseline stream median (ms) | Candidate stream median (ms) | Candidate / baseline | Ranges overlap |
+|---|---:|---:|---:|---|
+| Identity | 2,086.842 | 2,094.711 | 1.003771 | Yes |
+| Accumulator | 2,052.204 | 2,031.734 | 0.990025 | Yes |
+| Merge | 3,319.379 | 3,178.679 | 0.957613 | No |
+| Fork | 1,510.591 | 1,532.197 | 1.014303 | Yes |
+| Source-document | 2,107.220 | 2,079.426 | 0.986810 | Yes |
+
+Merge's baseline samples are 3,278.941084 /3,403.668833 /3,319.378750 ms; candidate samples are
+3,163.848292 /3,179.878833 /3,178.678708 ms. Every candidate sample is faster, and the median
+improves 4.24%. This justifies a Linux comparison; it does not yet justify integration.
+
+Baseline engine SHA-256: `4a454adc501c00eace78bb495d62182ea45979ecb3df9bc730fc70ab40bc43d1`.
+Candidate engine SHA-256: `e0c2e9fa1fefeee5bd02e0ca0964b63b1dc36c53b48a7e1337aebbc1346807bb`.
+The tested runtime/compiler source is committed at `370178a3965db6ac111f46df2649f358b7494c9f`.
+Raw evidence and auditors are under `/private/tmp/xsl3-p7-merge-source-lowering-corrected-20261106/`.
+
+[Linux comparison 42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) is live
+on candidate `370178a`, using the unchanged controller against integration `402cbed`. Recheck this
+same run before any replacement. No runtime adoption, original gate pass, merge or release is claimed.
