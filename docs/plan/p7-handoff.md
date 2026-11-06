@@ -1,5 +1,33 @@
 # P7 agent handoff after 1.1.7
 
+**Built-in text dispatch investigation, 6 November 2026:**
+`feature/p7-builtin-text-dispatch` starts from validated integration `32c845d`, excluding the rejected
+fork-name cache. The [compiler control](p7-builtin-text-dispatch.md) keeps the existing shallow-copy
+operation but bypasses text dispatch only when the effective matcher proves no user rule can match
+text. All 2,794 affected Release/Debug checks and 320 baseline semantic controls pass. The audited 60-observation
+local comparison gives 1.64%/1.93% lower identity/source-document medians, with every candidate sample
+faster than every baseline sample for those workloads. This justifies one paired Linux comparison.
+No adoption or full-P7 gate claim is made. This branch also carries the prior fresh integration CI
+audit and fork-name-cache rejection below as documentation only.
+
+**Fork attribution update, 6 November 2026:** the unchanged integration source `32c845d` has a
+new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 42149213380.
+The original 1 GB outputs, artifact/binary/source hashes and all sample counts verify. The isolated
+`feature/p7-fork-name-cache` is **closed without adoption**. All 2,298 affected Release/Debug checks
+and all 60 corrected local paired observations pass, but the local 6.48% fork gain does not reproduce
+in [Linux comparison 42152035144](https://github.com/skuirrels/Xsl3/actions/runs/42152035144),
+candidate `d571953` / baseline `32c845d`. All 60 Linux observations and source hashes verify;
+fork's median is 0.28% slower, all five ranges overlap, and fork stream/tree remains 1.198992.
+Do not integrate this cache or repeat its comparison without new evidence. The corrected null-argument
+defect and all initial results are retained on its branch. Full Debug units for integration `32c845d` passed all 14,053
+checks; raw results, frozen-binary checks and the final audit are under
+`/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. All four jobs in CI 42148343009 passed.
+Both test artifacts are independently audited: full Release units pass 7,613/6,440 per platform,
+all 60 hosted exact-dispatch cases pass, strict inventories remain 2,696/16/0, all 4,968 eligible Debug
+verifications complete, and reviewed S1/S2 acceptance and stage accounting are unchanged. See the
+[current-head evidence update](p7-integrated-evidence-review.md). These results do not replace original P7 performance qualification,
+and no full-P7 completion or merge is claimed.
+
 **Integrated evidence update, 6 November 2026:** all four jobs in
 [CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
 The [current evidence review](p7-integrated-evidence-review.md) independently rechecks strict inventories,

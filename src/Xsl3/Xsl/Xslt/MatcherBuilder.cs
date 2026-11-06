@@ -332,6 +332,9 @@ namespace Xsl3.Xslt
 
         private readonly List<List<TemplateMatch>> _allMatches = new List<List<TemplateMatch>>();
 
+        // A heterogeneous pattern may match text even when no text() pattern occurs.
+        internal bool MayMatchText => _textPatterns.Count != 0 || _heterogenousPatterns.Count != 0;
+
         private void Clear()
         {
             _priority = -1;

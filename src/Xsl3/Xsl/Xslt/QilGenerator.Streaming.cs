@@ -20,6 +20,42 @@ namespace Xsl3.Xslt
         private HashSet<QilName>? _itemModes31;
         private bool _itemAllModes31;
 
+        private readonly HashSet<QilFunction> _builtinTextCopyFunctions31 = new();
+
+        private QilNode InvokeWithBuiltinTextCopy31(QilFunction function, QilList arguments)
+        {
+            QilNode invoke = _f.Invoke(function, arguments);
+            if (!_builtinTextCopyFunctions31.Contains(function) || arguments[0] is not QilIterator current)
+                return invoke;
+
+            // Explicit parameters retain their call boundary and evaluation behavior
+            // even when the built-in rule ignores them.
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                QilName name = ((QilParameter)function.Arguments[i]).Name!;
+                if (!(name.Equals(_nameCurrent) || name.Equals(_namePosition)
+                        || name.Equals(_nameLast) || name.Equals(_nameTunnel)))
+                    return invoke;
+            }
+
+            // Bind computed implicit arguments outside the branch, preserving their
+            // evaluation. Tunnel frames can contain user-supplied parameter values.
+            var bindings = new List<QilIterator>();
+            for (int i = 1; i < arguments.Count; i++)
+            {
+                if (arguments[i] is QilIterator or QilLiteral) continue;
+                QilIterator binding = _f.Let(arguments[i]);
+                bindings.Add(binding);
+                arguments[i] = binding;
+            }
+
+            // Keep XsltCopy: ordinary text construction would lose raw-text metadata
+            // when a streamed stylesheet is applied to a grounded temporary tree.
+            QilNode result = _f.Conditional(_f.IsType(current, T.Text), _f.XsltCopy(current, _f.Sequence()), invoke);
+            for (int i = bindings.Count - 1; i >= 0; i--) result = _f.Loop(bindings[i], result);
+            return result;
+        }
+
         /// <summary>The result type of a template's function: item* if it may return items other than nodes.</summary>
         private XmlQueryType TemplateType31(ProtoTemplate tmpl) =>
             ItemTemplates31().Contains(tmpl) ? T.ItemS : T.NodeNotRtfS;

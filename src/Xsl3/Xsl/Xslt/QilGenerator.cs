@@ -3306,6 +3306,14 @@ namespace Xsl3.Xslt
                 functionsForMode.Add(applyFunction);
                 _functions.Add(applyFunction);
 
+                if (IsV2 && StreamedCompilation31 && !IsDebug && !_compiler.Settings.EnableTracing
+                    && _compiler.Settings.MaxRecursionDepth == 0
+                    && _compiler.ModeDecls.TryGetValue(mode, out ModeDecl? copyMode) && copyMode.OnNoMatch == "shallow-copy")
+                {
+                    _matcherBuilder.CollectPatterns(sheet, mode, nextMatchBelow, _belowMatch31);
+                    if (!_matcherBuilder.MayMatchText) _builtinTextCopyFunctions31.Add(applyFunction);
+                }
+
                 // 3. Function body
                 Debug.Assert(actualArgs[0].Name == _nameCurrent, "Caller should always pass $current as a first argument to apply-* calls.");
                 QilIterator current = (QilIterator)formalArgs[0];
@@ -3401,7 +3409,7 @@ namespace Xsl3.Xslt
                 }
                 _currentTunnel = savedTunnel;
             }
-            return _f.Invoke(applyFunction, invokeArgs);
+            return InvokeWithBuiltinTextCopy31(applyFunction, invokeArgs);
         }
 
         // -------------------------------- IErrorHelper --------------------------------
