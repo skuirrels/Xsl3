@@ -6,6 +6,14 @@ preservation and a 256-event default. It now also includes the [qualified merge 
 change](p7-merge-source-groups.md), runtime/compiler `370178a`, through candidate history `f308ab8`.
 Merged main `8bdec4c`, including PRs #34–38, is retained.
 
+The next integration adds [current-event stack cleanup](p7-current-event-stack.md), runtime/test
+source `1ef7c32`. The source reader avoids stack-top lookups for events that cannot close an element,
+while retaining the original end check for retry after a reader error. All 15,834 affected checks
+and 60 local /60 Linux paired observations verify. Identity's median improves 0.63% locally and
+3.99% on Linux with separated ranges; no benefit is claimed for the overlapping other workloads.
+Full compatibility and hosted CI on the new integration head are pending. Original final-source
+memory/throughput qualification, all remaining obligations, supported claims and release remain required.
+
 ## Why combine these changes
 
 The public policy implements the original Strict/Fallback API requirement. Corrected discard has
@@ -15,7 +23,7 @@ throughput gate still passes only three of seven targets. Combining them is prep
 qualification, not approval to merge or publish.
 
 Compared with `a8d322a`, the integrated runtime includes `XsltSettings`' public execution
-selection and the qualified deferred source-group construction/compiler binding change. Canonical benchmark consumers, stylesheets, generated inputs, output
+selection, deferred source-group construction/compiler binding and current-event stack cleanup. Canonical benchmark consumers, stylesheets, generated inputs, output
 oracles and original gate controllers are unchanged. The merge adds no runtime from the rejected
 short-polling, tail-call, lazy-header, compact-producer, linked-stack or speculative-refill controls.
 
@@ -124,10 +132,15 @@ must be audited before replacing the historical component results. Evidence root
 
 ## Current full Debug compatibility qualification
 
-The exact integrated runtime/test source `a4f7301` is running the full Debug unit suites on both
-.NET 10 and .NET 8, with warnings treated as errors and four configured processors. This fills the
-full-Debug gap left by the already-audited hosted Release suites and focused Debug contracts.
-The rejected navigator control's full suites do not substitute for this unchanged integration run.
+The exact integrated runtime/test source `a4f7301` passes all **14,093** full Debug unit checks:
+**7,637 .NET 10 /6,456 .NET 8**, no failures/skips, warnings treated as errors and four configured
+processors. This fills the full-Debug gap left by the already-audited hosted Release suites and
+focused Debug contracts. The rejected navigator control's full suites are separate evidence.
+
 All 732 tracked runtime/test/consumer/controller source files were checked against `a4f7301` before
-starting. TRX-row, frozen-binary and PDB-source audits follow sequentially under
-`/private/tmp/xsl3-p7-integrated-debug-20261106/`. Session 60509 is live; do not restart it.
+starting. Every TRX row and unique execution ID verifies. Both framework engine/test binary sets are
+frozen and independently hashed; all 409 runtime and 200 test PDB source checksums per framework
+match the exact integration source. Raw results, executable audits, source manifest and frozen
+binaries are retained under `/private/tmp/xsl3-p7-integrated-debug-20261106/`.
+Session 60509 completed successfully; do not restart it. No runtime or test source changed during
+the suites. Subsequent documentation and the isolated CPU workflow do not change that source.

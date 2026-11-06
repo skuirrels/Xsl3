@@ -17,6 +17,11 @@
   sole consumer. Preserve logical source positions, reader validation, demand bounds and cancellation;
   replay, observers and other consumers retain the full event path. This remains under qualification.
 
+- Defer per-source merge-group construction until named groups are requested, preserving captured
+  group values, source order and identity. Avoid unnecessary open-element stack lookups during
+  streamed traversal while preserving reader-error retry behavior. Both changes remain subject to
+  full P7 integration qualification.
+
 ## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
 
 - Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0

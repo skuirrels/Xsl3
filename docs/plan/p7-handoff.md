@@ -1,5 +1,64 @@
 # P7 agent handoff after 1.1.7
 
+**Current integration work, 6 November 2026:** `feature/p7-integrated-qualification` now incorporates
+the qualified [current-event stack runtime and retry contracts](p7-current-event-stack.md) from `1ef7c32`.
+The Linux comparison is terminal and audited; all 60 outputs verify and identity improves 3.99%
+with separated ranges. Full local unit qualification and hosted CI must now verify the integrated
+source. The diagnostic workflow/reporting changes are excluded. PR #40 remains draft; the original
+memory/throughput results below are for predecessor `a4f7301`, not this new source.
+
+**Original integration gates and instruction diagnostic audited, 6 November 2026:**
+[42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) is terminal. Its
+[complete original audit](p7-integrated-original-acceptance.md) verifies **32/32 memory budgets,
+96 memory outputs and all 126 throughput observations** on `a4f7301`. Four of seven targets pass;
+identity **1.180101**, fork **1.516701** and source-document **1.144763** still fail their stream/tree
+median requirements. Merge now passes at **0.987935**. Separate cohorts are not paired speedup
+comparisons; do not retry unchanged source for favorable medians. Every original requirement remains.
+
+`feature/p7-source-instructions` retains the completed [same-child instruction audit](p7-source-instructions.md)
+from successful run 42179533851. All 26,315 CPU samples are conserved; all 1,305 direct `ReadNextCore`
+samples map to instruction starts in that child's emitted method. The largest block (213 samples)
+checks/removes the open-stack top. The next investigation is using current-event state to avoid
+unnecessary stack lookups while retaining the existing frame-removal boundary. The rejected linked
+stack and method-splitting controls remain excluded. Sample counts do not establish an elapsed-time
+gain. Runtime/tests and canonical consumers remain `a4f7301`; full Debug qualification is complete.
+All four jobs in integration CI 42175873435 now pass on documentation head `4024e19`; its runtime,
+tests and consumers are unchanged from `a4f7301`. The independent artifact audit remains scoped to
+the earlier `a4f7301` run. PR #40 remains draft.
+Earlier entries below retain their dated scope and do not override this current state.
+
+**Current source-event control, 6 November 2026:** `feature/p7-current-event-stack` isolates
+[a current-event guard before stack cleanup](p7-current-event-stack.md). Review found and corrected
+a reader-failure/retry defect in the initial control; the new cases pass the baseline, fail that
+withdrawn runtime and pass the correction on both frameworks. The corrected affected contracts
+and serial paired timing are complete under `/private/tmp/xsl3-p7-current-event-stack-corrected-20261106/`.
+Session `75871` is terminal and successful: **15,834 checks and all 60 original paired outputs**
+verify, including frozen binaries and tracked PDB sources. Identity's local median is 0.63% lower
+with separated ranges; all other ranges overlap, including accumulator's 1.18% higher median.
+[Linux comparison 42192860169](https://github.com/skuirrels/Xsl3/actions/runs/42192860169) is now terminal
+and independently audited: all 60 observations, 409 runtime sources per engine and 14 consumer
+sources verify. Identity improves **3.99%**, with separated ranges; other ranges overlap, including
+source-document's **0.52% higher** median. The repeated identity result justifies integration for
+full compatibility qualification. Keep PR #40 draft: all three identity/fork/source-document targets
+still fail in this diagnostic, and no original final-source gate or release pass is established.
+
+**Paired CPU diagnostic and Debug qualification complete, 6 November 2026:**
+`feature/p7-tree-stream-cpu` retains [the same-host capture](p7-tree-stream-cpu.md) from terminal
+successful run 42176230838, controller `1364f77` / runtime source `a4f7301`. Both original 1 GB
+outputs, retained binaries and 409/14 tracked PDB sources verify; stream/tree traces contain
+26,388 /28,704 CPU samples with zero lost events. Full-stack counts are conserved. Their different
+collection windows prohibit an elapsed-time or removable-CPU-share claim. The next source
+investigation is the hot instruction regions in `StreamedDocument.ReadNextCore`; do not repeat
+closed cache/header controls without new evidence. The rejected runtime experiments remain excluded.
+
+Full Debug integration session 60509 is also terminal and successful: **14,093 checks** (7,637 .NET 10,
+6,456 .NET 8), every row and frozen binary audited, 409 runtime /200 test PDB sources per framework.
+The [qualification record](p7-integrated-qualification.md) contains the exact source and evidence.
+Integration docs are pushed at `4024e19`; CI 42175873435 remains live on that documentation head.
+The original throughput run 42173435783 remains live; both of its memory matrices are independently
+verified at **32/32 budgets and 96 valid outputs**. Do not restart either active run. Current runtime,
+tests and benchmark consumers remain `a4f7301`; supported streaming, merge and release remain unproven.
+
 **Current integration checkout, 6 November 2026:** the rejected navigator runtime and tests are
 excluded. Its complete evidence and the current CI/push-memory audits are carried into the
 integration documentation. Full Debug units now run on unchanged `a4f7301` source, session 60509,

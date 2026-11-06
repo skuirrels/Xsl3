@@ -1,5 +1,13 @@
 # P7 completion
 
+**Source-stack integration, 6 November 2026:** draft PR #40 now adds the qualified
+[current-event stack control](p7-current-event-stack.md), runtime/test source `1ef7c32`.
+All 15,834 affected Release/Debug checks pass. Both 60-observation paired comparisons verify;
+identity improves 0.63% locally and 3.99% on Linux with separated ranges. Other workload ranges
+overlap; Linux source-document's median is 0.52% higher. Full compatibility and reviewed-head CI
+are the next gates. The original `a4f7301` results below remain predecessor evidence, not qualification
+of this added runtime change. All original targets, supported-feature review and release remain required.
+
 **Current integration qualification, 6 November 2026:** all four jobs in
 [CI 42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) passed on `a4f7301`.
 The [completed current-source audit](p7-integrated-evidence-review.md) verifies both platform
@@ -7,17 +15,17 @@ unit artifacts, strict inventories, reviewed S1/S2, stage accounting and native/
 The merge improvement is included; the rejected attribute-cache and isolated navigator controls
 are excluded from this source.
 
-The full original acceptance is now running on the same immutable `a4f7301` in
-[42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783): both 16-workload NativeAOT
-memory matrices and all 126 throughput observations. No diagnostic switch or threshold change was
-used. The run's actual head and its three active acceptance jobs were verified, and the original
-controllers are retained under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
-This new qualification is justified by the adopted merge runtime/compiler change; it is not a retry
-of unchanged source. The [two memory audits](p7-integrated-original-acceptance.md) pass all 32 original budgets and
-96 observations: maximum absolute RSS is 17,498,112 bytes for push and 32,305,152 for nightly.
-Both memory jobs are terminal; throughput is still running.
-The earlier three-of-seven throughput result remains
-historical until this new cohort is complete and independently audited. Do not restart the live run.
+The [full original acceptance audit](p7-integrated-original-acceptance.md) is complete on the same
+immutable `a4f7301` in [42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783).
+Both memory matrices pass: **32/32 budgets and 96 valid outputs**, maximum absolute RSS
+17,498,112 bytes (push) and 32,305,152 bytes (nightly). All **126 throughput observations** are valid,
+but only **four of seven original 100 MB targets** pass. Stream/tree ratios are identity **1.180101**,
+adjacent **0.862840**, accumulator **0.994798**, iterate **0.934988**, merge **0.987935**, fork **1.516701**
+and source-document **1.144763**. Identity, fork and source-document remain open. This replaces the
+historical component cohort as current integration evidence; separate-cohort changes are not paired
+speedups. No input, oracle, controller or threshold was relaxed. All original-gate jobs are terminal;
+do not repeat unchanged source for favorable medians. Source, artifacts and independent audits are
+retained under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
 Full P7 remains active with every original completion and publication requirement intact.
 
 

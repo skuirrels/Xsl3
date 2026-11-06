@@ -353,7 +353,13 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
             while (_projectedDiscard != null) ReadProjectedDiscard();
             return;
         }
-        if (_open.Count > 1 && _open[^1].Ended) _open.RemoveAt(_open.Count - 1);
+        // Only the current element can close the top frame. Leaf events and open
+        // elements leave it in place, so they need no stack-top lookup here.
+        if (_current.Kind == XPathNodeType.Element && _current.Ended && _open.Count > 1 && _open[^1].Ended)
+        {
+            System.Diagnostics.Debug.Assert(_open[^1] == _current);
+            _open.RemoveAt(_open.Count - 1);
+        }
         if (_reader is ForkEventReader fork)
         {
             ReadForkEvent(fork);

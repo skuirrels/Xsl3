@@ -15,7 +15,7 @@ absolute RSS limits, heap guards and seven throughput targets are unchanged. Cur
 |---|---|
 | Push: 200 MiB input, 20 MiB absolute RSS and managed guard, 16 workloads | Passed and independently audited: 48 valid observations, all 16 budgets |
 | Nightly: 2 GiB input, 200 MiB absolute RSS and managed guard, 16 workloads | Passed and independently audited: 48 valid observations, all 16 budgets |
-| Throughput: 126 observations, seven original 100 MB targets | Running; recheck the same run |
+| Throughput: 126 observations, seven original 100 MB targets | All 126 observations valid; four targets pass, three fail |
 
 ## Push memory audit
 
@@ -63,10 +63,42 @@ iterate and type inspection retain their EOF-dependent results at the full night
 matrix jobs are terminal. Together they prove **32/32 original budgets and 96 valid outputs** on
 this integrated source; neither matrix needs an unchanged-source retry.
 
+## Completed original throughput audit
+
+All **126** original observations validate, with no child failure, timeout or incorrect output.
+The independent audit verifies every size/workload/mode/round, raw stdout equality, original output
+fingerprints, four reported processors, disabled tiering, the effective 4 GiB allowance, retained
+engine/consumer hashes, original controller hash and all 409/14 tracked PDB source checksums.
+The workflow fails because **three original 100 MB median targets are unmet**, not because outputs
+or observations were discarded. All original requirements remain unchanged.
+
+| Workload | Tree median (ms) | Stream median (ms) | Stream/tree | Original target |
+|---|---:|---:|---:|---|
+| identity | 4345.374 | 5127.982 | 1.180101 | Fail |
+| adjacent | 2978.729 | 2570.166 | 0.862840 | Pass |
+| accumulator | 5231.135 | 5203.924 | 0.994798 | Pass |
+| iterate | 3015.402 | 2819.365 | 0.934988 | Pass |
+| merge | 9724.763 | 9607.438 | 0.987935 | Pass |
+| fork | 3302.519 | 5008.933 | 1.516701 | Fail |
+| source-document | 4445.760 | 5089.340 | 1.144763 | Fail |
+
+Merge now passes in this complete integration cohort. Identity, fork and source-document remain
+open; accumulator is close to its unchanged threshold. The preceding component cohort remains
+historical evidence. Differences between separate hosts/cohorts are not paired speedup estimates.
+
+- Artifact: `13483644827` (`streaming-benchmark-nightly`), expires 4 February 2027.
+- ZIP SHA-256: `3918e5c362a291efe044decb95040d0578393de52981c86519d4b5dd95794a86`.
+- Report SHA-256: `4dcd53e532f3514f0ca08fe22b642229d1a26353ab355669e1e3c37d30ce929b`.
+- Engine SHA-256: `6e304ffcd90b7c63a0be1364fb0704e8d227f14e391adb9e2c271fe29caeea7b`.
+- Consumer SHA-256: `1df68e8bfabea6dffc7c6e26656ab031c5e399ff7fc7ea980d61e00bc51af7a4`.
+
+`throughput-review.json`, its executable audit and all 126 raw outputs are retained in the evidence
+root above. All jobs in 42173435783 are terminal. Do not restart this unchanged-source gate to seek
+favorable medians. Qualify changed final runtime source against the same complete requirements.
+
 ## Completion boundary
 
-The active throughput job must finish and be independently audited. The passing memory matrices
-do not complete P7. Final integrated source still requires all original gates, full compatibility,
-physical-input/first-output evidence, supported claims, review/merge and matching NuGet/GitHub release.
-The older three-of-seven throughput result applies only to its historical component cohort;
-no throughput result is yet established for this integration head.
+Both memory matrices pass, but only four of seven throughput targets pass. Full Phase 7 remains
+incomplete. Resolve identity, fork and source-document throughput, then qualify final reviewed
+source against every original gate, full compatibility and physical-input/first-output contracts.
+Supported claims, final review/CI/merge and matching NuGet/GitHub publication remain required.

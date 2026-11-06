@@ -1,5 +1,15 @@
 # P7 integrated acceptance evidence, 6 November 2026
 
+## Added source-stack runtime: full integration qualification pending
+
+The integration candidate now includes the [current-event stack control](p7-current-event-stack.md)
+and two reader-retry contracts from runtime/test source `1ef7c32`. Its 15,834 affected checks and both
+60-observation paired comparisons are independently audited. Linux identity improves 3.99% with
+separated ranges; other ranges overlap, including source-document's 0.52% higher median. Full unit
+and reviewed-head CI results for this new integration are not yet established. The complete `a4f7301`
+audits below remain explicitly scoped to the predecessor source. No original final-source acceptance
+or supported-streaming claim follows from bringing this qualified control into the draft PR.
+
 ## Current integration head `a4f7301`: CI and artifact audit complete
 
 All four jobs in [CI 42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456)
@@ -41,6 +51,19 @@ Both archives, raw reports, regenerated fixtures and executable audits are retai
 `native-perf-review.json`). The run is terminal: do not restart it or treat the earlier live-job notes
 as current status.
 
+
+## Full Debug units on the exact integrated source
+
+After the hosted Release audit, both complete local Debug suites pass on unchanged runtime/test
+source `a4f7301`: **7,637 .NET 10 /6,456 .NET 8**, **14,093 total**, with no failures or skips and
+warnings treated as errors. All TRX rows and unique execution IDs, four engine/test binaries and
+409 runtime /200 test tracked PDB source checksums per framework verify. The 732-file source
+manifest matches `a4f7301`. The rejected navigator test/runtime is excluded.
+
+Evidence: `/private/tmp/xsl3-p7-integrated-debug-20261106/`, including `source-manifest.json`,
+`validation-review.json`, all raw TRXs/logs, frozen DLLs/PDBs and executable validation/audit scripts.
+This closes the current integration's full Debug-unit gap; original throughput and the other final
+P7 requirements remain separate. Session 60509 is terminal and successful.
 
 ## Changed runtime: merge source groups
 
