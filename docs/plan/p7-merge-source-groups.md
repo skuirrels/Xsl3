@@ -116,9 +116,9 @@ Candidate engine SHA-256: `e0c2e9fa1fefeee5bd02e0ca0964b63b1dc36c53b48a7e1337aeb
 The tested runtime/compiler source is committed at `370178a3965db6ac111f46df2649f358b7494c9f`.
 Raw evidence and auditors are under `/private/tmp/xsl3-p7-merge-source-lowering-corrected-20261106/`.
 
-[Linux comparison 42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) is live
-on candidate `370178a`, using the unchanged controller against integration `402cbed`. Recheck this
-same run before any replacement. No runtime adoption, original gate pass, merge or release is claimed.
+[Linux comparison 42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) completed
+successfully on candidate `370178a`, using the unchanged controller against integration `402cbed`.
+The independently audited outcome is recorded below.
 
 ## Additional named-closure review
 
@@ -130,4 +130,37 @@ baseline engines. These are stronger reruns of the named-source cases, not 160 n
 The auditor verifies all eight raw result sets, unique execution identifiers, engine/test hashes and
 200 test-source PDB checksums per configuration/framework. Evidence is retained under
 `/private/tmp/xsl3-p7-merge-source-closures-20261106/`. Runtime, compiler, consumer and controllers
-remain byte-identical in source to `370178a`, the candidate in the live Linux comparison.
+remain byte-identical in source to `370178a`, the candidate in the completed Linux comparison.
+
+## Linux outcome and integration decision
+
+The independent audit verifies all 60 observations, original output fingerprints, actual 4 GiB heap,
+four reported CPUs, disabled tiering, original controller hashes, unchanged consumer/dependencies,
+retained binary hashes and 409 tracked PDB source checksums per engine. Merge improves 3.93% with
+fully separated ranges. Its candidate stream/tree median ratio is 0.987767 in this paired diagnostic.
+
+| Workload | Baseline stream median (ms) | Candidate stream median (ms) | Candidate / baseline | Candidate stream / tree | Ranges overlap |
+|---|---:|---:|---:|---:|---|
+| identity | 3,821.861 | 3,841.669 | 1.005183 | 1.041462 | Yes |
+| accumulator | 3,918.903 | 3,920.444 | 1.000393 | 0.768590 | Yes |
+| merge | 6,311.366 | 6,063.242 | 0.960686 | 0.987767 | No |
+| fork | 3,006.628 | 3,167.272 | 1.053430 | 1.122432 | Yes |
+| source-document | 3,823.673 | 3,847.913 | 1.006339 | 1.040296 | Yes |
+
+Merge's baseline samples are 6,311.366358 /6,390.135956 /6,271.243029 ms; candidate samples are
+6,072.067479 /6,021.593734 /6,063.241822 ms. Fork's median is 5.34% higher, with overlapping
+ranges: baseline 3,006.627621 /3,562.504954 /2,916.556115 ms and candidate
+3,353.877385 /2,935.911256 /3,167.272130 ms. No fork benefit or resolution is claimed.
+
+The reproducible merge gain justifies carrying this bounded change into the draft integration
+branch. This is not a full original gate pass: the latest complete 126-observation qualification
+remains the earlier three-of-seven result. Identity, fork and source-document remain optimization
+targets; all seven original targets and both memory matrices must be rerun and pass on final source,
+along with complete compatibility, physical-I/O evidence, supported claims, review/merge and release.
+
+Artifact `13479272141` expires on 2027-02-04. ZIP SHA-256:
+`f7b3743f6a852681a6363539e40594faa54acf827e04f66bb22ec1a63a333bbf`.
+Baseline engine SHA-256: `ba00584de9cd0ea454061c331dd0f674dab6fc9c7420504141ecd3aa436a97a4`.
+Candidate engine SHA-256: `1b380f9e126524facef2927ed8fa9d1a05032938124a776b86ce619ed4ddf7cb`.
+Raw evidence and `audit.py`/`review.json` are retained under
+`/private/tmp/xsl3-p7-merge-source-groups-linux-20261106/`.

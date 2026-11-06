@@ -1,17 +1,19 @@
 # P7 agent handoff after 1.1.7
 
-**Merge source-group control, 6 November 2026:** `feature/p7-merge-source-groups` contains the
-corrected runtime/compiler candidate `370178a`. All 7,976 affected checks and a fresh 80-case
-baseline comparison pass. QIL inspection proves the original combined-group action omits the
-unused named-source binding, while named-group controls retain it. All 60 canonical local
-observations verify; merge improves 4.24% with fully separated sample ranges. Other ranges overlap.
-The [complete control record](p7-merge-source-groups.md) retains the inconclusive runtime-only
-variant and the corrected compiler-capture defect. Linux comparison
-[42166241534](https://github.com/skuirrels/Xsl3/actions/runs/42166241534) is live at `370178a`
-against `402cbed`. Recheck this same run; its outcome determines adoption.
-Integration remains `402cbed`; all four CI 42159708129 jobs passed. Its raw artifacts were not
-independently reaudited; the source-identical `32c845d` audit remains the detailed evidence.
-The original Phase 7 requirements and draft PR #40 remain open.
+**Merge source-group control qualified for integration, 6 November 2026:** runtime/compiler
+`370178a` passes 7,976 affected checks and a fresh 80-case baseline comparison. The expanded named
+closure regression passes another 80 cases on each frozen engine; these are strengthened reruns,
+not new distinct cases. QIL confirms unused source-group bindings are absent and named bindings
+remain. All 60 local and 60 Linux observations independently verify. Merge improves 4.24% locally
+and 3.93% on Linux with fully separated ranges; the Linux candidate stream/tree ratio is 0.987767.
+Other ranges overlap; the higher fork median remains explicit. See the
+[complete source-group record](p7-merge-source-groups.md), including the initial inconclusive
+runtime-only variant and corrected compiler-capture defect. Linux run 42166241534 is terminal;
+do not restart it. The change is ready to carry into draft integration and run integration CI.
+The original full qualification remains three-of-seven at its last complete run. Identity, fork
+and source-document are the next optimization targets; final source still needs all original gates.
+All four CI jobs for old integration `402cbed` passed. Its source-identical `32c845d` artifact audit
+remains historical evidence; new integration CI must verify the changed source. PR #40 stays draft.
 
 **Snapshot cursor control closed, 6 November 2026:** `feature/p7-snapshot-cursor` retains the
 [implementation and complete audit](p7-snapshot-cursor.md) without adoption. All 7,976 affected
