@@ -15,7 +15,7 @@ All original final-source gates and release requirements remain active.
 
 Run [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) is on
 `a4f730130728480748112af547aa999426bcfbff`. Its NativeAOT and ordinary performance jobs passed;
-the Windows/Ubuntu platform jobs remain live at this check. The following completed artifacts
+Windows has also passed, while Ubuntu remains live at this check. The following completed artifacts
 were downloaded, checked against GitHub's digests, and independently audited:
 
 | Artifact | ID | Verified ZIP SHA-256 |
@@ -40,6 +40,13 @@ The three ordinary-performance rounds per variant each contain all 40 rows. Reca
 of **1.00017326**, passing the unchanged ordinary gate. Cold startup remains reported separately.
 These rows do not replace the seven original P7 throughput workloads. Full current-head platform
 artifact review and original final-source qualification remain outstanding.
+
+The Windows test artifact subsequently completed: ID **13480908058**, verified ZIP SHA-256
+`580207b6f1f8fa18c01a6694455c4a9309a887eb31f536b3a208240a08990e3e`. Independent row/counter and
+unique-execution checks pass **7,637 .NET 10 /6,456 .NET 8** full Release units, including all
+**24/16** expanded named merge-group cases. This is the new runtime's Windows unit evidence;
+the combined platform/inventory audit still awaits the Ubuntu artifact. Raw files and
+`windows-unit-review.json` are retained in the same current-head audit directory.
 
 ## Preceding integration head `32c845d`
 
