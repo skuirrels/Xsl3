@@ -1,5 +1,16 @@
 # P7 completion
 
+**Merge performance update, 6 November 2026:** the draft integration branch now incorporates
+[deferred merge source groups](p7-merge-source-groups.md), runtime/compiler `370178a` via `f308ab8`.
+The change passes 7,976 affected checks, baseline semantic controls and expanded named-closure
+checks. All 60 local and 60 Linux paired observations independently verify; merge improves 4.24%
+locally and 3.93% on Linux with fully separated ranges. The Linux stream/tree ratio is 0.987767
+for merge in this comparison. Other workload ranges overlap; fork's higher median remains explicit.
+Fresh integration CI is required. The prior full original gate remains three-of-seven; this diagnostic
+does not replace its 126 observations. Identity, fork and source-document are the next performance
+targets. Final-source memory, throughput, compatibility, physical-I/O evidence, supported claims,
+review/merge and matching release remain required. Earlier updates below retain their original scope.
+
 **Integrated evidence update, 6 November 2026:** all four jobs in
 [CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
 The [current evidence review](p7-integrated-evidence-review.md) independently rechecks strict inventories,

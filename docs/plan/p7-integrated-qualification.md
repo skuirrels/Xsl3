@@ -2,7 +2,9 @@
 
 This branch combines public-selection head `5645098` with corrected-discard controller `18fc9a5`.
 The latter has the runtime of `a8d322a`: incremental projection discard with logical-position
-preservation and a 256-event default. Merged main `8bdec4c`, including PRs #34–38, is retained.
+preservation and a 256-event default. It now also includes the [qualified merge source-group
+change](p7-merge-source-groups.md), runtime/compiler `370178a`, through candidate history `f308ab8`.
+Merged main `8bdec4c`, including PRs #34–38, is retained.
 
 ## Why combine these changes
 
@@ -12,8 +14,8 @@ and shows a useful 14.4% fork improvement in the paired Linux comparison. Its co
 throughput gate still passes only three of seven targets. Combining them is preparation for continued
 qualification, not approval to merge or publish.
 
-Compared with `a8d322a`, the integrated runtime differs only in `XsltSettings`' public execution
-selection and its explanation. Canonical benchmark consumers, stylesheets, generated inputs, output
+Compared with `a8d322a`, the integrated runtime includes `XsltSettings`' public execution
+selection and the qualified deferred source-group construction/compiler binding change. Canonical benchmark consumers, stylesheets, generated inputs, output
 oracles and original gate controllers are unchanged. The merge adds no runtime from the rejected
 short-polling, tail-call, lazy-header, compact-producer, linked-stack or speculative-refill controls.
 
@@ -75,3 +77,22 @@ not reproduce reliably on Linux; the private cursor needed an immediate-cleanup 
 regressed locally. No runtime, test, benchmark, controller or gate change accompanies this documentation
 update. CI on the documentation head is distinct from the already-audited `32c845d` run. Original
 final-source qualification and full-P7 completion remain unproven.
+
+## Merge improvement integrated, 6 November
+
+Candidate history `f308ab8` is now incorporated into the draft integration branch. Only two runtime/
+compiler files and one test file differ from predecessor `402cbed`; canonical consumers, controllers,
+workloads and original gates are unchanged. The source-group change passes 7,976 affected contracts,
+a fresh 80-case baseline comparison and expanded named-closure checks on both exact frozen engines.
+The latter are 80 strengthened reruns per engine, not additional distinct cases.
+
+All 60 local and 60 Linux paired observations validate with original output fingerprints and audited
+source/binary identities. Merge improves 4.24% locally and 3.93% on Linux with fully separated ranges;
+its Linux candidate stream/tree ratio is 0.987767. The other workload ranges overlap, and the higher
+fork median remains recorded. This supports carrying the change forward, not full P7 completion.
+
+Integration CI must run on this changed source. Prior `32c845d`/`402cbed` compatibility results do
+not prove the new head. The latest full original throughput run still records three of seven passes;
+identity, fork and source-document are now the next optimization targets. Both original memory
+matrices and all 126 throughput observations remain mandatory on final source. PR #40 stays draft,
+`supports-streaming` stays `no`, and no merge to main or release is authorized by these diagnostics.

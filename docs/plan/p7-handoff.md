@@ -9,7 +9,7 @@ and 3.93% on Linux with fully separated ranges; the Linux candidate stream/tree 
 Other ranges overlap; the higher fork median remains explicit. See the
 [complete source-group record](p7-merge-source-groups.md), including the initial inconclusive
 runtime-only variant and corrected compiler-capture defect. Linux run 42166241534 is terminal;
-do not restart it. The change is ready to carry into draft integration and run integration CI.
+do not restart it. The change is incorporated into draft integration through `f308ab8`; fresh integration CI is required.
 The original full qualification remains three-of-seven at its last complete run. Identity, fork
 and source-document are the next optimization targets; final source still needs all original gates.
 All four CI jobs for old integration `402cbed` passed. Its source-identical `32c845d` artifact audit

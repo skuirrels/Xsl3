@@ -1,12 +1,23 @@
 # P7 integrated acceptance evidence, 6 November 2026
 
-## Integration head `32c845d`
+## Changed runtime: merge source groups
+
+The draft integration branch now contains candidate history `f308ab8`: the runtime/compiler source
+from `370178a` and the expanded named-closure regression. See the [complete control audit](p7-merge-source-groups.md).
+All 7,976 affected contracts pass, as do a fresh 80-case baseline comparison and 80 expanded named-
+closure cases on each frozen engine. The expanded cases are reruns with stronger assertions.
+All 60 local and 60 Linux observations validate. Merge's 3.93% Linux improvement has separated
+ranges and a 0.987767 stream/tree ratio; other ranges overlap. The runtime changes require fresh
+integration CI. The predecessor artifacts below are historical evidence, not proof of the new head.
+All original final-source gates and release requirements remain active.
+
+## Preceding integration head `32c845d`
 
 All four jobs in [CI 42148343009](https://github.com/skuirrels/Xsl3/actions/runs/42148343009) passed
 for `32c845daf89818aeb4950e7d549a34fa3cef18e9`. This adds only the exact dispatch contract and its
 CI inclusion to the runtime reviewed below. It excludes the separate, rejected fork name-cache control.
 
-| Current test artifact | ID | Verified ZIP SHA-256 |
+| `32c845d` test artifact | ID | Verified ZIP SHA-256 |
 |---|---:|---|
 | Windows | 13473236027 | `05810a1cd3798a2d780bb2b7fd125189e4be71489333dee7755e6604e1590416` |
 | Ubuntu | 13472936071 | `17cab5164d2d3320b1fc04bdc1ef605d62868e7315ca0d5d993de6638ad56f2d` |
@@ -27,7 +38,7 @@ evidence is under `/private/tmp/xsl3-p7-integrated-debug-full-20261106/`. The or
 are retained, including the expected engine-hash difference from the earlier build and the audit
 tool's refusal to overwrite an existing result. No source, fixture or expected outcome was changed.
 
-PR #40 remains draft under the unchanged full-P7 completion boundary. This is current compatibility
+PR #40 remains draft under the unchanged full-P7 completion boundary. This is predecessor compatibility
 and contract evidence, not final-source original memory/throughput qualification.
 
 ## Preceding detailed obligation review
