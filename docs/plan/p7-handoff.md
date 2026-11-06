@@ -1,5 +1,14 @@
 # P7 agent handoff after 1.1.7
 
+**Closed current-mode control, 6 November 2026:** this isolated branch
+`feature/p7-current-mode-lowering` removes a verified unused mode lookup from the canonical streamed
+identity plan. All 2,308 affected Release/Debug checks and 60 paired local observations pass, with
+source/PDB/output audits. All timing ranges overlap; no useful speedup is established. Do not adopt
+the runtime or repeat full qualification for this control. See [the control record](p7-current-mode-lowering.md).
+The preceding [fork value-event control](https://github.com/skuirrels/Xsl3/blob/feature/p7-fork-value-events/docs/plan/p7-fork-value-events.md)
+is also closed without adoption at `e0ad958`. Integrated qualification remains at `6c24a92` in
+draft PR #40; neither isolated runtime is included. Full P7 remains active.
+
 **Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
 combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
 (runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected

@@ -1471,16 +1471,19 @@ namespace Xsl3.Xslt
                 }
             }
             QilName fallback = nextMatchBelow?.Mode ?? CurrentMode31();
-            QilIterator current = _f.Let(X31(nameof(XsltLibrary.X31TunnelMode), T.StringX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
+            QilIterator? current = null;
             QilNode result = InvokeApplyFunction(sheet, fallback, CopyArgs31(args), nextMatchBelow);
             foreach (QilName m in modes)
             {
                 if (ModeKey31(m) != ModeKey31(fallback))
                 {
+                    // A single target needs no dynamic lookup. Streamed plans cannot
+                    // rely on the iterator-elimination passes used for grounded inputs.
+                    current ??= _f.Let(X31(nameof(XsltLibrary.X31TunnelMode), T.StringX, _currentTunnel ?? _f.TypeAssert(_f.Sequence(), T.ItemS)));
                     result = _f.Conditional(_f.Eq(current, _f.String(ModeKey31(m))), InvokeApplyFunction(sheet, m, CopyArgs31(args), nextMatchBelow), result);
                 }
             }
-            return _f.Loop(current, result);
+            return current == null ? result : _f.Loop(current, result);
         }
 
         // The with-params of a call for another invocation (InvokeApplyFunction rewrites the ones it gets).
