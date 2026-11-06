@@ -15,6 +15,13 @@ It is closed without adoption. Their branches retain the source, audit records a
 The earlier descriptions below are dated investigation history, not current approval to merge them.
 
 
+Public-selection head `5645098` now passes all four jobs in
+[CI 42133700130](https://github.com/skuirrels/Xsl3/actions/runs/42133700130). Draft PR #39 remains
+unmerged under the full-P7 boundary. Combined candidate `409068e` has started its separate local
+Release/Debug validation. The [CPU stack-region audit](p7-cpu-stack-regions.md) preserves all original
+samples while separating output-oracle work; it does not change a gate or establish a runtime gain.
+
+
 **Public integration preparation, 6 November:** `feature/p7-public-streaming-selection` starts from
 merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
 excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved

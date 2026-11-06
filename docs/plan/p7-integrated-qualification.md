@@ -37,7 +37,8 @@ short-polling, tail-call, lazy-header, compact-producer, linked-stack or specula
 
 The merge preview has no runtime or test-source conflict. Four documentation conflicts combine the
 public policy and buffer/discard records while retaining historical qualification failures.
-The public-selection CI run `42133700130` and this combined branch are distinct evidence targets.
+All four jobs in public-selection [CI 42133700130](https://github.com/skuirrels/Xsl3/actions/runs/42133700130)
+pass on `5645098`. That predecessor and this combined branch are distinct evidence targets.
 Neither a green predecessor run nor the rejected controls' compatibility tests qualify this source.
 Combined validation is pending; `supports-streaming` remains `no`.
 

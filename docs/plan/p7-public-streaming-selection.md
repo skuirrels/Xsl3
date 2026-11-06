@@ -69,6 +69,9 @@ The combined selected suites pass **357 .NET 10 /302 .NET 8** in each of Release
 **1,318 checks**, zero failures or skips. The TRX audit confirms all eight hidden-grounding cases
 per configuration/framework, all 77/53 fork-retention cases, both optimizer-policy cases and all
 13 verifier cases, alongside the public selection/declaration/read-boundary population. Evidence:
-`/private/tmp/xsl3-p7-public-selection-20261105/reconciled/`. Hosted CI on this combined head is still
-required. The preceding `c889023` run completed successfully before pushing the reconciliation, so
+`/private/tmp/xsl3-p7-public-selection-20261105/reconciled/`. All four jobs now pass on reconciled
+head `5645098` in
+[CI 42133700130](https://github.com/skuirrels/Xsl3/actions/runs/42133700130): Linux, Windows,
+NativeAOT and ordinary performance. The preceding `c889023` run completed successfully before pushing
+the reconciliation, so
 its compatibility evidence is retained rather than cancelled by the new push.
