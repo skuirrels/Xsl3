@@ -28,6 +28,20 @@ on:
         description: Compare baseline and candidate runtime on one host (diagnostic only)
         type: boolean
         default: false
+      revision_size:
+        description: Input size for the paired runtime diagnostic only
+        type: choice
+        default: 100mb
+        options:
+          - 100mb
+          - 1gb
+      revision_scope:
+        description: Workloads for the paired runtime diagnostic only
+        type: choice
+        default: affected
+        options:
+          - affected
+          - fork
       cpu_profile:
         description: Capture Linux CPU samples only (never an acceptance gate)
         type: boolean
@@ -352,7 +366,15 @@ jobs:
       - name: Compare frozen runtime variants through the canonical consumer
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python3 eng/compare-streaming-revisions.py --baseline-assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --candidate-engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --workloads identity accumulator merge fork source-document --output artifacts/p7-revisions
+          COMPARISON_SIZE: ${{ inputs.revision_size }}
+          COMPARISON_SCOPE: ${{ inputs.revision_scope }}
+        run: |
+          case "$COMPARISON_SCOPE" in
+            affected) workloads=(identity accumulator merge fork source-document) ;;
+            fork) workloads=(fork) ;;
+            *) echo "Unknown diagnostic workload scope" >&2; exit 64 ;;
+          esac
+          python3 eng/compare-streaming-revisions.py --baseline-assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --candidate-engine src/Xsl3/bin/Release/net10.0/Xsl3.dll --bytes "$COMPARISON_SIZE" --workloads "${workloads[@]}" --output artifacts/p7-revisions
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

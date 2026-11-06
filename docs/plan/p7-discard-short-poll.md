@@ -79,3 +79,38 @@ reports. The baseline engine SHA-256 is
 `91f491ffa4676894b2adba8d3932dd4b0047df0d8fe3471dfe18e4d562eb2226`;
 the candidate engine is `033c369475a488135c2fc2c920cc9cebfeaa4c1e40730f83083b810bed5aa23b`.
 No footprint result or release readiness is claimed for this composition.
+
+## First Linux comparison: benefit unresolved
+
+[Run 42133558420](https://github.com/skuirrels/Xsl3/actions/runs/42133558420) completes the same
+60-observation comparison on Linux x64, using baseline `a8d322a` and candidate `a6f018a` (runtime
+`225260f`). The independent audit verifies all observations, raw outputs, effective 4 GiB guards,
+four processors, normal framework policy, all retained binary hashes and 409 tracked PDB source
+hashes per engine. The five fingerprints also match original full qualification.
+
+| Workload | Baseline streaming median (ms) | Candidate (ms) | Candidate / baseline | Winner |
+|---|---:|---:|---:|---|
+| identity | 5,117.614 | 5,164.414 | 1.009145 | No meaningful winner; ranges overlap |
+| accumulator | 5,278.497 | 5,465.815 | 1.035487 | Baseline in this cohort |
+| merge | 9,776.384 | 10,002.113 | 1.023089 | Baseline in this cohort |
+| fork | 4,869.497 | 3,676.227 | 0.754950 | Unresolved; large overlapping variation |
+| source-document | 5,188.687 | 5,191.880 | 1.000615 | No meaningful winner; ranges overlap |
+
+The 24.5% lower fork median is not a robust adoption result. Its baseline samples are
+`[4869.496567, 3577.826089, 4960.172207]` ms; the candidate samples are
+`[4631.818031, 3676.226872, 3612.24001]` ms. Ranges overlap widely, one paired round is slower,
+and accumulator/merge have non-overlapping regressions. The candidate fork stream/tree ratio
+is still **1.090997**. None of these observations replaces original throughput acceptance.
+
+The follow-up is bounded to one independent, longer **1 GB fork-only** paired comparison: three
+alternating rounds, both modes, twelve observations, unchanged engines and canonical consumer.
+The diagnostic workflow accepts an explicit size/scope; its defaults retain the original five-workload
+100 MB comparison, and original full memory/throughput jobs are unchanged. Longer samples test whether
+the apparent fork reduction persists beyond the wide short-cohort variation. If the result remains
+mixed, do not adopt this control or repeat it until a green median appears. Even a clear longer-run
+benefit still requires non-fork regression resolution and every original final-source gate.
+
+Artifact `13463999562` expires on 4 February 2027. Archive SHA-256:
+`a26d2594f5a519d03569349e143aae5e65cf05ee321505a7eb876e3f4f410b43`.
+Raw files, PDB inventories and executable audit are retained under
+`/private/tmp/xsl3-p7-discard-short-poll-linux-20261106/`.
