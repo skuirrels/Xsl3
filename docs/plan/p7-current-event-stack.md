@@ -98,3 +98,40 @@ candidate `74a0ebaa553c017716bb1c6b8f6e069a3f0b8664d8c02f0db21e2947119130af`.
 The small separated identity result and the original Linux instruction evidence justify one paired
 Linux comparison of all five workloads. They do not justify integration or a full original-gate retry.
 No supported-streaming or release claim is established; all original Phase 7 requirements remain.
+
+## Linux paired result
+
+[Run 42192860169](https://github.com/skuirrels/Xsl3/actions/runs/42192860169) completed successfully
+on `7e8f842471f9c70d681db0bdace9caa292e99f2d` (runtime/test source `1ef7c32`), against unchanged
+baseline `a4f730130728480748112af547aa999426bcfbff`. Independent review verifies all **60 observations**,
+exact inputs, original fingerprints, raw output/report agreement, actual 4 GiB guards, four effective
+processors, disabled tiering, frozen binaries/dependencies and all **409 runtime sources per variant**
+plus **14 canonical consumer PDB sources**. No observation is excluded.
+
+| Workload | Linux baseline stream median ms | Candidate stream median ms | Candidate / baseline | Winner |
+|---|---:|---:|---:|---|
+| Identity | 2950.392 | 2832.727 | 0.960119 | Candidate in this cohort; 3.99% |
+| Accumulator | 2878.774 | 2767.944 | 0.961501 | No meaningful winner; ranges overlap |
+| Merge | 4569.274 | 4526.194 | 0.990572 | No meaningful winner; ranges overlap |
+| Fork | 2302.998 | 2161.891 | 0.938729 | No meaningful winner; ranges overlap |
+| Source-document | 2854.644 | 2869.600 | 1.005239 | No meaningful winner; ranges overlap |
+
+Identity baseline samples are `[2957.824053, 2950.392057, 2869.199818]` ms; candidate samples are
+`[2795.405997, 2866.004929, 2832.727396]` ms. All three candidate samples are lower than all three
+baseline samples. Source-document's 0.52% higher median remains explicit. The local accumulator
+increase does not persist in this cohort; its Linux ranges still overlap, so no accumulator gain is
+claimed. Candidate stream/tree ratios remain above one for identity **1.072698**, fork **1.016207**
+and source-document **1.092342**. This comparison does not pass the full original throughput gate.
+
+**Decision:** the repeated separated identity improvement justifies integrating this small runtime
+change and its retry contracts for full compatibility qualification. Keep PR #40 draft. Full units,
+reviewed-head hosted CI and every original final-source acceptance requirement remain necessary;
+neither a supported-streaming claim nor release readiness follows from this result.
+
+Artifact **13491415280** expires 4 February 2027. Verified ZIP SHA-256:
+`98e0240c704d0eef824832f8ccd40fbd74ffa654845e038645a765b33c1a5edd`.
+Engine hashes: baseline `36202f1aba6aae933c773f26d2e4dae59aebf4288c85849e3eb9a3c9f52010cf`;
+candidate `efb6a094b9a59fa2d58d18a3d5dc2ef08e7f5f3fb3f6bd33df0dcf3a35ddce76`.
+Evidence directory: `/private/tmp/xsl3-p7-current-event-stack-linux-20261106/`, including the raw archive,
+reports, both binary sets, source manifests, `audit.py`, `audit-consumer.py`, `review.json` and
+`consumer-review.json`. The run and all local qualification processes are terminal.

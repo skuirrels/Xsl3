@@ -28,8 +28,12 @@ and serial paired timing are complete under `/private/tmp/xsl3-p7-current-event-
 Session `75871` is terminal and successful: **15,834 checks and all 60 original paired outputs**
 verify, including frozen binaries and tracked PDB sources. Identity's local median is 0.63% lower
 with separated ranges; all other ranges overlap, including accumulator's 1.18% higher median.
-One target-platform comparison is justified; no integration or original-gate pass is established.
-Do not merge this experimental runtime into PR #40 without completed Linux performance qualification.
+[Linux comparison 42192860169](https://github.com/skuirrels/Xsl3/actions/runs/42192860169) is now terminal
+and independently audited: all 60 observations, 409 runtime sources per engine and 14 consumer
+sources verify. Identity improves **3.99%**, with separated ranges; other ranges overlap, including
+source-document's **0.52% higher** median. The repeated identity result justifies integration for
+full compatibility qualification. Keep PR #40 draft: all three identity/fork/source-document targets
+still fail in this diagnostic, and no original final-source gate or release pass is established.
 
 **Paired CPU diagnostic and Debug qualification complete, 6 November 2026:**
 `feature/p7-tree-stream-cpu` retains [the same-host capture](p7-tree-stream-cpu.md) from terminal
