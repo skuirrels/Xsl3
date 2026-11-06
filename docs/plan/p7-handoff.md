@@ -17,8 +17,9 @@ The earlier descriptions below are dated investigation history, not current appr
 
 Public-selection head `5645098` now passes all four jobs in
 [CI 42133700130](https://github.com/skuirrels/Xsl3/actions/runs/42133700130). Draft PR #39 remains
-unmerged under the full-P7 boundary. Combined candidate `409068e` has started its separate local
-Release/Debug validation. The [CPU stack-region audit](p7-cpu-stack-regions.md) preserves all original
+unmerged under the full-P7 boundary. Combined candidate `409068e` passes 18,260 affected Release/Debug checks across .NET 8/10, with
+every result, source hash and all four engine/test binary sets retained. Its own hosted CI and original
+final-source qualification remain required. The [CPU stack-region audit](p7-cpu-stack-regions.md) preserves all original
 samples while separating output-oracle work; it does not change a gate or establish a runtime gain.
 
 

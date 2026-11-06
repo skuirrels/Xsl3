@@ -40,7 +40,12 @@ public policy and buffer/discard records while retaining historical qualificatio
 All four jobs in public-selection [CI 42133700130](https://github.com/skuirrels/Xsl3/actions/runs/42133700130)
 pass on `5645098`. That predecessor and this combined branch are distinct evidence targets.
 Neither a green predecessor run nor the rejected controls' compatibility tests qualify this source.
-Combined validation is pending; `supports-streaming` remains `no`.
+Combined affected validation passes **5,042 .NET 10 /4,088 .NET 8** checks in each of Release and
+Debug: **18,260 total**, with no failures/skips. Every TRX result and 1,339 recorded source-file hashes
+were audited against `409068e`; all four engine/test binary sets and PDBs are frozen. Evidence:
+`/private/tmp/xsl3-p7-integrated-qualification-20261106/validation-review.json`. Subsequent CPU-report
+and documentation changes do not alter runtime/test source. This is affected-contract coverage,
+not full unit or hosted final qualification. `supports-streaming` remains `no`.
 
 See [public selection](p7-public-streaming-selection.md),
 [corrected discard and original gates](p7-projection-discard.md), and
