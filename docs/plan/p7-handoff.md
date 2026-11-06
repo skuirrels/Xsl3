@@ -1,5 +1,16 @@
 # P7 agent handoff after 1.1.7
 
+**Merge profiling update, 6 November 2026:** `feature/p7-merge-snapshot-profile` preserves the
+unchanged integration runtime at `402cbed`. The [audited Linux merge profile](p7-merge-snapshot-profile.md)
+verifies original 1 GB outputs, source/binary hashes and 25,253 CPU samples with zero lost events.
+Full-stack attribution separates snapshot source-reading costs from construction/traversal work.
+The next bounded control is a single-cursor snapshot subtree walk; implementation and qualification
+are still outstanding. The [serialization annotation control](p7-serialization-annotations.md) at
+`be9ba9e` is closed without adoption: 7,698 affected checks and all 60 original-output comparisons
+pass, but every timing range overlaps. Its runtime is excluded here. Integration CI 42159708129
+remains live at the last check; performance and NativeAOT jobs passed, platform suites continue.
+Recheck that same run before any replacement. All original full-P7 requirements remain active.
+
 **Integration documentation refresh, 6 November 2026:** the integration branch now carries the fresh
 `32c845d` CI audit and all three latest rejected-control records. Its runtime/tests/controllers remain
 byte-identical to `32c845d`; none of the experimental code is adopted. Four original throughput targets
