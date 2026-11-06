@@ -1,12 +1,13 @@
 # P7 agent handoff after 1.1.7
 
-**Public integration preparation, 5 November:** `feature/p7-public-streaming-selection` starts from
+**Public integration preparation, 6 November:** `feature/p7-public-streaming-selection` starts from
 merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
 excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved
 contracts fail on the unchanged policy; the candidate passes all 966 focused Release/Debug checks,
 including actual representation and physical read boundaries. Full local unit compatibility also passes:
 27,798 checks across Release/Debug and .NET 8/10, with matching source and engine hashes. Draft PR #39
-has passed hosted NativeAOT and ordinary performance; Linux and Windows compatibility remain running.
+has passed all four hosted CI jobs on `c889023` in
+[42127805496](https://github.com/skuirrels/Xsl3/actions/runs/42127805496).
 See [the selection record](p7-public-streaming-selection.md). It must not merge or claim release
 readiness until final integrated source passes every original gate.
 
@@ -16,9 +17,25 @@ independently audited; maximum nightly RSS 32,309,248 bytes. Its full throughput
 all 126 observations validate, with 409 tracked PDB source hashes matching, but only 3/7 targets pass.
 Stream/tree medians at 100 MB are identity 1.064619, adjacent 0.745620, accumulator 0.861578,
 iterate 0.798460, merge 1.052924, fork 1.447580 and source-document 1.066196. Do not infer a
-before/after effect from separate hosts. The 60-observation paired Linux comparison is running at
+before/after effect from separate hosts. The 60-observation paired Linux comparison completed at
 [42131056101](https://github.com/skuirrels/Xsl3/actions/runs/42131056101), candidate `9fbd8e1`
 (runtime identical to `a8d322a`) versus `deed3c1`, including merge and four other workloads.
+All observations and 409 tracked PDB source hashes per engine verify. Fork's streaming median falls
+from 3,218.088 to 2,755.886 ms (14.4%); every candidate fork sample is below every baseline sample.
+Other workload ranges overlap, with no meaningful winner. The candidate fork stream/tree ratio is
+still 1.132795. This establishes a useful discard improvement, not original throughput acceptance.
+
+The isolated `feature/p7-discard-short-poll` control reapplies only bounded short polling to this
+corrected-discard foundation. It passes 5,868 affected Release/Debug .NET 8/10 checks and 150 one/two-CPU
+caller/tee/prong checks. All 60 local paired observations and source hashes validate, but the 2.1%
+lower fork median has overlapping ranges; no local timing benefit or adoption is established.
+The fresh target-platform wait profile below justifies one paired Linux comparison at
+[42133558420](https://github.com/skuirrels/Xsl3/actions/runs/42133558420), baseline `a8d322a`, candidate
+`a6f018a` (runtime `225260f`). The original one-millisecond wait bound, spare-processor guard, capacity,
+payload reclamation and demand-driven source reads are unchanged. The comparison is running; no
+full qualification rerun is justified yet. See the
+[isolated control record](https://github.com/skuirrels/Xsl3/blob/feature/p7-discard-short-poll/docs/plan/p7-discard-short-poll.md).
+
 The linked ancestor-stack control `7b24202` is rejected after the paired Linux diagnostic
 [42126416005](https://github.com/skuirrels/Xsl3/actions/runs/42126416005): all 48 outputs and 409 source
 hashes per variant verify, but timing is mixed. Fork's 8.2% lower median has overlapping ranges;
@@ -40,8 +57,8 @@ PR #38 is merged as `8bdec4c` after all four jobs passed at its unchanged `7ea01
 The public-selection branch now incorporates that test-only increment. Both dedicated Debug CI steps
 and both contract suites are preserved. Combined head `9f0fed3` passes all 1,318 selected Release/Debug
 checks across .NET 8/10, including every hidden-grounding, fork-retention and optimizer/verifier case.
-The preceding `c889023` CI is being allowed to finish before pushing the reconciled head; a new push
-would otherwise cancel its live compatibility jobs. The combined head still requires its own CI.
+The preceding `c889023` CI completed successfully before pushing the reconciled head; no live
+compatibility job was cancelled. The combined head still requires its own CI.
 
 **Merged contract increments:** [PR #37](https://github.com/skuirrels/Xsl3/pull/37) passed all four
 jobs in [42113850460](https://github.com/skuirrels/Xsl3/actions/runs/42113850460) and merged as `f453216`.

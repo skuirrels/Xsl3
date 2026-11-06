@@ -49,9 +49,10 @@ guides distinguish initial selection from the independent global context; this d
 does not alter the tested runtime.
 
 [Draft PR #39](https://github.com/skuirrels/Xsl3/pull/39) retains the full-P7 merge boundary.
-[Hosted CI 42127805496](https://github.com/skuirrels/Xsl3/actions/runs/42127805496) has passed NativeAOT
-and ordinary performance; Linux and Windows compatibility are still running. These results do not replace
-the original streaming memory or throughput requirements.
+[Hosted CI 42127805496](https://github.com/skuirrels/Xsl3/actions/runs/42127805496) passed all four jobs
+on `c889023`: Linux and Windows compatibility, NativeAOT and ordinary performance. The Linux job includes
+reviewed analysis, Release/Debug strict inventories, legacy saved sampling and ordinary conformance.
+These results do not replace the original streaming memory or throughput requirements.
 
 Evidence is retained under
 `/private/tmp/xsl3-p7-public-selection-20261105/`, including source/binary hashes, negative TRX, logs,
@@ -69,4 +70,5 @@ The combined selected suites pass **357 .NET 10 /302 .NET 8** in each of Release
 per configuration/framework, all 77/53 fork-retention cases, both optimizer-policy cases and all
 13 verifier cases, alongside the public selection/declaration/read-boundary population. Evidence:
 `/private/tmp/xsl3-p7-public-selection-20261105/reconciled/`. Hosted CI on this combined head is still
-required; the preceding `c889023` run is allowed to finish before the next push supersedes it.
+required. The preceding `c889023` run completed successfully before pushing the reconciliation, so
+its compatibility evidence is retained rather than cancelled by the new push.
