@@ -47,6 +47,16 @@ were audited against `409068e`; all four engine/test binary sets and PDBs are fr
 and documentation changes do not alter runtime/test source. This is affected-contract coverage,
 not full unit or hosted final qualification. `supports-streaming` remains `no`.
 
+**Hosted update, 6 November:** all four jobs in
+[CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
+The [integrated evidence review](p7-integrated-evidence-review.md) independently rechecks the raw
+strict inventories, per-compilation verifier evidence, S1/S2 populations and stage exits, and maps
+199 passing test methods to the 116 historical obligation entries. It preserves every scope limitation.
+The additional S4-29 physical dispatch-position contract passes 40 new local cases (257 checks with
+related Debug coverage); it changes no runtime source and requires CI on the next head.
+Neither closed current-mode nor fork value-event performance control is adopted. Original final-source
+memory and throughput qualification, full-P7 review, supported claims and release remain outstanding.
+
 See [public selection](p7-public-streaming-selection.md),
 [corrected discard and original gates](p7-projection-discard.md), and
 [the original completion requirements](p7-completion.md#requirements-and-evidence).

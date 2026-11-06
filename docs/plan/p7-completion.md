@@ -1,9 +1,23 @@
 # P7 completion
 
+**Integrated evidence update, 6 November 2026:** all four jobs in
+[CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) passed on `6c24a92`.
+The [current evidence review](p7-integrated-evidence-review.md) independently rechecks strict inventories,
+4,968 actual Debug verifications, all 66,643 S1 expressions and reviewed S1/S2 acceptance, and maps
+199 passing test methods to the 116 original obligation entries. The new test-only S4-29 contract observes
+unchanged physical reader positions across next-match dispatch; all 40 new cases pass in Release/Debug
+(257 checks with related Debug coverage). Runtime is unchanged; the new test head still needs hosted CI.
+
+The [current-mode control](https://github.com/skuirrels/Xsl3/blob/feature/p7-current-mode-lowering/docs/plan/p7-current-mode-lowering.md)
+at `2401775` and [fork value-event control](https://github.com/skuirrels/Xsl3/blob/feature/p7-fork-value-events/docs/plan/p7-fork-value-events.md)
+at `e0ad958` are closed without adoption: their paired timing ranges overlap. Do not repeat or integrate
+those controls. Four original throughput targets remain unresolved (identity, merge, fork, source-document).
+Final-source original memory/throughput qualification, supported claims, review/merge and release remain required.
+
 **Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
 combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
 (runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected
-runtime controls. This combined source has not yet completed compatibility or original qualification.
+runtime controls. Hosted CI passed at `6c24a92`; original final-source qualification remains incomplete.
 See [the integration record](p7-integrated-qualification.md). Full P7 remains active; no release claim.
 
 The isolated short-polling control is closed after its 100 MB and 1 GB Linux comparisons; overlapping
