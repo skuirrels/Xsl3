@@ -114,3 +114,28 @@ Artifact `13463999562` expires on 4 February 2027. Archive SHA-256:
 `a26d2594f5a519d03569349e143aae5e65cf05ee321505a7eb876e3f4f410b43`.
 Raw files, PDB inventories and executable audit are retained under
 `/private/tmp/xsl3-p7-discard-short-poll-linux-20261106/`.
+
+## Longer Linux comparison: close without adoption
+
+[Run 42135439005](https://github.com/skuirrels/Xsl3/actions/runs/42135439005) completes all **12**
+fork observations at exact **1,000,000,000 bytes**, with unchanged canonical output, actual 4 GiB
+guards and normal framework compilation. The independent audit verifies the archive, every raw
+measurement, retained binary hashes and 409 tracked source hashes per engine. Candidate `a525d50`
+has the same runtime as the preceding short comparison; only diagnostic options/documentation changed.
+
+Baseline streaming samples are `[26292.574870, 23145.997515, 23182.011531]` ms; candidate samples
+are `[21892.526943, 23753.155012, 20899.668056]` ms. Medians are **23,182.012 /21,892.527 ms**,
+a candidate/baseline ratio of **0.944376** (5.6% lower). The ranges still overlap and the second
+paired round is slower. Candidate stream/tree remains **1.075937**. The smaller longer-run median
+reduction does not establish the large short-cohort gain, and it does not resolve the non-fork
+regressions from the first Linux comparison.
+
+As specified before this follow-up, the result remains mixed: **do not adopt this control or rerun
+it looking for a passing median**. No original full qualification is dispatched for it. Keep the
+source/evidence on `feature/p7-discard-short-poll` and exclude its runtime change from integration.
+Winner: no established overall winner across the retained cohorts.
+
+Artifact `13465516542` expires on 4 February 2027. Archive SHA-256:
+`bcec747d98927f856e26dee471b49756d4ec9ebb5f0717e51bb28331997a304d`.
+Raw reports, frozen engines, PDB inventories and executable audit are retained under
+`/private/tmp/xsl3-p7-discard-short-poll-long-linux-20261106/`.
