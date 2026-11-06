@@ -26,10 +26,14 @@ static checking and does not enable forward execution by itself. Published defau
 tree-based; forward execution requires the explicit development opt-in. The original streaming RSS
 and throughput gates remain unmet and unchanged. This release does not claim full P7 completion.
 
-**Unreleased P7 integration candidate:** on `feature/p7-public-streaming-selection`, default/explicit
+**Unreleased P7 integration candidate:** on `feature/p7-integrated-qualification`, default/explicit
 `Strict` also selects forward execution for declared-streamable reader, stream and URI inputs through
 both APIs. `Fallback` retains tree execution; existing XDM trees stay trees and saved styles retain
 their compiled execution mode. This candidate is under qualification and is not a published feature.
+
+The unreleased development branch tests a 256-event default for `XsltSettings.StreamingBufferCapacity`
+(previously 64); explicit settings and existing saved capacities remain unchanged. This bounds logical
+input events, not bytes or buffered output. See the [qualification record](docs/plan/p7-fork-capacity-qualification.md).
 
 See the [changelog](CHANGELOG.md), [1.3.0 release notes](docs/releases/1.3.0.md),
 [checkpoint boundary](docs/plan/p7-runtime-checkpoint.md) and [P7 phase A](docs/plan/p7-phase-a.md). Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli`

@@ -235,6 +235,105 @@ public class StreamedForkProjectionTests
     }
 
     [Theory]
+    [InlineData(7)]
+    [InlineData(64)]
+    [InlineData(256)]
+    public void EarlyForkExitLeavesNestedDiscardForTheNextSourceDemand(int capacity)
+    {
+        const int children = 512;
+        int readChildren = 0;
+        string xml = "<outer><scope><row/><omitted><nested>"
+            + string.Concat(Enumerable.Repeat("<inside/>", children))
+            + "</nested></omitted><row id='later'/></scope><after id='done'/></outer>";
+        using var reader = new ReadCallback(XmlReader.Create(new StringReader(xml)), input => {
+            if (input.NodeType == XmlNodeType.Element && input.LocalName == "inside") readChildren++;
+        });
+        using var document = new StreamedDocument(reader);
+        var focus = (StreamedNavigator)document.CreateNavigator();
+        Assert.True(focus.MoveToFirstChild());
+        Assert.True(focus.MoveToFirstChild());
+        var projection = new ForkInputProjection(new string?[] { "-1", "", "", "0", "0", "row", "", "0" });
+        using (var fork = document.Fork(focus, projection))
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+                (view, _) => { Assert.True(view.MoveToFirstChild()); Assert.Equal("row", view.LocalName); },
+                (view, _) => { Assert.True(view.MoveToFirstChild()); Assert.Equal("row", view.LocalName); },
+            }, capacity, cancellation.Token);
+        }
+        // A full batch reaches the omitted nested content but must not drain its population
+        // after both prongs return. The source must still resume at the correct outer sibling.
+        Assert.InRange(readChildren, 1, capacity);
+        Assert.True(focus.MoveToNext());
+        Assert.Equal("after", focus.LocalName);
+        Assert.Equal("done", focus.GetAttribute("id", ""));
+        Assert.Equal(children, readChildren);
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    [Fact]
+    public void ConsumptionHeaderObserversStillSeeExcludedDescendants()
+    {
+        using var reader = XmlReader.Create(new StringReader(
+            "<doc><omitted><inside/><inside/></omitted><row><value>ok</value></row></doc>"));
+        using var document = new StreamedDocument(reader);
+        var focus = (StreamedNavigator)document.CreateNavigator();
+        int inside = 0;
+        using var headers = document.ObserveConsumedHeaders(focus, node => { if (node.LocalName == "inside") inside++; });
+        using var fork = document.Fork(focus, Projection());
+        fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, _) => Assert.Equal("ok", view.Value),
+        }, 7);
+        Assert.Equal(2, inside);
+    }
+
+    private sealed class EntityReader(XmlReader reader) : XmlWrappingReader(reader)
+    {
+        internal int Resolved;
+        public override void ResolveEntity() { Resolved++; base.ResolveEntity(); }
+    }
+
+    [Fact]
+    public void ExcludedEntityContentStillResolvesBeforeTheFollowingSelectedNode()
+    {
+        const string xml = "<!DOCTYPE doc [<!ENTITY content '<nested>hidden</nested>'>]>"
+            + "<doc><omitted>&content;</omitted><row id='last'><value>ok</value></row></doc>";
+        using var reader = new EntityReader(new XmlTextReader(new StringReader(xml)) {
+            DtdProcessing = DtdProcessing.Parse, EntityHandling = EntityHandling.ExpandCharEntities,
+        });
+        using var document = new StreamedDocument(reader);
+        using var fork = document.Fork((StreamedNavigator)document.CreateNavigator(), Projection());
+        fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, _) => {
+                Assert.True(view.MoveToFirstChild()); Assert.True(view.MoveToFirstChild());
+                Assert.Equal("last", view.GetAttribute("id", ""));
+                Assert.Equal("ok", view.Value);
+            },
+        }, 7);
+        Assert.Equal(1, reader.Resolved);
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    [Fact]
+    public void CancellationInsideExcludedNestedContentStopsAtThatReaderAdvance()
+    {
+        int children = 0;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        string xml = "<doc><omitted><nested>" + string.Concat(Enumerable.Repeat("<inside/>", 128))
+            + "</nested></omitted><row/></doc>";
+        using var reader = new ReadCallback(XmlReader.Create(new StringReader(xml)), input => {
+            if (input.LocalName == "inside" && ++children == 5) cancellation.Cancel();
+        });
+        using var document = new StreamedDocument(reader, cancellation: cancellation.Token);
+        using var fork = document.Fork((StreamedNavigator)document.CreateNavigator(), Projection());
+        Assert.Throws<OperationCanceledException>(() => fork.Run(new Action<StreamedNavigator, CancellationToken>[] {
+            (view, token) => { _ = view.Value; },
+        }, 7, cancellation.Token));
+        Assert.Equal(5, children);
+        Assert.NotEqual(ReadState.Closed, reader.ReadState);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(128)]
     public void AnEntirelyUnselectedPopulationEndsWithoutPublishingEmptyBatches(int count)
@@ -276,7 +375,7 @@ public class StreamedForkProjectionTests
     {
         foreach (bool debug in new[] { false, true })
         foreach (int delivery in new[] { 0, 1, 2 })
-        foreach (int capacity in new[] { 1, 7, 64 })
+        foreach (int capacity in new[] { 1, 7, 64, 256, 4096 })
         {
 #if !NET10_0_OR_GREATER
             if (delivery == 2) continue;

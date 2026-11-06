@@ -48,8 +48,8 @@ namespace Xsl3
         internal bool UseStreamedExecution => StreamedExecution ??
             (_streamability == XsltStreamabilityMode.Strict && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") != "0");
 
-        private int _streamingBufferCapacity = 64;
-        /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 64.</summary>
+        private int _streamingBufferCapacity = 256;
+        /// <summary>Maximum logical input events retained by a streamed fork's tee. Must be positive. Defaults to 256.</summary>
         public int StreamingBufferCapacity
         {
             get => _streamingBufferCapacity;

@@ -49,6 +49,48 @@ public class ForkContinuationContractsTests
         Assert.Equal(baseline.After, candidate.After);
     }
 
+    [Theory]
+    [InlineData(1, XmlSpace.None)]
+    [InlineData(7, XmlSpace.None)]
+    [InlineData(64, XmlSpace.None)]
+    [InlineData(256, XmlSpace.None)]
+    [InlineData(1, XmlSpace.Preserve)]
+    [InlineData(7, XmlSpace.Preserve)]
+    [InlineData(64, XmlSpace.Preserve)]
+    [InlineData(256, XmlSpace.Preserve)]
+    public void OmittedEntitiesAndWhitespaceKeepFollowingPositionIdentity(int capacity, XmlSpace space)
+    {
+        const string xml = "<!DOCTYPE outer [<!ENTITY words 'B'><!ENTITY tree '<nested>hidden</nested>'>]>"
+            + "<outer><doc><omitted>A&words;C<![CDATA[D]]>&tree;E<!--c--><?p v?>"
+            + "<plain> <leaf/> </plain><preserved xml:space='preserve'> <leaf/> </preserved></omitted>"
+            + "<row id='one'/><row id='two'/></doc><after/></outer>";
+        (long[] Rows, long After) Read(bool projected)
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var reader = new XmlTextReader(new StringReader(xml)) {
+                DtdProcessing = DtdProcessing.Parse, EntityHandling = EntityHandling.ExpandCharEntities,
+            };
+            using var document = new StreamedDocument(reader, space: space);
+            var position = (StreamedNavigator)document.CreateNavigator();
+            Assert.True(position.MoveToFirstChild());
+            Assert.True(position.MoveToFirstChild());
+            var rows = new List<long>();
+            using (var fork = document.Fork(position, projected ? Projection() : null))
+                fork.Run(new Action<StreamedNavigator, CancellationToken>[] { (view, _) => {
+                    Assert.True(view.MoveToFirstChild());
+                    do { if (view.LocalName == "row") rows.Add(view.PositionNode.Number); } while (view.MoveToNext());
+                } }, capacity, cancellation.Token);
+            Assert.True(position.MoveToNext());
+            Assert.Equal("after", position.LocalName);
+            return (rows.ToArray(), position.PositionNode.Number);
+        }
+        var baseline = Read(false);
+        var candidate = Read(true);
+        Assert.Equal(2, candidate.Rows.Length);
+        Assert.Equal(baseline.Rows, candidate.Rows);
+        Assert.Equal(baseline.After, candidate.After);
+    }
+
     private sealed class CallbackReader(XmlReader reader, Action<CallbackReader> callback) : XmlWrappingReader(reader)
     {
         public override bool Read()

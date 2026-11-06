@@ -1,5 +1,20 @@
 # P7 completion
 
+**Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
+combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
+(runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected
+runtime controls. This combined source has not yet completed compatibility or original qualification.
+See [the integration record](p7-integrated-qualification.md). Full P7 remains active; no release claim.
+
+The isolated short-polling control is closed after its 100 MB and 1 GB Linux comparisons; overlapping
+fork ranges and other-workload regressions do not justify adoption. The tail-call control is also closed
+without useful timing benefit. Lazy frame headers completed all 60 Linux observations in
+[42136785894](https://github.com/skuirrels/Xsl3/actions/runs/42136785894), with verified binaries,
+409 tracked PDB source hashes per engine and original outputs, but all timing ranges overlap.
+It is closed without adoption. Their branches retain the source, audit records and decisions.
+The earlier descriptions below are dated investigation history, not current approval to merge them.
+
+
 **5 November hidden-grounding follow-up:** [S3-27 contracts](p7-hidden-grounding-contracts.md)
 now demonstrate a measured budget failure for a real grounding helper inside an otherwise forward
 execution. Correct output, actual forward entry and the Debug graph verifier all pass that negative

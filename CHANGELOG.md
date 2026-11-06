@@ -8,6 +8,15 @@
   different loader settings. This integration candidate remains unmerged pending full P7 qualification;
   `supports-streaming` stays `no`, and original memory/throughput requirements are unchanged.
 
+- Increase the experimental forward-fork default `XsltSettings.StreamingBufferCapacity` from 64 to
+  256 logical input events. Explicit settings and capacities embedded in existing saved styles
+  remain unchanged. Larger event buffers trade more retained input for fewer producer handoffs;
+  this is an event-count bound, not a byte bound. Full streaming qualification is still required.
+
+- Avoid constructing descendant frames for compiler-excluded fork subtrees when the fork is their
+  sole consumer. Preserve logical source positions, reader validation, demand bounds and cancellation;
+  replay, observers and other consumers retain the full event path. This remains under qualification.
+
 ## [1.3.0](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.0) — 2026-11-04
 
 - Add `XsltSettings.StreamabilityExtensions` (default `true`). It names the five extensions to the XSLT 3.0

@@ -1,5 +1,20 @@
 # P7 agent handoff after 1.1.7
 
+**Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
+combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
+(runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected
+runtime controls. This combined source has not yet completed compatibility or original qualification.
+See [the integration record](p7-integrated-qualification.md). Full P7 remains active; no release claim.
+
+The isolated short-polling control is closed after its 100 MB and 1 GB Linux comparisons; overlapping
+fork ranges and other-workload regressions do not justify adoption. The tail-call control is also closed
+without useful timing benefit. Lazy frame headers completed all 60 Linux observations in
+[42136785894](https://github.com/skuirrels/Xsl3/actions/runs/42136785894), with verified binaries,
+409 tracked PDB source hashes per engine and original outputs, but all timing ranges overlap.
+It is closed without adoption. Their branches retain the source, audit records and decisions.
+The earlier descriptions below are dated investigation history, not current approval to merge them.
+
+
 **Public integration preparation, 6 November:** `feature/p7-public-streaming-selection` starts from
 merged main `f453216` and prepares the original public Strict/Fallback execution requirement. It
 excludes all unadopted performance controls and retains `supports-streaming=no`. Six public/saved
@@ -86,6 +101,67 @@ The completed predecessor [S3-04 retained-memory increment](p7-retained-memory-c
 controls passed; its own hosted CI is still required. No runtime optimization has been adopted in these
 three contract increments. Fork throughput profiling is next, alongside remaining internal-grounding and
 fork-retention evidence.
+
+**Throughput investigation:** the [tee reclamation control](p7-tee-reclamation-experiment.md) at `ce42373`
+is rejected and remains only on `feature/p7-tee-reclamation`: all 693 affected Release checks passed after
+a wake-ordering correction, but twelve valid paired local observations showed only 0.55% improvement
+with overlapping ranges. Do not merge that branch. `feature/p7-producer-allocation` starts again from
+validated contract head `78815e8`. Fresh
+[allocation evidence and the candidate boundary](p7-producer-allocation.md) identify producer `Node`
+frames as 12.84 GB of sampled allocations. An isolated compact producer is now under qualification;
+its runtime changes have not yet passed the original hosted acceptance gates or been adopted into main.
+Both producer variants pass the affected contracts, and the first removes producer `Node` allocation
+ticks, but twelve paired observations per variant show no conclusive throughput benefit. The direct
+metadata variant passes 1,588 affected Release/Debug checks. Keep both controls unadopted; next profile
+consumer-frame and per-item output costs rather than claiming allocation reduction closes performance.
+[PR #34](https://github.com/skuirrels/Xsl3/pull/34) passed all four required jobs in run `42094356435`
+and merged at `66e078d`. [PR #35](https://github.com/skuirrels/Xsl3/pull/35) is retargeted to main;
+it passed all four jobs in run `42095292062` and merged at `9a75be4`.
+[PR #36](https://github.com/skuirrels/Xsl3/pull/36) passed all four jobs in run `42096941959`
+and merged at `a5e89ac`. All three contract increments are merged; full P7 remains incomplete.
+
+**Next isolated runtime control:** [simple-content value state](p7-simple-content-state.md) is on
+`feature/p7-simple-content-value-state`, based on `78815e8` and excluding both unaccepted producer
+variants. It removes the per-constructor heap wrapper from newly generated IL while keeping the old
+saved-style runtime API and a shared state machine. All 1,346 affected Release/Debug checks and all
+36 paired output observations passed, but the elapsed-time benefit remains inconclusive. It is not
+promoted to a PR. The producer controls remain preserved on their own branch. Next obtain Linux
+kernel CPU samples: the old sampled-thread-time trace classifies waits and GC polling as `Managed`,
+so filtering that label does not establish CPU cost. Original acceptance gates remain unchanged.
+
+**Current investigation:** `feature/p7-linux-cpu-profile` starts from merged main `a5e89ac`, with the
+same runtime and benchmark sources as contract head `78815e8`. The opt-in
+[Linux CPU diagnostic](p7-linux-cpu-profile.md) captures kernel CPU and context-switch events for one
+canonical fork child. It excludes all three unaccepted runtime controls. A trace is useful only after
+checking actual CPU event coverage and symbols; a successful capture does not satisfy throughput gates.
+Runs `42105701535` and `42106401936` completed successfully. The latter has managed symbols and
+70,016 kernel CPU samples with zero reported loss; `eng/StreamingCpuReport` reproduces the analysis.
+The [early-parking wait control](p7-fork-wait-budget.md) at `91bd422` passed 1,786 contracts but clearly
+regressed paired elapsed time and remains rejected on its own branch. Do not merge it. The current
+profiling branch retains merged runtime behavior. Next investigate source-production overlap while
+preserving the original capacity, demand, read-order and cancellation contracts; do not repeat the
+rejected short-wait, no-yield or short-poll controls recorded in the completion history.
+
+**Demand review and configuration investigation:** the [speculative refill control](p7-fork-production-overlap.md)
+at `1b2ef47` gains about 19.6% locally but violates the original no-read-ahead-without-demand contract,
+and is rejected. Its new negative control passes on the unchanged runtime. Current branch
+`feature/p7-fork-buffer-policy` retains only that demand regression and
+[public buffer-setting diagnostics](p7-fork-buffer-policy.md). All 24 local observations validate output;
+256 configured events gains about 8.0% over 64, with diminishing gains at larger sizes. Every local ratio
+still exceeds one. Hosted run `42109352467` also validates all 24 outputs; 4,096 events reduces the
+fork streaming median by 27.9%, but its stream/tree ratio remains 1.255375. The default remains 64;
+no capacity policy is adopted without the original memory and compatibility checks. Independent
+identity/accumulator CPU runs `42109632792` / `42109637672` validate both 1 GB outputs and provide
+26,875 / 25,889 CPU samples without reported loss. Source construction is a shared cost; underlying
+parser frames remain partly unresolved. See the linked CPU evidence before choosing a runtime control.
+
+**Current candidate:** `feature/p7-fork-capacity-qualification` independently raises the public default
+from 64 to 4,096 logical events, based on the hosted comparison above. It starts at `42d2329` and
+excludes every rejected runtime control. Explicit settings and old saved constants remain unchanged.
+See [qualification criteria](p7-fork-capacity-qualification.md); the original memory/throughput gates
+are required. The source-dispatch extraction at `3793df5` on `feature/p7-source-dispatch` is rejected:
+3,141 Release contracts and 48 paired outputs pass, but it establishes no convincing timing gain.
+Do not merge that control.
 
 **Earlier bounded continuation, 5 November 2026:** the current published release is 1.3.0 at `f9708eb`.
 Phase A accounting, the union-analysis correction, the extension setting and optimizer/function
