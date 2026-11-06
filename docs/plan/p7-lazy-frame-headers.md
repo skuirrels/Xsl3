@@ -35,8 +35,29 @@ This demonstrates the targeted code change, not a throughput or process-memory i
    the control merely because its constructor is smaller.
 
 All **1,080 .NET 10 Release** selected checks pass, with no failures/skips and every individual TRX
-result checked against the counters. The local paired comparison is running.
+result checked against the counters.
+
+## Local paired result
+
+All **60 observations** validate. Independent review checks raw outputs, exact inputs, actual heap
+guards, four effective processors, the frozen consumer and binary hashes, and **409 tracked PDB
+source hashes per engine**. Original hosted output fingerprints also agree. The measured candidate
+source is `6bc43e4`; broader compatibility and target-platform timing are still required.
+
+| Workload | Baseline streaming median (ms) | Candidate (ms) | Candidate / baseline | Winner |
+|---|---:|---:|---:|---|
+| identity | 2,149.015 | 2,130.465 | 0.991368 | Candidate in this cohort; less than 1% |
+| accumulator | 2,100.483 | 2,087.785 | 0.993955 | No meaningful winner; ranges overlap |
+| merge | 3,438.433 | 3,445.556 | 1.002072 | No meaningful winner; ranges overlap |
+| fork | 1,603.120 | 1,535.016 | 0.957518 | No meaningful winner; ranges overlap |
+| source-document | 2,151.399 | 2,127.077 | 0.988695 | No meaningful winner; ranges overlap |
+
+Identity baseline samples are `[2148.943083, 2165.052584, 2149.015459]` ms; candidate samples are
+`[2130.464958, 2124.850458, 2146.711417]` ms. Every candidate sample is below every baseline sample,
+but the magnitude is small. Fork's larger median reduction has overlapping ranges and a slow first
+baseline sample, so it is not claimed as a robust benefit. These results justify one paired Linux
+comparison of the same five workloads, not adoption or a full qualification rerun.
 
 Evidence: `/private/tmp/xsl3-p7-lazy-frame-headers-20261106/` contains the source patch/hash, focused
-TRX/audit, frozen diagnostic consumer and candidate disassembly. Baseline constructor evidence is
+TRX/audit, frozen diagnostic consumer, paired reports/audit and candidate disassembly. Baseline constructor evidence is
 in `/private/tmp/xsl3-p7-frame-initialization-20261106/`. No adoption or release readiness is claimed.
