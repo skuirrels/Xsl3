@@ -295,8 +295,8 @@ internal sealed partial class StreamedDocument
             CancellationToken effective = linked?.Token ?? (cancellation.CanBeCanceled ? cancellation : sourceCancellation);
             try
             {
-                if (_projection == null) ForkProngs.Run(Read, prongs, capacity, effective, caller);
-                else ForkProngs.RunSource(ReadProjected, prongs, capacity, effective, caller);
+                if (_projection == null) ForkProngs.Run(Read, prongs, capacity, effective, caller, exclusiveReaders: true);
+                else ForkProngs.RunSource(ReadProjected, prongs, capacity, effective, caller, exclusiveReaders: true);
             }
             finally { Dispose(); }
         }

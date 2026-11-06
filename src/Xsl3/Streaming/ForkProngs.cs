@@ -15,7 +15,7 @@ namespace Xsl3.Streaming;
 internal static class ForkProngs
 {
     internal static void Run<T>(Func<T?> readSource, IReadOnlyList<Action<StreamTee<T>.Reader, CancellationToken>> bodies,
-        int capacity, CancellationToken cancellation = default, ForkCaller? caller = null) where T : class
+        int capacity, CancellationToken cancellation = default, ForkCaller? caller = null, bool exclusiveReaders = false) where T : class
     {
         ArgumentNullException.ThrowIfNull(readSource);
         ArgumentNullException.ThrowIfNull(bodies);
@@ -46,7 +46,7 @@ internal static class ForkProngs
                 // failure. An early-ending prong need not observe unread future errors.
                 return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
             }
-        }, bodies.Count, capacity, cancellation, productionCaller: caller);
+        }, bodies.Count, capacity, cancellation, productionCaller: caller, exclusiveReaders: exclusiveReaders);
         RunProngs(tee, bodies, cancellation, caller);
     }
 
@@ -54,7 +54,7 @@ internal static class ForkProngs
 
     internal static void RunSource<T>(Func<SourceRead<T>> readSource,
         IReadOnlyList<Action<StreamTee<T>.Reader, CancellationToken>> bodies, int capacity,
-        CancellationToken cancellation = default, ForkCaller? caller = null) where T : class
+        CancellationToken cancellation = default, ForkCaller? caller = null, bool exclusiveReaders = false) where T : class
     {
         ArgumentNullException.ThrowIfNull(readSource);
         ArgumentNullException.ThrowIfNull(bodies);
@@ -84,7 +84,7 @@ internal static class ForkProngs
             {
                 return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
             }
-        }, bodies.Count, capacity, cancellation, productionCaller: caller);
+        }, bodies.Count, capacity, cancellation, productionCaller: caller, exclusiveReaders: exclusiveReaders);
         RunProngs(tee, bodies, cancellation, caller);
     }
 
