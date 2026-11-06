@@ -1,5 +1,47 @@
 # P7 integrated acceptance evidence, 6 November 2026
 
+## Current integration head `a4f7301`: CI and artifact audit complete
+
+All four jobs in [CI 42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456)
+passed for `a4f730130728480748112af547aa999426bcfbff`. This verifies the integration source with the
+qualified deferred merge-group runtime/compiler and expanded named-closure regression. The separate
+attribute-cache control is rejected, and the navigator node-kind control remains unqualified.
+Neither is part of this CI result.
+
+| Test artifact | ID | Verified ZIP SHA-256 |
+|---|---:|---|
+| Windows | 13480908058 | `580207b6f1f8fa18c01a6694455c4a9309a887eb31f536b3a208240a08990e3e` |
+| Ubuntu | 13481876865 | `8a347fc7ff8b06a4d44e051b8c87805ca59c877c35375102fbdde91a4aef994a` |
+
+Every full Release row/counter and unique execution ID verifies: **7,637 .NET 10 /6,456 .NET 8**
+per host. All **80** expanded named merge-group cases pass across the four hosted unit suites,
+as do all **60** exact-dispatch cases across hosted Release and Ubuntu Debug. These counts are
+instances across configurations/platforms, not new distinct specifications.
+
+Independent re-audits reproduce all three strict inventories: **2,696 pass /16 accepted failures /
+0 skipped /0 unmatched expected codes**. All **4,968** eligible Debug compilations verify among
+119,303 recorded compilations. S3–S6 accounting and disposition records match the preceding audit.
+The clean local suite and all three hosted audits use pinned revision
+`fddf1cf920087e791f13315d68dfbe874d97dc56`; audit controllers/inventory/dispositions are unchanged.
+
+Regeneration reproduces the hosted reviewed manifest and generated fixture hashes. All **66,643**
+original expressions remain uniquely mapped from the original **919** cases into the reviewed
+**1,000** cases. Reviewed S2 verifies **153** exact static diagnostics and **two** allowed results
+in Release and Debug. The reported Release engine hash agrees between strict and unstreamed headers;
+the archive does not retain that W3C engine binary for an independent local file-hash check.
+
+The native/saved and ordinary micro audits below also pass on this head. Their smaller workloads
+and disabled memory guard do not qualify the original P7 matrices. Full Debug-unit evidence from
+`32c845d` remains historical; no full Debug-unit result for `a4f7301` is inferred from it. Final source
+still requires every original performance, compatibility and physical-I/O obligation before review,
+merge, supported claims and matching publication. PR #40 remains draft and `supports-streaming=no`.
+
+Both archives, raw reports, regenerated fixtures and executable audits are retained under
+`/private/tmp/xsl3-p7-integration-head-a4f7301-20261106/` (`review.json`, `review.py`,
+`native-perf-review.json`). The run is terminal: do not restart it or treat the earlier live-job notes
+as current status.
+
+
 ## Changed runtime: merge source groups
 
 The draft integration branch now contains candidate history `f308ab8`: the runtime/compiler source
@@ -7,15 +49,15 @@ from `370178a` and the expanded named-closure regression. See the [complete cont
 All 7,976 affected contracts pass, as do a fresh 80-case baseline comparison and 80 expanded named-
 closure cases on each frozen engine. The expanded cases are reruns with stronger assertions.
 All 60 local and 60 Linux observations validate. Merge's 3.93% Linux improvement has separated
-ranges and a 0.987767 stream/tree ratio; other ranges overlap. The runtime changes require fresh
-integration CI. The predecessor artifacts below are historical evidence, not proof of the new head.
+ranges and a 0.987767 stream/tree ratio; other ranges overlap. The runtime changes have now passed the current-head CI/artifact audit above. The predecessor
+artifacts below remain historical evidence, not substitutes for that new-head audit.
 All original final-source gates and release requirements remain active.
 
 ## Current integration native and ordinary-performance audit
 
 Run [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456) is on
 `a4f730130728480748112af547aa999426bcfbff`. Its NativeAOT and ordinary performance jobs passed;
-Windows has also passed, while Ubuntu remains live at this check. The following completed artifacts
+Windows and Ubuntu subsequently passed, as recorded above. The following completed artifacts
 were downloaded, checked against GitHub's digests, and independently audited:
 
 | Artifact | ID | Verified ZIP SHA-256 |
@@ -38,14 +80,14 @@ retained. Exact artifact file hashes and the executable audit are under
 The three ordinary-performance rounds per variant each contain all 40 rows. Recalculation of the
 39 gated row medians yields a time geometric ratio of **1.00127247** and a maximum allocation ratio
 of **1.00017326**, passing the unchanged ordinary gate. Cold startup remains reported separately.
-These rows do not replace the seven original P7 throughput workloads. Full current-head platform
-artifact review and original final-source qualification remain outstanding.
+These rows do not replace the seven original P7 throughput workloads. The current-head platform artifact review is complete above; original final-source qualification
+remains outstanding.
 
 The Windows test artifact subsequently completed: ID **13480908058**, verified ZIP SHA-256
 `580207b6f1f8fa18c01a6694455c4a9309a887eb31f536b3a208240a08990e3e`. Independent row/counter and
 unique-execution checks pass **7,637 .NET 10 /6,456 .NET 8** full Release units, including all
 **24/16** expanded named merge-group cases. This is the new runtime's Windows unit evidence;
-the combined platform/inventory audit still awaits the Ubuntu artifact. Raw files and
+the combined platform/inventory audit subsequently passed as recorded above. Raw files and
 `windows-unit-review.json` are retained in the same current-head audit directory.
 
 ## Preceding integration head `32c845d`

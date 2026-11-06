@@ -96,3 +96,15 @@ not prove the new head. The latest full original throughput run still records th
 identity, fork and source-document are now the next optimization targets. Both original memory
 matrices and all 126 throughput observations remain mandatory on final source. PR #40 stays draft,
 `supports-streaming` stays `no`, and no merge to main or release is authorized by these diagnostics.
+
+
+## Current merge integration CI complete
+
+All four jobs passed on `a4f7301` in [42167378456](https://github.com/skuirrels/Xsl3/actions/runs/42167378456).
+The [current-head audit](p7-integrated-evidence-review.md) independently verifies both test archives,
+all full Release rows (7,637/6,456 per host), the 80 expanded named-merge and 60 physical-dispatch
+instances, unchanged strict inventories and stage accounting, all 4,968 eligible Debug verifications,
+and original/reviewed S1/S2 populations. Native/saved and ordinary micro artifacts also verify.
+The attribute-cache runtime is excluded after its inconclusive comparison; navigator node-kind work
+is isolated and unqualified. No original final-source memory/throughput qualification or full-P7
+completion follows from the green CI run. PR #40 remains draft.

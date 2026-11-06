@@ -8,9 +8,10 @@ cases pass on each framework; initial header-only rebinding failures reproduce o
 are retained. Full warning-as-error Release/Debug validation, baseline controls and the original
 60-observation comparison run sequentially under `/private/tmp/xsl3-p7-navigator-node-kind-20261106/`.
 No gain or adoption is established. The rejected attribute-cache runtime/test are excluded.
-Integration CI 42167378456 is still live on remote/PR head `a4f7301`: Windows, NativeAOT and ordinary
-performance passed; Ubuntu is in its final assembly-version step. Windows full-unit rows are independently
-audited at 7,637/6,456, including all 40 expanded named merge cases. Local integration `bb50e62`
+Integration CI 42167378456 passed all four jobs on remote/PR head `a4f7301`; the full
+[current-source artifact audit](p7-integrated-evidence-review.md) verifies 7,637/6,456 Release units
+per host, 80 named merge cases, 60 dispatch-position cases, unchanged strict inventories and all
+4,968 eligible Debug verifications. The run is terminal; do not restart it. Local integration `bb50e62`
 contains only the completed cache/native-audit documentation and is not yet pushed. Full P7 remains active.
 
 
