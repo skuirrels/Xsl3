@@ -2,7 +2,7 @@
 
 This isolated control starts from integration `32c845d`, on
 `feature/p7-builtin-text-dispatch`. It does not include the rejected fork-name cache.
-Full P7 remains open; this is a performance experiment, not release qualification.
+**Closed without adoption, 6 November 2026.** Full P7 remains open. Do not integrate this runtime control.
 
 ## Hypothesis and boundary
 
@@ -81,9 +81,31 @@ only in the streaming graphs; the inspection tool invokes the real optimizer wit
 
 [Linux run 42156324228](https://github.com/skuirrels/Xsl3/actions/runs/42156324228) compares
 candidate `76174b918e64e3595869404a27d00bd24afcfcbe` against integration
-`32c845daf89818aeb4950e7d549a34fa3cef18e9`. Both builds have completed and the paired measurements
-are running. Its evidence destination is `/private/tmp/xsl3-p7-builtin-text-dispatch-linux-20261106/`.
-Do not infer a target-platform benefit until the full artifact and raw observations are audited.
+`32c845daf89818aeb4950e7d549a34fa3cef18e9`. The run completed successfully; its artifact and all 60 observations are independently audited. Its evidence destination is `/private/tmp/xsl3-p7-builtin-text-dispatch-linux-20261106/`.
+Artifact `13474983014` (expires 4 February 2027) has verified ZIP SHA-256
+`03da0d5a20016666fb64b39d91b4530a5d68d5b2432d33a8e980ba2fe65bb827`.
+Both revisions, all retained binary hashes, 409 tracked PDB sources per engine, all raw result rows,
+exact population, actual 4 GiB guard and original output fingerprints verify. The unchanged consumer
+and dependencies are identical between variants. Final audit: `review.json`, reproduced by `audit.py`.
+
+| Linux workload | Baseline median ms | Candidate median ms | Candidate / baseline | Candidate stream / tree |
+| --- | ---: | ---: | ---: | ---: |
+| identity | 5016.955 | 5193.729 | 1.035235 | 1.212366 |
+| accumulator | 5454.685 | 5204.764 | 0.954182 | 0.976800 |
+| merge | 9800.002 | 9890.198 | 1.009204 | 1.012731 |
+| fork | 4270.114 | 4941.784 | 1.157296 | 1.481634 |
+| source-document | 5078.075 | 5024.154 | 0.989382 | 1.127661 |
+
+Every workload's three-sample ranges overlap. Identity baseline samples are
+5448.534085, 4944.256918, 5016.955112; candidate samples 5228.578784, 4915.004810, 5193.729274.
+Source-document baseline samples are 5037.610408, 5260.575953, 5078.075102;
+candidate samples 4859.312891, 5024.153665, 5367.489406. No observation is excluded.
+The local improvement did not reproduce reliably; neither target meets the original throughput
+requirement here. The evidence does not justify adoption or another run of this unchanged control.
+
+Linux engine hashes: baseline `695ba1b01ea913142d79bc96be7bfcf06bef4d7fab93e241df04a365f00fd720`,
+candidate `8877b6de9c48d2d5fed5a3316dfe408a604a7c1d6a7a410b8a0355f5a03cefde`.
+Integration `32c845d` and draft PR #40 remain unchanged.
 
 ## Decision criteria
 

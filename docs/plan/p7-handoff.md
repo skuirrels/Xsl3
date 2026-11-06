@@ -1,16 +1,15 @@
 # P7 agent handoff after 1.1.7
 
-**Built-in text dispatch investigation, 6 November 2026:**
-`feature/p7-builtin-text-dispatch` starts from validated integration `32c845d`, excluding the rejected
-fork-name cache. The [compiler control](p7-builtin-text-dispatch.md) keeps the existing shallow-copy
-operation but bypasses text dispatch only when the effective matcher proves no user rule can match
-text. All 2,794 affected Release/Debug checks and 320 baseline semantic controls pass. The audited 60-observation
-local comparison gives 1.64%/1.93% lower identity/source-document medians, with every candidate sample
-faster than every baseline sample for those workloads. This justifies one paired Linux comparison.
-[Run 42156324228](https://github.com/skuirrels/Xsl3/actions/runs/42156324228) is measuring candidate
-`76174b9` against `32c845d`; both builds have passed. Inspect that live run before starting any replacement.
-No adoption or full-P7 gate claim is made. This branch also carries the prior fresh integration CI
-audit and fork-name-cache rejection below as documentation only.
+**Built-in text dispatch control closed without adoption, 6 November 2026:**
+`feature/p7-builtin-text-dispatch` retains the [compiler control and complete audit](p7-builtin-text-dispatch.md).
+All 2,794 affected Release/Debug checks, 320 baseline semantic controls and 60 local observations pass;
+local identity/source-document medians improve 1.64%/1.93% with nonoverlapping ranges. However,
+[Linux 42156324228](https://github.com/skuirrels/Xsl3/actions/runs/42156324228), candidate `76174b9`
+versus integration `32c845d`, does not reproduce a reliable benefit: all ranges overlap, identity's
+median is 3.52% slower and both target ratios remain above one. All 60 Linux observations, original
+fingerprints, binary hashes and 409 tracked PDB sources per engine verify. Do not integrate or repeat
+this unchanged control. Integration and draft PR #40 remain at `32c845d`; full P7 is still active.
+This branch also retains the fresh integration CI audit and fork-name-cache rejection below as docs only.
 
 **Fork attribution update, 6 November 2026:** the unchanged integration source `32c845d` has a
 new audited [framework-symbol fork diagnostic](p7-fork-name-lookup.md), run 42149213380.
