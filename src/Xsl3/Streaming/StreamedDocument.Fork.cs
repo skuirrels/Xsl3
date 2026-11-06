@@ -3,6 +3,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using System.Xml.Schema;
@@ -360,6 +361,35 @@ internal sealed partial class StreamedDocument
         _number = Math.Max(_number, node.Number);
         if (node.Kind == XPathNodeType.Element) _open.Add(node);
         _current = node;
+    }
+
+    // A sole value consumer needs the normalized text and closing annotation, but no
+    // descendant navigation frames. Read one event at a time through the ordinary tee
+    // protocol; do not collect text inside a locked or retryable inspection callback.
+    private string ReadForkStringValue(Node node, ForkEventReader reader)
+    {
+        string first = "";
+        StringBuilder? value = null;
+        while (true)
+        {
+            Check(); // Includes this prong's cancellation, independent of the source token.
+            if (!reader.Read()) throw PositionError();
+            ForkEvent item = reader.Current!;
+            _number = Math.Max(_number, item.Number);
+            if (item.End && item.Number == node.Number)
+            {
+                node.Schema = Schema(item.SchemaInfo) ?? node.Schema;
+                node.Ended = node.ChildrenStarted = true;
+                return value?.ToString() ?? first;
+            }
+            node.ChildrenStarted = true;
+            if (node.FirstChild < 0) node.FirstChild = item.Number;
+            if (IsText(item.Kind))
+            {
+                if (first.Length == 0) first = item.Text;
+                else (value ??= new StringBuilder(first)).Append(item.Text);
+            }
+        }
     }
 
     /// <summary>Projects logical events into the existing streamed document parser without serializing XML.</summary>

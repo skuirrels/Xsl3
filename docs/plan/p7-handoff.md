@@ -1,5 +1,19 @@
 # P7 agent handoff after 1.1.7
 
+**Isolated value-event control, 6 November:** `feature/p7-fork-value-events` is closed without
+adoption. It starts at integrated `6c24a92` and changes only direct fork string-value event
+consumption. All 1,852 selected contracts and 60 paired observations validate, but the 1.23% lower
+fork median has overlapping ranges and accompanies a lower tree-control median. A fresh allocation
+trace proves the targeted frame-allocation path disappears; that does not establish useful throughput
+benefit. Do not merge this runtime or repeat an equivalent frame-only control from allocation evidence
+alone. [The control record](p7-fork-value-events.md) retains the source, exact evidence and decision.
+Resume runtime work from `feature/p7-integrated-qualification` at `6c24a92`.
+
+Draft [PR #40](https://github.com/skuirrels/Xsl3/pull/40) is running its own
+[CI 42141508372](https://github.com/skuirrels/Xsl3/actions/runs/42141508372) on that unchanged head.
+The last verified snapshot has NativeAOT and ordinary performance successful, with Linux and Windows
+unit-test steps still running. Recheck the same run; do not restart it or claim full compatibility yet.
+
 **Integrated qualification preparation, 6 November 2026:** `feature/p7-integrated-qualification`
 combines the public-selection head `5645098` with corrected-discard controller `18fc9a5`
 (runtime `a8d322a`, 256-event default). It includes merged PRs #34–38 and excludes all rejected

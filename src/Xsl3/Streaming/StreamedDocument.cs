@@ -283,6 +283,11 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         using var values = valueConsumer?.PreserveValues(node);
         using (BeginConsumption(node))
         {
+            if (_reader is ForkEventReader fork && node.Kind == XPathNodeType.Element
+                && _current == node && !node.ChildrenStarted && !_ready && valueConsumer == null
+                && _observer == null && _capturing == null && _valueReplays == null
+                && _consumedHeaders == null && _consumptionMatches == null && _descendants == null)
+                return ReadForkStringValue(node, fork);
             while (!node.Ended)
             {
                 ReadNext();
