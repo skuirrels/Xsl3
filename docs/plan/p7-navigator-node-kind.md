@@ -4,8 +4,9 @@
 
 This isolated control starts from local integration documentation head `bb50e62`, whose runtime,
 tests, canonical consumers and controllers are unchanged from `a4f7301`. The rejected attribute-cache
-runtime/test are excluded. Integration PR #40 still targets `a4f7301` while CI 42167378456 runs;
-the documentation-only integration commit has not been pushed over that live run.
+runtime/test are excluded. Integration PR #40 still targets `a4f7301`, whose CI 42167378456 and artifact audit now pass;
+the documentation-only integration commit has not been pushed. Original full acceptance
+42173435783 is running separately on `a4f7301`; this experimental navigator is excluded.
 
 The retained identity framework-symbol diagnostic on `a8d322a` attributes **426 leaf samples** to
 `StreamedNavigator.get_NodeType` among 26,343 CPU samples, with zero lost events. Its PDB's navigator

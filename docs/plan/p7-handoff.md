@@ -1,5 +1,16 @@
 # P7 agent handoff after 1.1.7
 
+**Original integration gates running, 6 November 2026:**
+[42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) runs both original
+16-workload memory matrices and all 126 throughput observations on immutable `a4f7301`, after its
+ordinary CI and full artifact audit passed. All diagnostic switches are off. Before dispatch, no
+streaming workflow was queued or running; the actual new head and all three acceptance jobs verify.
+Source/controllers and executable audits are under `/private/tmp/xsl3-p7-integrated-original-20261106/`.
+Recheck this same live run; do not restart it. This source includes the accepted merge improvement
+but neither the rejected attribute-cache change nor the active navigator experiment below.
+All outcomes are pending; the historical three-of-seven result is not a result for this head.
+
+
 **Navigator node-kind control started, 6 November 2026:** `feature/p7-navigator-node-kind`
 starts from documentation head `bb50e62` with integration runtime `a4f7301`. The
 [navigator control record](p7-navigator-node-kind.md) identifies 426 direct getter samples and
