@@ -1479,17 +1479,19 @@ namespace Xsl3.Runtime
             {
                 typedCopy.AnnotateAttribute(attribute.NamespaceURI, attribute.LocalName, type);
             }
-            else if (_runtime.IsXslt2)
+            else if (_runtime.IsXslt2 && Xsl3.Schema.AnnotatingWriters.Of(Writer) is { } annotations)
             {
+                // Serialized output cannot retain identity metadata. Inspect the source
+                // only when the destination can carry the copied attribute's flags.
                 // (Its is-idrefs property too: copy-5034.)
                 var (id, idref) = Xsl3.Schema.SchemaTypes.AttributeIdentity(attribute);
                 if (id)
                 {
-                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdAttribute(attribute.NamespaceURI, attribute.LocalName);
+                    annotations.MarkIdAttribute(attribute.NamespaceURI, attribute.LocalName);
                 }
                 if (idref)
                 {
-                    Xsl3.Schema.AnnotatingWriters.Of(Writer)?.MarkIdrefAttribute(attribute.NamespaceURI, attribute.LocalName);
+                    annotations.MarkIdrefAttribute(attribute.NamespaceURI, attribute.LocalName);
                 }
             }
         }
