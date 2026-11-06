@@ -61,4 +61,39 @@ gh workflow run streaming-development.yml --repo skuirrels/Xsl3 \
   -f source_ref=a4f730130728480748112af547aa999426bcfbff
 ```
 
-Leave the other diagnostic switches false. Linux execution and instruction attribution are pending.
+Leave the other diagnostic switches false.
+
+## Completed Linux capture
+
+[Run 42179533851](https://github.com/skuirrels/Xsl3/actions/runs/42179533851) completed successfully
+with controller `4b4219877aa4f3407e1c51ba9394bc8823801c8e` and unchanged runtime `a4f7301`.
+Artifact `13485061490` has verified archive SHA-256
+`2d05d8a333f4a5cf3bcdfb960c15636bd1eab6ee40978eaa9d44799da26b2f74`.
+The original 1 GB output, actual 4 GiB heap guard, four processors, disabled tiering, retained
+engine/consumer hashes and all 409 engine /14 consumer tracked PDB sources verify. Both inherited
+ReadyToRun variables are unset. No CPU events were lost; all **26,315** CPU samples are conserved.
+
+The independent instruction audit maps **all 1,305 direct `ReadNextCore` samples** to instruction
+starts in this same process's 4,109-byte method. Its emitted body contains 958 decoded instructions.
+There are no unmatched addresses or interior-instruction addresses. All IL offsets remain `-1`;
+these are native-instruction observations, not automatically recovered source lines. Disassembly
+SHA-256 is `d477045ae26d8f77d7dff93c83c9f7d229ed750b977557a65d28cc2fef7f0756`.
+
+| Sampled native block | Direct leaf samples | Source operation identified by emitted code |
+|---|---:|---|
+| `IG05` | 213 | Read open-stack count/top, test `Ended`, remove the closed frame |
+| `IG69` | 96 | Construct element and read name/namespace/prefix/attribute metadata |
+| `IG01` | 95 | Method prologue and stack-frame initialization |
+| `IG140` | 87 | Method epilogue |
+| `IG10` | 85 | Reader readiness and node-kind dispatch |
+
+Sampling skid, return addresses and the capture window prevent interpreting these counts as exact
+instruction time or a removable share of elapsed time. The next source investigation is avoiding
+the repeated stack-top lookup when the current event cannot have closed an element. It must retain
+the existing removal boundary, fork and replay ownership, reader advancement, validation and
+observer ordering. The previously rejected linked-ancestor rewrite and method-splitting control
+are not adopted or repeated. No runtime change or performance benefit is established by this capture.
+
+`review.json` and `instruction-review.json` in the evidence directory record the completed capture
+and instruction audits; `audit-capture.py`, `audit-instructions.py`, raw trace, same-child perf map,
+emitted instructions and original child output are retained alongside them.

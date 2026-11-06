@@ -1,6 +1,6 @@
 # P7 agent handoff after 1.1.7
 
-**Original integration gates audited; instruction diagnostic prepared, 6 November 2026:**
+**Original integration gates and instruction diagnostic audited, 6 November 2026:**
 [42173435783](https://github.com/skuirrels/Xsl3/actions/runs/42173435783) is terminal. Its
 [complete original audit](p7-integrated-original-acceptance.md) verifies **32/32 memory budgets,
 96 memory outputs and all 126 throughput observations** on `a4f7301`. Four of seven targets pass;
@@ -8,11 +8,13 @@ identity **1.180101**, fork **1.516701** and source-document **1.144763** still 
 median requirements. Merge now passes at **0.987935**. Separate cohorts are not paired speedup
 comparisons; do not retry unchanged source for favorable medians. Every original requirement remains.
 
-`feature/p7-source-instructions` prepares [same-child generated-instruction evidence](p7-source-instructions.md)
-for the normal source-reading hotspot. The optional reporter preserves all old counts and maps all
-1,301 prior `ReadNextCore` samples into that process's native method, but IL/source offsets are absent.
-A fresh capture with matching disassembly is required before selecting a change. Runtime/tests and
-canonical consumers remain `a4f7301`; Linux dispatch is pending. Full Debug qualification is complete.
+`feature/p7-source-instructions` retains the completed [same-child instruction audit](p7-source-instructions.md)
+from successful run 42179533851. All 26,315 CPU samples are conserved; all 1,305 direct `ReadNextCore`
+samples map to instruction starts in that child's emitted method. The largest block (213 samples)
+checks/removes the open-stack top. The next investigation is using current-event state to avoid
+unnecessary stack lookups while retaining the existing frame-removal boundary. The rejected linked
+stack and method-splitting controls remain excluded. Sample counts do not establish an elapsed-time
+gain. Runtime/tests and canonical consumers remain `a4f7301`; full Debug qualification is complete.
 Integration CI 42175873435 remains live on documentation head `4024e19`; PR #40 remains draft.
 Earlier entries below retain their dated scope and do not override this current state.
 
