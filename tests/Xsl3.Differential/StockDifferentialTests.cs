@@ -247,9 +247,25 @@ internal static class Child
             default:
                 using (XmlWriter w = XmlWriter.Create(ms, outputSettings))
                 {
-                    if (step.Run == Run.Xsl3) xsl3!.Transform(input, null, w, new XmlUrlResolver()); else stock!.Transform(input, null, w, new XmlUrlResolver());
+                    var resolver = new CorpusDocumentResolver();
+                    if (step.Run == Run.Xsl3) xsl3!.Transform(input, null, w, resolver);
+                    else stock!.Transform(input, null, w, resolver);
                 }
                 return Output(ms.ToArray());
+        }
+    }
+
+    private sealed class CorpusDocumentResolver : XmlUrlResolver
+    {
+        private static readonly Uri s_missingDocument = new("http://IDontExist/IDontExist.xml");
+
+        public override object? GetEntity(Uri absoluteUri, string? role, Type? ofObjectToReturn)
+        {
+            // The XsltSettings fixtures expect this document to be unavailable. Use the same
+            // failure for both engines so DNS and proxy timing cannot decide the comparison.
+            if (absoluteUri == s_missingDocument)
+                throw new System.Net.Http.HttpRequestException("The corpus document is unavailable.");
+            return base.GetEntity(absoluteUri, role, ofObjectToReturn);
         }
     }
 
