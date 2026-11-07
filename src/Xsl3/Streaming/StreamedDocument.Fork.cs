@@ -120,19 +120,19 @@ internal sealed partial class StreamedDocument
             var node = new Node(Original.Number, Kind, parent)
             {
                 Original = Original, LocalName = LocalName, Namespace = Namespace, Prefix = Prefix,
-                Text = Text, BaseUri = BaseUri, Language = Language, Attributes = Attributes, Namespaces = Namespaces,
+                Text = Text, BaseUri = BaseUri, Language = Language, Namespaces = Namespaces,
                 Schema = Schema(SchemaInfo), EmptyElement = Empty, Ended = boundary ? Empty : Ended,
                 ChildrenStarted = !boundary && Started, FirstChild = boundary ? -1 : FirstChild,
                 Consumed = Consumed, Skipped = Skipped, NoNext = NoNext,
             };
-            if (names != null) Atomize(node, names);
-            for (int i = 0; i < node.Attributes.Length; i++)
-                if (node.Attributes[i].Schema is { } info)
-                {
-                    // Boundary, ancestor and event projections all own their PSVI snapshots.
-                    if (ReferenceEquals(node.Attributes, Attributes)) node.Attributes = (Attribute[])node.Attributes.Clone();
-                    node.Attributes[i] = node.Attributes[i] with { Schema = Schema(info) };
-                }
+            if (names != null)
+            {
+                node.LocalName = names.Add(node.LocalName);
+                node.Namespace = names.Add(node.Namespace);
+                node.Prefix = names.Add(node.Prefix);
+            }
+            node.Attributes = Attributes.Length == 0 ? Attributes : CopyAttributes(Attributes, names);
+            if (names != null) AtomizeNamespaces(node, names);
             return node;
         }
 
@@ -156,19 +156,30 @@ internal sealed partial class StreamedDocument
             return node;
         }
 
-        private static void Atomize(Node node, XmlNameTable names)
+        private static Attribute[] CopyAttributes(Attribute[] attributes, XmlNameTable? names)
         {
-            node.LocalName = names.Add(node.LocalName); node.Namespace = names.Add(node.Namespace); node.Prefix = names.Add(node.Prefix);
-            Attribute[] attributes = node.Attributes;
+            Attribute[] result = attributes;
             for (int i = 0; i < attributes.Length; i++)
             {
-                Attribute a = attributes[i];
-                string local = names.Add(a.LocalName), uri = names.Add(a.Namespace), prefix = names.Add(a.Prefix);
-                if (ReferenceEquals(local, a.LocalName) && ReferenceEquals(uri, a.Namespace) && ReferenceEquals(prefix, a.Prefix)) continue;
-                // Published records are immutable; copy only when this view has different atoms.
-                if (ReferenceEquals(node.Attributes, attributes)) node.Attributes = (Attribute[])attributes.Clone();
-                node.Attributes[i] = a with { LocalName = local, Namespace = uri, Prefix = prefix };
+                ref readonly Attribute attribute = ref attributes[i];
+                string local = attribute.LocalName, uri = attribute.Namespace, prefix = attribute.Prefix;
+                if (names != null)
+                {
+                    local = names.Add(local);
+                    uri = names.Add(uri);
+                    prefix = names.Add(prefix);
+                }
+                if (attribute.Schema == null && ReferenceEquals(local, attribute.LocalName)
+                    && ReferenceEquals(uri, attribute.Namespace) && ReferenceEquals(prefix, attribute.Prefix)) continue;
+                // Published attributes are shared until names differ or the view needs its own schema snapshot.
+                if (ReferenceEquals(result, attributes)) result = (Attribute[])attributes.Clone();
+                result[i] = attribute with { LocalName = local, Namespace = uri, Prefix = prefix, Schema = Schema(attribute.Schema) };
             }
+            return result;
+        }
+
+        private static void AtomizeNamespaces(Node node, XmlNameTable names)
+        {
             Namespace[] namespaces = node.Namespaces;
             for (int i = 0; i < namespaces.Length; i++)
             {
