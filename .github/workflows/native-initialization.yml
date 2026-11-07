@@ -1,0 +1,65 @@
+name: P7 native initialization diagnostic
+
+# Diagnostic controls only. Original P7 acceptance remains in streaming-development.yml.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/native-initialization.yml'
+      - 'eng/native-initialization/**'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Immutable 40-character source commit
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  native-initialization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_ref || github.event.pull_request.head.sha || github.sha }}
+          path: baseline-source
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 10.0.x
+      - name: Record immutable source and toolchain
+        env:
+          SOURCE_REF: ${{ inputs.source_ref || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts/native-init
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C baseline-source rev-parse HEAD)" = "$SOURCE_REF"
+          git rev-parse HEAD > artifacts/native-init/diagnostic-revision.txt
+          git -C baseline-source rev-parse HEAD > artifacts/native-init/source-revision.txt
+          dotnet --info > artifacts/native-init/dotnet-info.txt
+          uname -a > artifacts/native-init/host.txt
+      - name: Publish unchanged NativeAOT control and diagnostic interposer
+        run: |
+          bash baseline-source/eng/publish-stream-probe.sh linux-x64 artifacts/native-init/control > artifacts/native-init/publish.log 2>&1
+          clang -shared -fPIC -O2 -g -Wall -Wextra eng/native-initialization/dlopen-trace.c -o artifacts/native-init/dlopen-trace.so -ldl
+          sha256sum artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native.dbg artifacts/native-init/dlopen-trace.so > artifacts/native-init/image-sha256.txt
+      - name: Fresh parent controls and first ICU caller
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --output artifacts/native-init/parent-control
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --parent-bytes 104857600 --output artifacts/native-init/large-parent-control
+          python3 eng/native-initialization/trace.py --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --tracer artifacts/native-init/dlopen-trace.so --output artifacts/native-init/traced
+      - name: Unchanged full-size external mapping controls
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 eng/diagnose-streaming-memory.py measure --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --workload identity --sizes 209715200 --rounds 1 --heap-limit 20971520 --mapping-snapshots --output artifacts/native-init/identity-mappings
+          python3 eng/diagnose-streaming-memory.py measure --native artifacts/native-init/control/bin/Xsl3.StreamingProbe.Native --workload source-document --sizes 209715200 --rounds 1 --heap-limit 20971520 --mapping-snapshots --output artifacts/native-init/source-mappings
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: p7-native-initialization
+          path: artifacts/native-init
