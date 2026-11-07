@@ -348,7 +348,7 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
         if (Root.Ended) throw PositionError();
         // Leaf events and open elements leave the top frame in place. Check the
         // frame's end state as well because a failed read may have popped it already.
-        if (_current.Kind == XPathNodeType.Element && _current.Ended && _open.Count > 1 && _open[^1].Ended)
+        if (_current.Ended && _open.Count > 1 && _open[^1].Ended)
         {
             System.Diagnostics.Debug.Assert(_open[^1] == _current);
             _open.RemoveAt(_open.Count - 1);
