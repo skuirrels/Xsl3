@@ -20,6 +20,10 @@ on:
         description: Run bounded P7F identity comparison and original memory matrices
         type: boolean
         default: false
+      checkpoint_comparison:
+        description: Also compare this runtime with source_ref for the 1.3.2 checkpoint
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -195,3 +199,54 @@ jobs:
             artifacts/p7f-identity/linux/*-diagnostic/preparation.json
             artifacts/p7f-identity/linux/*-diagnostic/source-sha256.json
             artifacts/p7f-identity/linux/*-diagnostic/publish.log
+
+  checkpoint-comparison:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.checkpoint_comparison }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: baseline-source
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 7e8f842471f9c70d681db0bdace9caa292e99f2d
+          path: comparison-tools
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build the frozen consumer and both runtimes
+        env:
+          BASELINE_REF: ${{ inputs.source_ref }}
+        run: |
+          test "$BASELINE_REF" = 5bd3b07687f80ead5ff4e7586e492b4b08dd0a63
+          test "$(git -C baseline-source rev-parse HEAD)" = "$BASELINE_REF"
+          cmp baseline-source/eng/streaming-benchmark.py comparison-tools/eng/streaming-benchmark.py
+          cmp baseline-source/eng/streaming-gate.py comparison-tools/eng/streaming-gate.py
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/checkpoint-candidate.txt
+          git -C baseline-source rev-parse HEAD > artifacts/checkpoint-baseline.txt
+          git -C comparison-tools rev-parse HEAD > artifacts/checkpoint-controller.txt
+          dotnet --info > artifacts/checkpoint-dotnet-info.txt
+          lscpu > artifacts/checkpoint-cpu.txt
+          dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
+          dotnet build src/Xsl3 -c Release -f net10.0 -m:1
+      - name: Compare all seven workloads on the same host
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 comparison-tools/eng/compare-streaming-revisions.py \
+            --baseline-assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll \
+            --candidate-engine src/Xsl3/bin/Release/net10.0/Xsl3.dll \
+            --bytes 100mb --rounds 3 \
+            --workloads identity adjacent accumulator iterate merge fork source-document \
+            --output artifacts/checkpoint-comparison
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: p7-checkpoint-comparison
+          path: |
+            artifacts/checkpoint-*.txt
+            artifacts/checkpoint-comparison

@@ -12,6 +12,32 @@ namespace Xsl3.Tests;
 
 public class StreamedInputReaderTests
 {
+    [Theory]
+    [InlineData("<first/>")]
+    [InlineData("<first></first>")]
+    public void AReaderFailureAfterAnElementEndDoesNotPopItsParentOnRetry(string first)
+    {
+        using var reader = new OnceFailingReader(XmlReader.Create(new StringReader(
+            $"<doc><group>{first}<second/></group><outside/></doc>")));
+        using var document = new StreamedDocument(reader);
+        var nav = document.CreateNavigator();
+        Assert.True(nav.MoveToFirstChild()); // doc
+        Assert.True(nav.MoveToFirstChild()); // group
+        Assert.True(nav.MoveToFirstChild()); // first
+        Assert.False(nav.MoveToFirstChild()); // finish an explicitly closed empty element
+        reader.FailNextRead = true;
+        Assert.Throws<IOException>(() => nav.MoveToNext());
+        Assert.Equal("first", nav.LocalName);
+        Assert.True(nav.MoveToNext());
+        Assert.Equal("second", nav.LocalName);
+        Assert.False(nav.MoveToNext());
+        Assert.True(nav.MoveToParent());
+        Assert.Equal("group", nav.LocalName);
+        Assert.True(nav.MoveToNext());
+        Assert.Equal("outside", nav.LocalName);
+        Assert.False(nav.MoveToNext());
+    }
+
     [Fact]
     public void SkippingPreservesDtdWhitespaceRulesForTheFollowingSibling()
     {
@@ -68,6 +94,21 @@ public class StreamedInputReaderTests
         Assert.True(reader.Read());
         Assert.True(reader.Read());
         Assert.Contains("FODC0002", Assert.Throws<XdmException>(() => reader.Skip()).Message);
+    }
+
+    private sealed class OnceFailingReader(XmlReader input) : XmlWrappingReader(input)
+    {
+        internal bool FailNextRead;
+
+        public override bool Read()
+        {
+            if (FailNextRead)
+            {
+                FailNextRead = false;
+                throw new IOException("Injected read failure before advancing the input");
+            }
+            return base.Read();
+        }
     }
 
     private sealed class CancellingReader(XmlReader input, CancellationTokenSource cancellation) : XmlWrappingReader(input)
