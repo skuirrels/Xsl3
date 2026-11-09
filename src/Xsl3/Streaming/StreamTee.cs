@@ -174,58 +174,64 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             int available;
             lock (_gate)
             {
-                _cancellation.ThrowIfCancellationRequested();
-                ObjectDisposedException.ThrowIf(_disposed || _positions[reader] < 0, this);
-                long position = _positions[reader];
-                if (position < _next)
+                // WaitForPublication returns with the monitor held. Recheck the
+                // ring here instead of releasing it and starting another read attempt.
+                while (true)
                 {
-                    try
+                    _cancellation.ThrowIfCancellationRequested();
+                    ObjectDisposedException.ThrowIf(_disposed || _positions[reader] < 0, this);
+                    long position = _positions[reader];
+                    if (position < _next)
                     {
-                        do
+                        try
                         {
-                            int slot = Slot(position);
-                            T result = _events[slot]!;
-                            if (Interlocked.CompareExchange(ref _positions[reader], position + 1, position) != position)
+                            do
                             {
-                                position = Volatile.Read(ref _positions[reader]);
-                                ObjectDisposedException.ThrowIf(position < 0, this);
-                                continue;
-                            }
-                            position++;
-                            Interlocked.Decrement(ref _remaining[slot]);
-                            if (stop == null || stop(result)) return result;
-                            _cancellation.ThrowIfCancellationRequested();
-                        } while (position < _next);
+                                int slot = Slot(position);
+                                T result = _events[slot]!;
+                                if (Interlocked.CompareExchange(ref _positions[reader], position + 1, position) != position)
+                                {
+                                    position = Volatile.Read(ref _positions[reader]);
+                                    ObjectDisposedException.ThrowIf(position < 0, this);
+                                    continue;
+                                }
+                                position++;
+                                Interlocked.Decrement(ref _remaining[slot]);
+                                if (stop == null || stop(result)) return result;
+                                _cancellation.ThrowIfCancellationRequested();
+                            } while (position < _next);
+                        }
+                        finally
+                        {
+                            // Skipped events release backpressure before requesting more
+                            // source data, including when a predicate or cancellation fails.
+                            ReleaseHead();
+                        }
                     }
-                    finally
+                    _fault?.Throw();
+                    if (_complete) return null;
+                    if (_producing && _producerThread == Environment.CurrentManagedThreadId)
+                        throw new InvalidOperationException("A stream tee source cannot recursively request its own input");
+                    if (_productionCaller != null && !_productionCaller.IsCurrentThread)
                     {
-                        // Skipped events release backpressure before requesting more
-                        // source data, including when a predicate or cancellation fails.
-                        ReleaseHead();
+                        if (!_productionRequested)
+                        {
+                            _productionRequested = true;
+                            NotifyProduction();
+                        }
+                        WaitForPublication(reader);
+                        continue;
                     }
-                }
-                _fault?.Throw();
-                if (_complete) return null;
-                if (_producing && _producerThread == Environment.CurrentManagedThreadId)
-                    throw new InvalidOperationException("A stream tee source cannot recursively request its own input");
-                if (_productionCaller != null && !_productionCaller.IsCurrentThread)
-                {
-                    if (!_productionRequested)
+                    if (_producing || _next - _first == _events.Length)
                     {
-                        _productionRequested = true;
-                        NotifyProduction();
+                        WaitForPublication(reader, waitingForSpace: !_producing);
+                        continue;
                     }
-                    WaitForPublication(reader);
-                    continue;
+                    available = _events.Length - (int)(_next - _first);
+                    _producing = true;
+                    _producerThread = Environment.CurrentManagedThreadId;
+                    break;
                 }
-                if (_producing || _next - _first == _events.Length)
-                {
-                    WaitForPublication(reader, waitingForSpace: !_producing);
-                    continue;
-                }
-                available = _events.Length - (int)(_next - _first);
-                _producing = true;
-                _producerThread = Environment.CurrentManagedThreadId;
             }
 
             Produce(available);
