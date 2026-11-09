@@ -502,10 +502,8 @@ internal sealed partial class StreamedDocument : IXPathNavigable, IDisposable
     private Node Child(XPathNodeType kind)
     {
         Node parent = _open[^1];
-        Node? original = (_reader as ForkEventReader)?.Current?.Header.Original;
-        long number = original?.Number ?? _number + 1;
-        _number = Math.Max(_number, number);
-        var node = new Node(number, kind, parent) { Original = original, BaseUri = _reader.BaseURI, Language = _reader.XmlLang };
+        // Fork events take ReadForkEvent and carry their own source number.
+        var node = new Node(++_number, kind, parent) { BaseUri = _reader.BaseURI, Language = _reader.XmlLang };
         parent.ChildrenStarted = true;
         if (parent.FirstChild < 0) parent.FirstChild = node.Number;
         return node;
