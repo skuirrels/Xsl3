@@ -220,13 +220,11 @@ jobs:
             artifacts/p7f-identity/linux/*-diagnostic/source-sha256.json
             artifacts/p7f-identity/linux/*-diagnostic/publish.log
 
-  # Actual kernel CPU samples distinguish running work from sampled waits and GC polls.
+  # The optional CPU selector runs this isolated Linux timing diagnostic on this branch.
   streaming-cpu-profile:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.cpu_profile && inputs.capacity_comparison != true && inputs.revision_comparison != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.cpu_profile }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CPU_WORKLOAD: ${{ inputs.cpu_workload }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -236,47 +234,32 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
-      - name: Record source and host, check kernel prerequisites
-        env:
-          MEMORY_DIAGNOSIS: ${{ inputs.memory_diagnosis }}
-          ALLOCATION_COMPARISON: ${{ inputs.allocation_comparison }}
+      - name: Build identical consumers with and without wait sampling
         run: |
-          mkdir -p artifacts/p7-cpu
-          git rev-parse HEAD > artifacts/p7-cpu/diagnostic-revision.txt
-          git -C baseline-source rev-parse HEAD > artifacts/p7-cpu/source-revision.txt
-          dotnet --info > artifacts/p7-cpu/dotnet-info.txt
-          uname -a > artifacts/p7-cpu/host.txt
-          lscpu >> artifacts/p7-cpu/host.txt
-          if [ "$MEMORY_DIAGNOSIS" = true ] || [ "$ALLOCATION_COMPARISON" = true ]; then echo "Select only one diagnostic mode" >&2; exit 64; fi
-          if ! mountpoint -q /sys/kernel/tracing; then sudo mount -t tracefs tracefs /sys/kernel/tracing; fi
-          sudo test -e /sys/kernel/tracing/user_events_data
-      - name: Install pinned profiling tools and runtime symbols
-        run: |
-          dotnet tool install dotnet-trace --version 10.0.750501 --tool-path "$RUNNER_TEMP/p7-tools"
-          dotnet tool install dotnet-symbol --version 10.0.750501 --tool-path "$RUNNER_TEMP/p7-tools"
-          "$RUNNER_TEMP/p7-tools/dotnet-trace" --version > artifacts/p7-cpu/trace-version.txt
-          runtime_dir=$(dotnet --list-runtimes | awk '$1 == "Microsoft.NETCore.App" && $2 ~ /^10\./ { gsub(/\[|\]/, "", $3); print $3 "/" $2 }' | sort -V | tail -n 1)
-          sudo --preserve-env=DOTNET_ROOT "$RUNNER_TEMP/p7-tools/dotnet-symbol" --symbols "$runtime_dir"/lib*.so > artifacts/p7-cpu/symbols.log 2>&1
-      - name: Build the unchanged source benchmark
-        run: dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
-      - name: Profile one canonical 1 GB child
+          mkdir -p artifacts/offcpu
+          git rev-parse HEAD > artifacts/offcpu/diagnostic-revision.txt
+          git -C baseline-source rev-parse HEAD > artifacts/offcpu/source-revision.txt
+          lscpu > artifacts/offcpu/cpu.txt
+          dotnet --info > artifacts/offcpu/dotnet-info.txt
+          dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
+          dotnet build src/Xsl3 -c Release -f net10.0 -m:1
+          cp -a baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0 artifacts/offcpu/control
+          cp -a artifacts/offcpu/control artifacts/offcpu/instrumented
+          cp src/Xsl3/bin/Release/net10.0/Xsl3.{dll,pdb} artifacts/offcpu/instrumented/
+      - name: Measure canonical publication waits on Linux
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
-      - name: Report actual kernel CPU samples
         run: |
-          dotnet build eng/StreamingCpuReport -c Release -m:1
-          sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD/cpu.nettrace" > artifacts/p7-cpu/cpu-sites.json
+          python3 eng/streaming-benchmark.py --assembly artifacts/offcpu/control/Xsl3.Benchmarks.dll \
+            --workloads fork --sizes 100mb 1gb --rounds 1 --output artifacts/offcpu/control-results
+          XSL3_FORK_WAIT_PROFILE_STRIDE=16 python3 eng/streaming-benchmark.py \
+            --assembly artifacts/offcpu/instrumented/Xsl3.Benchmarks.dll \
+            --workloads fork --sizes 100mb 1gb --rounds 1 --output artifacts/offcpu/sampled-results
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: p7-linux-cpu-profile
-          path: |
-            artifacts/p7-cpu
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.pdb
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.dll
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.pdb
+          name: p7-linux-fork-offcpu
+          path: artifacts/offcpu
 
   streaming-capacity-comparison:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.capacity_comparison && inputs.revision_comparison != true }}

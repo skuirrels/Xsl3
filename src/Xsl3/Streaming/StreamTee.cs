@@ -26,6 +26,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly int _slotMask;
     private readonly long[] _positions;
     private readonly Reader[] _readers;
+    private readonly ForkPublicationWaitProfile? _waitProfile;
     private int _active, _highWaterMark, _waiting, _waitingForSpace, _producerThread;
     private long _first, _next, _publicationVersion;
     private bool _producing, _productionRequested, _complete;
@@ -65,6 +66,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         _positions = new long[readers];
         _readers = new Reader[readers];
         _active = readers;
+        _waitProfile = ForkPublicationWaitProfile.Create(readers);
         for (int i = 0; i < readers; i++) _readers[i] = new(this, i);
         _registration = cancellation.UnsafeRegister(static state => ((StreamTee<T>)state!).Wake(), this);
     }
@@ -243,6 +245,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             if (_productionCaller != null && ForkCaller.HasSpareProcessor(_readers.Length))
             {
                 long publication = _publicationVersion;
+                var sample = _waitProfile?.Start(reader, park: false, publication) ?? default;
                 Monitor.Exit(_gate);
                 try
                 {
@@ -252,13 +255,16 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                         && spin.Continue()) { }
                 }
                 finally { Monitor.Enter(_gate); }
+                _waitProfile?.Record(reader, park: false, sample, _publicationVersion, _positions[reader] >= 0 && _positions[reader] < _next);
                 // A publication, terminal state or reclaimed slot can arrive while
                 // the monitor is released. Recheck before parking to retain its pulse.
                 if (_publicationVersion != publication || _complete || _fault != null || _disposed || _cancellation.IsCancellationRequested
                     || _positions[reader] < 0 || _positions[reader] < _next
                     || waitingForSpace && !_producing && _next - _first < _events.Length) return;
             }
+            var parked = _waitProfile?.Start(reader, park: true, _publicationVersion) ?? default;
             Monitor.Wait(_gate);
+            _waitProfile?.Record(reader, park: true, parked, _publicationVersion, _positions[reader] >= 0 && _positions[reader] < _next);
         }
         finally
         {
@@ -340,6 +346,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
                 Array.Clear(_staging);
                 // Empty filtered scans still publish bounded source progress. A
                 // spinning reader must not lose this notification when next is unchanged.
+                if (_waitProfile != null) _waitProfile.PublishedAt = System.Diagnostics.Stopwatch.GetTimestamp();
                 Volatile.Write(ref _publicationVersion, _publicationVersion + 1);
                 Monitor.PulseAll(_gate);
             }
@@ -394,5 +401,6 @@ internal sealed class StreamTee<T> : IDisposable where T : class
         }
         // Disposing a registration can wait for its callback, which also acquires the ring lock.
         _registration.Dispose();
+        _waitProfile?.Write();
     }
 }
