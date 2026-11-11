@@ -31,6 +31,28 @@ public class BoundedFilteredForkTests
     }
 
     [Theory]
+    [InlineData(1, 1)]
+    [InlineData(7, 3)]
+    [InlineData(8, 4)]
+    public void EmptyRefillCountsDiscardedEventsAndWaitsForFreshDemand(int capacity, int expectedScans)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        int calls = 0;
+        int callerThread = Environment.CurrentManagedThreadId;
+        Action<StreamTee<Event>.Reader, CancellationToken> body = (reader, _) =>
+        {
+            Assert.Equal(1, reader.Read()!.Number);
+            Assert.Equal(expectedScans, Volatile.Read(ref calls));
+        };
+        ForkProngs.RunSource<Event>(() =>
+        {
+            Assert.Equal(callerThread, Environment.CurrentManagedThreadId);
+            return ++calls == 1 ? new(new Event(1), false) : default;
+        }, new[] { body, body }, capacity, cancellation.Token);
+        Assert.Equal(expectedScans, calls);
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(64)]
     public void EmptyScanYieldsToAlreadyQueuedCallerCallback(int capacity)

@@ -18,6 +18,7 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     private readonly object _gate = new();
     private readonly Func<Memory<T?>, Batch> _readSource;
     private readonly ForkCaller? _productionCaller;
+    private readonly bool _shortenEmptyRefill;
     private readonly T?[] _staging;
     private readonly CancellationToken _cancellation;
     private readonly CancellationTokenRegistration _registration;
@@ -50,13 +51,14 @@ internal sealed class StreamTee<T> : IDisposable where T : class
     // A batch can fill only space reserved from this same ring. Staged payloads plus
     // published payloads never exceed capacity; staging adds only a reference array.
     internal StreamTee(Func<Memory<T?>, Batch> readSource, int readers, int capacity, CancellationToken cancellation = default,
-        ForkCaller? productionCaller = null)
+        ForkCaller? productionCaller = null, bool shortenEmptyRefill = false)
     {
         ArgumentNullException.ThrowIfNull(readSource);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(readers);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         _readSource = readSource;
         _productionCaller = productionCaller;
+        _shortenEmptyRefill = shortenEmptyRefill;
         _cancellation = cancellation;
         _slotMask = (capacity & (capacity - 1)) == 0 ? capacity - 1 : -1;
         _events = new T?[capacity];
@@ -279,6 +281,10 @@ internal sealed class StreamTee<T> : IDisposable where T : class
             if (!_productionRequested || _producing || _complete || _disposed || _active == 0
                 || _cancellation.IsCancellationRequested || _next - _first == _events.Length) return false;
             available = _events.Length - (int)(_next - _first);
+            // Return a useful prefix sooner when a projected refill starts empty.
+            // Produce clears the request after this batch. Another refill needs new demand.
+            if (_shortenEmptyRefill && available == _events.Length)
+                available = Math.Max(1, available / 2);
             _producing = true;
             _producerThread = Environment.CurrentManagedThreadId;
         }

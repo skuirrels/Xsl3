@@ -84,7 +84,7 @@ internal static class ForkProngs
             {
                 return new StreamTee<T>.Batch(count, true, ExceptionDispatchInfo.Capture(error));
             }
-        }, bodies.Count, capacity, cancellation, productionCaller: caller);
+        }, bodies.Count, capacity, cancellation, productionCaller: caller, shortenEmptyRefill: true);
         RunProngs(tee, bodies, cancellation, caller);
     }
 
