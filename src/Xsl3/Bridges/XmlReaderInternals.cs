@@ -50,6 +50,11 @@ namespace System.Xml
             return impl != null && s_getResolver != null ? (XmlResolver?)s_getResolver.Invoke(impl, null) : null;
         }
 
+        // Only the stock XmlReader.Create parser provides fixed DTD settings here.
+        // A wrapper's reported settings need not describe the events it returns.
+        internal static bool HasFixedDtdSuppression(XmlReader reader) =>
+            reader.GetType() == s_implType && reader.Settings is { DtdProcessing: DtdProcessing.Prohibit or DtdProcessing.Ignore };
+
         /// <summary>Upstream: <c>reader is XmlTextReaderImpl impl &amp;&amp; impl.WhitespaceHandling == WhitespaceHandling.None</c>.</summary>
         [DynamicDependency("WhitespaceHandling", "System.Xml.XmlTextReaderImpl", Asm)]
         public static bool IsTextReaderImplStrippingAllWhitespace(XmlReader reader)

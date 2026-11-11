@@ -38,13 +38,36 @@ public class StreamedInputReaderTests
         Assert.False(nav.MoveToNext());
     }
 
-    [Fact]
-    public void SkippingPreservesDtdWhitespaceRulesForTheFollowingSibling()
+    [Theory]
+    [InlineData(DtdProcessing.Prohibit)]
+    [InlineData(DtdProcessing.Ignore)]
+    public void StockReaderRetainsItsDtdPolicy(DtdProcessing policy)
+    {
+        using var input = XmlReader.Create(new StringReader("<!DOCTYPE doc [<!ELEMENT doc EMPTY>]><doc/>"),
+            new XmlReaderSettings { DtdProcessing = policy });
+        using var reader = new StreamedInputReader(input, false, default);
+        if (policy == DtdProcessing.Prohibit)
+        {
+            Assert.Equal("FODC0002", Assert.Throws<XdmException>(() => reader.Read()).Code);
+        }
+        else
+        {
+            Assert.True(reader.Read());
+            Assert.Equal(XmlNodeType.Element, reader.NodeType);
+            Assert.Equal("doc", reader.LocalName);
+            Assert.False(reader.Read());
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SkippingPreservesDtdWhitespaceRulesForTheFollowingSibling(bool wrapReader)
     {
         const string xml = "<!DOCTYPE doc [<!ELEMENT doc (skip,keep)><!ELEMENT skip ANY><!ELEMENT inside (#PCDATA)><!ELEMENT keep (#PCDATA)>]>"
             + "<doc><skip><inside>discard</inside></skip> \n <keep>retain</keep></doc>";
-        using var input = XmlReader.Create(new StringReader(xml), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse });
-        using var reader = new StreamedInputReader(input, false, default);
+        using var parser = XmlReader.Create(new StringReader(xml), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse });
+        using var reader = new StreamedInputReader(wrapReader ? new ReportIgnoringSettingsReader(parser) : parser, false, default);
         Assert.True(reader.Read()); // DTD
         Assert.True(reader.Read()); // doc
         Assert.True(reader.Read()); // skip
@@ -94,6 +117,11 @@ public class StreamedInputReaderTests
         Assert.True(reader.Read());
         Assert.True(reader.Read());
         Assert.Contains("FODC0002", Assert.Throws<XdmException>(() => reader.Skip()).Message);
+    }
+
+    private sealed class ReportIgnoringSettingsReader(XmlReader input) : XmlWrappingReader(input)
+    {
+        public override XmlReaderSettings Settings { get; } = new() { DtdProcessing = DtdProcessing.Ignore };
     }
 
     private sealed class OnceFailingReader(XmlReader input) : XmlWrappingReader(input)

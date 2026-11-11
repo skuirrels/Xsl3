@@ -12,6 +12,7 @@ namespace Xsl3.Streaming;
 /// <summary>Read-time errors and cancellation must pass through the same path when skipping content.</summary>
 internal sealed class StreamedInputReader(XmlReader input, bool ownsInput, CancellationToken cancellation, bool stripAnnotations = false) : XmlWrappingReader(input), IXmlNamespaceResolver
 {
+    private readonly bool _inspectDtd = !XmlReaderInternals.HasFixedDtdSuppression(input);
     private HashSet<(string, string)>? _elementOnly;
     private bool[] _inElementOnly = Array.Empty<bool>();
     public override IXmlSchemaInfo? SchemaInfo => stripAnnotations ? null : base.SchemaInfo;
@@ -24,6 +25,7 @@ internal sealed class StreamedInputReader(XmlReader input, bool ownsInput, Cance
             {
                 cancellation.ThrowIfCancellationRequested();
                 if (!base.Read()) return false;
+                if (!_inspectDtd) return true;
                 if (NodeType == XmlNodeType.DocumentType)
                     _elementOnly = DtdInfoBridge.GetElementOnlyElements(this);
                 else if (_elementOnly is { Count: > 0 })
