@@ -237,8 +237,8 @@ public class StreamedForkTests
     public void BufferCapacityIsPositiveAndCopiedWithSettings()
     {
         var settings = new XsltSettings();
-        Assert.Equal(256, settings.StreamingBufferCapacity);
-        Assert.Equal(256, settings.Clone().StreamingBufferCapacity);
+        Assert.Equal(64, settings.StreamingBufferCapacity);
+        Assert.Equal(64, settings.Clone().StreamingBufferCapacity);
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.StreamingBufferCapacity = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.StreamingBufferCapacity = -1);
         settings.StreamingBufferCapacity = 1;

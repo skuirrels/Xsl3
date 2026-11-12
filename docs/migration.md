@@ -33,24 +33,18 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
-## Unreleased: public streaming selection candidate
+## 1.3.2 experimental streaming checkpoint
 
-The isolated `feature/p7-public-streaming-selection` branch prepares the approved P7 execution policy.
-Default/explicit `XsltStreamabilityMode.Strict` selects forward processing for declared-streamable
-reader, stream and URI inputs through both public APIs. Set `Fallback` when tree execution is intended.
-Supplied XDM trees remain trees. Saved styles preserve the mode selected when compiled; changing loader
-settings does not recompile them. Caller-owned readers remain borrowed.
+Execution defaults to trees. To try forward execution for eligible stylesheets, set
+`XSL3_STREAM_STRICT=1` before compiling or loading the stylesheet source. `Streamability = Strict`
+controls static checking. Saved stylesheets preserve the execution mode and fork buffer capacity
+selected at compile time. Supplied XDM trees remain trees, and caller-owned readers remain borrowed.
 
-The streamed initial selection does not become the global context item. For the XSLT 3.0 API,
-set `Xslt30Transformer.GlobalContextItem` separately when global variables require a context node;
-that supplied node remains grounded. The reader, stream and URI `ApplyTemplates` overloads keep
-this separation even for a non-streamable mode. Legacy callers that rely on the principal input as
-the global context can select `Fallback` to retain their tree execution behavior.
+For the XSLT 3.0 API, set `Xslt30Transformer.GlobalContextItem` separately when global variables
+require a context node. Reader, stream and URI `ApplyTemplates` overloads use a separate initial
+selection, including in a non-streamable mode. The supplied global context node stays grounded.
 
-This is not a released feature or a full P7 completion claim. The candidate remains unmerged while
-original correctness, memory, throughput and compatibility qualification continues. `supports-streaming`
-remains `no`. Published 1.3.0 keeps the earlier opt-in behavior. See the
-[selection qualification record](plan/p7-public-streaming-selection.md).
+See the [1.3.2 release notes](releases/1.3.2.md).
 
 ## 1.2.0: unions in streamable constructs
 

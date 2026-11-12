@@ -41,7 +41,7 @@ public class StreamedInitialModeTests
     [InlineData("fallback", true, false)]
     [InlineData("fallback", false, true)]
     [InlineData("fallback", false, false)]
-    public void PublicSettingsSelectForwardOrTreeExecution(string policy, bool streamable, bool legacy)
+    public void PublicStaticPolicyKeepsForwardExecutionOptIn(string policy, bool streamable, bool legacy)
     {
         var settings = new XsltSettings();
         if (policy != "default") settings.Streamability = policy == "strict"
@@ -69,7 +69,7 @@ public class StreamedInitialModeTests
             executable.CreateTransformer().ApplyTemplates(input, writer);
         }
         Assert.Equal("123", text.ToString());
-        bool forward = streamable && policy != "fallback" && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") != "0";
+        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
         Assert.Equal(forward, firstWriteBeforeEof);
         AssertCapturedSource(capture, forward);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
@@ -331,7 +331,7 @@ public class StreamedInitialModeTests
         using var stylesheet = XmlReader.Create(new StringReader(Sheet(streamable: streamable)));
         new XslCompiledTransform().CompileToAssembly(stylesheet, settings, null,
             "Xsl3.Tests.PublicSelection", "Saved.PublicSelection", assembly);
-        bool forward = streamable && policy != "fallback" && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") != "0";
+        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
         var transform = new XslCompiledTransform();
         transform.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.PublicSelection", throwOnError: true)!,
             new XsltSettings { Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback,

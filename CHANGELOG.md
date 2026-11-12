@@ -2,25 +2,17 @@
 
 ## Unreleased
 
-- Prepare public streaming selection: default/explicit `Strict` selects forward execution for
-  declared-streamable reader, stream and URI inputs through both APIs. `Fallback` keeps tree execution,
-  existing XDM trees remain trees, and saved styles retain their compiled execution mode even with
-  different loader settings. This integration candidate remains unmerged pending full P7 qualification;
-  `supports-streaming` stays `no`, and original memory/throughput requirements are unchanged.
+## [1.3.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.2) — 2026-11-12
 
-- Increase the experimental forward-fork default `XsltSettings.StreamingBufferCapacity` from 64 to
-  256 logical input events. Explicit settings and capacities embedded in existing saved styles
-  remain unchanged. Larger event buffers trade more retained input for fewer producer handoffs;
-  this is an event-count bound, not a byte bound. Full streaming qualification is still required.
-
-- Avoid constructing descendant frames for compiler-excluded fork subtrees when the fork is their
-  sole consumer. Preserve logical source positions, reader validation, demand bounds and cancellation;
-  replay, observers and other consumers retain the full event path. This remains under qualification.
-
-- Defer per-source merge-group construction until named groups are requested, preserving captured
-  group values, source order and identity. Avoid unnecessary open-element stack lookups during
-  streamed traversal while preserving reader-error retry behavior. Both changes remain subject to
-  full P7 integration qualification.
+- Discard compiler-excluded fork descendants when the fork is their sole consumer. Preserve source
+  positions, validation, reader demand, cancellation and the event path for observers and replay.
+- Defer named per-source merge groups until requested, preserving values, source order and identity.
+- Avoid redundant open-element stack lookups during streamed traversal and cover reader-error retry
+  and template-dispatch read positions.
+- Make the missing-document differential comparison deterministic across Linux and other platforms.
+- Preserve tree execution by default, explicit experimental forward opt-in and a 64-event default
+  fork buffer. Streaming remains experimental with `supports-streaming = no`. Full Phase 7
+  qualification retains the original memory and throughput gates.
 
 ## [1.3.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.1) — 2026-11-06
 

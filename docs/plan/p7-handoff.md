@@ -1,4 +1,14 @@
-# P7 agent handoff after 1.1.7
+# P7 agent handoff
+
+**1.3.2 checkpoint:** [PR #40](https://github.com/skuirrels/Xsl3/pull/40) carries the integrated
+runtime work into an experimental release with the 1.3.1 execution policy and 64-event default.
+The pre-checkpoint integration head `70f36563c8a50550bc21f37671c96d4f6f27dfc2` is preserved on
+[`feature/p7-full-qualification`](https://github.com/skuirrels/Xsl3/tree/feature/p7-full-qualification).
+The default forward-selection and 256-event proposals in the historical entries below apply to
+that saved head. Supported streaming still requires the original memory and throughput gates.
+See the [checkpoint release notes](../releases/1.3.2.md).
+
+## Qualification history
 
 **Current integration work, 6 November 2026:** `feature/p7-integrated-qualification` now incorporates
 the qualified [current-event stack runtime and retry contracts](p7-current-event-stack.md) from `1ef7c32`.

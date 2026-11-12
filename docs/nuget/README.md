@@ -4,29 +4,18 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.3.1: streaming verification checkpoint.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
-> XSLT 3.0 works apart from supported streaming. Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
+> **1.3.2 experimental streaming checkpoint.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
-Version **1.3.1** strengthens P7 verification of forward execution, Debug compiler checks, retained
-navigator memory, fork payloads and hidden grounding. Native initialization diagnostics now run in a
-separate workflow; the scheduled memory and throughput acceptance gates remain unchanged.
-Default execution stays tree-based; streaming remains experimental and unsupported.
+Version **1.3.2** ships experimental fork subtree discard, deferred named merge groups, and
+streamed reader-stack improvements. Execution defaults to trees. Set `XSL3_STREAM_STRICT=1` when
+compiling or loading stylesheet source to try forward execution for eligible stylesheets.
+`Streamability = Strict` controls static analysis, and `StreamingBufferCapacity` defaults to 64
+logical input events. Saved stylesheets retain their compiled execution mode and capacity.
+Streaming remains experimental and `supports-streaming` remains `no`.
 
-Streaming remains experimental and `supports-streaming` remains `no`. `Streamability = Strict` controls
-static checking and does not enable forward execution by itself. Published default execution stays
-tree-based; forward execution requires the explicit development opt-in. The original streaming memory
-and throughput gates remain unchanged and unmet; this release does not complete full P7.
-
-An unreleased P7 integration candidate selects forward execution under default/explicit `Strict`
-for declared-streamable reader, stream and URI inputs through both APIs. `Fallback` remains tree-based;
-existing XDM trees and saved execution modes are preserved. This behavior is under qualification on
-`feature/p7-integrated-qualification`. The published 1.3.1 packages use the experimental opt-in.
-
-See the [1.3.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.1/docs/releases/1.3.1.md) and
-[checkpoint boundary](https://github.com/skuirrels/Xsl3/blob/v1.3.1/docs/plan/p7-runtime-checkpoint.md).
-Strict analysis rejects XSLT 1.0 instructions in declared-streamable content with `XTSE3430`, including
-motionless instructions. Select `XsltStreamabilityMode.Fallback` when strict static checking is not intended.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.1 and regenerate saved stylesheets with matching packages.
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.2 and regenerate saved stylesheets with
+matching packages. See the [1.3.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.2/docs/releases/1.3.2.md).
 
 ## Getting started
 
