@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using Xsl3.Streaming;
 using Xsl3.Xdm;
 using Xunit;
 
@@ -50,6 +51,8 @@ public class StreamedInitialModeTests
         using var text = new StringWriter();
         bool? firstWriteBeforeEof = null;
         using var writer = new ObservingWriter(text, () => firstWriteBeforeEof ??= !input.EOF);
+        using var capture = new StreamingExecutionCapture();
+        using var stage = StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet);
         if (legacy)
         {
             var transform = new XslCompiledTransform();
@@ -66,8 +69,20 @@ public class StreamedInitialModeTests
             executable.CreateTransformer().ApplyTemplates(input, writer);
         }
         Assert.Equal("123", text.ToString());
-        Assert.Equal(streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1", firstWriteBeforeEof);
+        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        Assert.Equal(forward, firstWriteBeforeEof);
+        AssertCapturedSource(capture, forward);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
+
+    private static void AssertCapturedSource(StreamingExecutionCapture capture, bool forward)
+    {
+        var execution = Assert.Single(capture.Snapshot().Executions, e => e.Stage == "Stylesheet");
+        Assert.True(execution.BodyCompleted);
+        var source = Assert.Single(execution.Sources);
+        Assert.Equal("Opened", source.Status);
+        Assert.Equal(forward, source.ActualForward);
+        Assert.Equal(forward, source.NavigatorType == typeof(StreamedNavigator).FullName);
     }
 
     [Theory]
@@ -300,6 +315,40 @@ public class StreamedInitialModeTests
     }
 
 #if NET9_0_OR_GREATER
+    [Theory]
+    [InlineData("default", true)]
+    [InlineData("default", false)]
+    [InlineData("strict", true)]
+    [InlineData("strict", false)]
+    [InlineData("fallback", true)]
+    [InlineData("fallback", false)]
+    public void SavedPublicSelectionSurvivesOppositeLoaderSettings(string policy, bool streamable)
+    {
+        var settings = new XsltSettings();
+        if (policy != "default") settings.Streamability = policy == "strict"
+            ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+        using var assembly = new MemoryStream();
+        using var stylesheet = XmlReader.Create(new StringReader(Sheet(streamable: streamable)));
+        new XslCompiledTransform().CompileToAssembly(stylesheet, settings, null,
+            "Xsl3.Tests.PublicSelection", "Saved.PublicSelection", assembly);
+        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        var transform = new XslCompiledTransform();
+        transform.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.PublicSelection", throwOnError: true)!,
+            new XsltSettings { Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback,
+                StreamedExecution = !forward });
+        using var input = XmlReader.Create(new StringReader(Input));
+        using var text = new StringWriter();
+        bool? firstWriteBeforeEof = null;
+        using var writer = new ObservingWriter(text, () => firstWriteBeforeEof ??= !input.EOF);
+        using var capture = new StreamingExecutionCapture();
+        using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+            transform.Transform(input, null, writer);
+        Assert.Equal("123", text.ToString());
+        Assert.Equal(forward, firstWriteBeforeEof);
+        AssertCapturedSource(capture, forward);
+        Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
+
     [Fact]
     public void SavedInitialModePreservesForwardExecutionAndAbsence()
     {

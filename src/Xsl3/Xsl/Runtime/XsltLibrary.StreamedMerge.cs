@@ -89,9 +89,47 @@ public sealed partial class XsltLibrary
         public override string Describe() => "a k-way merge cursor";
     }
 
-    private sealed class MergeGroup(IList<XPathItem> items, IList<XPathItem> key, IList<XPathItem> sources) : FunctionItem
+    private sealed class MergeGroup : FunctionItem
     {
-        internal readonly IList<XPathItem> Items = items, Key = key, Sources = sources;
+        internal readonly IList<XPathItem> Items, Key;
+        private readonly int[]? _sourceCounts;
+        private IList<XPathItem>? _sources;
+
+        internal MergeGroup(IList<XPathItem> items, IList<XPathItem> key, IList<XPathItem> sources)
+        {
+            Items = items; Key = key; _sources = sources;
+        }
+
+        internal MergeGroup(IList<XPathItem> items, IList<XPathItem> key, int[] sourceCounts)
+        {
+            Items = items; Key = key; _sourceCounts = sourceCounts;
+        }
+
+        internal IList<XPathItem> Sources
+        {
+            get
+            {
+                if (System.Threading.Volatile.Read(ref _sources) is { } cached) return cached;
+                // Equal-key rows are contiguous by source: the heap breaks ties by
+                // source, then anchor. Preserve the same grounded node references;
+                // no source is advanced when a named group is first requested.
+                var bySource = new IList<XPathItem>[_sourceCounts!.Length];
+                int offset = 0;
+                for (int source = 0; source < bySource.Length; source++)
+                {
+                    int count = _sourceCounts[source];
+                    if (count == 0) bySource[source] = Sequences.Empty;
+                    else
+                    {
+                        var members = new XPathItem[count];
+                        for (int i = 0; i < count; i++) members[i] = Items[offset++];
+                        bySource[source] = members;
+                    }
+                }
+                IList<XPathItem> sources = Sequences.One(ArrayItem.Of(bySource));
+                return System.Threading.Interlocked.CompareExchange(ref _sources, sources, null) ?? sources;
+            }
+        }
         public override int Arity => 0;
         public override SequenceTypeTest ParameterType(int index) => SequenceTypeTest.AnySequence;
         public override SequenceTypeTest ReturnType => SequenceTypeTest.AnySequence;
@@ -128,21 +166,20 @@ public sealed partial class XsltLibrary
         IList<XPathItem>[] key = first.Head!.Key;
         IList<XPathItem> rawKey = first.Head.RawKey.SelectMany(part => part).ToArray();
         var items = new List<XPathItem>();
-        var bySource = new IList<XPathItem>[merge.SourceCount];
-        for (int i = 0; i < bySource.Length; i++) bySource[i] = new List<XPathItem>();
+        var sourceCounts = new int[merge.SourceCount];
         while (merge.Heads.TryPeek(out MergeInput? input, out _) && merge.Compare(key, input.Head!.Key) == 0)
         {
             merge.Heads.Dequeue();
             do
             {
                 XPathItem item = input.Head!.Item;
-                items.Add(item); bySource[input.Source].Add(item);
+                items.Add(item); sourceCounts[input.Source]++;
                 input.Advance(merge.Plan);
             }
             while (input.Head != null && merge.Compare(key, input.Head.Key) == 0);
             if (input.Head != null) merge.Heads.Enqueue(input, input);
         }
-        return Sequences.One(new MergeGroup(items, rawKey, Sequences.One(ArrayItem.Of(bySource))));
+        return Sequences.One(new MergeGroup(items, rawKey, sourceCounts));
     }
 
     public XPathItem X31MergeGroupFirst(XPathItem group) => ((MergeGroup)group).Items[0];

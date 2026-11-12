@@ -33,6 +33,19 @@ bugs.
   stop runaway transformations with an error instead of hanging or crashing the process; `UseDedicatedThread` gives
   deeply recursive stylesheets a large stack.
 
+## 1.3.2 experimental streaming checkpoint
+
+Execution defaults to trees. To try forward execution for eligible stylesheets, set
+`XSL3_STREAM_STRICT=1` before compiling or loading the stylesheet source. `Streamability = Strict`
+controls static checking. Saved stylesheets preserve the execution mode and fork buffer capacity
+selected at compile time. Supplied XDM trees remain trees, and caller-owned readers remain borrowed.
+
+For the XSLT 3.0 API, set `Xslt30Transformer.GlobalContextItem` separately when global variables
+require a context node. Reader, stream and URI `ApplyTemplates` overloads use a separate initial
+selection, including in a non-streamable mode. The supplied global context node stays grounded.
+
+See the [1.3.2 release notes](releases/1.3.2.md).
+
 ## 1.2.0: unions in streamable constructs
 
 A union of two striding expressions is crawling (XSLT 3.0 §19.8.8.4), even for sibling child paths

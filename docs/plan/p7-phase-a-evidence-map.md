@@ -1,5 +1,11 @@
 # P7 S3 to S6 acceptance-evidence map (released commit b0bf3bb)
 
+**Current integrated review, 6 November 2026:** [the current evidence review](p7-integrated-evidence-review.md)
+retains all 116 IDs and checks current references against both hosted full unit suites at `6c24a92`.
+It records subsequent direct controls, the public-selection replacement, per-case verifier evidence,
+stage dispositions and remaining qualifications. The rows below remain the original historical map;
+their PARTIAL/NONE counts are not the current backlog.
+
 **5 November S3-27 addition:** [hidden-grounding contracts](p7-hidden-grounding-contracts.md)
 exercise a real helper that grounds the whole input after forward entry. The measured managed-byte
 violation rejects this control although its output, engine source record and Debug verifier pass.

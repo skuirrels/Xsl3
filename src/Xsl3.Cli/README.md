@@ -2,12 +2,11 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Version **1.3.1** strengthens P7 verification of forward execution, Debug compiler checks, retained
-navigator memory, fork payloads and hidden grounding. Native initialization diagnostics now run in a
-separate workflow; the scheduled memory and throughput acceptance gates remain unchanged.
-Default execution stays tree-based; streaming remains experimental and unsupported.
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
-See the [1.3.1 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.1/docs/releases/1.3.1.md).
+Version **1.3.2** includes the experimental streaming checkpoint. Execution defaults to trees.
+Set `XSL3_STREAM_STRICT=1` before compiling to try forward execution for eligible stylesheets.
+Saved stylesheets retain their compiled execution mode and buffer capacity. Keep `Xsl3`, `Xsl3.Build`
+and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
+See the [1.3.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.2/docs/releases/1.3.2.md).
 
 ```
 dotnet tool install --global Xsl3.Cli

@@ -62,7 +62,10 @@ foreach (var (key, value) in totals.Entries)
 ```
 
 `GlobalContextItem` sets the context item of global variables, and of a named template or function the run starts
-with. Applying templates to a single node makes that node the global context item too.
+with. Applying templates to a single `XdmNode` makes that node the global context item too when none is supplied
+explicitly. The reader, stream and URI `ApplyTemplates` overloads keep their initial selection separate:
+set `GlobalContextItem` explicitly if global variables require a context node. That node remains grounded even
+when the initial selection streams.
 
 ## Values
 

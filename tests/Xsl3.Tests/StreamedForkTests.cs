@@ -238,6 +238,7 @@ public class StreamedForkTests
     {
         var settings = new XsltSettings();
         Assert.Equal(64, settings.StreamingBufferCapacity);
+        Assert.Equal(64, settings.Clone().StreamingBufferCapacity);
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.StreamingBufferCapacity = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.StreamingBufferCapacity = -1);
         settings.StreamingBufferCapacity = 1;

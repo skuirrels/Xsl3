@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [1.3.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.2) — 2026-11-12
+
+- Discard compiler-excluded fork descendants when the fork is their sole consumer. Preserve source
+  positions, validation, reader demand, cancellation and the event path for observers and replay.
+- Defer named per-source merge groups until requested, preserving values, source order and identity.
+- Avoid redundant open-element stack lookups during streamed traversal and cover reader-error retry
+  and template-dispatch read positions.
+- Make the missing-document differential comparison deterministic across Linux and other platforms.
+- Preserve tree execution by default, explicit experimental forward opt-in and a 64-event default
+  fork buffer. Streaming remains experimental with `supports-streaming = no`. Full Phase 7
+  qualification retains the original memory and throughput gates.
+
 ## [1.3.1](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.1) — 2026-11-06
 
 - Add direct P7 contracts for forward execution, group read/drain positions, retained navigator memory,
