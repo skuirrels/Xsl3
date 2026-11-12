@@ -165,6 +165,8 @@ public class StreamedForwardExecutionTests
             var initial = Assert.Single(execution.Sources, s => s.Kind == "Initial");
             Assert.Equal(forward, initial.ActualForward);
             Assert.Equal(forward, initial.NavigatorType == typeof(StreamedNavigator).FullName);
+            Assert.NotEqual(ReadState.Closed, reader.ReadState);
+            Assert.True(stream.CanRead);
             if (raw == null)
                 AssertWrittenEarly(destination == "stream" ? bytes.FirstWrite : writer.FirstWrite, Encoding.UTF8.GetByteCount(Input), forward, $"{source}/{destination}:");
         }

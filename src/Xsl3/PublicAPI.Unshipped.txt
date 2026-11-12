@@ -1,1 +1,3 @@
 #nullable enable
+Xsl3.XsltSettings.StreamedExecution.get -> bool?
+Xsl3.XsltSettings.StreamedExecution.set -> void
