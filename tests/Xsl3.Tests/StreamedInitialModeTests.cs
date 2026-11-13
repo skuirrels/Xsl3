@@ -29,23 +29,32 @@ public class StreamedInitialModeTests
         new XsltCompiler { Settings = new() { StreamedExecution = forward } }.Compile(new StringReader(sheet)).CreateTransformer();
 
     [Theory]
-    [InlineData("default", true, true)]
-    [InlineData("default", true, false)]
-    [InlineData("default", false, true)]
-    [InlineData("default", false, false)]
-    [InlineData("strict", true, true)]
-    [InlineData("strict", true, false)]
-    [InlineData("strict", false, true)]
-    [InlineData("strict", false, false)]
-    [InlineData("fallback", true, true)]
-    [InlineData("fallback", true, false)]
-    [InlineData("fallback", false, true)]
-    [InlineData("fallback", false, false)]
-    public void PublicStaticPolicyKeepsForwardExecutionOptIn(string policy, bool streamable, bool legacy)
+    [InlineData("default", true, true, null)]
+    [InlineData("default", true, false, null)]
+    [InlineData("default", false, true, null)]
+    [InlineData("default", false, false, null)]
+    [InlineData("strict", true, true, null)]
+    [InlineData("strict", true, false, null)]
+    [InlineData("strict", false, true, null)]
+    [InlineData("strict", false, false, null)]
+    [InlineData("fallback", true, true, null)]
+    [InlineData("fallback", true, false, null)]
+    [InlineData("fallback", false, true, null)]
+    [InlineData("fallback", false, false, null)]
+    [InlineData("default", true, true, true)]
+    [InlineData("default", true, false, true)]
+    [InlineData("default", true, true, false)]
+    [InlineData("default", true, false, false)]
+    [InlineData("strict", false, true, true)]
+    [InlineData("strict", false, false, true)]
+    [InlineData("fallback", true, true, true)]
+    [InlineData("fallback", true, false, true)]
+    public void PublicStaticPolicyKeepsForwardExecutionOptIn(string policy, bool streamable, bool legacy, bool? streamedExecution)
     {
-        var settings = new XsltSettings();
+        var settings = new XsltSettings { StreamedExecution = streamedExecution };
         if (policy != "default") settings.Streamability = policy == "strict"
             ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+        bool requestedForward = streamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
         string sheet = Sheet(declarations: "<xsl:strip-space elements='*'/>", streamable: streamable);
         using var input = XmlReader.Create(new StringReader(Input));
         using var text = new StringWriter();
@@ -60,16 +69,18 @@ public class StreamedInitialModeTests
             transform.Load(style, settings, null);
             // A loaded unit owns its settings; later caller mutations cannot change its entry path.
             settings.Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+            settings.StreamedExecution = !requestedForward;
             transform.Transform(input, null, writer);
         }
         else
         {
             var executable = new XsltCompiler { Settings = settings }.Compile(new StringReader(sheet));
             settings.Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
+            settings.StreamedExecution = !requestedForward;
             executable.CreateTransformer().ApplyTemplates(input, writer);
         }
         Assert.Equal("123", text.ToString());
-        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        bool forward = streamable && requestedForward;
         Assert.Equal(forward, firstWriteBeforeEof);
         AssertCapturedSource(capture, forward);
         Assert.NotEqual(ReadState.Closed, input.ReadState);
@@ -83,6 +94,36 @@ public class StreamedInitialModeTests
         Assert.Equal("Opened", source.Status);
         Assert.Equal(forward, source.ActualForward);
         Assert.Equal(forward, source.NavigatorType == typeof(StreamedNavigator).FullName);
+    }
+
+    [Fact]
+    public void LegacyUriTransformUsesItsOwnStylesheetSelection()
+    {
+        string inputPath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(inputPath, Input);
+            var forward = new XslCompiledTransform();
+            var tree = new XslCompiledTransform();
+            using (var style = XmlReader.Create(new StringReader(Sheet())))
+                forward.Load(style, new XsltSettings { StreamedExecution = true }, null);
+            using (var style = XmlReader.Create(new StringReader(Sheet())))
+                tree.Load(style, new XsltSettings { StreamedExecution = false }, null);
+
+            foreach (var (transform, expectedForward) in new[] { (tree, false), (forward, true) })
+            {
+                using var text = new StringWriter();
+                using var capture = new StreamingExecutionCapture();
+                using (StreamingExecutionCapture.ObserveStage(StreamingExecutionCapture.Stage.Stylesheet))
+                    transform.Transform(inputPath, null, text);
+                Assert.Equal("123", text.ToString());
+                AssertCapturedSource(capture, expectedForward);
+            }
+        }
+        finally
+        {
+            File.Delete(inputPath);
+        }
     }
 
     [Theory]
@@ -316,26 +357,30 @@ public class StreamedInitialModeTests
 
 #if NET9_0_OR_GREATER
     [Theory]
-    [InlineData("default", true)]
-    [InlineData("default", false)]
-    [InlineData("strict", true)]
-    [InlineData("strict", false)]
-    [InlineData("fallback", true)]
-    [InlineData("fallback", false)]
-    public void SavedPublicSelectionSurvivesOppositeLoaderSettings(string policy, bool streamable)
+    [InlineData("default", true, null)]
+    [InlineData("default", false, null)]
+    [InlineData("strict", true, null)]
+    [InlineData("strict", false, null)]
+    [InlineData("fallback", true, null)]
+    [InlineData("fallback", false, null)]
+    [InlineData("default", true, true)]
+    [InlineData("default", true, false)]
+    [InlineData("strict", false, true)]
+    public void SavedPublicSelectionSurvivesOppositeLoaderSettings(string policy, bool streamable, bool? streamedExecution)
     {
-        var settings = new XsltSettings();
+        var settings = new XsltSettings { StreamedExecution = streamedExecution };
         if (policy != "default") settings.Streamability = policy == "strict"
             ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback;
         using var assembly = new MemoryStream();
         using var stylesheet = XmlReader.Create(new StringReader(Sheet(streamable: streamable)));
         new XslCompiledTransform().CompileToAssembly(stylesheet, settings, null,
             "Xsl3.Tests.PublicSelection", "Saved.PublicSelection", assembly);
-        bool forward = streamable && Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        bool requestedForward = streamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
+        bool forward = streamable && requestedForward;
         var transform = new XslCompiledTransform();
         transform.Load(System.Reflection.Assembly.Load(assembly.ToArray()).GetType("Saved.PublicSelection", throwOnError: true)!,
             new XsltSettings { Streamability = policy == "fallback" ? XsltStreamabilityMode.Strict : XsltStreamabilityMode.Fallback,
-                StreamedExecution = !forward });
+                StreamedExecution = !requestedForward });
         using var input = XmlReader.Create(new StringReader(Input));
         using var text = new StringWriter();
         bool? firstWriteBeforeEof = null;

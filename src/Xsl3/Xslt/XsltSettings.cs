@@ -42,9 +42,14 @@ namespace Xsl3
         private bool _enableEvaluate;
         private XsltStreamabilityMode _streamability;
 
-        // P7 development switch. Tests can select it per compiler without mutating process-wide state.
-        // Static Strict analysis does not enable an execution backend that is still unqualified.
-        internal bool? StreamedExecution { get; set; }
+        /// <summary>
+        /// Selects experimental forward execution when compiling eligible stylesheet source.
+        /// <see langword="true"/> opts in for this stylesheet. <see langword="false"/> selects tree
+        /// execution. The default, <see langword="null"/>, opts in only when the process environment
+        /// has <c>XSL3_STREAM_STRICT=1</c>. <see cref="Streamability"/> controls static analysis independently.
+        /// A saved stylesheet retains its compiled execution mode when loaded.
+        /// </summary>
+        public bool? StreamedExecution { get; set; }
         internal bool UseStreamedExecution => StreamedExecution ?? Environment.GetEnvironmentVariable("XSL3_STREAM_STRICT") == "1";
 
         private int _streamingBufferCapacity = 64;

@@ -10,24 +10,24 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.3.2 experimental streaming checkpoint.** XSLT 1.0 behaves as stock `System.Xml.Xsl`.
+> **1.3.3 per-stylesheet experimental streaming opt-in.** XSLT 1.0 behaves as stock `System.Xml.Xsl`.
 > XSLT 2.0 and XPath 3.1 are implemented. Schema awareness is available through
 > `XsltSettings.SchemaAware`. Find the packages on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build),
 > [Xsl3.Cli](https://www.nuget.org/packages/Xsl3.Cli)) and on [GitHub](https://github.com/skuirrels/Xsl3/releases).
 
-Version **1.3.2** ships experimental fork subtree discard, deferred named merge groups, and
-streamed reader-stack improvements with retry and read-position coverage.
+Set `XsltSettings.StreamedExecution = true` before compiling or loading eligible stylesheet source
+through either API to try forward execution. Set it to `false` to select trees. The default,
+`null`, uses trees unless the process opts in with `XSL3_STREAM_STRICT=1`. See the
+[experimental streaming example](docs/getting-started.md#experimental-streaming).
 
-Execution defaults to trees. To try forward execution for eligible stylesheets, set
-`XSL3_STREAM_STRICT=1` when compiling or loading the stylesheet source. `Streamability = Strict`
-controls static analysis. `StreamingBufferCapacity` defaults to 64 logical input events, and saved
-stylesheets retain the execution mode and capacity selected at compile time. Streaming remains
-experimental, `supports-streaming` remains `no`, and the original Phase 7 acceptance gates still
-apply to supported streaming.
+`Streamability` controls static analysis. `StreamingBufferCapacity` defaults to 64 logical input
+events, and saved stylesheets retain the execution mode and capacity selected at compile time.
+Streaming remains experimental with `supports-streaming = no`. Supported streaming still requires
+the original Phase 7 memory and throughput gates.
 
 Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together and regenerate saved stylesheets with matching
-packages. See the [changelog](CHANGELOG.md), [1.3.2 release notes](docs/releases/1.3.2.md) and
+packages. See the [changelog](CHANGELOG.md), [1.3.3 release notes](docs/releases/1.3.3.md) and
 [Phase 7 handoff](docs/plan/p7-handoff.md).
 
 ## What works
@@ -129,7 +129,7 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
 - **Later phases** (1.x, [remaining-scope "After 1.0"](docs/plan/remaining-scope.md#after-10-1x-to-do)): streaming
   (P7) has completed P7A foundations, P7B analysis, bounded [P7C input-boundary correctness](docs/plan/p7c-runtime-correctness.md) and
   [P7D schema-validation contracts](docs/plan/p7d-validation-contracts.md). It has expression and construct analysis, strict/fallback compiler checks and separate W3C development profiles
-  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Published releases require the explicit development opt-in.
+  ([plan and limits](docs/plan/p7-streaming.md#s5-streamed-merge)). Forward execution requires an experimental opt-in.
   Forward paths include source-document schema validation, streamable
   initial modes, inline `xsl:iterate`, adjacent/starting/ending groups, k-way merge and replay for explicit subtree grounding. Streaming is not
   claimed. Also outstanding: a QIL interpreter for `xsl:evaluate` and runtime compilation under NativeAOT; XSD 1.1

@@ -4,18 +4,17 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.3.2 experimental streaming checkpoint.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> **1.3.3 per-stylesheet experimental streaming opt-in.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
 > Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
-Version **1.3.2** ships experimental fork subtree discard, deferred named merge groups, and
-streamed reader-stack improvements. Execution defaults to trees. Set `XSL3_STREAM_STRICT=1` when
-compiling or loading stylesheet source to try forward execution for eligible stylesheets.
-`Streamability = Strict` controls static analysis, and `StreamingBufferCapacity` defaults to 64
-logical input events. Saved stylesheets retain their compiled execution mode and capacity.
-Streaming remains experimental and `supports-streaming` remains `no`.
+Set `XsltSettings.StreamedExecution = true` before compiling or loading eligible stylesheet source
+to try forward execution. Set it to `false` to select trees. The default, `null`, uses trees
+unless the process opts in with `XSL3_STREAM_STRICT=1`. `Streamability` controls static analysis.
+`StreamingBufferCapacity` defaults to 64 logical input events. Saved stylesheets retain their
+compiled execution mode and capacity. Streaming remains experimental with `supports-streaming = no`.
 
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.2 and regenerate saved stylesheets with
-matching packages. See the [1.3.2 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.2/docs/releases/1.3.2.md).
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.3 and regenerate saved stylesheets with
+matching packages. See the [1.3.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.3/docs/releases/1.3.3.md).
 
 ## Getting started
 

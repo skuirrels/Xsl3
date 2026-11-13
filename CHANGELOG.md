@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.3.3](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.3) — 2026-11-13
+
+- Expose `XsltSettings.StreamedExecution` for per-stylesheet experimental forward execution through
+  either compiler API. Explicit settings take precedence over `XSL3_STREAM_STRICT`. The default
+  is tree execution unless the environment opts in. Saved stylesheets retain their compiled mode.
+- Cover environment precedence, forward input selection and saved stylesheet loading. The 64-event
+  buffer default and `supports-streaming = no` remain in effect. Full Phase 7 qualification retains
+  the original memory and throughput gates.
+
 ## [1.3.2](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.2) — 2026-11-12
 
 - Discard compiler-excluded fork descendants when the fork is their sole consumer. Preserve source

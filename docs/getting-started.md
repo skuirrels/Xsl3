@@ -92,6 +92,26 @@ What a stylesheet can reach is off unless `XsltSettings` turns it on: `document(
 to the base output URI's directory), environment variables (`EnableEnvironmentVariables`). `Timeout`,
 `MaxRecursionDepth` and `MaxOutputBytes` bound a run. Set them on `XsltCompiler.Settings`.
 
+## Experimental streaming
+
+Set `XsltSettings.StreamedExecution = true` before compiling a stylesheet with a streamable initial
+mode. Pass the settings to `XsltCompiler.Settings` or to `XslCompiledTransform.Load` when loading
+stylesheet source.
+
+```csharp
+var compiler = new XsltCompiler { Settings = new XsltSettings { StreamedExecution = true } };
+var executable = compiler.Compile(new Uri(Path.GetFullPath("report.xsl")));
+var transformer = executable.CreateTransformer();
+using var reader = XmlReader.Create("input.xml");
+transformer.ApplyTemplates(reader, Console.Out);
+```
+
+Set `StreamedExecution = false` to select tree execution for another stylesheet in the same process.
+The default, `null`, uses trees unless `XSL3_STREAM_STRICT=1` is set at compile time. `Streamability`
+still controls static analysis. Existing XDM trees remain trees. Saved stylesheets retain the
+execution mode chosen at compile time, and the default fork buffer is 64 events.
+Streaming remains experimental with `supports-streaming = no`.
+
 ## Errors
 
 A dynamic error is an `XsltDynamicException` with the error's `Code` (a `QName`: `err:XTDE0640`, a stylesheet's own

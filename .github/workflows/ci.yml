@@ -37,6 +37,12 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/Xsl3.Tests -c Release --no-build --logger trx --results-directory artifacts/test-results
 
+      - name: Experimental streaming opt-in with the process switch enabled
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          XSL3_STREAM_STRICT: "1"
+        run: dotnet test tests/Xsl3.Tests -c Release --no-build --filter "FullyQualifiedName~PublicStaticPolicyKeepsForwardExecutionOptIn|FullyQualifiedName~SavedPublicSelectionSurvivesOppositeLoaderSettings"
+
       # P7H: the original assertion requires a Debug library as well as debug stylesheets.
       - name: Debug compiler source-line contracts
         run: dotnet test tests/Xsl3.Tests -c Debug --filter "FullyQualifiedName~BareVariableSequencesKeepIdentity|FullyQualifiedName~DebugSourceLineTests" --logger trx --results-directory artifacts/test-results/debug-source-lines
