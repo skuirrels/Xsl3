@@ -92,7 +92,7 @@ What a stylesheet can reach is off unless `XsltSettings` turns it on: `document(
 to the base output URI's directory), environment variables (`EnableEnvironmentVariables`). `Timeout`,
 `MaxRecursionDepth` and `MaxOutputBytes` bound a run. Set them on `XsltCompiler.Settings`.
 
-## Experimental streaming (unreleased)
+## Experimental streaming
 
 Set `XsltSettings.StreamedExecution = true` before compiling a stylesheet with a streamable initial
 mode. Pass the settings to `XsltCompiler.Settings` or to `XslCompiledTransform.Load` when loading

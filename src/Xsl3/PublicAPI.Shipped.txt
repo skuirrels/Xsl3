@@ -1121,3 +1121,5 @@ Xsl3.Runtime.XsltLibrary.X31SimpleContentText(string! value) -> string!
 Xsl3.Runtime.XsltLibrary.X31StringJoin(System.Collections.Generic.IList<System.Xml.XPath.XPathItem!>! values, string! separator) -> string!
 Xsl3.XsltSettings.StreamabilityExtensions.get -> bool
 Xsl3.XsltSettings.StreamabilityExtensions.set -> void
+Xsl3.XsltSettings.StreamedExecution.get -> bool?
+Xsl3.XsltSettings.StreamedExecution.set -> void
