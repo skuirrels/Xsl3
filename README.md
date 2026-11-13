@@ -30,7 +30,7 @@ Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together and regenerate saved stylesh
 packages. See the [changelog](CHANGELOG.md), [1.3.3 release notes](docs/releases/1.3.3.md) and
 [Phase 7 handoff](docs/plan/p7-handoff.md).
 
-## What works
+## Current Status
 
 Conformance verified by [P7H CI](https://github.com/skuirrels/Xsl3/actions/runs/40914625651)
 on the merged implementation (Release, .NET 8 and .NET 10); performance rows retain their dated measurements
