@@ -4,7 +4,7 @@ An XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET, built on the engine behi
 `System.Xml.Xsl.XslCompiledTransform`: stylesheets are compiled to IL, and XSLT 1.0 stylesheets behave exactly
 as they do with stock .NET.
 
-> **1.3.3 per-stylesheet experimental streaming opt-in.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
+> **1.3.4 supports .NET 11 applications.** XSLT 1.0 and 2.0 and XPath 3.1 are implemented.
 > Schema awareness remains opt-in through `XsltSettings.SchemaAware`.
 
 Set `XsltSettings.StreamedExecution = true` before compiling or loading eligible stylesheet source
@@ -13,8 +13,12 @@ unless the process opts in with `XSL3_STREAM_STRICT=1`. `Streamability` controls
 `StreamingBufferCapacity` defaults to 64 logical input events. Saved stylesheets retain their
 compiled execution mode and capacity. Streaming remains experimental with `supports-streaming = no`.
 
-Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.3 and regenerate saved stylesheets with
-matching packages. See the [1.3.3 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.3/docs/releases/1.3.3.md).
+The package ships `net8.0` and `net10.0` assets. Apps targeting `net11.0` use the `net10.0` library.
+If .NET 11 is your only installed runtime, set `DOTNET_ROLL_FORWARD=LatestMajor` when running the CLI
+or building with `Xsl3.Build`.
+
+Keep `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` at version 1.3.4 and regenerate saved stylesheets with
+matching packages. See the [1.3.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.4/docs/releases/1.3.4.md).
 
 ## Getting started
 

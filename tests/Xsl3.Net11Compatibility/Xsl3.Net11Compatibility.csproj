@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Xsl3" Version="$(Xsl3PackageVersion)" />
+    <PackageReference Include="Xsl3.Build" Version="$(Xsl3PackageVersion)" PrivateAssets="all" />
+    <XsltStylesheet Include="Report.xsl" TypeName="Stylesheets.Report" />
+  </ItemGroup>
+</Project>
