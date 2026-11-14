@@ -52,8 +52,12 @@ jobs:
         run: |
           $dotnetRoot = Join-Path $env:RUNNER_TEMP 'xsl3-dotnet11'
           # setup-dotnet can install an older companion runtime into this temporary SDK directory.
-          Get-ChildItem (Join-Path $dotnetRoot 'shared/Microsoft.NETCore.App') -Directory |
-            Where-Object { $_.Name -notmatch '^11\.' } | Remove-Item -Recurse
+          $runtimeRoot = Join-Path $dotnetRoot 'shared/Microsoft.NETCore.App'
+          foreach ($runtime in Get-ChildItem $runtimeRoot -Directory) {
+            if ($runtime.Name -notmatch '^11\.') {
+              Move-Item -LiteralPath $runtime.FullName -Destination (Join-Path $dotnetRoot $runtime.Name)
+            }
+          }
           ./eng/test-dotnet11-compatibility.ps1 -Workspace "$env:RUNNER_TEMP" `
             -DotnetRoot $dotnetRoot -PackageVersion "$env:XSL3_COMPAT_PACKAGE_VERSION"
 
