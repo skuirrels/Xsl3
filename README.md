@@ -141,6 +141,14 @@ in [docs/performance.md](docs/performance.md). See the [P7H evidence](docs/p7h-d
 
 ## Using it
 
+Xsl3 packages ship `net8.0` and `net10.0` library assets. Applications targeting `net11.0`
+use the `net10.0` asset. CI checks the XML runtime bridges, both transformation APIs, and
+saved stylesheets on .NET 11 on Linux and Windows.
+
+On a machine with only .NET 11 installed, set `DOTNET_ROLL_FORWARD=LatestMajor` in the
+environment when running `xsl3` or building with `Xsl3.Build`. This lets the packaged
+.NET 10 tools run on .NET 11.
+
 Guides: [getting started with the XSLT 3.0 API](docs/getting-started.md) and [moving from System.Xml.Xsl](docs/migration.md).
 
 Xsl3 keeps `XslCompiledTransform`'s API, so switching is a `using` change:

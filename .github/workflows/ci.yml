@@ -16,6 +16,49 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  dotnet-11-compatibility:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      XSL3_COMPAT_PACKAGE_VERSION: 0.0.0-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pack Xsl3 and build the XML bridge tests
+        shell: pwsh
+        run: |
+          $feed = Join-Path $env:RUNNER_TEMP 'xsl3-packages'
+          foreach ($project in 'Xsl3', 'Xsl3.Cli', 'Xsl3.Build') {
+            dotnet pack "src/$project" -c Release -o $feed "-p:Version=$env:XSL3_COMPAT_PACKAGE_VERSION"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          dotnet build tests/Xsl3.Tests -c Release -f net10.0 "-p:Version=$env:XSL3_COMPAT_PACKAGE_VERSION"
+
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/xsl3-dotnet11
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Check the packages and XML bridges on .NET 11
+        shell: pwsh
+        run: |
+          eng/test-dotnet11-compatibility.ps1 -Workspace "$env:RUNNER_TEMP" `
+            -DotnetRoot "$env:RUNNER_TEMP/xsl3-dotnet11" -PackageVersion "$env:XSL3_COMPAT_PACKAGE_VERSION"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dotnet-11-compatibility-${{ matrix.os }}
+          path: ${{ runner.temp }}/xsl3-net11/TestResults
+
   build-and-test:
     strategy:
       fail-fast: false
