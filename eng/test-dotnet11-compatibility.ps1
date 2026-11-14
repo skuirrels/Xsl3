@@ -24,8 +24,9 @@ Push-Location $scratch
 try {
     $sdk = dotnet --version
     $runtimes = @(dotnet --list-runtimes)
-    if ($sdk -notmatch '^11\.' -or ($runtimes -notmatch '^\S+ 11\.').Count -ne 0 -or
-        ($runtimes -match '^Microsoft\.NETCore\.App 11\.').Count -ne 1) {
+    $coreRuntimes = @($runtimes -match '^Microsoft\.NETCore\.App ')
+    if ($sdk -notmatch '^11\.' -or $coreRuntimes.Count -eq 0 -or
+        ($coreRuntimes -notmatch '^Microsoft\.NETCore\.App 11\.').Count -ne 0) {
         throw "Expected an isolated .NET 11 SDK and runtime. SDK: $sdk. Runtimes: $runtimes"
     }
     Write-Host "SDK $sdk"

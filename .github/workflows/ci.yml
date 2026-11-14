@@ -50,8 +50,12 @@ jobs:
       - name: Check the packages and XML bridges on .NET 11
         shell: pwsh
         run: |
-          eng/test-dotnet11-compatibility.ps1 -Workspace "$env:RUNNER_TEMP" `
-            -DotnetRoot "$env:RUNNER_TEMP/xsl3-dotnet11" -PackageVersion "$env:XSL3_COMPAT_PACKAGE_VERSION"
+          $dotnetRoot = Join-Path $env:RUNNER_TEMP 'xsl3-dotnet11'
+          # setup-dotnet can install an older companion runtime into this temporary SDK directory.
+          Get-ChildItem (Join-Path $dotnetRoot 'shared/Microsoft.NETCore.App') -Directory |
+            Where-Object { $_.Name -notmatch '^11\.' } | Remove-Item -Recurse
+          ./eng/test-dotnet11-compatibility.ps1 -Workspace "$env:RUNNER_TEMP" `
+            -DotnetRoot $dotnetRoot -PackageVersion "$env:XSL3_COMPAT_PACKAGE_VERSION"
 
       - uses: actions/upload-artifact@v4
         if: always()
