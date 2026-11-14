@@ -10,7 +10,7 @@ intermediate representation) and is growing it into a conformant XSLT 3.0 / XPat
 faster than stock on XSLT 1.0 and aims to be clearly faster than SaxonCS on 2.0/3.0.
 The full design is in [SPEC.md](SPEC.md).
 
-> **1.3.3 per-stylesheet experimental streaming opt-in.** XSLT 1.0 behaves as stock `System.Xml.Xsl`.
+> **1.3.4 supports .NET 11 applications.** XSLT 1.0 behaves as stock `System.Xml.Xsl`.
 > XSLT 2.0 and XPath 3.1 are implemented. Schema awareness is available through
 > `XsltSettings.SchemaAware`. Find the packages on NuGet
 > ([Xsl3](https://www.nuget.org/packages/Xsl3), [Xsl3.Build](https://www.nuget.org/packages/Xsl3.Build),
@@ -27,7 +27,7 @@ Streaming remains experimental with `supports-streaming = no`. Supported streami
 the original Phase 7 memory and throughput gates.
 
 Update `Xsl3`, `Xsl3.Build` and `Xsl3.Cli` together and regenerate saved stylesheets with matching
-packages. See the [changelog](CHANGELOG.md), [1.3.3 release notes](docs/releases/1.3.3.md) and
+packages. See the [changelog](CHANGELOG.md), [1.3.4 release notes](docs/releases/1.3.4.md) and
 [Phase 7 handoff](docs/plan/p7-handoff.md).
 
 ## Current Status

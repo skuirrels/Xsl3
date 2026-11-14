@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.3.4](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.4) — 2026-11-14
+
+- Verify .NET 11 support on Linux and Windows for both transformation APIs, XML runtime bridges,
+  saved stylesheets, and CLI and MSBuild roll-forward.
+- Document `net11.0` consumption of the `net10.0` library and the runtime setting for .NET 11-only
+  installations. Streaming remains experimental and opt-in. The original Phase 7 gates still apply.
+
 ## [1.3.3](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.3) — 2026-11-13
 
 - Expose `XsltSettings.StreamedExecution` for per-stylesheet experimental forward execution through
