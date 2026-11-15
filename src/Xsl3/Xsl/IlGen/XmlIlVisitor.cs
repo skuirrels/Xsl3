@@ -1902,6 +1902,25 @@ namespace Xsl3.IlGen
         /// </summary>
         protected override QilNode VisitLoop(QilLoop ndLoop)
         {
+            if (!_qil.IsDebug
+                && XmlILConstructInfo.Read(ndLoop).ConstructMethod == XmlILConstructMethod.Writer
+                && ndLoop.Variable.NodeType == QilNodeType.For
+                && ndLoop.Variable.Binding is QilLoop { NodeType: QilNodeType.Filter } attributes
+                && attributes.Variable.Binding is QilUnary { NodeType: QilNodeType.Content } axis
+                && ndLoop.Body is QilUnary { NodeType: QilNodeType.XsltCopyOf } copy
+                && copy.Child == ndLoop.Variable
+                && XmlILConstructInfo.Read(copy).ConstructMethod == XmlILConstructMethod.Writer
+                && OptimizerPatterns.Read(copy).MatchesPattern(OptimizerPatternName.StripAttributeCopy)
+                && OptimizerPatterns.Read(attributes).MatchesPattern(OptimizerPatternName.FilterAttributeKind))
+            {
+                // FilterAttributeKind proves the binding is the complete attribute axis of this node.
+                _helper.LoadQueryOutput();
+                NestedVisitEnsureStack(axis.Child);
+                _helper.Call(XmlILMethods.CopyOfStrippedAttributes);
+                _iterCurr.Storage = StorageDescriptor.None();
+                return ndLoop;
+            }
+
             bool hasOnEnd;
             Label lblOnEnd;
 

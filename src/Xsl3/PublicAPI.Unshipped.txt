@@ -1,1 +1,2 @@
 #nullable enable
+Xsl3.Runtime.XmlQueryOutput.XsltCopyOfStrippedAttributes(System.Xml.XPath.XPathNavigator! navigator) -> void

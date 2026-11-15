@@ -96,6 +96,7 @@ internal sealed class StreamedNavigator : XPathNavigator
     public override XmlNameTable NameTable => _document.NameTable;
     public override bool IsEmptyElement => Content && _node.EmptyElement;
     public override bool HasAttributes => Content && _node.Attributes.Length != 0;
+    internal ReadOnlySpan<StreamedDocument.Attribute> AttributesForCopy => Content ? _node.Attributes : default;
     public override bool HasChildren => Content && _document.HasChildren(_node);
     public override object UnderlyingObject => Clone();
     public override IXmlSchemaInfo? SchemaInfo => _namespace >= 0 ? null : _attribute >= 0 ? _node.Attributes[_attribute].Schema : _node.Schema;

@@ -17,11 +17,11 @@ namespace Xsl3.Tests;
 
 public sealed class DirectAttributeCopyTests
 {
-    private static string Sheet(string body, string validation = "strip") => $$"""
+    private static string Sheet(string body, string validation = "strip", string outputMethod = "text") => $$"""
         <xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
             xmlns:xs="http://www.w3.org/2001/XMLSchema" default-validation="{{validation}}">
           <xsl:mode streamable="yes"/>
-          <xsl:output method="text"/>
+          <xsl:output method="{{outputMethod}}" omit-xml-declaration="yes"/>
           <xsl:template match="/"><xsl:for-each select="doc/row">{{body}}</xsl:for-each></xsl:template>
         </xsl:stylesheet>
         """;
@@ -147,6 +147,29 @@ public sealed class DirectAttributeCopyTests
         }
     }
 
+    [Fact]
+    public void SerializedWildcardCopyLeavesTheReaderOnTheCurrentElement()
+    {
+        const string body = """
+            <out xsl:exclude-result-prefixes="xs"><xsl:copy-of select="@*"/><xsl:message select="'copied'"/>
+              <xsl:value-of select="value"/></out>
+            """;
+        using var style = XmlReader.Create(new StringReader(Sheet(body, outputMethod: "xml")));
+        using var input = XmlReader.Create(new StringReader("<doc><row alpha='a' beta='b'><value>child</value></row></doc>"));
+        using var output = new StringWriter();
+        var transform = new XslCompiledTransform();
+        transform.Load(style, new XsltSettings { StreamedExecution = true }, null);
+        var arguments = new XsltArgumentList();
+        string? elementAtMessage = null;
+        arguments.XsltMessageEncountered += (_, _) => elementAtMessage = input.LocalName;
+
+        transform.Transform(input, arguments, output);
+
+        Assert.Equal("row", elementAtMessage);
+        Assert.Equal("<out alpha=\"a\" beta=\"b\">child</out>", output.ToString());
+        Assert.NotEqual(ReadState.Closed, input.ReadState);
+    }
+
     private static string Run(string sheet, XmlReader input, bool forward, bool legacy, bool debug)
     {
         var settings = new XsltSettings { StreamedExecution = forward, SchemaAware = true, IncludeDebugInformation = debug };
@@ -165,13 +188,15 @@ public sealed class DirectAttributeCopyTests
 
 #if NET10_0_OR_GREATER
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SavedStylesUseDirectAttributeConstructionAndRetainStripping(bool debug)
+    [InlineData(false, "@*", "XsltCopyOfStrippedAttributes")]
+    [InlineData(true, "@*", "XsltCopyOfStrippedAttribute")]
+    [InlineData(false, "@number", "XsltCopyOfStrippedAttribute")]
+    [InlineData(true, "@number", "XsltCopyOfStrippedAttribute")]
+    public void SavedStylesUseDirectAttributeConstructionAndRetainStripping(bool debug, string select, string copyMethod)
     {
-        const string body = """
-            <xsl:variable name="tree" as="element()"><out xsl:validation="preserve"><xsl:copy-of select="@*" validation="strip"/></out></xsl:variable>
-            <xsl:value-of select="every $a in $tree/@* satisfies $a instance of attribute(*, xs:untypedAtomic)"/>
+        string body = $$"""
+            <xsl:variable name="tree" as="element()"><out xsl:validation="preserve"><xsl:copy-of select="{{select}}" validation="strip"/></out></xsl:variable>
+            <xsl:value-of select="count($tree/@*), every $a in $tree/@* satisfies $a instance of attribute(*, xs:untypedAtomic)"/>
             """;
         var settings = new XsltSettings { StreamedExecution = true, SchemaAware = true };
         using var image = new MemoryStream();
@@ -181,14 +206,14 @@ public sealed class DirectAttributeCopyTests
         using (var pe = new PEReader(image, PEStreamOptions.LeaveOpen))
         {
             MetadataReader metadata = pe.GetMetadataReader();
-            Assert.Contains(metadata.MemberReferences, h => metadata.GetString(metadata.GetMemberReference(h).Name) == "XsltCopyOfStrippedAttribute");
+            Assert.Contains(metadata.MemberReferences, h => metadata.GetString(metadata.GetMemberReference(h).Name) == copyMethod);
         }
         var transform = new XslCompiledTransform();
         transform.Load(Assembly.Load(image.ToArray()).GetType("Saved.Copy", true)!, settings);
         using var input = TypedInput();
         using var output = new StringWriter();
         transform.Transform(input, null, output);
-        Assert.Equal("true", output.ToString());
+        Assert.Equal(select == "@*" ? "4 true" : "1 true", output.ToString());
     }
 #endif
 }

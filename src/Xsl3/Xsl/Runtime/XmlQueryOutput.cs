@@ -1155,8 +1155,34 @@ namespace Xsl3.Runtime
             CopyAttributeAnnotation(navigator, typedCopy: null);
             WriteStartAttribute(navigator.Prefix, navigator.LocalName, navigator.NamespaceURI);
             string value = navigator.Value;
-            WriteString(navigator.LocalName == "id" && navigator.NamespaceURI == XmlReservedNs.NsXml
-                ? Xdm.Lexical.Collapse(value) : value);
+            WriteCopiedAttributeValue(navigator.LocalName, navigator.NamespaceURI, value);
+        }
+
+        /// <summary>Copy the current node's attributes with validation="strip".</summary>
+        public void XsltCopyOfStrippedAttributes(XPathNavigator navigator)
+        {
+            // An ordinary writer in an element start tag needs only the retained attribute values.
+            // Use the individual copy path for annotations, raw results, and construction errors.
+            if (navigator is Streaming.StreamedNavigator streamed && _xstate == XmlState.EnumAttrs
+                && Schema.AnnotatingWriters.Of(Writer) == null)
+            {
+                foreach (ref readonly var attribute in streamed.AttributesForCopy)
+                {
+                    WriteStartAttribute(attribute.Prefix, attribute.LocalName, attribute.Namespace);
+                    WriteCopiedAttributeValue(attribute.LocalName, attribute.Namespace, attribute.Value);
+                }
+                return;
+            }
+
+            var attributes = new AttributeIterator();
+            attributes.Create(navigator);
+            while (attributes.MoveNext())
+                XsltCopyOfStrippedAttribute(attributes.Current);
+        }
+
+        private void WriteCopiedAttributeValue(string localName, string ns, string value)
+        {
+            WriteString(localName == "id" && ns == XmlReservedNs.NsXml ? Xdm.Lexical.Collapse(value) : value);
             WriteEndAttribute();
         }
 
