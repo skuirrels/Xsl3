@@ -225,8 +225,6 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.cpu_profile && inputs.capacity_comparison != true && inputs.revision_comparison != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      CPU_WORKLOAD: ${{ inputs.cpu_workload }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -257,26 +255,42 @@ jobs:
           "$RUNNER_TEMP/p7-tools/dotnet-trace" --version > artifacts/p7-cpu/trace-version.txt
           runtime_dir=$(dotnet --list-runtimes | awk '$1 == "Microsoft.NETCore.App" && $2 ~ /^10\./ { gsub(/\[|\]/, "", $3); print $3 "/" $2 }' | sort -V | tail -n 1)
           sudo --preserve-env=DOTNET_ROOT "$RUNNER_TEMP/p7-tools/dotnet-symbol" --symbols "$runtime_dir"/lib*.so > artifacts/p7-cpu/symbols.log 2>&1
-      - name: Build the unchanged source benchmark
-        run: dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1
-      - name: Profile one canonical 1 GB child
+      - name: Build the released consumer and diagnostic consumer
+        run: |
+          test "$(git -C baseline-source rev-parse HEAD)" = 915ad884008e7e3d03c11a5f167d65494fdeea95
+          dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1 -o "$RUNNER_TEMP/p7-control"
+          cp tests/Xsl3.Tests/StreamingProbe.cs baseline-source/tests/Xsl3.Tests/StreamingProbe.cs
+          cp bench/Xsl3.Benchmarks/Xsl3.Benchmarks.csproj baseline-source/bench/Xsl3.Benchmarks/
+          dotnet build baseline-source/bench/Xsl3.Benchmarks -c Release -f net10.0 -m:1 -p:P7TimedProfile=true -o "$RUNNER_TEMP/p7-profile"
+          cmp "$RUNNER_TEMP/p7-control/Xsl3.dll" "$RUNNER_TEMP/p7-profile/Xsl3.dll"
+          dotnet build eng/StreamingCpuReport -c Release -m:1
+          sha256sum "$RUNNER_TEMP"/p7-{control,profile}/{Xsl3.dll,Xsl3.Benchmarks.dll} > artifacts/p7-cpu/binaries.sha256
+      - name: Measure uninstrumented 100 MB controls
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --assembly baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$CPU_WORKLOAD" --output "artifacts/p7-cpu/$CPU_WORKLOAD"
-      - name: Report actual kernel CPU samples
+        run: python3 eng/streaming-benchmark.py --assembly "$RUNNER_TEMP/p7-control/Xsl3.Benchmarks.dll" --sizes 100mb --workloads identity source-document --rounds 3 --heap-limit 4294967296 --output artifacts/p7-cpu/control
+      - name: Capture and account for the four timed transforms
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
         run: |
-          dotnet build eng/StreamingCpuReport -c Release -m:1
-          sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "artifacts/p7-cpu/$CPU_WORKLOAD/cpu.nettrace" > artifacts/p7-cpu/cpu-sites.json
+          failed=0
+          for workload in identity source-document; do
+            for mode in tree stream; do
+              output="artifacts/p7-cpu/$workload-$mode"
+              if sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --timed --assembly "$RUNNER_TEMP/p7-profile/Xsl3.Benchmarks.dll" --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$workload" --mode "$mode" --output "$output"; then
+                child_pid=$(jq -r .childPid "$output/report.json")
+                sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "$output/cpu.nettrace" "$child_pid" > "$output/cpu-sites.json" || failed=1
+              else
+                failed=1
+              fi
+            done
+          done
+          exit "$failed"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: p7-linux-cpu-profile
-          path: |
-            artifacts/p7-cpu
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.dll
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.Benchmarks.pdb
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.dll
-            baseline-source/bench/Xsl3.Benchmarks/bin/Release/net10.0/Xsl3.pdb
+          name: p7-timed-linux-profile
+          path: artifacts/p7-cpu
 
   streaming-capacity-comparison:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.capacity_comparison && inputs.revision_comparison != true }}

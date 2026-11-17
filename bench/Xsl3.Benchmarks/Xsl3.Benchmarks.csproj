@@ -5,6 +5,7 @@
     <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <Optimize>true</Optimize>
+    <DefineConstants Condition="'$(P7TimedProfile)' == 'true'">$(DefineConstants);P7_TIMED_PROFILE</DefineConstants>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
     <!-- Ordinary performance comparisons also build against commits predating the reader API. -->
     <EnableStreamingProcessBenchmarks Condition="'$(EnableStreamingProcessBenchmarks)' == ''">true</EnableStreamingProcessBenchmarks>

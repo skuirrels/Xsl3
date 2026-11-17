@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--workload', default='fork', choices=('identity', 'adjacent', 'accumulator', 'iterate', 'merge', 'fork', 'source-document'))
     parser.add_argument('--mode', default='stream', choices=('tree', 'stream'))
+    parser.add_argument('--timed', action='store_true', help='Collect markers from the instrumented 100 MB probe')
     args = parser.parse_args()
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('collect-linux requires a Linux host and root privileges')
@@ -30,7 +31,7 @@ def main():
     benchmark = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(benchmark)
     heap_limit = 4 * 1024 ** 3
-    size = benchmark.SIZES['1gb']
+    size = benchmark.SIZES['100mb' if args.timed else '1gb']
     env = benchmark.child_environment(heap_limit)
     # Linux perf symbol resolution uses /tmp/perf-<pid>.map. Use the standard
     # diagnostic directory too, and preserve maps even if automatic JIT discovery fails.
@@ -67,6 +68,8 @@ def main():
                              '--profile', 'dotnet-common,cpu-sampling,thread-time',
                              '--process-id', str(child.pid), '--duration', '00:00:00:30',
                              '--output', str(output / 'cpu.nettrace')]
+            if args.timed:
+                trace_command.extend(['--providers', 'Xsl3-StreamingProbe:0:4'])
             report['traceCommand'] = trace_command
             collector = subprocess.Popen(trace_command, env=env, stdin=subprocess.PIPE,
                                          stdout=trace_log, stderr=subprocess.STDOUT)

@@ -70,7 +70,11 @@ internal static partial class StreamingProbe
         if (limit != 0 && initialPeak > limit)
             return new(workload, forward ? "stream" : "tree", "budget-exceeded-before-measurement", bytes, 0, 0, limit,
                 initialPeak, PeakMemorySource, GC.GetTotalMemory(forceFullCollection: true), null, null, null, false, new());
+#if P7_TIMED_PROFILE
+        Execution actual = Execute(invoke, workload, bytes, traceTransform: true);
+#else
         Execution actual = Execute(invoke, workload, bytes);
+#endif
         Dictionary<string, Fingerprint> expected = Expected(workload, actual.Records, actual.Padding);
         bool valid = actual.InputBytes == bytes && actual.Outputs.Count == expected.Count
             && expected.All(e => actual.Outputs.TryGetValue(e.Key, out Fingerprint? f) && f == e.Value);
@@ -86,7 +90,23 @@ internal static partial class StreamingProbe
     private delegate void Invocation(XmlReader input, Stream output, XmlResolver resolver, Func<Uri, TextWriter> secondary);
     private static partial Invocation CreateInvocation(string workload, bool forward);
 
+#if P7_TIMED_PROFILE
+    [System.Diagnostics.Tracing.EventSource(Name = "Xsl3-StreamingProbe")]
+    private sealed class TransformTrace : System.Diagnostics.Tracing.EventSource
+    {
+        internal static readonly TransformTrace Log = new();
+
+        [System.Diagnostics.Tracing.Event(1)]
+        public void TimedBegin() => WriteEvent(1);
+
+        [System.Diagnostics.Tracing.Event(2)]
+        public void TimedEnd() => WriteEvent(2);
+    }
+
+    private static Execution Execute(Invocation invoke, string workload, long bytes, bool traceTransform = false)
+#else
     private static Execution Execute(Invocation invoke, string workload, long bytes)
+#endif
     {
         using var resolver = new Inputs(workload, bytes);
         using var principal = workload is "merge" or "source-document" ? null : new GeneratedInput(bytes);
@@ -114,12 +134,28 @@ internal static partial class StreamingProbe
         }
         using var launch = principal == null ? new MemoryStream(Encoding.UTF8.GetBytes("<launch/>")) : null;
         using var reader = XmlReader.Create((Stream?)principal ?? launch!, new XmlReaderSettings { CloseInput = false });
+#if P7_TIMED_PROFILE
+        if (traceTransform)
+        {
+            var wait = Stopwatch.StartNew();
+            while (!TransformTrace.Log.IsEnabled())
+            {
+                if (wait.Elapsed >= TimeSpan.FromSeconds(15))
+                    throw new InvalidOperationException("Timed transform trace provider was not enabled");
+                System.Threading.Thread.Sleep(20);
+            }
+            TransformTrace.Log.TimedBegin();
+        }
+#endif
         long start = Stopwatch.GetTimestamp();
         try
         {
             try { invoke(reader, sinks["principal"], resolver, Secondary); }
             finally { foreach (TextWriter writer in writers) writer.Dispose(); }
             long end = Stopwatch.GetTimestamp();
+#if P7_TIMED_PROFILE
+            if (traceTransform) TransformTrace.Log.TimedEnd();
+#endif
             long records = principal?.Records ?? resolver.Streams.Values.Sum(s => s.Records);
             int padding = principal?.Padding ?? (workload == "source-document" ? resolver.Streams[SourceUri].Padding : 0);
             var outputs = sinks.ToDictionary(e => e.Key, e => e.Value.Finish(), StringComparer.Ordinal);
