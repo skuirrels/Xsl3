@@ -156,7 +156,12 @@ internal static partial class StreamingProbe
             finally { foreach (TextWriter writer in writers) writer.Dispose(); }
             long end = Stopwatch.GetTimestamp();
 #if P7_TIMED_PROFILE
-            if (traceTransform) TransformTrace.Log.TimedEnd();
+            if (traceTransform)
+            {
+                TransformTrace.Log.TimedEnd();
+                // Keep the provider alive while the collector drains the final marker.
+                System.Threading.Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
 #endif
             long records = principal?.Records ?? resolver.Streams.Values.Sum(s => s.Records);
             int padding = principal?.Padding ?? (workload == "source-document" ? resolver.Streams[SourceUri].Padding : 0);
