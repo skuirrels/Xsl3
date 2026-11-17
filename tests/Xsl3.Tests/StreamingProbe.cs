@@ -144,6 +144,8 @@ internal static partial class StreamingProbe
                     throw new InvalidOperationException("Timed transform trace provider was not enabled");
                 System.Threading.Thread.Sleep(20);
             }
+            // Provider enablement can arrive before collect-linux starts recording.
+            System.Threading.Thread.Sleep(TimeSpan.FromSeconds(1));
             TransformTrace.Log.TimedBegin();
         }
 #endif

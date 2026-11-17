@@ -278,6 +278,7 @@ jobs:
             for mode in tree stream; do
               output="artifacts/p7-cpu/$workload-$mode"
               if sudo --preserve-env=PATH,DOTNET_ROOT,PYTHONDONTWRITEBYTECODE python3 eng/profile-streaming-cpu.py --timed --assembly "$RUNNER_TEMP/p7-profile/Xsl3.Benchmarks.dll" --trace-tool "$RUNNER_TEMP/p7-tools/dotnet-trace" --workload "$workload" --mode "$mode" --output "$output"; then
+                sudo chown "$(id -u)" "$output"
                 child_pid=$(jq -r .childPid "$output/report.json")
                 sudo --preserve-env=DOTNET_ROOT dotnet eng/StreamingCpuReport/bin/Release/net10.0/StreamingCpuReport.dll "$output/cpu.nettrace" "$child_pid" > "$output/cpu-sites.json" || failed=1
               else
