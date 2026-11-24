@@ -2,11 +2,11 @@
 
 The command line of [Xsl3](https://github.com/skuirrels/Xsl3), an XSLT 3.0, XSLT 2.0 and XPath 3.1 processor for .NET.
 
-Version **1.3.4** supports .NET 11 through runtime roll-forward. If .NET 11 is your only installed
+Version **1.3.5** supports .NET 11 through runtime roll-forward. If .NET 11 is your only installed
 runtime, set `DOTNET_ROLL_FORWARD=LatestMajor` when running `xsl3`.
 Saved stylesheets retain their compiled execution mode and buffer capacity. Keep `Xsl3`, `Xsl3.Build`
 and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
-See the [1.3.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.4/docs/releases/1.3.4.md).
+See the [1.3.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.5/docs/releases/1.3.5.md).
 
 ```
 dotnet tool install --global Xsl3.Cli

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [1.3.5](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.5) — 2026-11-24
+
+- Document the timed Linux profiles and the remaining Phase 7 throughput gaps for identity,
+  source-document, and fork. Streaming remains experimental and opt-in under the original gates.
+
 ## [1.3.4](https://github.com/skuirrels/Xsl3/releases/tag/v1.3.4) — 2026-11-14
 
 - Verify .NET 11 support on Linux and Windows for both transformation APIs, XML runtime bridges,
