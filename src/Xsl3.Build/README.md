@@ -3,11 +3,11 @@
 Compiles XSLT stylesheets ahead of time for [Xsl3](https://github.com/skuirrels/Xsl3), so that they load without
 compiling (`XslCompiledTransform.Load(Type)`) and run under NativeAOT.
 
-Version **1.3.4** supports .NET 11 through runtime roll-forward. If .NET 11 is your only installed
+Version **1.3.5** supports .NET 11 through runtime roll-forward. If .NET 11 is your only installed
 runtime, set `DOTNET_ROLL_FORWARD=LatestMajor` when building a project with `Xsl3.Build`.
 Saved stylesheets retain their compiled execution mode and buffer capacity. Keep `Xsl3`, `Xsl3.Build`
 and `Xsl3.Cli` at the same version and regenerate saved stylesheets with matching packages.
-See the [1.3.4 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.4/docs/releases/1.3.4.md).
+See the [1.3.5 release notes](https://github.com/skuirrels/Xsl3/blob/v1.3.5/docs/releases/1.3.5.md).
 
 ```xml
 <ItemGroup>
