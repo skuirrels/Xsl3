@@ -8,6 +8,33 @@ The default forward-selection and 256-event proposals in the historical entries 
 that saved head. Supported streaming still requires the original memory and throughput gates.
 See the [checkpoint release notes](../releases/1.3.2.md).
 
+## Current qualification status, 24 November 2026
+
+Streaming in v1.3.4 is experimental and opt-in. Tree execution is the
+default and `supports-streaming` is `no`. Full qualification requires all 32 original memory
+budgets, all 126 benchmark observations with matching fingerprints, and all seven original
+100 MB streaming medians at or below their tree medians. [v1.3.4 release notes](../releases/1.3.4.md)
+
+The timed Linux run profiled tree and
+streaming modes for identity and source-document with the v1.3.4 engine. All four captures matched
+the original fingerprints, recorded zero lost events, and accounted for all 17,028 in-window CPU
+samples. The uninstrumented streaming medians were 268.31 ms slower for identity and 324.41 ms
+slower for source-document. The report identifies no single runtime change with a credible path to
+closing both gaps. [Timed Linux run](https://github.com/skuirrels/Xsl3/actions/runs/44184167239) · [Profiling report](https://github.com/skuirrels/Xsl3/blob/62149b94b97854cf57038c8f1d2bf102e3125cae/docs/plan/p7-timed-linux-profile.md)
+
+The 23 and 24 November acceptance runs both used v1.3.4 (`915ad88`). Each passed the push and
+nightly memory matrices and completed all 126 benchmark observations with valid outputs. Four of
+seven throughput targets passed in each run. [23 November acceptance](https://github.com/skuirrels/Xsl3/actions/runs/45104516152) · [24 November acceptance](https://github.com/skuirrels/Xsl3/actions/runs/45317638358)
+
+| Remaining blocker | 23 November stream/tree | 24 November stream/tree | Original limit |
+| --- | ---: | ---: | ---: |
+| Identity | 1.051× | 1.053× | ≤1.0× |
+| Source-document | 1.034× | 1.060× | ≤1.0× |
+| Fork | 1.353× | 1.461× | ≤1.0× |
+
+The ratios describe each run on its own host. Resume optimization when there is a concrete proposed
+runtime change with a measurable effect on one of the remaining blockers.
+
 ## Qualification history
 
 **Current integration work, 6 November 2026:** `feature/p7-integrated-qualification` now incorporates
